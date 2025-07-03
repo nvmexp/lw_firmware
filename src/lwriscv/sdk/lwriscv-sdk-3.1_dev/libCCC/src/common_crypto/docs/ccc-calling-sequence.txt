@@ -1,0 +1,474 @@
+
+CCC calling sequence
+Author: Juki
+Date: 2018-06-21
+
+include/crypto_api.h => Supported algorithms defined here and
+			defines all API objects.
+
+CCC call sequence
+=================
+
+client call ->
+   function switch ->
+      operation ->
+	 process ->
+	    engine switch ->
+	       engine code
+
+[ The next happens in CCC API layer ]
+
+Client call:
+  Depends what the client is. Calls directly the functions in
+  crypto_context.c if CCC is embedded as library into clients.
+  (Most users do this now). You can see a lot of examples of these
+  in the CCC/tests directory functions. All CCC features are used via the
+  same calls with identical call objects.
+
+  Trusty calls are different, since they are 32 bit address space
+  calls to the 64 bit Trusty OS. The CCC Trusty files implement a
+  system call (trusty_crypto()) which uses the same API objects as the
+  above. There are no compile time options to adjust the API objects,
+  they work for both 32 and 64 bit elwironments (took some effort to
+  maintain this since the beginning ;-) Trusty api code is not in CCC
+  directory, I will send you a README which tells how to add CCC to
+  Trusty OS (these are old versions, but used e.g. by the Taiwan team.
+  I have newer versions but no significant rewrites). Anyway, the
+  Trusty api will also call the functions in crypto_context.c but it
+  does some Trusty specific stuff also (like secure task structure has
+  been expanded by a crypto object per each incompleted crypto
+  operation started by the task)
+
+All CCC crypto operations have these phases and normal CCC API calls
+go trough an operation switch function crypto_handle_operation(),
+
+But before you can call that to do something, a context must be set
+up for the lifetime of the crypto operation.
+
+[ The next happens in CCC context layer ]
+
+  - context setup (creates CCC crypto context, sets modes and
+    algorithms and function pointers for the operations required by
+    the parameters).
+
+  All the rest of calls go though crypto_handle_operation() with the
+  context and argument object parameters. The argument object opcode
+  (bit vector) specifies what should be done with the arguments in the
+  given context.
+
+But how do they know which functions they should call?
+
+Each algorithm is mapped to "operation class" (in crypto_context.c
+during the crypto context setup). A const table defines
+(crypto_class_funs[]) into which functions the crypto operation
+handler maps the "setkey/update/dofinal" calls.  [This is the
+"function switch" step in the CCC call sequence.]
+
+When you give the "algorithm" to CCC context setup it will map it to a
+"class" in the algorithm switch in crypto_context_setup() and the
+class is mapped to a fixed set of "algorithm type" functions by the
+crypto_class_funs[] table.
+
+If you look at e.g. the TE_ALG_SHA256, it gets mapped to
+TE_CLASS_DIGEST (and it just verfies that the caller marked this to be
+a context for digests) which gets mapped into
+".cfun_init/.cfun_update/.cfun_dofinal/.cfun_reset" function
+pointers. After this, every operation that uses this context will call the
+functions via these same function pointers, the do not change.
+
+Each "TE_CLASS_<type>" in that table call a set of functions with "a
+fixed name prefix". In the digest case the prefix is:
+"se_crypto_md_<operation>".
+
+If you look at CCC sources, you will find a file "crypto_md.c". This
+is the file that contains the implementation of the TE_CLASS_DIGEST
+operation handlers. The same logic applies to most operation
+classes.
+
+There are a couple of exceptions, since e.g. Diffie-Hellman key agreement
+is very much like RSA private key exponentation, which was already
+implemented via crypto_acipher.c and I did not want to do it again just
+to keep the "naming convention" valid. (The crypto_derive.c supports
+two elliptic lwrve based key agreement protocols: EC-DH and X25519.
+DH should also be here, but it is instead in RSA handlers because
+it is "too much like an RSA operation; modular exponentiation").
+
+Notice that all digests go to crypto_md.c. It does not matter what kind of
+digests they are or what they actually do => all of them go here. This
+applies to HW engine supported digests (SHA) and current SW only digests
+supported by CCC, like MD5, WHIRLPOOL and SHA3.
+
+	Note the arguments, context and args. [Most api related CCC
+	calls have two arguments: some kind of context and the args].
+
+  - init sets up the function pointer tables for processing data and
+    it also selects the code that uses a suitable HW engine for the
+    operation (if any exist). The CONTEXT is used by the upper level
+    calls, but in addition to that the context contains an
+    ENGINE CONTEXT which is passed later to the CCC engine layer.
+    The contexts are separated, because the engine code does not need
+    to know or see anything outside the engine context. So those
+    things that are needed by the engine layer code are put in the
+    "engine context", other things are kept in the "context" which the
+    engine layer can not access (there is just no back reference to it).
+
+    The selected engine may change later, if needed (e.g. at this
+    point there is no KEY set up yet and we have 2 RSA engines, one of
+    which is able to process 3072 and 4096 bit operations; the other
+    one can process 2048 bit RSA operations) If you select the SE PKA0
+    (up to 2048) but you later specify that you are using a 3072 bit
+    key => the engine is re-selected for the operation context based
+    on class of support the engine supports. There are two engine
+    classes for RSA, ENGINE_CLASS_RSA and ENGINE_CLASS_RSA_4096. The
+    previous can handle RSA up to 2048 (default selection) and the
+    next can handle RSA operations up to 4096 bits. The context refers
+    to engines only via pointers through a constant function pointer
+    table in tegra_cdev.[hc]; the "required engine class (property)
+    based engine selection" is also there.
+
+  - After init completes, if the operation needs a key you set that
+    with a SETKEY. As said, the engine can be changed if the key so
+    requires.
+
+    At this point, also note that CCC allows all operations to be
+    split to ALLOCATE/INIT/SETKEY/UPDATE/DOFINAL/RESET/RELEASE calls.
+    [ ALLOCATE and RELEASE are not required/used unless call is from
+    different address space (lwrrenlty only Trusty uses these). They
+    just manage the crypto_context_t for secure task system calls.]
+
+    But CCC allows any valid combination of those ops to be performed
+    in a single call ("valid combination" means that it does not allow
+    "update" and "dofinal" to be in a single call because that makes
+    no sense: dofinal always completes an operation and it accepts the
+    same data as update does). So if you need to perform an "update"
+    you need to do at least two calls to CCC.  (The operation code is
+    a bit vector, so you can just OR in the ops you want to do)
+
+  - After the key is set the context has been initialized and it is
+    ready for processing crypto operations. Some algorithms (digests)
+    do not need keys so they do not require keys to be set up. But
+    most do. Any error will mark the context to be in an error state
+    and no operations (except RESET) can be performed with such
+    context.
+
+    As an example, you may provide any number of "update" operations with
+    any length arguments and then a single "dofinal" operation with a single
+    any length argument to complete the data processing.
+
+    Just like "setkey" not all algorithms support "update" but all
+    support "dofinal".
+
+    As an example, I did not see any point in supporting "update" for RSA
+    operations, since the input is always a fixes (small) size data.
+
+  - So this goes on until the crypto operation either has an error or
+    it is "finalized", i.e. done. Once either one oclwrs, you need to
+    reset the object or let CCC do it for you (depends on the bit
+    vector). The result will be placed where you want it to be placed
+    in the API arguments unless you get an error.
+
+All of the above calls are in crypto_context.c.
+
+[ The next happens in CCC operation layer ]
+
+Now that we know which handlers the opcodes call, let's see what they do
+specially for digests in crypto_md.c e.g. fir SHA-256 digest  =>
+
+   - init: setup operation runtime state object, selects process functions,
+	select engines (if any). Normally uses functions like
+	"sha_context_static_init()" to set up the processing and
+	engine layers for the SHA digests Other algorithms have their
+	own "<algo>_context_static_init()" functions for this
+	setup. Everything the "static_init" functions setup do not
+	consume runtime resources and can be swicthes if required,
+	like the engines used.  The algorithm defines which "process"
+	layer functions are called.
+
+	The "static init" functions are algorithms specific and they set up the
+	handler function to the object field ".process" to process all inbound
+	data for that algorithm coming from this context. The "static init" also
+	calls "sha_engine_context_static_init()" which will select the SE SHA
+	engine (from tegra_cdev.c) and set up the digest length and block size
+	used by the process layer and the engine layers later.
+
+	For SHA algorithms (all of them) the process handler function
+	is se_sha_process_input() for synchronous calls. If you want
+	to do asynchronous calls, the function is
+	"se_sha_process_async_input()" and in async case there is also
+	a call to verify if the SHA engine has completed processing:
+	"se_sha_process_async_check()".  Since CCC allows each data
+	chunk to be processed either asynchronously or syncronously,
+	there are actually three process fields in the sha_context:
+	.process, .process_async, .process_async_check. The above
+	functions are assigned to these fields as function pointers.
+
+   - setkey: Does not exist for digests.
+
+   - update: This calls the process function for the algorithm. This is done
+	via another function pointer set up by the init. If you do a
+	syncronous SHA update call it calls the function from
+	".process" field. If you do an asynchronous SHA update call
+	this calls the function from ".process_async"
+
+	Note that "update" digest operations never write anything to
+	caller output buffers. You can call as many updates as you
+	like, including zero.
+
+	But to get any results, you must call the dofinal once.
+
+   - dofinal: This does the same as "update" for handling input data
+	for SHA digests.
+
+	All of the digests support passing in zero bytes of input data, so
+	you can also pass nothing to dofinal and have no update calls.
+
+	Once dofinal comples you have a result in your destination buffer
+	or you receive an error.
+
+	Either way, no more operations can be processed by the context,
+	so it needs to be reset. This can be done automatically by CCC
+	or you can do it yourself.
+
+   - reset: Release runtime resources allocated after context was set up.
+
+   [ - dealloc: Only used in Trusty user-mode calls, releases context. ]
+
+
+[ The next happens in CCC process layer ]
+
+Internal CCC data processing happens here, if required. Data handling for the
+algorithms supported by CCC are coded in the process layes files.
+
+These files are called crypto_process_<type-of-process>.c
+
+This layer is responsible for preparing data so that it can be processed
+by the HW engines, which may have size limits, blocking limits, alignment limits
+and contiguous data kind of requirements.
+
+But neither this level nor any of the above levels have anything to do
+with the HW engines. So, up to and including this level is specific to
+HW engine, so the engine implementations can be replaced or re-written
+freely as long as the engine leyer parameters are not modified.
+
+For this reason, HW changes have minimal impact to CCC code as long
+as the HW supported features remain similar.
+
+For some process level functions that need to use many primitives
+implemented by the engines it would be an issue if some primitive gets
+dropped or fundamentally changed: in this case the process layer will need
+maybe extensive rewriting to support more than one set of different
+low level HW operations.
+
+For example the ED25519 lwrve operations (ED25519 signature
+verification) uses a lot of different primitive HW acelerated
+operations; if we select a new type of engine it will probably trigger
+multiple changes if the set of supported HW primitives changes.
+
+But if engines change register programming and or any kind of register
+offset changes in the future: these are internal matters to the engine
+code and do not affect upper level CCC code at all.
+
+Let's continue our SHA example here in a synchronous call passing some
+data in the process layer. This is handled by se_sha_process_input().
+
+The process layer does not need to care which SHA digest we are callwlating,
+but it needs to know if this is an update or dofinal call.
+
+All the dofinal calls set the "engine context" field "is_last" by the
+CCC operation layer. This indicates to the lower levels that this is
+the last chunk of data processed with this context and that e.g. in case of
+digests the result must be callwlated and placed to the destination buffer.
+
+The context contains a number of fields needed for processing the
+data, in the case of digests we need to know what is the internal
+block size of the digest algorithm and what is the size of the
+digest. The algorithm internal block size is needed because the SE HW SHA
+engine state can only be saved after if has processed an integral multiple
+of that block size bytes.
+
+If you remember that CCC allows passing in any number of any size objects
+to algorithm updates and dofinal, you may notice that this is now something
+that needs work.
+
+We have to match the "any number" with "integral multiple of block size".
+
+The "CCC process" layer needs to have a "contiguos buffer" into which
+the input data is collected if it is provided in small chunks. Once there
+is enough data fro the algorithm natural block size => the buffer
+context is passed to the engine layer for processing and the data collection
+to the buffer start again.
+
+Fro data chunks larger than the algorithms block size no buffering is done
+if the size is an "integral multiple of block size", any data sizes accepted
+by the engines are passed directly top the CCC engine layer. Otherwise the
+non-aligned trailing data will be buffered again.
+
+CCC never leaves the engines reserved if there is missing data to complete
+the engine operation. CCC process layer makes sure the optimal the engines
+get data they can work on and then CCC saves the engine state and releases
+the engines.
+
+Normally engine state is also cleared to avoid any leaks from the
+previous operation to the next (unknown) party using it. This does
+cause overhead, but for general purpose code used in multiple
+subsystem it is mandatory to clear the state and release the engines
+as soon as possible to avoid resource hoarding. All CCC subsystems
+work the same way, from the boot code and hypervisor serving multiple
+operating systems.
+
+OK, back to the SHA example. If this "is_last" call, then
+there will not be more data and the SHA engine can cope with the
+final buffer being something else than block size aligned.
+
+There is a size restriction of 16 MB for the largest chunk the SHA HW
+engine can handle. The process layer also takes care of splitting the data
+into max size chunks for each engine and passing it in chunks if required.
+
+But process layer mainly does (for SHA) =>
+ data in => make block size multiples => trigger engine.
+
+When the process layer needs to ilwoke an engine, it also needs to make
+sure that the data passed to the engine is in linear buffers that have no holes.
+
+For systems that operate on physical addresses (like boot loaders) this is
+not an issue, all buffers are contiguous.
+
+But for e.g. to Trusty OS requests this is an issue, since Trusty uses
+virtual addresses internally, but the I/O devices (like SE DMA) can not
+since Trusty does not configuring the SMMU.
+
+Hence, in such case, the proces layer must also split the data into
+suitable contiguous chunks so that each page boundary is adjacent to the
+following page boundary in the physical address space. If not, the data
+has to be chunked into two engine calls by the process layer.
+
+Contiguous buffers are only required by the engines that use DMA access to
+read or write data. So, this only applies to SE AES0, AES1, SHA and PKA0
+engines. CCC prefer writing results to SE result registers, so the
+CMAC-AES, SHA and RSA output is written to SE registers instead of memory.
+The reason for this is to avoid concerns with non-linear memory buffers
+from physical address point of view.
+
+Before process layer calls the engine code, it must make sure
+nobody else is using the engine.
+
+For this purpose it must first lock the relevant APB device mutex to
+keep others using the engine.
+
+There are a couple system dependent macros for this purpose:
+
+HW_MUTEX_TAKE_ENGINE(engine);
+HW_MUTEX_RELEASE_ENGINE(engine);
+
+The engine object passed to these macros is the engine object selected by the
+"static init" functions in the CCC operation layer. The engine objects
+are const objects that belong into some device (see the mappings in
+tegra_cdev.[hc]). All functions the engines can do are mapped to the
+engine object and the functions and engines are just selected at runtime.
+
+[ The next happens in CCC engine layer ]
+
+The SE device with (AES/RSA/SHA/CMAC/DRNG engines), the PKA1 device
+with (ECC/RSA/TRNG engines) and the RNG1 device (TRNG/DRNG engine) are
+supported by the engine layer lwrrently.
+
+The features, capabilities, operations, mutex ops register mappings
+and so on are all mapped to the engine object (engine_t type). When
+CCC operation layer selects an engine it can search for engine that
+belongs to a class that can do for example RSA or AES or ED25519 lwrve
+operations. Once engine is selected it can be used.
+
+For the SHA case, the only engine that can do SHA is the one that has
+ENGINE_CLASS_SHA set in the class bit vector (if an engine can perform more
+than one operation, it has more than one bits set). It can be selected
+by engine_id or searches for by the matching class bits.
+
+All engine capabilities and features are decribed in the table tegra_cdev[]
+in tegra_cdec.c.
+
+But as said, this binding was made in CCC operations layer using the
+engine lookup code.
+
+If we look at the SHA engine:
+
+	{
+		.e_name = "SHA engine",
+		.e_dev  = &tegra_cdev[SE_CDEV_SE0],
+		.e_id   = ENGINE_SE0_SHA,
+		.e_class= ENGINE_CLASS_SHA,
+		.e_regs_begin = 0x100U,
+		.e_regs_end   = 0x1ffU,
+		.e_do_remap = false,
+		.e_proc = {
+			.p_sha  = engine_sha_process_block_locked,
+#if HAVE_SE_ASYNC_SHA
+			/* Any client using Async ops is responsible
+			 *  of calling finish after * starting the
+			 * operation.
+			 */
+
+			.p_sha_async_done    = engine_sha_process_locked_async_done,
+			.p_sha_async_start   = engine_sha_process_block_locked_async_start,
+			.p_sha_async_finish  = engine_sha_process_block_locked_async_finish,
+	#endif
+		},
+		.e_mutex = {
+			.m_lock   = tegra_se0_mutex_lock,
+			.m_unlock = tegra_se0_mutex_release,
+		},
+	},
+
+	The .p_sha field contains the function called by the (rather
+	complex to make calling simpler) macro from the process layer.
+
+	All engine macros must be called locked, so the sequence is:
+
+
+	HW_MUTEX_TAKE_ENGINE(engine);
+	ret = ENGINE_PROCESS_SHA(engine, &pinput, econtext);
+	HW_MUTEX_RELEASE_ENGINE(engine);
+
+	The MUTEX macros use the .m_lock and .m_unlock fields above.
+
+	The ENGINE_PROCESS_SHA macro will expand to make a call via the ".p_sha"
+	field to the function engine_sha_process_block_locked(). The name of the
+	function contains the string "_locked_" to clarify that caller must lock
+	the mutex first.
+
+	This function will process integer multiple block size data
+	(or last buffer) which is contiguous and not larger than 16
+	MB.  This is the synchronous version of the call, which here
+	means that it first calls the asynchronous start sha operation
+	function engine_sha_process_block_locked_async_start() and
+	then blocks waiting for it to complete in the immediately
+	called blocking function
+	engine_sha_process_block_locked_async_finish().
+
+	Excluding errors, that is. Any error terminates the processing
+	and returns to caller.
+
+	Finally, looking at the async start sha function which was called
+	above:
+
+	- it programs the SHA engine registers as requested in the
+	  engine context parameter
+
+	- it passes the engine addresses of the data passed in the
+	  arguments.
+
+	- it starts the engine and returns.
+
+	The blocking async finish will then POLL for the completion of
+	SHA engine from the HW registers until a timeout oclwrs or it is
+	ready.
+
+	If the result becomes ready, the code copies the SHA result registers
+	(and mangles the result as necessary for some algorithms)
+	out of the engine registers into a buffer.
+
+	If this is the final the result is exported to the caller destination.
+	If this is an update call, such intermediate save state SHA values are
+	never exported to callers.
+
+BR,
+  Juki

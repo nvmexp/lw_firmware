@@ -1,0 +1,130 @@
+ /***************************************************************************\
+|*                                                                           *|
+|*      Copyright 2007-2008 LWPU Corporation.  All rights reserved.        *|
+|*                                                                           *|
+|*   THE SOFTWARE AND INFORMATION CONTAINED HEREIN IS PROPRIETARY AND        *|
+|*   CONFIDENTIAL TO LWPU CORPORATION. THIS SOFTWARE IS FOR INTERNAL USE   *|
+|*   ONLY AND ANY REPRODUCTION OR DISCLOSURE TO ANY PARTY OUTSIDE OF LWPU  *|
+|*   IS STRICTLY PROHIBITED.                                                 *|
+|*                                                                           *|
+\***************************************************************************/
+#ifdef PRAGMA_ONCE_SUPPORTED
+#pragma once
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "lwtypes.h"
+
+/*
+
+    DO NOT EDIT - THIS FILE WAS AUTOMATICALLY GENERATED
+
+*/
+
+// #define statements from class manual ../docs/manuals/usr_secop_bitprocess.ref
+#define LW95A1_SECOP_BITPROCESS_UCODE_ID                        0x00000000
+#define LW95A1_SECOP_BITPROCESS_UCODE_LOADER_PARAM              0x00000005
+#define LW95A1_SECOP_BITPROCESS_KEY_INCREMENT                   0x00000001
+#define LW95A1_SECOP_BITPROCESS_SET_CTXDMA_INDEX                0x00000f20 /* -W-4R */
+#define LW95A1_SECOP_BITPROCESS_SET_CTXDMA_INDEX_TSIN                  3:0 /* -W--F */
+#define LW95A1_SECOP_BITPROCESS_SET_CTXDMA_INDEX_TSOUT                 7:4 /* -W--F */
+#define LW95A1_SECOP_BITPROCESS_SET_CTXDMA_INDEX_ES                   11:8 /* -W--F */
+#define LW95A1_SECOP_BITPROCESS_SET_CTXDMA_INDEX_FLOWCTRL            15:12 /* -W--F */
+#define LW95A1_SECOP_BITPROCESS_SET_CTXDMA_INDEX_KEYSTORE            19:16 /* -W--F */
+#define LW95A1_SECOP_BITPROCESS_SET_CTXDMA_INDEX_VM                  23:20 /* -W--F */
+#define LW95A1_SECOP_BITPROCESS_SET_TSIN_OFFSET                 0x00000f24 /* -W-4R */
+#define LW95A1_SECOP_BITPROCESS_SET_TSIN_OFFSET_VALUE                 31:0 /* -W-VF */
+#define LW95A1_SECOP_BITPROCESS_SET_TSOUT_OFFSET                0x00000f28 /* -W-4R */
+#define LW95A1_SECOP_BITPROCESS_SET_TSOUT_OFFSET_VALUE                31:0 /* -W-VF */
+#define LW95A1_SECOP_BITPROCESS_SET_ESMAIN_OFFSET               0x00000f2c /* -W-4R */
+#define LW95A1_SECOP_BITPROCESS_SET_ESMAIN_OFFSET_VALUE               31:0 /* -W-VF */
+#define LW95A1_SECOP_BITPROCESS_SET_ESSUB_OFFSET                0x00000f30 /* -W-4R */
+#define LW95A1_SECOP_BITPROCESS_SET_ESSUB_OFFSET_VALUE                31:0 /* -W-VF */
+#define LW95A1_SECOP_BITPROCESS_SET_FLOWCTRL_OFFSET             0x00000f34 /* -W-4R */
+#define LW95A1_SECOP_BITPROCESS_SET_FLOWCTRL_OFFSET_VALUE             31:0 /* -W-VF */
+#define LW95A1_SECOP_BITPROCESS_SET_KEYSTORE_OFFSET             0x00000f38 /* -W-4R */
+#define LW95A1_SECOP_BITPROCESS_SET_KEYSTORE_OFFSET_VALUE             31:0 /* -W-VF */
+#define LW95A1_SECOP_BITPROCESS_SET_VM_OFFSET                   0x00000f3c /* -W-4R */
+#define LW95A1_SECOP_BITPROCESS_SET_VM_OFFSET_VALUE                   31:0 /* -W-VF */
+#define LW95A1_SECOP_BITPROCESS_STATUS_OK                       0x00000000
+#define LW95A1_SECOP_BITPROCESS_ERROR_ILWALID_KEYSTORE_HMAC     0x00001001
+#define LW95A1_SECOP_BITPROCESS_ERROR_ILWALID_FLOWCTRL_HMAC     0x00001002
+#define LW95A1_SECOP_BITPROCESS_ERROR_ILWALID_VM_HMAC           0x00001003
+#define LW95A1_SECOP_BITPROCESS_ERROR_VM_ILWALID_PC             0x00001004
+#define LW95A1_SECOP_BITPROCESS_ERROR_VM_ILWALID_ACCESS         0x00001005
+#define LW95A1_SECOP_BITPROCESS_ERROR_VM_ILWALID_OPCODE         0x00001006
+#define LW95A1_SECOP_BITPROCESS_ERROR_VM_ILWALID_SYSCALL        0x00001007
+#define LW95A1_SECOP_BITPROCESS_ERROR_VM_TIMEOUT                0x00001008
+#define LW95A1_SECOP_BITPROCESS_ERROR_PATCH_FIFO_OVERFLOW       0x00001009
+#define LW95A1_SECOP_BITPROCESS_ERROR_ILWALID_INTERNAL_STATE    0x0000100a
+
+// #define statements from class manual ../docs/manuals/usr_secop_sessionkey.ref
+#define LW95A1_SECOP_SESSIONKEY_UCODE_ID                        0x00000001
+#define LW95A1_SECOP_SESSIONKEY_UCODE_LOADER_PARAM              0x00000006
+#define LW95A1_SECOP_SESSIONKEY_SET_CTXDMA_INDEX                0x00000f20 /* -W-4R */
+#define LW95A1_SECOP_SESSIONKEY_SET_CTXDMA_INDEX_KEYSTORE              3:0 /* -W--F */
+#define LW95A1_SECOP_SESSIONKEY_SET_CTXDMA_INDEX_PARAMS                7:4 /* -W--F */
+#define LW95A1_SECOP_SESSIONKEY_SET_KEYSTORE_OFFSET             0x00000f24 /* -W-4R */
+#define LW95A1_SECOP_SESSIONKEY_SET_KEYSTORE_OFFSET_VALUE             31:0 /* -W-VF */
+#define LW95A1_SECOP_SESSIONKEY_SET_PARAMS_OFFSET               0x00000f28 /* -W-4R */
+#define LW95A1_SECOP_SESSIONKEY_SET_PARAMS_OFFSET_VALUE               31:0 /* -W-VF */
+#define LW95A1_SECOP_SESSIONKEY_STATUS_OK                       0x00000000
+#define LW95A1_SECOP_SESSIONKEY_ERROR_ILWALID_APP_CERT          0x00002001
+#define LW95A1_SECOP_SESSIONKEY_ERROR_ILWALID_CHALLENGE_SIG     0x00002002
+#define LW95A1_SECOP_SESSIONKEY_ERROR_ILWALID_CONSTANTS         0x00002003
+
+// #define statements from class manual ../docs/manuals/usr_secop_vminterpreter.ref
+#define LW95A1_SECOP_VMINTERPRETER_UCODE_ID                     0x00000002
+#define LW95A1_SECOP_VMINTERPRETER_UCODE_LOADER_PARAM           0x00000007
+#define LW95A1_SECOP_VMINTERPRETER_SET_CTXDMA_INDEX             0x00000f20 /* -W-4R */
+#define LW95A1_SECOP_VMINTERPRETER_SET_CTXDMA_INDEX_KEYSTORE           3:0 /* -W--F */
+#define LW95A1_SECOP_VMINTERPRETER_SET_CTXDMA_INDEX_PARAMS             7:4 /* -W--F */
+#define LW95A1_SECOP_VMINTERPRETER_SET_CTXDMA_INDEX_VM                11:8 /* -W--F */
+#define LW95A1_SECOP_VMINTERPRETER_SET_CTXDMA_INDEX_DATA             15:12 /* -W--F */
+#define LW95A1_SECOP_VMINTERPRETER_SET_CTXDMA_INDEX_TEMP             19:16 /* -W--F */
+#define LW95A1_SECOP_VMINTERPRETER_SET_KEYSTORE_OFFSET          0x00000f24 /* -W-4R */
+#define LW95A1_SECOP_VMINTERPRETER_SET_KEYSTORE_OFFSET_VALUE          31:0 /* -W-VF */
+#define LW95A1_SECOP_VMINTERPRETER_SET_PARAMS_OFFSET            0x00000f28 /* -W-4R */
+#define LW95A1_SECOP_VMINTERPRETER_SET_PARAMS_OFFSET_VALUE            31:0 /* -W-VF */
+#define LW95A1_SECOP_VMINTERPRETER_SET_VM_OFFSET                0x00000f2c /* -W-4R */
+#define LW95A1_SECOP_VMINTERPRETER_SET_VM_OFFSET_VALUE                31:0 /* -W-VF */
+#define LW95A1_SECOP_VMINTERPRETER_SET_DATA_OFFSET              0x00000f30 /* -W-4R */
+#define LW95A1_SECOP_VMINTERPRETER_SET_DATA_OFFSET_VALUE              31:0 /* -W-VF */
+#define LW95A1_SECOP_VMINTERPRETER_SET_TEMP_OFFSET              0x00000f34 /* -W-4R */
+#define LW95A1_SECOP_VMINTERPRETER_SET_TEMP_OFFSET_VALUE              31:0 /* -W-VF */
+#define LW95A1_SECOP_VMINTERPRETER_STATUS_OK                    0x00000000
+#define LW95A1_SECOP_VMINTERPRETER_ERROR_ILWALID_KEYSTORE_HMAC  0x00003001
+#define LW95A1_SECOP_VMINTERPRETER_ERROR_ILWALID_VM_HMAC        0x00003002
+#define LW95A1_SECOP_VMINTERPRETER_ERROR_CORRUPT_TEMP_BUFFER    0x00003003
+
+// #define statements from class manual ../docs/manuals/usr_secop_vmloader.ref
+#define LW95A1_SECOP_VMLOADER_UCODE_ID                          0x00000003
+#define LW95A1_SECOP_VMLOADER_UCODE_LOADER_PARAM                0x00000008
+#define LW95A1_SECOP_VMLOADER_SET_CTXDMA_INDEX                  0x00000f20 /* -W-4R */
+#define LW95A1_SECOP_VMLOADER_SET_CTXDMA_INDEX_KEYSTORE                3:0 /* -W--F */
+#define LW95A1_SECOP_VMLOADER_SET_CTXDMA_INDEX_PARAMS                  7:4 /* -W--F */
+#define LW95A1_SECOP_VMLOADER_SET_CTXDMA_INDEX_VMIN                   11:8 /* -W--F */
+#define LW95A1_SECOP_VMLOADER_SET_CTXDMA_INDEX_VMOUT                 15:12 /* -W--F */
+#define LW95A1_SECOP_VMLOADER_SET_KEYSTORE_OFFSET               0x00000f24 /* -W-4R */
+#define LW95A1_SECOP_VMLOADER_SET_KEYSTORE_OFFSET_VALUE               31:0 /* -W-VF */
+#define LW95A1_SECOP_VMLOADER_SET_PARAMS_OFFSET                 0x00000f28 /* -W-4R */
+#define LW95A1_SECOP_VMLOADER_SET_PARAMS_OFFSET_VALUE                 31:0 /* -W-VF */
+#define LW95A1_SECOP_VMLOADER_SET_VMIN_OFFSET                   0x00000f2c /* -W-4R */
+#define LW95A1_SECOP_VMLOADER_SET_VMIN_OFFSET_VALUE                   31:0 /* -W-VF */
+#define LW95A1_SECOP_VMLOADER_SET_VMOUT_OFFSET                  0x00000f30 /* -W-4R */
+#define LW95A1_SECOP_VMLOADER_SET_VMOUT_OFFSET_VALUE                  31:0 /* -W-VF */
+#define LW95A1_SECOP_VMLOADER_STATUS_OK                         0x00000000
+#define LW95A1_SECOP_VMLOADER_ERROR_ILWALID_KEYSTORE_HMAC       0x00004001
+#define LW95A1_SECOP_VMLOADER_ERROR_ILWALID_APP_CERT            0x00004002
+#define LW95A1_SECOP_VMLOADER_ERROR_ILWALID_VM_SIG              0x00004003
+#define LW95A1_SECOP_VMLOADER_ERROR_ILWALID_ELG_KEY             0x00004004
+#define LW95A1_SECOP_VMLOADER_ERROR_ILWALID_CONSTANTS           0x00004005
+
+#ifdef __cplusplus
+};     /* extern "C" */
+#endif
+
+// End of tsec app release /home/msdec/app/tsec/121115_secop

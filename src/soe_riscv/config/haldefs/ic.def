@@ -1,0 +1,95 @@
+# -*- mode: perl; -*-
+
+# SOE RISCV Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $icHal = [
+
+    # per-GPU defaults for IC for all interfaces below
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        SERVICE => [
+            DESCRIPTION    => "Interrupt Service Routine",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+
+            _LS10         => [ GH100, ],
+        ],
+
+        HOST_IF_INTR_UNMASK => [
+            DESCRIPTION    => "Unmask host interface interrupts (ctxsw and mthd interrupts)",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+
+            LIKE_INTERFACE => SERVICE,
+        ],
+
+        SEMAPHORE_D_TRAP_INTR_TRIGGER => [
+            DESCRIPTION    => "Trigger a SEMAPHORE_D trap interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+
+            LIKE_INTERFACE => SERVICE,
+        ],
+
+        SET_NONSTALL_INTR_CTRL_GFID => [
+            DESCRIPTION    => "Set the GFID in the nonstall interrupt control",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwU32 gfid',
+
+            _LS10         => [ GH100, ],
+        ],
+
+        CMD_QUEUE_INTR_UNMASK => [
+            DESCRIPTION    => "Unmask command queue interrupt for given queue id",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 queueId",
+
+            _LS10         => [ GH100, ],
+        ],
+
+        CMD_QUEUE_INTR_CLEAR => [
+            DESCRIPTION    => "Clear the command queue interrupt for given queue id",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 queueId",
+
+            LIKE_INTERFACE => CMD_QUEUE_INTR_UNMASK,
+        ],
+
+        HALT_INTR_MASK => [
+            DESCRIPTION    => "Clear the command queue interrupt for given queue id",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+
+            LIKE_INTERFACE => CMD_QUEUE_INTR_UNMASK,
+        ],
+        
+        IS_CTX_SW_INTR_PENDING => [
+            DESCRIPTION    => "Returns whether a ctxsw interrupt is pending for use within RC error recovery",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => LW_FALSE,
+
+            LIKE_INTERFACE => SET_NONSTALL_INTR_CTRL_GFID,
+        ],
+
+        HOST_IF_INTR_CTXSW_UNMASK => [
+            DESCRIPTION    => "Unmask host interface ctxsw interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+ 
+            LIKE_INTERFACE => SET_NONSTALL_INTR_CTRL_GFID,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $icHal;

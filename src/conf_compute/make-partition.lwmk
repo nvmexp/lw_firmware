@@ -1,0 +1,198 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2020-2022 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+# Rules to build single partition as .a archive
+# Among defaults, we have 3 variables that must be passed:
+# PART_DIR <- directory where partition's sources.mk is
+# BUILD_DIR_PART <- directory where we build
+# INSTALL_DIR <- directory where we install (put .a basically)
+
+$(info Building partition $(PART_DIR)...)
+
+# Pull profile
+include $(CC_ROOT)/config/profiles.mk
+
+# It relies on (given) variables and prebuilt liblwriscv
+include $(LWRISCVX_SDK_ROOT)/build/build_elw.mk
+# Preconfigure chip (mini chip-config)
+include $(LIBLWRISCV_CONFIG_MK)
+
+# It relies on (given) variables and prebuilt liblwriscv
+include $(LWRISCVX_SDK_ROOT)/build/build_flags.mk
+
+TARGET:=$(BUILD_DIR_PART)/libpart_$(PART_DIR).a
+
+# Include (possible) extra partition rules
+-include $(PART_DIR)/rules.mk
+
+EXTRA_OBJECTS ?= 
+PARTITION_VISIBILITY ?= hidden
+
+# Add liblwriscv to include path
+INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)
+# Add LWRISCV SDK to include path
+INCLUDES += $(LWRISCVX_SDK_ROOT)/inc
+# Add chip cheaders to include path
+INCLUDES += $(LW_ENGINE_MANUALS)
+INCLUDES += $(LWRISCVX_SDK_ROOT)/inc/lwpu-sdk
+INCLUDES += $(CC_ROOT)/inc
+# riscvifriscv.h and other common interfaces
+INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc
+INCLUDES +=  $(LW_SOURCE)/drivers/common/inc/swref/hopper/gh100/
+# classess
+INCLUDES += $(LW_SOURCE)/sdk/lwpu/inc
+
+# CCC enabled?
+ifeq ($(USE_LIBCCC),true)
+INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/libCCC
+INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/libCCC/hwref
+INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common
+INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common_crypto
+INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common_crypto/include
+INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common_crypto_private
+INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common_crypto_private/lwpka
+LIBCCC_CFLAGS := -DUSE_LIBCCC -DUPROC_ARCH_RISCV -DCCC_USE_LIBLWRISCV -DHW_CC_ENABLED
+endif # USE_LIBCCC
+
+# libSPDM enabled
+ifeq ($(USE_LIBSPDM),true)
+SPDM_SRC := $(LW_SOURCE)/uproc/spdm/libspdm
+INCLUDES += $(LW_SOURCE)/uproc/spdm/libspdm/lwpu/include
+INCLUDES += $(SPDM_SRC)/lwpu/include
+INCLUDES += $(SPDM_SRC)/lwpu/include/gsp
+INCLUDES += $(SPDM_SRC)/include
+INCLUDES += $(SPDM_SRC)/include/library
+INCLUDES += $(SPDM_SRC)/include/hal
+INCLUDES += $(SPDM_SRC)/library/spdm_common_lib
+INCLUDES += $(SPDM_SRC)/library/spdm_responder_lib
+INCLUDES += $(SPDM_SRC)/library/spdm_selwred_message_lib
+CFLAGS += -DUSE_LIBSPDM -DGSP_CC
+endif
+
+ifeq ($(CC_GSPRM_BUILD), true)
+    LIBOS_SRC := $(LW_SOURCE)/uproc/os/libos-v2.0.0
+    INCLUDES += $(LIBOS_SRC)/kernel
+    CFLAGS += -DCC_GSPRM_BUILD
+
+    ifeq ($(PART_DIR),rm)
+        INCLUDES += $(LIBOS_SRC)/include
+        INCLUDES += $(LIBOS_SRC)/debug
+    endif
+endif
+
+ifeq ($(CC_PERMIT_DEBUG), true)
+    CFLAGS  += -DCC_PERMIT_DEBUG=1
+    ASFLAGS += -DCC_PERMIT_DEBUG=1
+    SUBMAKE_CFLAGS  += -DCC_PERMIT_DEBUG=1
+    SUBMAKE_ASFLAGS += -DCC_PERMIT_DEBUG=1
+else
+    CFLAGS  += -DCC_PERMIT_DEBUG=0
+    ASFLAGS += -DCC_PERMIT_DEBUG=0
+    SUBMAKE_CFLAGS  += -DCC_PERMIT_DEBUG=0
+    SUBMAKE_ASFLAGS += -DCC_PERMIT_DEBUG=0
+endif
+
+ifeq ($(CC_FMODEL_BUILD), true)
+    CFLAGS += -DCC_FMODEL_BUILD
+endif
+
+ifeq ($(CC_IS_RESIDENT),true)
+    CFLAGS  += -DCC_IS_RESIDENT=1
+    ASFLAGS += -DCC_IS_RESIDENT=1
+else
+    CFLAGS  += -DCC_IS_RESIDENT=0
+    ASFLAGS += -DCC_IS_RESIDENT=0
+endif
+
+INCLUDES := $(addprefix -I,$(INCLUDES))
+
+# MK TODO: unify that with other riscv cflags (From lw settings and from SUBMODULE.. maybe pass it from profile?)
+CFLAGS += -Og
+CFLAGS += $(INCLUDES)
+CFLAGS += -D'PARTITION_NAME=$(PART_DIR)'
+CFLAGS += -fvisibility=$(PARTITION_VISIBILITY)
+# Don't put uninitialized global variables in common place, keep them in partition's bss
+CFLAGS += -fno-common 
+CFLAGS += $(LIBCCC_CFLAGS) $(EXTRA_CFLAGS)
+
+ASFLAGS += $(INCLUDES)
+ASFLAGS += -D'PARTITION_NAME=$(PART_DIR)'
+
+# Some partitions may need to build stuff.. export part of CFLAGS
+SUBMAKE_CFLAGS := $(INCLUDES) -include $(LIBLWRISCV_CONFIG_H) -fvisibility=$(PARTITION_VISIBILITY) $(LIBCCC_CFLAGS) $(EXTRA_CFLAGS)
+SUBMAKE_ASFLAGS := $(INCLUDES)
+export SUBMAKE_CFLAGS
+export SUBMAKE_ASFLAGS
+
+# Include sources
+DIRS:=
+OBJS:=
+
+# manual war, until we have relwrsive directory parser
+objs-y:=
+subdirs-y:=
+include $(PART_DIR)/sources.mk
+DIRS:= $(PART_DIR)
+OBJS:= $(addprefix $(PART_DIR)/,$(objs-y))
+
+# Rule generation for files
+# generate rule for directories
+define add-dir =
+$(info adding dir rule: $(BUILD_DIR_PART)/$(1)/)
+$(BUILD_DIR_PART)/$(1)/:
+	$(MKDIR) -p $(BUILD_DIR_PART)/$(1)
+OUTPUT_DIRS += $(BUILD_DIR_PART)/$(1)
+endef
+$(foreach c,$(DIRS),$(eval $(call add-dir,$(c))))
+
+# generate rule for files
+define add-rule-c =
+$(info adding C file rule: $(BUILD_DIR_PART)/$(1) depends on $(BUILD_DIR_PART)/$(dir $(1)) $(LIBLWRISCV_CONFIG_H) $(basename $(1)).c)
+$(TARGET): $(BUILD_DIR_PART)/$(1)
+$(BUILD_DIR_PART)/$(1): $(BUILD_DIR_PART)/$(dir $(1)) $(basename $(1)).c $(LIBLWRISCV_CONFIG_H)
+	$$(ECHO) CC $(basename $(1)).c
+	$$(CC) $$(CFLAGS) -c $(basename $(1)).c -o $$@
+endef
+
+define add-rule-as =
+$(info adding ASM file rule: $(BUILD_DIR_PART)/$(1) depends on $(BUILD_DIR_PART)/$(dir $(1)) $(LIBLWRISCV_CONFIG_H) $(basename $(1)).S)
+$(TARGET): $(BUILD_DIR_PART)/$(1)
+$(BUILD_DIR_PART)/$(1): $(BUILD_DIR_PART)/$(dir $(1)) $(basename $(1)).S $(LIBLWRISCV_CONFIG_H)
+	$$(ECHO) AS $(basename $(1)).S
+	$$(CC) $$(ASFLAGS) -c $(basename $(1)).S -o $$@
+endef
+
+define add-file =
+$(if $(wildcard $(basename $(1)).c),$(eval $(call add-rule-c,$(1))))
+$(if $(wildcard $(basename $(1)).S),$(eval $(call add-rule-as,$(1))))
+$(TARGET): $(BUILD_DIR_PART)/$(1)
+endef
+$(foreach c,$(OBJS),$(eval $(call add-file,$(c))))
+
+
+# Rules
+$(BUILD_DIR_PART): 
+	$(MKDIR) -p $(BUILD_DIR_PART)
+
+$(TARGET): $(EXTRA_OBJECTS)
+	$(ECHO) AR $(TARGET)
+	$(RM) -f $(TARGET)
+	$(AR) rcT $(TARGET) $(addprefix $(BUILD_DIR_PART)/,$(OBJS)) $(EXTRA_OBJECTS)
+
+%.o: $(LIBLWRISCV_CONFIG_H)
+
+build: $(TARGET)
+
+install: build
+	$(INSTALL) -t $(INSTALL_DIR) $(TARGET)
+
+clean: 
+	$(RM) -f $(INSTALL_DIR) $(TARGET) $(OBJS)

@@ -1,0 +1,490 @@
+#
+# Copyright 2013-2021 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+
+#
+# The primary usage of this makefile is as a sub-makefile for a larger falcon
+# build (such as the PMU/DPU/SEC2 builds). It relies on the user (or top-level
+# makefile) to establish the following make-vars before it is ilwoked:
+#     * FALCON_ARCH
+#     * LW_PROJ
+#     * MANUAL_PATHS
+#
+# If building directly, it is highly recommended that you explicitly state (on
+# the build command-line) which falcon architecture and chip project you're
+# targeting. If unspecified, falcon5 and gm20x is assumed. The target
+# architecture may be specified by setting FALCON_ARCH on the command-line.
+#
+# LW_PROJ is only used to uniquely name the output directory where the built libraries
+# will be located. This facilitates parallel building of falcon ucode for multiple
+# projects.
+#
+# Examples:
+#
+# % make FALCON_ARCH=falcon5 LW_PROJ=gm20x
+#
+# Additionally, based on the target arch, you need to also specify where the
+# falcon manuals are for the architecture.  This is specified using
+# MANUAL_PATHS.
+#
+# Examples:
+#
+# % make FALCON_ARCH=falcon4 MANUAL_PATHS=$LW_SOURCE/drivers/common/inc/hwref/fermi/gf119
+# % make FALCON_ARCH=falcon3 MANUAL_PATHS=$LW_SOURCE/drivers/common/inc/hwref/gt218
+#
+
+.NOTPARALLEL: SUBMAKE_ACR
+
+PROFILE:=
+ENG:=
+
+ifdef PMUCFG_PROFILE
+PROFILE := $(PMUCFG_PROFILE)
+ENG := pmu
+endif
+
+ifdef SEC2CFG_PROFILE
+PROFILE := $(SEC2CFG_PROFILE)
+ENG := sec2
+endif
+
+override LW_TARGET_OS := falcon
+
+# if not specified, assume we're building for gm20x-falcon5
+FALCON_ARCH    ?= falcon5
+LW_PROJ        ?= gm20x
+RESMAN_ROOT    ?= ../../drivers/resman
+MANUAL_PATHS   ?= "$(LW_SOURCE)/drivers/common/inc/hwref/maxwell/gm200 $(LW_SOURCE)/drivers/common/inc/swref/maxwell/gm200 $(RESMAN_ROOT)/kernel/inc/maxwell/gm200"
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+# Generate ACR profile headers or clean the submake _out only when necessary
+ifeq ($(LIB_ACR), true)
+build: SUBMAKE_ACR
+endif
+
+build: all
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += ./inc
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/swref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/hwref
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/lwos/$(LWOS_VERSION)/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(FALCON_TOOLS)/include
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+
+SEC2_PRESENT             = false
+LWENC_PRESENT            = false
+LWDEC_PRESENT            = false
+DPU_PRESENT              = false
+GSP_PRESENT              = true
+FBFALCON_PRESENT         = true
+LWDEC1_PRESENT           = false
+OFA_PRESENT              = false
+
+LWDEC_RISCV_PRESENT      = false
+LWDEC_RISCV_EB_PRESENT   = false
+LWJPG_PRESENT            = false
+
+LWOS_VERSION             = dev
+PRI_SOURCE_ISOLATION_PLM = false
+ACR_RISCV_LS             = false
+
+ifneq (,$(findstring tu10x,  $(PROFILE)))
+    SOURCES       += src/acrsec2shared/turing/acr_register_access_tu10x.c
+    SOURCES       += src/acrsec2shared/turing/acr_register_access_tu10x_ga10x_only.c
+    SOURCES       += src/acrsec2shared/turing/acr_dma_tu10x.c
+    SOURCES       += src/asb/turing/acr_ls_falcon_boot_tu10x.c
+    SOURCES       += src/asb/turing/acr_ls_falcon_boot_tu10xga100.c
+    SOURCES       += src/acrsec2shared/turing/acr_timer_access_tu10x.c
+    LW_INCLUDES   += $(LW_SOURCE)/drivers/common/inc/swref/turing/tu102
+    LW_INCLUDES   += $(LW_SOURCE)/drivers/common/inc/hwref/turing/tu102
+    SEC2_PRESENT   = true
+    LWDEC_PRESENT  = true
+    FALCON_ARCH   ?= falcon6
+    LWOS_VERSION   = dev
+endif
+
+ifneq (,$(findstring tu116,  $(PROFILE)))
+    SOURCES       += src/acrsec2shared/turing/acr_register_access_tu10x.c
+    SOURCES       += src/acrsec2shared/turing/acr_register_access_tu10x_ga10x_only.c
+    SOURCES       += src/acrsec2shared/turing/acr_dma_tu10x.c
+    SOURCES       += src/asb/turing/acr_ls_falcon_boot_tu10x.c
+    SOURCES       += src/asb/turing/acr_ls_falcon_boot_tu10xga100.c
+    SOURCES       += src/acrsec2shared/turing/acr_timer_access_tu10x.c
+    LW_INCLUDES   += $(LW_SOURCE)/drivers/common/inc/swref/turing/tu116
+    LW_INCLUDES   += $(LW_SOURCE)/drivers/common/inc/hwref/turing/tu116
+    SEC2_PRESENT   = true
+    LWDEC_PRESENT  = true
+    FALCON_ARCH   ?= falcon6
+    LWOS_VERSION   = dev
+endif
+
+ifneq (,$(findstring tu10a,  $(PROFILE)))
+    SOURCES       += src/acrsec2shared/turing/acr_register_access_tu10x.c
+    SOURCES       += src/acrsec2shared/turing/acr_register_access_tu10x_ga10x_only.c
+    SOURCES       += src/acrsec2shared/turing/acr_dma_tu10x.c
+    SOURCES       += src/asb/turing/acr_ls_falcon_boot_tu10x.c
+    SOURCES       += src/asb/turing/acr_ls_falcon_boot_tu10xga100.c
+    SOURCES       += src/acrsec2shared/turing/acr_timer_access_tu10x.c
+    LW_INCLUDES   += $(LW_SOURCE)/drivers/common/inc/swref/turing/tu102
+    LW_INCLUDES   += $(LW_SOURCE)/drivers/common/inc/hwref/turing/tu102
+    SEC2_PRESENT   = true
+    FALCON_ARCH   ?= falcon6
+    LWOS_VERSION   = dev
+endif
+
+ifneq (,$(findstring ga100, $(PROFILE)))
+    SOURCES       += src/acrsec2shared/turing/acr_register_access_tu10x.c
+    SOURCES       += src/acrsec2shared/turing/acr_register_access_tu10x_ga10x_only.c
+    SOURCES       += src/acrsec2shared/turing/acr_dma_tu10x.c
+    SOURCES       += src/asb/turing/acr_ls_falcon_boot_tu10x.c
+    SOURCES       += src/asb/turing/acr_ls_falcon_boot_tu10xga100.c
+    SOURCES       += src/acrsec2shared/turing/acr_timer_access_tu10x.c
+    SOURCES       += src/acrsec2shared/ampere/acr_register_access_ga100.c
+    SOURCES       += src/asb/ampere/acr_ls_falcon_boot_ga100.c
+    SOURCES       += src/acrsec2shared/ampere/acr_dma_ga100.c
+    LW_INCLUDES   += $(LW_SOURCE)/drivers/common/inc/swref/ampere/ga100
+    LW_INCLUDES   += $(LW_SOURCE)/drivers/common/inc/hwref/ampere/ga100
+    LW_INCLUDES   += $(LW_SOURCE)/uproc/libs/se/inc/
+    SEC2_PRESENT     = true
+    LWDEC_PRESENT    = true
+    GSP_PRESENT      = false
+    FBFALCON_PRESENT = false
+    FALCON_ARCH     ?= falcon6
+    LWOS_VERSION     = dev
+endif
+
+ifneq (,$(findstring sec2-ga100_riscv_ls, $(PROFILE)))
+    ACR_RISCV_LS   = true
+    GSP_PRESENT    = true
+    SOURCES       += src/asb/ampere/acr_riscv_ls_ga100.c
+endif
+
+ifneq (,$(findstring ga10x, $(PROFILE)))
+    SOURCES                 += src/acrsec2shared/turing/acr_register_access_tu10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_register_access_tu10x_ga10x_only.c
+    SOURCES                 += src/acrsec2shared/turing/acr_dma_tu10x.c
+    SOURCES                 += src/asb/turing/acr_ls_falcon_boot_tu10x.c
+    SOURCES                 += src/asb/ampere/acr_ls_falcon_boot_ga10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_timer_access_tu10x.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_register_access_ga100.c
+    SOURCES                 += src/asb/ampere/acr_ls_falcon_boot_ga100.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_dma_ga100.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_register_access_ga10x.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_register_access_ga10x_only.c
+    LW_INCLUDES             += $(LW_SOURCE)/uproc/libs/se/inc/
+    LW_INCLUDES             += $(LW_SOURCE)/drivers/common/inc/swref/ampere/ga102
+    SOURCES                 += src/asb/ampere/acr_riscv_ls_ga102.c
+    LW_INCLUDES             += $(LW_SOURCE)/drivers/common/inc/hwref/ampere/ga102
+    SEC2_PRESENT             = true
+    LWDEC_PRESENT            = true
+    FALCON_ARCH             ?= falcon6
+    LWOS_VERSION             = dev
+    PRI_SOURCE_ISOLATION_PLM = true
+    ACR_RISCV_LS             = true
+    GSP_PRESENT              = true
+ifneq (,$(findstring sec2-ga10x_new_wpr_blob, $(PROFILE))) 
+    SOURCES                 += src/acrshared/ampere/acr_wpr_ctrl_ga10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_mem_utils_tu10x.c
+    NEW_WPR_BLOBS            = true
+endif
+ifneq (,$(findstring sec2-ga10x_prmods, $(PROFILE))) 
+    SOURCES                 += src/acrshared/ampere/acr_wpr_ctrl_ga10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_mem_utils_tu10x.c
+    NEW_WPR_BLOBS            = true
+endif
+ifneq (,$(findstring sec2-ga10x_boot_from_hs, $(PROFILE))) 
+    SOURCES                 += src/acrshared/ampere/acr_wpr_ctrl_ga10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_mem_utils_tu10x.c
+    NEW_WPR_BLOBS            = true
+    BOOT_FROM_HS_BUILD       = true
+    LWDEC1_PRESENT           = true
+    LWENC_PRESENT            = true
+    OFA_PRESENT              = true
+endif
+ifneq (,$(findstring sec2-ga10x_pr44_alt_img_boot_from_hs, $(PROFILE))) 
+    SOURCES                 += src/acrshared/ampere/acr_wpr_ctrl_ga10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_mem_utils_tu10x.c
+    NEW_WPR_BLOBS            = true
+    BOOT_FROM_HS_BUILD       = true
+    LWDEC1_PRESENT           = true
+    LWENC_PRESENT            = true
+    OFA_PRESENT              = true
+endif
+ifneq (,$(findstring sec2-ga10x_apm_boot_from_hs, $(PROFILE)))
+    SOURCES                 += src/acrshared/ampere/acr_wpr_ctrl_ga10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_mem_utils_tu10x.c
+    NEW_WPR_BLOBS            = true
+    BOOT_FROM_HS_BUILD       = true
+    LWDEC1_PRESENT           = true
+    LWENC_PRESENT            = true
+    OFA_PRESENT              = true
+endif
+ifneq (,$(findstring sec2-ga10x_nouveau_boot_from_hs, $(PROFILE)))
+    SOURCES                 += src/acrshared/ampere/acr_wpr_ctrl_ga10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_mem_utils_tu10x.c
+    NEW_WPR_BLOBS            = true
+    BOOT_FROM_HS_BUILD       = true
+endif
+endif
+
+ifneq (,$(findstring ad10x, $(PROFILE)))
+    SOURCES                 += src/acrsec2shared/turing/acr_register_access_tu10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_register_access_tu10x_ga10x_only.c
+    SOURCES                 += src/acrsec2shared/turing/acr_dma_tu10x.c
+    SOURCES                 += src/asb/turing/acr_ls_falcon_boot_tu10x.c
+    SOURCES                 += src/asb/ampere/acr_ls_falcon_boot_ga10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_timer_access_tu10x.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_register_access_ga100.c
+    SOURCES                 += src/asb/ampere/acr_ls_falcon_boot_ga100.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_dma_ga100.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_register_access_ga10x.c
+    SOURCES                 += src/acrsec2shared/ada/acr_register_access_ad10x.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_register_access_ga10x_only.c
+    LW_INCLUDES             += $(LW_SOURCE)/uproc/libs/se/inc/
+    LW_INCLUDES             += $(LW_SOURCE)/drivers/common/inc/swref/ada/ad102
+    SOURCES                 += src/asb/ampere/acr_riscv_ls_ga102.c
+    LW_INCLUDES             += $(LW_SOURCE)/drivers/common/inc/hwref/ada/ad102
+    SEC2_PRESENT             = true
+    LWDEC_PRESENT            = true
+    FALCON_ARCH             ?= falcon6
+    LWOS_VERSION             = dev
+    PRI_SOURCE_ISOLATION_PLM = true
+    ACR_RISCV_LS             = true
+    GSP_PRESENT              = true
+    SOURCES                 += src/acrshared/ampere/acr_wpr_ctrl_ga10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_mem_utils_tu10x.c
+    NEW_WPR_BLOBS            = true
+    LWDEC1_PRESENT           = true
+    LWENC_PRESENT            = true
+    LWJPG_PRESENT            = true
+    OFA_PRESENT              = true
+    LWJPG_PRESENT            = true
+endif
+
+ifneq (,$(findstring sec2-ad10x_boot_from_hs, $(PROFILE))) 
+    NEW_WPR_BLOBS            = true
+    BOOT_FROM_HS_BUILD       = true
+    LWDEC1_PRESENT           = true
+    LWENC_PRESENT            = true
+    OFA_PRESENT              = true
+    LWJPG_PRESENT            = true
+endif
+
+ifneq (,$(findstring gh100, $(PROFILE)))
+    SOURCES                 += src/acrsec2shared/turing/acr_register_access_tu10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_dma_tu10x.c
+    SOURCES                 += src/asb/turing/acr_ls_falcon_boot_tu10x.c
+    SOURCES                 += src/asb/ampere/acr_ls_falcon_boot_ga10x.c
+    SOURCES                 += src/asb/hopper/acr_ls_falcon_boot_gh100.c
+    SOURCES                 += src/acrsec2shared/turing/acr_timer_access_tu10x.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_register_access_ga100.c
+    SOURCES                 += src/asb/ampere/acr_ls_falcon_boot_ga100.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_dma_ga100.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_register_access_ga10x.c
+    SOURCES                 += src/asb/ampere/acr_riscv_ls_ga102.c
+    SOURCES                 += src/acrshared/ampere/acr_wpr_ctrl_ga10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_mem_utils_tu10x.c
+    SOURCES                 += src/acrsec2shared/hopper/acr_register_access_gh100.c
+    SOURCES                 += src/acrsec2shared/hopper/acr_register_access_gh100_only.c
+    LW_INCLUDES             += $(LW_SOURCE)/drivers/common/inc/swref/hopper/gh100
+    LW_INCLUDES             += $(LW_SOURCE)/drivers/common/inc/hwref/hopper/gh100
+    LW_INCLUDES             += $(LW_SOURCE)/uproc/libs/se/inc/
+    SEC2_PRESENT             = true
+    LWDEC_PRESENT            = true
+    GSP_PRESENT              = false
+    FALCON_ARCH             ?= falcon6
+    LWOS_VERSION             = dev
+    PRI_SOURCE_ISOLATION_PLM = true
+    NEW_WPR_BLOBS            = true
+    ACR_RISCV_LS             = true
+    LWENC_PRESENT            = false
+    OFA_PRESENT              = true
+    LWDEC_RISCV_PRESENT      = true
+    LWDEC_RISCV_EB_PRESENT   = true
+    LWJPG_PRESENT            = true
+endif
+
+ifneq (,$(findstring gh20x, $(PROFILE)))
+    SOURCES                 += src/acrsec2shared/turing/acr_register_access_tu10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_dma_tu10x.c
+    SOURCES                 += src/asb/turing/acr_ls_falcon_boot_tu10x.c
+    SOURCES                 += src/asb/ampere/acr_ls_falcon_boot_ga10x.c
+    SOURCES                 += src/asb/hopper/acr_ls_falcon_boot_gh100.c
+    SOURCES                 += src/acrsec2shared/turing/acr_timer_access_tu10x.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_register_access_ga100.c
+    SOURCES                 += src/asb/ampere/acr_ls_falcon_boot_ga100.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_dma_ga100.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_register_access_ga10x.c
+    SOURCES                 += src/acrsec2shared/hopper/acr_register_access_gh100.c
+    SOURCES                 += src/acrsec2shared/hopper/acr_register_access_gh202.c
+    LW_INCLUDES             += $(LW_SOURCE)/drivers/common/inc/swref/hopper/gh202
+    LW_INCLUDES             += $(LW_SOURCE)/drivers/common/inc/hwref/hopper/gh202
+    LW_INCLUDES             += $(LW_SOURCE)/uproc/libs/se/inc/
+    SEC2_PRESENT             = true
+    LWDEC_PRESENT            = true
+    FALCON_ARCH             ?= falcon6
+    LWOS_VERSION             = dev
+    PRI_SOURCE_ISOLATION_PLM = true
+endif
+
+ifneq (,$(findstring g00x, $(PROFILE)))
+    SOURCES                 += src/acrsec2shared/turing/acr_register_access_tu10x.c
+    SOURCES                 += src/acrsec2shared/turing/acr_dma_tu10x.c
+    SOURCES                 += src/asb/turing/acr_ls_falcon_boot_tu10x.c
+    SOURCES                 += src/asb/ampere/acr_ls_falcon_boot_ga10x.c
+    SOURCES                 += src/asb/hopper/acr_ls_falcon_boot_gh100.c
+    SOURCES                 += src/acrsec2shared/turing/acr_timer_access_tu10x.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_register_access_ga100.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_register_access_ga10x.c
+    SOURCES                 += src/asb/ampere/acr_ls_falcon_boot_ga100.c
+    SOURCES                 += src/acrsec2shared/ampere/acr_dma_ga100.c
+    SOURCES                 += src/acrshared/ampere/acr_wpr_ctrl_ga10x.c
+    SOURCES                 += src/asb/ampere/acr_riscv_ls_ga102.c
+    SOURCES                 += src/acrsec2shared/hopper/acr_register_access_gh100.c
+    SOURCES                 += src/acrsec2shared/hopper/acr_register_access_gh100_only.c
+    SOURCES                 += src/acrsec2shared/turing/acr_mem_utils_tu10x.c
+    LW_INCLUDES             += $(LW_SOURCE)/drivers/common/inc/swref/g00x/g000
+    LW_INCLUDES             += $(LW_SOURCE)/drivers/common/inc/hwref/g00x/g000
+    LW_INCLUDES             += $(LW_SOURCE)/uproc/libs/se/inc/
+    SEC2_PRESENT             = true
+    LWDEC_PRESENT            = true
+    GSP_PRESENT              = false
+    FALCON_ARCH             ?= falcon6
+    LWOS_VERSION             = dev
+    PRI_SOURCE_ISOLATION_PLM = true
+    NEW_WPR_BLOBS            = true
+    ACR_RISCV_LS             = true
+endif
+
+ifdef SEC2CFG_PROFILE
+CFLAGS += -DAHESASC
+endif
+
+ifdef PMUCFG_PROFILE
+CFLAGS += -DACR_UNLOAD
+CFLAGS += -DDMEM_APERT_ENABLED
+CFLAGS += -DLW_MISRA_COMPLIANCE_REQUIRED
+endif
+
+ifeq ($(NEW_WPR_BLOBS), true)
+CFLAGS += -DNEW_WPR_BLOBS
+endif
+
+ifeq ($(SEC2_PRESENT), true)
+    CFLAGS += -DSEC2_PRESENT
+endif
+
+ifeq ($(LWENC_PRESENT), true)
+    CFLAGS += -DLWENC_PRESENT
+endif
+
+ifeq ($(LWDEC_PRESENT), true)
+    CFLAGS += -DLWDEC_PRESENT
+endif
+
+ifeq ($(DPU_PRESENT), true)
+    CFLAGS += -DDPU_PRESENT
+endif
+
+ifeq ($(GSP_PRESENT), true)
+    CFLAGS += -DGSP_PRESENT
+endif
+
+ifeq ($(FBFALCON_PRESENT), true)
+    CFLAGS += -DFBFALCON_PRESENT
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+    CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+    CFLAGS += -DUPROC_RISCV
+endif
+
+ifeq ($(PRI_SOURCE_ISOLATION_PLM), true)
+    CFLAGS += -DPRI_SOURCE_ISOLATION_PLM
+endif
+
+ifeq ($(ACR_RISCV_LS), true)
+    CFLAGS += -DACR_RISCV_LS
+endif
+
+ifeq ($(BOOT_FROM_HS_BUILD), true)
+    CFLAGS += -DBOOT_FROM_HS_BUILD
+endif
+
+ifeq ($(LWDEC1_PRESENT), true)
+    CFLAGS += -DLWDEC1_PRESENT
+endif
+
+ifeq ($(LWDEC_RISCV_PRESENT), true)
+    CFLAGS += -DLWDEC_RISCV_PRESENT
+endif
+
+ifeq ($(LWDEC_RISCV_EB_PRESENT), true)
+    CFLAGS += -DLWDEC_RISCV_EB_PRESENT
+endif
+
+ifeq ($(LWJPG_PRESENT), true)
+    CFLAGS += -DLWJPG_PRESENT
+endif
+
+ifeq ($(OFA_PRESENT), true)
+    CFLAGS += -DOFA_PRESENT
+endif
+
+CFLAGS += -fno-jump-tables
+
+###############################################################################
+# Enable SEC2 & PMU to trigger ACRLIB header generation from their build flow
+# which generates the header files in the _out of ACR from where SEC & PMU
+# can use them, instead of earlier having to manually build entire ACR which
+# copied header files to acr/halgen/ for SEC2 & PMU to pick.
+################################################################################
+
+ifeq ($(LIB_ACR), true)
+ACR_SRC            = $(ACR_CMN_SRC)/src
+PROFILE_NAME_ARRAY = $(subst -, ,$(ACRCFG_PROFILE))
+CHIPNAME           = $(wordlist 2, 2,$(PROFILE_NAME_ARRAY))
+FALCONNAME         = $(wordlist 2, 2,$(subst _, ,$(wordlist 1, 1, \
+                     $(PROFILE_NAME_ARRAY))))
+OUTPUT_DIR         = ./_out/$(FALCONNAME)/$(CHIPNAME)
+ACR_MAKECMDGOALS   = $(MAKECMDGOALS)
+
+ifeq (build, $(MAKECMDGOALS))
+  ACR_MAKECMDGOALS  =  gen_only_header
+endif
+
+SUBMAKE_ACR:
+	$(MAKE) -C $(ACR_SRC) -f make-profile.lwmk    \
+	OUTPUTDIR=$(OUTPUT_DIR)  \
+	ACRCFG_PROFILE=$(ACRCFG_PROFILE) $(ACR_MAKECMDGOALS)
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[acr-cmn-$(LW_PROJ)-$(FALCON_ARCH)]"
+
+TGT = $(OUTPUTDIR)/libAcrCmn.a
+all: $(TGT)
+$(TGT): $(OBJECTS)
+	$(MKDIR) ${dir $@}
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(AR) -r -c $(TGT) $(OBJECTS)
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk

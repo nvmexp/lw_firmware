@@ -1,0 +1,94 @@
+/* _LWRM_COPYRIGHT_BEGIN_
+ *
+ * Copyright 2017-2018 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * _LWRM_COPYRIGHT_END_
+ */
+
+OUTPUT_ARCH("riscv")
+ENTRY(_start)
+
+__STACK_SIZE = 0x1000;
+
+SECTIONS
+{
+        . = 0xFF00000000000000;
+
+        /* Read-only sections */
+        .text : ALIGN(16)
+        {
+                __TEXT_START = .;
+                *(.text.front)
+                *(.text*)
+                *(.gnu.linkonce.t.*)
+
+                __TEXT_END = .;
+        }
+
+        .noload_test0 (NOLOAD) : ALIGN(16)
+        {
+                __NOLOAD0_START = .;
+                *(.noload0)
+                __NOLOAD0_END = .;
+        }
+
+        .rdata : ALIGN(16)
+        {
+                __RODATA_START = .;
+                *(.rdata.front)
+                *(.rdata*)
+                *(.rodata*)
+                *(.gnu.linkonce.r.*)
+
+                __RODATA_END = .;
+        }
+
+        /* Initialized read/write sections */
+        .data : ALIGN(16)
+        {
+                __DATA_START = .;
+                *(.data.front)
+                *(.data*)
+                *(.gnu.linkonce.d.*)
+
+                __DATA_END = .;
+        }
+
+        .noload_test1 (NOLOAD) : ALIGN(16)
+        {
+                __NOLOAD1_START = .;
+                *(.noload1)
+                __NOLOAD1_END = .;
+        }
+
+        /* Uninitialized read/write sections */
+        .bss : ALIGN(16)
+        {
+                __BSS_START = .;
+                *(.bss.front)
+                *(.bss*)
+                *(.sbss*)
+                *(.gnu.linkonce.b.*)
+                *(COMMON)
+
+                __BSS_END = .;
+        }
+
+        .stack : ALIGN(16)
+        {
+                stackFront = .;
+                __STACK_START = .;
+                . += __STACK_SIZE;
+                __STACK_END = .;
+        }
+
+        .noload_test2 (NOLOAD) : ALIGN(16)
+        {
+                __NOLOAD2_START = .;
+                *(.noload2)
+                __NOLOAD2_END = .;
+        }
+}

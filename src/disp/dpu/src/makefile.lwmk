@@ -1,0 +1,93 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2011-2017 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+#
+# Top-level DPU makefile. This makefile is responsible for building the DPU
+# binary including projects it depends on (RTOS, bootloader, etc ...) across
+# all DPU config-profiles.
+#
+
+all: build
+
+###############################################################################
+# Use the flag to serialize per-profile builds (this does not prevent parallel
+# building within each profile). The flag decreases the speed a bit but avoid
+# the mess output of inter-profiles building. When an error is found, it makes
+# the build stop immediately.
+###############################################################################
+
+SERIALIZE_PROFILES ?= "true"
+
+ifneq ("$(SERIALIZE_PROFILES)","false")
+  .NOTPARALLEL:
+endif
+
+###############################################################################
+# Set DPUCFG_PROFILES to the list of DPUCFG profiles to build. The value is set
+# in one of three ways depending on defaults and user-overrides (if any).
+#
+# 1. Sourcing dpu-profiles.mk to get the full list of profiles (default)
+# 2. If DPUCFG_PROFILE is set on the command-line or as an elwvar, build that
+#    profile only.
+#
+# Setting DPUCFG_PROFILES in the shell or on the command-line will override the
+# profile(s) returned by the first two options above. DPUCFG_PROFILE trumps
+# everything.
+###############################################################################
+
+DPUCFG_PROFILES ?=
+
+ifndef DPUCFG_PROFILE
+  ifeq ("$(strip $(DPUCFG_PROFILES))", "")
+    include $(LW_SOURCE)/uproc/disp/dpu/config/dpu-profiles.mk
+    override DPUCFG_PROFILES = $(DPUCFG_PROFILES_ALL)
+  endif
+else
+  DPUCFG_PROFILES = $(DPUCFG_PROFILE)
+endif
+
+###############################################################################
+# Create submake build/clean/clobber targets for profiles being built.
+###############################################################################
+
+PROFILES.build   = $(DPUCFG_PROFILES:=.build)
+PROFILES.clean   = $(DPUCFG_PROFILES:=.clean)
+PROFILES.clobber = $(DPUCFG_PROFILES:=.clobber)
+PROFILES.ls_sign = $(DPUCFG_PROFILES:=.ls_sign)
+PROFILES.check_guardword = $(DPUCFG_PROFILES:=.check_guardword)
+###############################################################################
+# Targets/Rules
+###############################################################################
+
+.PHONY: PROFILES.build   build
+.PHONY: PROFILES.clean   clean
+.PHONY: PROFILES.clobber clobber
+.PHONY: PROFILES.ls_sign ls_sign
+.PHONY: PROFILES.check_guardword check_guardword 
+build::   $(PROFILES.build)
+clean::   $(PROFILES.clean)
+clobber:: $(PROFILES.clobber)
+ls_sign:: $(PROFILES.ls_sign)
+check_guardword:: $(PROFILES.check_guardword)
+$(PROFILES.build):
+	$(MAKE) -f make-profile.lwmk DPUCFG_PROFILE=$(basename $@) build
+
+$(PROFILES.ls_sign):
+	$(MAKE) -f make-profile.lwmk DPUCFG_PROFILE=$(basename $@) ls_sign
+
+$(PROFILES.check_guardword):
+	$(MAKE) -f make-profile.lwmk DPUCFG_PROFILE=$(basename $@) check_guardword
+
+$(PROFILES.clean):
+	$(MAKE) -f make-profile.lwmk DPUCFG_PROFILE=$(basename $@) clean
+
+$(PROFILES.clobber):
+	$(MAKE) -f make-profile.lwmk DPUCFG_PROFILE=$(basename $@) clobber

@@ -1,0 +1,40 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2014 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Wrapper for syncctx_ls_sign.pl so that lwmake targets can call this script
+# with buffered output disabled. Otherwise output from a single recipe is
+# buffered and the user may not see any output from their make for a long time
+###############################################################################
+
+LW_TARGET_OS ?= falcon
+LS_FALCON    ?=
+SIGN_LOCAL   ?= 0
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+# Tool used for resolving LS signature requirements for FECS/GPCCS
+ifeq ("$(LS_FALCON)","true")
+    ifeq ("$(ENGINE_NAME)","gr")
+        GEN_LS_SIG      ?= $(LW_SOURCE)/drivers/resman/kernel/inc/ctxsw_ucode/tools/syncctx_ls_sign.pl
+        GEN_LS_SIG_ARGS ?= --bl $(IMG_H)
+    endif
+
+    ifneq ("$(SIGN_LOCAL)","0")
+        GEN_LS_SIG_ARGS += --localSig
+    endif
+endif
+
+sign:
+	$(PERL) $(GEN_LS_SIG) $(GEN_LS_SIG_ARGS) --p4 $(P4)
+	$(ECHO) "*******************************************************"
+	$(ECHO) "* LS signatures updated, remember to check in with BL *"
+	$(ECHO) "*******************************************************"

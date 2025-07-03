@@ -1,0 +1,1192 @@
+.headerflags	@"EF_LWDA_TEXMODE_UNIFIED EF_LWDA_64BIT_ADDRESS EF_LWDA_SM60 EF_LWDA_PTX_SM(EF_LWDA_SM60) "
+
+	.section       .text.maxwell_sgemm_128x128_voltageSpike472_0_nt,"ax",@progbits
+	.sectionflags	@"SHF_BARRIERS=1"
+	.align 32
+	.global        maxwell_sgemm_128x128_voltageSpike472_0_nt
+	.type          maxwell_sgemm_128x128_voltageSpike472_0_nt,@function
+	.size          maxwell_sgemm_128x128_voltageSpike472_0_nt,(maxwell_sgemm_128x128_voltageSpike472_0_nt_END - maxwell_sgemm_128x128_voltageSpike472_0_nt)
+	.other         maxwell_sgemm_128x128_voltageSpike472_0_nt,@"STO_LWDA_ENTRY STV_DEFAULT"
+maxwell_sgemm_128x128_voltageSpike472_0_nt:
+.text.maxwell_sgemm_128x128_voltageSpike472_0_nt:
+      S2R R65, SR_Tid.X &wr=0 ?W1;                           // S2R tid, SR_Tid.X
+      S2R R66, SR_CTAid.X &wr=0 ?W1;                         // S2R ctaid, SR_CTAid.X
+      MOV R68, c[0][0x1a4] ?W1;                              // MOV counterK, CountK
+      MOV R69, c[0][0x1c8] ?W1;                              // MOV cta_delay, AlphaVal
+      MOV R70, c[0][0x1cc] ?W1;                              // MOV cta_mask, BetaVal
+      MOV R72, c[0][0x150] ?W1;                              // MOV baseAddr, BaseC
+      MOV R73, c[0][0x154] ?W1;                              // MOV baseAddr_HI, BaseC_HI
+      MOV R71, c[0][0x1b4] ?W1;                              // MOV mode, Mode
+      MOV32I R0, 0x55555555 ?W1;                             // MOV32I R0, 0x55555555
+      MOV32I R1, 0x55555555 ?W1;                             // MOV32I R1, 0x55555555
+      MOV32I R2, 0x55555555 ?W1;                             // MOV32I R2, 0x55555555
+      MOV32I R3, 0x55555555 ?W1;                             // MOV32I R3, 0x55555555
+      MOV32I R4, 0xAAAAAAAA ?W1;                             // MOV32I R4, 0xAAAAAAAA
+      MOV32I R5, 0xAAAAAAAA ?W1;                             // MOV32I R5, 0xAAAAAAAA
+      MOV32I R6, 0xAAAAAAAA ?W1;                             // MOV32I R6, 0xAAAAAAAA
+      MOV32I R7, 0xAAAAAAAA ?W1;                             // MOV32I R7, 0xAAAAAAAA
+      MOV32I R8, 0x55555555 ?W1;                             // MOV32I R8, 0x55555555
+      MOV32I R9, 0x55555555 ?W1;                             // MOV32I R9, 0x55555555
+      MOV32I R10, 0x55555555 ?W1;                            // MOV32I R10, 0x55555555
+      MOV32I R11, 0x55555555 ?W1;                            // MOV32I R11, 0x55555555
+      MOV32I R12, 0xAAAAAAAA ?W1;                            // MOV32I R12, 0xAAAAAAAA
+      MOV32I R13, 0xAAAAAAAA ?W1;                            // MOV32I R13, 0xAAAAAAAA
+      MOV32I R14, 0xAAAAAAAA ?W1;                            // MOV32I R14, 0xAAAAAAAA
+      MOV32I R15, 0xAAAAAAAA ?W1;                            // MOV32I R15, 0xAAAAAAAA
+      MOV32I R16, 0x55555555 ?W1;                            // MOV32I R16, 0x55555555
+      MOV32I R17, 0x55555555 ?W1;                            // MOV32I R17, 0x55555555
+      MOV32I R18, 0x55555555 ?W1;                            // MOV32I R18, 0x55555555
+      MOV32I R19, 0x55555555 ?W1;                            // MOV32I R19, 0x55555555
+      MOV32I R20, 0xAAAAAAAA ?W1;                            // MOV32I R20, 0xAAAAAAAA
+      MOV32I R21, 0xAAAAAAAA ?W1;                            // MOV32I R21, 0xAAAAAAAA
+      MOV32I R22, 0xAAAAAAAA ?W1;                            // MOV32I R22, 0xAAAAAAAA
+      MOV32I R23, 0xAAAAAAAA ?W1;                            // MOV32I R23, 0xAAAAAAAA
+      MOV32I R24, 0x55555555 ?W1;                            // MOV32I R24, 0x55555555
+      MOV32I R25, 0x55555555 ?W1;                            // MOV32I R25, 0x55555555
+      MOV32I R26, 0x55555555 ?W1;                            // MOV32I R26, 0x55555555
+      MOV32I R27, 0x55555555 ?W1;                            // MOV32I R27, 0x55555555
+      MOV32I R28, 0xAAAAAAAA ?W1;                            // MOV32I R28, 0xAAAAAAAA
+      MOV32I R29, 0xAAAAAAAA ?W1;                            // MOV32I R29, 0xAAAAAAAA
+      MOV32I R30, 0xAAAAAAAA ?W1;                            // MOV32I R30, 0xAAAAAAAA
+      MOV32I R31, 0xAAAAAAAA ?W1;                            // MOV32I R31, 0xAAAAAAAA
+      MOV32I R32, 0x55555555 ?W1;                            // MOV32I R32, 0x55555555
+      MOV32I R33, 0x55555555 ?W1;                            // MOV32I R33, 0x55555555
+      MOV32I R34, 0x55555555 ?W1;                            // MOV32I R34, 0x55555555
+      MOV32I R35, 0x55555555 ?W1;                            // MOV32I R35, 0x55555555
+      MOV32I R36, 0xAAAAAAAA ?W1;                            // MOV32I R36, 0xAAAAAAAA
+      MOV32I R37, 0xAAAAAAAA ?W1;                            // MOV32I R37, 0xAAAAAAAA
+      MOV32I R38, 0xAAAAAAAA ?W1;                            // MOV32I R38, 0xAAAAAAAA
+      MOV32I R39, 0xAAAAAAAA ?W1;                            // MOV32I R39, 0xAAAAAAAA
+      MOV32I R40, 0x55555555 ?W1;                            // MOV32I R40, 0x55555555
+      MOV32I R41, 0x55555555 ?W1;                            // MOV32I R41, 0x55555555
+      MOV32I R42, 0x55555555 ?W1;                            // MOV32I R42, 0x55555555
+      MOV32I R43, 0x55555555 ?W1;                            // MOV32I R43, 0x55555555
+      MOV32I R44, 0xAAAAAAAA ?W1;                            // MOV32I R44, 0xAAAAAAAA
+      MOV32I R45, 0xAAAAAAAA ?W1;                            // MOV32I R45, 0xAAAAAAAA
+      MOV32I R46, 0xAAAAAAAA ?W1;                            // MOV32I R46, 0xAAAAAAAA
+      MOV32I R47, 0xAAAAAAAA ?W1;                            // MOV32I R47, 0xAAAAAAAA
+      MOV32I R48, 0x55555555 ?W1;                            // MOV32I R48, 0x55555555
+      MOV32I R49, 0x55555555 ?W1;                            // MOV32I R49, 0x55555555
+      MOV32I R50, 0x55555555 ?W1;                            // MOV32I R50, 0x55555555
+      MOV32I R51, 0x55555555 ?W1;                            // MOV32I R51, 0x55555555
+      MOV32I R52, 0xAAAAAAAA ?W1;                            // MOV32I R52, 0xAAAAAAAA
+      MOV32I R53, 0xAAAAAAAA ?W1;                            // MOV32I R53, 0xAAAAAAAA
+      MOV32I R54, 0xAAAAAAAA ?W1;                            // MOV32I R54, 0xAAAAAAAA
+      MOV32I R55, 0xAAAAAAAA ?W1;                            // MOV32I R55, 0xAAAAAAAA
+      MOV32I R56, 0x55555555 ?W1;                            // MOV32I R56, 0x55555555
+      MOV32I R57, 0x55555555 ?W1;                            // MOV32I R57, 0x55555555
+      MOV32I R58, 0x55555555 ?W1;                            // MOV32I R58, 0x55555555
+      MOV32I R59, 0x55555555 ?W1;                            // MOV32I R59, 0x55555555
+      MOV32I R60, 0xAAAAAAAA ?W1;                            // MOV32I R60, 0xAAAAAAAA
+      MOV32I R61, 0xAAAAAAAA ?W1;                            // MOV32I R61, 0xAAAAAAAA
+      MOV32I R62, 0xAAAAAAAA ?W1;                            // MOV32I R62, 0xAAAAAAAA
+      MOV32I R63, 0xAAAAAAAA ?W1;                            // MOV32I R63, 0xAAAAAAAA
+      ISETP.EQ P6, R71, 0x1 ?W1;                             // ISETP.EQ P6, mode, 0x1
+      LEA  R76, R65, RZ, 2 &req=0 ?W6G;                      // LEA stsAddr, tid, RZ, 2
+      LEA  R80, R66, R76, 10 ?W6G;                           // LEA ldgAddr, ctaid, stsAddr, 10
+      IADD   R80.CC, R72,   R80 ?W6G;                        // IADD ldgAddr.CC, baseAddr, ldgAddr
+      IADD.X R81, R73, RZ ?W1;                               // IADD.X ldgAddr_HI, baseAddr_HI, RZ
+      ISETP.T P0, RZ, RZ ?W1;                                // ISETP.T P0, RZ, RZ
+      STS.32 [R76], RZ ?W1;                                  // STS.32 [stsAddr], RZ
+      MOV32I R64, 0x1 ?W6G;                                  // MOV32I temp, 0x1
+      SHL R64, R64, R66 ?W6G;                                // SHL temp, temp, ctaid
+      LOP.AND R64, R64, R70 ?W6G;                            // LOP.AND temp, temp, cta_mask
+      ISETP.EQ P1, R64, RZ ?W13G;                            // ISETP.EQ P1, temp, RZ
+(P6)  BRA.U maxwell_sgemm_128x128_voltageSpike472_0_nt_LOOP ?W5G; // @P6 BRA.U maxwell_sgemm_128x128_voltageSpike472_0_nt_LOOP
+(P1)  BRA.U maxwell_sgemm_128x128_voltageSpike472_0_nt_LOOP ?W5G; // @P1 BRA.U maxwell_sgemm_128x128_voltageSpike472_0_nt_LOOP
+      MOV R67, RZ ?W6G;                                      // MOV clock, RZ
+maxwell_sgemm_128x128_voltageSpike472_0_nt_CTA_DELAY:
+      ISETP.LT P2, R67, R69 ?W12G;                           // ISETP.LT P2, clock, cta_delay
+      IADD32I R67, R67, 0x20 ?W1;                            // IADD32I clock, clock, 0x20
+(P2)  BRA.U maxwell_sgemm_128x128_voltageSpike472_0_nt_CTA_DELAY ?W5G; // @P2 BRA.U maxwell_sgemm_128x128_voltageSpike472_0_nt_CTA_DELAY
+maxwell_sgemm_128x128_voltageSpike472_0_nt_LOOP:
+      IADD32I R68, R68, -1 ?W1;                              // IADD32I counterK, counterK, -1
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      ISETP.GE P0, R68, 0 ?W1;                               // ISETP.GE P0, counterK, 0
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+      LOP3.OR R0, R1, R2, R3 ?PAIR;                          // LOP3.OR R0, R1, R2, R3
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R4, R4, R6, R7 ?W1;                            // LOP3.OR R4, R4, R6, R7
+      LOP3.OR R8, R9, R10, R11 ?PAIR;                        // LOP3.OR R8, R9, R10, R11
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R12, R12, R14, R15 ?W1;                        // LOP3.OR R12, R12, R14, R15
+      LOP3.OR R16, R17, R18, R19 ?PAIR;                      // LOP3.OR R16, R17, R18, R19
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R20, R20, R22, R23 ?W1;                        // LOP3.OR R20, R20, R22, R23
+      LOP3.OR R24, R25, R26, R27 ?PAIR;                      // LOP3.OR R24, R25, R26, R27
+      ATOMS.ADD.U32 R33, [R76 + 0], R37 ?W1;                 // ATOMS.ADD.U32 R33, [stsAddr + 0], R37
+      LOP3.OR R28, R28, R30, R31 ?W1;                        // LOP3.OR R28, R28, R30, R31
+(P0)  BRA.U maxwell_sgemm_128x128_voltageSpike472_0_nt_LOOP ?W5G; // @P0 BRA.U maxwell_sgemm_128x128_voltageSpike472_0_nt_LOOP
+maxwell_sgemm_128x128_voltageSpike472_0_nt_END_OF_LOOP:
+(!P6) RET ?W5G;                                              // @!P6 RET
+      ISETP.F P6, RZ, RZ ?W1;                                // ISETP.F P6, RZ, RZ
+      MOV R68, R69 ?W1;                                      // MOV counterK, cta_delay
+(P1)  BRA.U maxwell_sgemm_128x128_voltageSpike472_0_nt_LOOP ?W5G; // @P1 BRA.U maxwell_sgemm_128x128_voltageSpike472_0_nt_LOOP
+      RET ?W5G;                                              // RET
+maxwell_sgemm_128x128_voltageSpike472_0_nt_END:
+	.sectioninfo	@"SHI_REGISTERS=82"
+//--------------------- .lw.info.maxwell_sgemm_128x128_voltageSpike472_0_nt
+
+	.section	.lw.info.maxwell_sgemm_128x128_voltageSpike472_0_nt,"",@SHT_LWDA_INFO
+	// ---- lwinfo : EIATTR_PARAM_CBANK
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_1:
+	.byte  0x04, 0xa
+	.short  (maxwell_sgemm_128x128_voltageSpike472_0_nt_3 - maxwell_sgemm_128x128_voltageSpike472_0_nt_2)
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_2:
+	.word	index@(.lw.constant0.maxwell_sgemm_128x128_voltageSpike472_0_nt)
+	.short  0x0140
+	.short  0x94
+
+	// ---- lwinfo : EIATTR_CBANK_PARAM_SIZE
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_3:
+	.byte	0x03, 0x19
+	.short  0x94
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_4:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_6 - maxwell_sgemm_128x128_voltageSpike472_0_nt_5)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_5:
+	.word	0x00000000
+	.short  0x17
+	.short  0x90
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_6:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_8 - maxwell_sgemm_128x128_voltageSpike472_0_nt_7)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_7:
+	.word	0x00000000
+	.short  0x16
+	.short  0x8c
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_8:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_10 - maxwell_sgemm_128x128_voltageSpike472_0_nt_9)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_9:
+	.word	0x00000000
+	.short  0x15
+	.short  0x88
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_10:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_12 - maxwell_sgemm_128x128_voltageSpike472_0_nt_11)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_11:
+	.word	0x00000000
+	.short  0x14
+	.short  0x80
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_12:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_14 - maxwell_sgemm_128x128_voltageSpike472_0_nt_13)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_13:
+	.word	0x00000000
+	.short  0x13
+	.short  0x78
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_14:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_16 - maxwell_sgemm_128x128_voltageSpike472_0_nt_15)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_15:
+	.word	0x00000000
+	.short  0x12
+	.short  0x74
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_16:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_18 - maxwell_sgemm_128x128_voltageSpike472_0_nt_17)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_17:
+	.word	0x00000000
+	.short  0x11
+	.short  0x70
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_18:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_20 - maxwell_sgemm_128x128_voltageSpike472_0_nt_19)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_19:
+	.word	0x00000000
+	.short  0x10
+	.short  0x68
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_20:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_22 - maxwell_sgemm_128x128_voltageSpike472_0_nt_21)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_21:
+	.word	0x00000000
+	.short  0xf
+	.short  0x64
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_22:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_24 - maxwell_sgemm_128x128_voltageSpike472_0_nt_23)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_23:
+	.word	0x00000000
+	.short  0xe
+	.short  0x60
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_24:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_26 - maxwell_sgemm_128x128_voltageSpike472_0_nt_25)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_25:
+	.word	0x00000000
+	.short  0xd
+	.short  0x5c
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_26:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_28 - maxwell_sgemm_128x128_voltageSpike472_0_nt_27)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_27:
+	.word	0x00000000
+	.short  0xc
+	.short  0x58
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_28:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_30 - maxwell_sgemm_128x128_voltageSpike472_0_nt_29)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_29:
+	.word	0x00000000
+	.short  0xb
+	.short  0x54
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_30:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_32 - maxwell_sgemm_128x128_voltageSpike472_0_nt_31)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_31:
+	.word	0x00000000
+	.short  0xa
+	.short  0x50
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_32:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_34 - maxwell_sgemm_128x128_voltageSpike472_0_nt_33)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_33:
+	.word	0x00000000
+	.short  0x9
+	.short  0x48
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_34:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_36 - maxwell_sgemm_128x128_voltageSpike472_0_nt_35)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_35:
+	.word	0x00000000
+	.short  0x8
+	.short  0x40
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_36:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_38 - maxwell_sgemm_128x128_voltageSpike472_0_nt_37)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_37:
+	.word	0x00000000
+	.short  0x7
+	.short  0x38
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_38:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_40 - maxwell_sgemm_128x128_voltageSpike472_0_nt_39)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_39:
+	.word	0x00000000
+	.short  0x6
+	.short  0x30
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_40:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_42 - maxwell_sgemm_128x128_voltageSpike472_0_nt_41)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_41:
+	.word	0x00000000
+	.short  0x5
+	.short  0x28
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_42:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_44 - maxwell_sgemm_128x128_voltageSpike472_0_nt_43)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_43:
+	.word	0x00000000
+	.short  0x4
+	.short  0x20
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_44:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_46 - maxwell_sgemm_128x128_voltageSpike472_0_nt_45)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_45:
+	.word	0x00000000
+	.short  0x3
+	.short  0x18
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_46:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_48 - maxwell_sgemm_128x128_voltageSpike472_0_nt_47)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_47:
+	.word	0x00000000
+	.short  0x2
+	.short  0x10
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_48:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_50 - maxwell_sgemm_128x128_voltageSpike472_0_nt_49)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_49:
+	.word	0x00000000
+	.short  0x1
+	.short  0x8
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_sgemm_128x128_voltageSpike472_0_nt_50:
+	.byte  0x04, 0x17
+	.short (maxwell_sgemm_128x128_voltageSpike472_0_nt_52 - maxwell_sgemm_128x128_voltageSpike472_0_nt_51)
+maxwell_sgemm_128x128_voltageSpike472_0_nt_51:
+	.word	0x00000000
+	.short  0x0
+	.short  0x0
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+maxwell_sgemm_128x128_voltageSpike472_0_nt_52:
+//--------------------- .lw.shared.maxwell_sgemm_128x128_voltageSpike472_0_nt
+
+	.section	.lw.shared.maxwell_sgemm_128x128_voltageSpike472_0_nt,"aw",@nobits
+	.align 4
+	.zero 16380
+	.word shmem_reloc_maxwell_sgemm_128x128_voltageSpike472_0_nt
+//--------------------- .lw.callgraph             --------------------------
+	.section	.lw.callgraph,"",@"SHT_CALLGRAPH"
+	.sectionentsize	8
+	.align 4
+	.byte	0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xfe, 0xff, 0xff, 0xff
+	.byte	0x00, 0x00, 0x00, 0x00, 0xfd, 0xff, 0xff, 0xff
+
+// ------------------- lwinfo        --------
+	.section	.lw.info,"",@SHT_LWDA_INFO
+
+	// ---- lwinfo : EIATTR_MIN_STACK_SIZE
+	.align 4
+.maxwell_sgemm_128x128_voltageSpike472_0_nt_L1:
+	.byte  0x04, 0x12
+	.short  (.maxwell_sgemm_128x128_voltageSpike472_0_nt_L3 - .maxwell_sgemm_128x128_voltageSpike472_0_nt_L2)
+	.align 4
+.maxwell_sgemm_128x128_voltageSpike472_0_nt_L2:
+	.word	index@(maxwell_sgemm_128x128_voltageSpike472_0_nt)
+	.word  0x0
+
+	// ---- lwinfo : EIATTR_FRAME_SIZE
+	.align 4
+.maxwell_sgemm_128x128_voltageSpike472_0_nt_L3:
+	.byte  0x04, 0x11
+	.short  (.maxwell_sgemm_128x128_voltageSpike472_0_nt_L5 - .maxwell_sgemm_128x128_voltageSpike472_0_nt_L4)
+	.align 4
+.maxwell_sgemm_128x128_voltageSpike472_0_nt_L4:
+	.word	index@(maxwell_sgemm_128x128_voltageSpike472_0_nt)
+	.word  0x0
+
+.maxwell_sgemm_128x128_voltageSpike472_0_nt_L5:
+
+//--------------------- .lw.constant0.maxwell_sgemm_128x128_voltageSpike472_0_nt
+	.section	.lw.constant0.maxwell_sgemm_128x128_voltageSpike472_0_nt,"a",@progbits
+	.align 4
+.maxwell_sgemm_128x128_voltageSpike472_0_nt_L6:
+	.zero     468
+
+
+// const ShaderParams maxwell_sgemm_128x128_voltageSpike472_0_nt_params = {
+//     /* version           */ 1,
+//     /* name              */ "maxwell_sgemm_128x128_voltageSpike472_0_nt",
+//     /* kernel            */ (void*)maxwell_sgemm_128x128_voltageSpike472_0_nt,
+//     /* chipFamily        */ PASCAL,
+//     /* gemmType          */ SGEMM,
+//     /* typeA             */ R_32F,
+//     /* typeB             */ R_32F,
+//     /* typeC             */ R_32F,
+//     /* typeEpilog        */ R_32F,
+//     /* shapeC            */ RECT,
+//     /* layoutA           */ N,
+//     /* layoutB           */ T,
+//     /* log2ElementsPerLdgA */ 0,
+//     /* log2ElementsPerLdgB */ 0,
+//     /* reLuAndBias       */ 0,
+//     /* isReleaseKernel   */ 1,
+//     /* numRegisters      */ 82,
+//     /* usedRegisters        77, */
+//     /* sharedMemSize     */ 16384,
+//     /* elementRowsPerCta */ 128,
+//     /* elementColsperCta */ 128,
+//     /* threadsPerCta     */ 256,
+//     /* raggedMn          */ true,
+//     /* warpStrideK       */ 4,
+//     /* shiftFastA        */ 5,
+//     /* multiplierSlowA   */ 32,
+//     /* offsetSlowA       */ 0,
+//     /* shiftFastB        */ 5,
+//     /* multiplierSlowB   */ 32,
+//     /* offsetSlowB       */ 0,
+//     /* kBlock            */ 8,
+//     /* lwDnnEdges        */ LWDNN_NONE,
+//     /* lwDnnLayout       */ NCHW,
+//     /* lwDnnStridedB     */ false,
+//     /* lwDnnSplitK       */ false,
+//     /* lwDnnDgrad        */ false,
+//     /* lwDnnWgrad        */ false,
+//     /* sliceRows         */ 1,
+//     /* sliceCols         */ 1
+// };

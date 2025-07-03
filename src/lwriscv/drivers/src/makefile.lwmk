@@ -1,0 +1,84 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2019 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+#
+# Top-level Drivers makefile. This makefile is responsible for building the Drivers
+# binary.
+#
+
+all: build
+
+###############################################################################
+# Use the flag to serialize per-profile builds (this does not prevent parallel
+# building within each profile). The flag decreases the speed a bit but avoid
+# the mess output of inter-profiles building. When an error is found, it makes
+# the build stop immediately.
+###############################################################################
+
+SERIALIZE_PROFILES ?= "true"
+
+ifneq ("$(SERIALIZE_PROFILES)","false")
+  .NOTPARALLEL:
+endif
+
+###############################################################################
+# Set DRIVERSCFG_PROFILES to the list of DRIVERSCFG profiles to build. The value is set
+# in one of three ways depending on defaults and user-overrides (if any).
+#
+# 1. Sourcing drivers-profiles.mk to get the full list of profiles (default)
+# 2. If DRIVERSCFG_PROFILE is set on the command-line or as an elwvar, build that
+#    profile only.
+#
+# Setting DRIVERSCFG_PROFILES in the shell or on the command-line will override the
+# profile(s) returned by the first two options above. DRIVERSCFG_PROFILE trumps
+# everything.
+###############################################################################
+
+DRIVERSCFG_PROFILES ?=
+
+ifndef DRIVERSCFG_PROFILE
+  ifeq ("$(strip $(DRIVERSCFG_PROFILES))", "")
+    include $(LW_SOURCE)/uproc/lwriscv/drivers/config/drivers-profiles.mk
+    override DRIVERSCFG_PROFILES = $(DRIVERSCFG_PROFILES_ALL)
+  endif
+else
+  DRIVERSCFG_PROFILES = $(DRIVERSCFG_PROFILE)
+endif
+
+###############################################################################
+# Create submake build/clean/clobber targets for profiles being built.
+###############################################################################
+
+PROFILES.build   = $(DRIVERSCFG_PROFILES:=.build)
+PROFILES.clean   = $(DRIVERSCFG_PROFILES:=.clean)
+PROFILES.clobber = $(DRIVERSCFG_PROFILES:=.clobber)
+
+###############################################################################
+# Targets/Rules
+###############################################################################
+
+.PHONY: PROFILES.build   build
+.PHONY: PROFILES.clean   clean
+.PHONY: PROFILES.clobber clobber
+
+build::   $(PROFILES.build)
+clean::   $(PROFILES.clean)
+clobber:: $(PROFILES.clobber)
+
+$(PROFILES.build):
+	$(MAKE) -f make-profile.lwmk DRIVERSCFG_PROFILE=$(basename $@) build
+
+$(PROFILES.clean):
+	$(MAKE) -f make-profile.lwmk DRIVERSCFG_PROFILE=$(basename $@) clean
+
+$(PROFILES.clobber):
+	$(MAKE) -f make-profile.lwmk DRIVERSCFG_PROFILE=$(basename $@) clobber
+

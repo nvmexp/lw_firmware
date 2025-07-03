@@ -1,0 +1,151 @@
+# -*- mode: perl; -*-
+
+# PERF_CF Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $perfCfHal = [
+
+    DEFAULTS => [
+        FLAGS => ':DIRECT_HAL_CALLS',
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        MEM_TUNE_CONTROLLER_PMU_EXCEPTION_HANDLER => [
+            DESCRIPTION    => "Memory Tuning Controller interface to take the necessary actions on PMU exception events.",
+            INTERFACE_TAG  => "perfCfMemTuneControllerPmuExceptionHandler",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GA10X         => [ GA10X, -GA100, AD10X, ],
+            _STUB          => [ ALL, -GA10X, -AD10X, GA100, ],
+        ],
+
+        MEM_TUNE_WATCHDOG_TIMER_VALIDATE => [
+            DESCRIPTION    => "Memory Tuning Controller interface to validate the watchdog timer.",
+            INTERFACE_TAG  => "perfCfMemTuneWatchdogTimerValidate",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_kernelCode", "__FUNC__")',
+
+            LIKE_INTERFACE => MEM_TUNE_CONTROLLER_PMU_EXCEPTION_HANDLER,
+        ],
+
+        MEM_TUNE_CONTROLLER_PARSE_VBIOS_POR_MCLK => [
+            DESCRIPTION    => "Memory Tuning Controller interface to parse and store POR Mclk.",
+            INTERFACE_TAG  => "perfCfControllerMemTuneParseVbiosPorMclk",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            STUB_RETURNS   => FLCN_OK,
+
+            _GA10X         => [ GA10X, -GA100, AD10X, ],
+            _STUB          => [ ALL, -GA10X, -AD10X, GA100, ],
+        ],        
+
+        MEM_TUNE_CONTROLLER_STATIC_ALWAYS_ON_OVERRIDE_ENABLED => [
+            DESCRIPTION    => "Memory Tuning Controller interface to check whether static always-on override is enabled.",
+            INTERFACE_TAG   => "perfCfMemTuneControllerStaticAlwaysOnOverrideEnabled",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            STUB_RETURNS   => LW_FALSE,
+
+            _GA10X         => [ GA10X, -GA100, AD10X, ],
+            _STUB          => [ ALL, -GA10X, -AD10X, GA100, ],
+        ],
+
+        POLICYS_PATCH => [
+            DESCRIPTION    => "Patch Perf Cf Policys",
+            INTERFACE_TAG   => "perfCfPolicysPatch",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfCf", "__FUNC__")',
+            STUB_RETURNS   => FLCN_OK,
+
+            _GA10X         => [ GA10X, -GA100, AD10X, ],
+            _STUB          => [ ALL, -GA10X, -AD10X, GA100, ],
+        ],
+
+        POLICYS_SANITY_CHECK => [
+            DESCRIPTION    => "Sanity check Perf Cf Policys",
+            INTERFACE_TAG   => "perfCfPolicysSanityCheck",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfCf", "__FUNC__")',
+            STUB_RETURNS   => FLCN_OK,
+
+            _GA10X         => [ GA10X, -GA100, AD10X, ],
+            _STUB          => [ ALL, -GA10X, -AD10X, GA100, ],
+        ],
+
+        CONTROLLERS_SANITY_CHECK => [
+            DESCRIPTION    => "Sanity check Perf Cf Controllers",
+            INTERFACE_TAG   => "perfCfControllersSanityCheck",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfCf", "__FUNC__")',
+            STUB_RETURNS   => FLCN_OK,
+
+            _GA10X         => [ GA10X, -GA100, AD10X, ],
+            _STUB          => [ ALL, -GA10X, -AD10X, GA100, ],
+        ],
+
+        TOPOLOGYS_SANITY_CHECK => [
+            DESCRIPTION    => "Sanity check Perf Cf Topologies",
+            INTERFACE_TAG   => "perfCfTopologysSanityCheck",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfCf", "__FUNC__")',
+            STUB_RETURNS   => FLCN_OK,
+
+            _GA10X         => [ GA10X, -GA100, AD10X, ],
+            _STUB          => [ ALL, -GA10X, -AD10X, GA100, ],
+        ],
+
+        PM_SENSORS_SANITY_CHECK => [
+            DESCRIPTION    => "Sanity check Perf Cf PM Sensors",
+            INTERFACE_TAG   => "perfCfPmSensorsSanityCheck",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfCf", "__FUNC__")',
+            STUB_RETURNS   => FLCN_OK,
+
+            _GA10X         => [ GA10X, -GA100, AD10X, ],
+            _STUB          => [ ALL, -GA10X, -AD10X, GA100, ],
+        ],
+
+        CONTROLLER_MEM_TUNE_IS_ACTIVE => [
+            DESCRIPTION    => "Public interface to check whether the memory tuning controller is active via fuse bit.",
+            INTERFACE_TAG   => "perfCfControllerMemTuneIsActive",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfCf", "__FUNC__")',
+            STUB_RETURNS   => FLCN_OK,
+
+            _GA10X         => [ GA10X, -GA100, AD10X, ],
+            _STUB          => [ ALL, -GA10X, -AD10X, GA100, ],
+        ],
+
+        CONTROLLER_MEM_TUNE_MONITOR_SANITY_CHECK => [
+            DESCRIPTION    => "Sanity check run by memory tuning controller monitor.",
+            INTERFACE_TAG   => "perfCfControllerMemTuneMonitorSanityCheck",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 tFAWLwrr, LwU8 tFAWPrev, CLK_CNTR_AVG_FREQ_START *pClkCntrSample",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfCf", "__FUNC__")',
+            STUB_RETURNS   => FLCN_OK,
+
+            _GA10X         => [ GA10X, -GA100, AD10X, ],
+            _STUB          => [ ALL, -GA10X, -AD10X, GA100, ],
+        ],
+
+    ], # HAL_INTERFACES
+
+];
+
+# return a reference to the Hal definition
+return $perfCfHal;

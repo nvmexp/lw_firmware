@@ -1,0 +1,133 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2015-2021 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "lwrowhammer.h"
+
+using namespace LwdaRowHammerTest;
+
+#define READS_PER_THREAD 2
+
+// Colwerts pointer to a host-compatible value
+__device__ device_ptr MakeHostPtr(void* ptr)
+{
+    return reinterpret_cast<size_t>(ptr);
+}
+
+__device__ unsigned GetNumThreads()
+{
+    return blockDim.x * gridDim.x;
+}
+
+extern "C" __global__ void InitErrors(device_ptr ptr, UINT32 maxErrors)
+{
+    if (threadIdx.x == 0 && blockIdx.x == 0)
+    {
+        Errors& errors = *GetPtr<Errors*>(ptr);
+        errors.allSum            = 0;
+        errors.numErrors         = 0;
+        errors.badBits           = 0;
+        errors.numReportedErrors = 0;
+        errors.maxReportedErrors = maxErrors;
+    }
+}
+
+__device__ void ReportError(const CheckMemInput& input, volatile UINT32* ptr, UINT32 value)
+{
+    Errors& errors = *GetPtr<Errors*>(input.errors);
+
+    atomicAdd(&errors.numErrors, 1);
+    atomicOr(&errors.badBits, value ^ input.pattern);
+
+    const UINT32 idx = atomicAdd(&errors.numReportedErrors, 1);
+    if (idx < errors.maxReportedErrors)
+    {
+        BadValue& e = errors.errors[idx];
+        e.addr      = MakeHostPtr(const_cast<UINT32*>(ptr));
+        e.value     = value;
+        e.reread1   = *ptr;
+        e.reread2   = *ptr;
+    }
+    else
+    {
+        atomicSub(&errors.numReportedErrors, 1);
+    }
+}
+
+extern "C" __global__ void CheckMem(const CheckMemInput input)
+                      __launch_bounds__(NUM_THREADS, 1);
+
+extern "C" __global__ void CheckMem(const CheckMemInput input)
+{
+    const unsigned readsPerThread = READS_PER_THREAD;
+    const unsigned stride         = GetNumThreads() * readsPerThread;
+    const unsigned warpBits       = 5;
+    const unsigned warpIdx        = threadIdx.x & (~0U << warpBits);
+    const unsigned threadId       = threadIdx.x & ~(~0U << warpBits);
+
+    volatile UINT32* ptr = GetPtr<UINT32*>(input.mem)
+                             + (blockIdx.x * blockDim.x + warpIdx) * readsPerThread
+                             + threadId;
+
+    UINT32* const endPtr = GetPtr<UINT32*>(input.mem+input.size);
+
+    for ( ; ptr < endPtr; ptr += stride)
+    {
+        for (unsigned i = 0; i < readsPerThread; i++)
+        {
+            const UINT32 value = ptr[i<<warpBits];
+            if (value != input.pattern)
+                ReportError(input, ptr+(i<<warpBits), value);
+        }
+        __syncthreads();
+    }
+}
+
+extern "C" __global__ void RowHammer(const RowHammerInput input)
+                      __launch_bounds__(NUM_THREADS, 1);
+
+extern "C" __global__ void RowHammer(const RowHammerInput input)
+{
+    UINT64         total    = 0;
+    const unsigned warpBits = 5;
+    const bool     active   = (threadIdx.x & ~(~0U << warpBits)) == 0;
+    const unsigned idx      = (blockIdx.x * blockDim.x + threadIdx.x) >> warpBits;
+
+    device_ptr* const ptrTable = GetPtr<device_ptr*>(input.ptrs);
+
+    const int readsPerRow = READS_PER_ROW;
+
+    volatile UINT32* ptr[readsPerRow*2];
+    for (int i = 0; i < readsPerRow*2; i++)
+    {
+        ptr[i] = GetPtr<UINT32*>(ptrTable[idx*readsPerRow*2+i]);
+        if (ptr[i] == 0)
+            return;
+    }
+
+#if INJECT_ERRORS == 1
+    *ptr = 0x80000000 | threadIdx.x;
+#endif
+
+    for (unsigned i = 0; i < input.iterations; i++)
+    {
+        // Note: all threads in the warp read from the same address
+        for (int j = 0; j < readsPerRow*2; j++)
+            total += *ptr[j];
+    }
+
+    if (active)
+    {
+        Errors& errors = *GetPtr<Errors*>(input.errors);
+        atomicAdd(&errors.allSum, total);
+    }
+}
+
+// vim:ft=cpp

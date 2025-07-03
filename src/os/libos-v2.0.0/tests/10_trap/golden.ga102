@@ -1,0 +1,131 @@
+Loaded firmware at address 6060000000101000
+LIBOS Loading...
+   ELF @ 6060000000101000
+    Heap: base 0x6060000000001000 0x100000 bytes
+    Pagetables allocated 0x6060000000100000 length 4096 bytes
+    Software MMU enabled.
+
+External memory regions wired.
+		Exelwting: ../../init.c:603 libosPortAsyncRecv( TASK_INIT_SHUTTLE_PANIC, TASK_INIT_PANIC_PORT, 0, 0)
+		Exelwting: ../../init.c:612 libosPortAsyncRecv( TASK_INIT_SHUTTLE_UTIL, TASK_INIT_UTIL_PORT, &payload, sizeof payload)
+Init spawning tasks ... 
+		Exelwting: ../../init.c:624 libosPortSyncSend( LIBOS_SHUTTLE_DEFAULT, TASK_TEST_PORT, 0, 0, 0, LIBOS_TIMEOUT_INFINITE)
+Init entering daemon mode... 
+		Exelwting: ../../init.c:641 libosPortWait( LIBOS_SHUTTLE_ANY, &shuttle, &payload_size, &remote_task_id, LIBOS_TIMEOUT_INFINITE)
+	Starting test task...
+	Test task sending TASK_INIT_UTIL_CMD_STATE
+		Exelwting: ../../test.c:28 libosPortSyncSendRecv( LIBOS_SHUTTLE_DEFAULT, TASK_INIT_UTIL_PORT, &payload, sizeof payload, LIBOS_SHUTTLE_DEFAULT_ALT, TASK_TEST_REPLY, &payload, sizeof payload, &payload_size, LIBOS_TIMEOUT_INFINITE)
+Init got shuttle: 8  remote_task_id: 1 TASK_TEST  payload_size 8
+		Exelwting: ../../init.c:651 process_util_command(&payload, remote_task_id)
+		Exelwting: ../../init.c:373 libosTaskStateQuery(task_id, &state)
+State for task 1 TASK_TEST:
+ xepc=000000000401e190	xbadaddr=0000000000000000	xcause=0000000000000008 UCALL - Environment call from user-space
+ x0=0000000000000000	 ra=000000000401e160	 sp=0000000004027f30	 gp=0000000000000000
+ tp=0000000000000000	 t0=0000000000000001	 t1=0000000000000002	 t2=ffffffffffffffff
+ s0=0000000004027f80	 s1=000000000403d000	 a0=0000000000000001	 a1=0000000000000008
+ a2=0000000004027f30	 a3=0000000000000008	 a4=0000000000000002	 a5=0000000000000006
+ a6=0000000004027f30	 a7=0000000000000008	 s2=0000000000000000	 s3=0000000000000000
+ s4=000000000403d000	 s5=0000000000000000	 s6=0000000000000000	 s7=0000000000000000
+ s8=0000000000000000	 s9=0000000000000000	s10=0000000000000000	s11=0000000000000000
+ t3=000000000401d000	 t4=000000000401d000	 t5=0000000000000001	 t6=0000000000000000
+		Exelwting: ../../init.c:420 libosPortReply(TASK_INIT_SHUTTLE_UTIL, 0, 0, 0)
+		Exelwting: ../../init.c:659 libosPortAsyncRecv( TASK_INIT_SHUTTLE_UTIL, TASK_INIT_UTIL_PORT, &payload, sizeof payload)
+		Exelwting: ../../init.c:641 libosPortWait( LIBOS_SHUTTLE_ANY, &shuttle, &payload_size, &remote_task_id, LIBOS_TIMEOUT_INFINITE)
+	Test task sending TASK_INIT_UTIL_CMD_STACK
+		Exelwting: ../../test.c:28 libosPortSyncSendRecv( LIBOS_SHUTTLE_DEFAULT, TASK_INIT_UTIL_PORT, &payload, sizeof payload, LIBOS_SHUTTLE_DEFAULT_ALT, TASK_TEST_REPLY, &payload, sizeof payload, &payload_size, LIBOS_TIMEOUT_INFINITE)
+Init got shuttle: 8  remote_task_id: 1 TASK_TEST  payload_size 8
+		Exelwting: ../../init.c:651 process_util_command(&payload, remote_task_id)
+		Exelwting: ../../init.c:373 libosTaskStateQuery(task_id, &state)
+Callstack for task 1 TASK_TEST:
+		Exelwting: ../../init.c:386 initTaskBacktrace(task_id, &state)
+ 000000000401e190 task_init_util_command+120 (libos.h:437)
+ 000000000401e28c b+104 (test.c:73)
+ 000000000401e364 a+76 (test.c:77)
+ 000000000401e3b8 task_test_entry+68 (test.c:89)
+		Exelwting: ../../init.c:420 libosPortReply(TASK_INIT_SHUTTLE_UTIL, 0, 0, 0)
+		Exelwting: ../../init.c:659 libosPortAsyncRecv( TASK_INIT_SHUTTLE_UTIL, TASK_INIT_UTIL_PORT, &payload, sizeof payload)
+		Exelwting: ../../init.c:641 libosPortWait( LIBOS_SHUTTLE_ANY, &shuttle, &payload_size, &remote_task_id, LIBOS_TIMEOUT_INFINITE)
+	Test task sending TASK_INIT_UTIL_CMD_STATE_AND_STACK
+		Exelwting: ../../test.c:28 libosPortSyncSendRecv( LIBOS_SHUTTLE_DEFAULT, TASK_INIT_UTIL_PORT, &payload, sizeof payload, LIBOS_SHUTTLE_DEFAULT_ALT, TASK_TEST_REPLY, &payload, sizeof payload, &payload_size, LIBOS_TIMEOUT_INFINITE)
+Init got shuttle: 8  remote_task_id: 1 TASK_TEST  payload_size 8
+		Exelwting: ../../init.c:651 process_util_command(&payload, remote_task_id)
+		Exelwting: ../../init.c:373 libosTaskStateQuery(task_id, &state)
+State and callstack for task 1 TASK_TEST:
+ xepc=000000000401e190	xbadaddr=0000000000000000	xcause=0000000000000008 UCALL - Environment call from user-space
+ x0=0000000000000000	 ra=000000000401e160	 sp=0000000004027f30	 gp=0000000000000000
+ tp=0000000000000000	 t0=0000000000000001	 t1=0000000000000002	 t2=ffffffffffffffff
+ s0=0000000004027f80	 s1=000000000403d000	 a0=0000000000000001	 a1=0000000000000008
+ a2=0000000004027f30	 a3=0000000000000008	 a4=0000000000000002	 a5=0000000000000006
+ a6=0000000004027f30	 a7=0000000000000008	 s2=0000000000000000	 s3=0000000000000000
+ s4=000000000403d000	 s5=0000000000000000	 s6=0000000000000000	 s7=0000000000000000
+ s8=0000000000000000	 s9=0000000000000000	s10=0000000000000000	s11=0000000000000000
+ t3=000000000401d000	 t4=000000000401d000	 t5=0000000000000001	 t6=0000000000000000
+		Exelwting: ../../init.c:392 initTaskBacktrace(task_id, &state)
+ 000000000401e190 task_init_util_command+120 (libos.h:437)
+ 000000000401e28c b+104 (test.c:73)
+ 000000000401e364 a+76 (test.c:77)
+ 000000000401e3b8 task_test_entry+68 (test.c:89)
+		Exelwting: ../../init.c:420 libosPortReply(TASK_INIT_SHUTTLE_UTIL, 0, 0, 0)
+		Exelwting: ../../init.c:659 libosPortAsyncRecv( TASK_INIT_SHUTTLE_UTIL, TASK_INIT_UTIL_PORT, &payload, sizeof payload)
+		Exelwting: ../../init.c:641 libosPortWait( LIBOS_SHUTTLE_ANY, &shuttle, &payload_size, &remote_task_id, LIBOS_TIMEOUT_INFINITE)
+	Test task about to breakpoint with callstack including a, b.(a0 == 0xdeadb00f)
+Init got shuttle: 11  remote_task_id: 1 TASK_TEST  payload_size 0
+		Exelwting: ../../init.c:672 libosTaskStateQuery(remote_task_id, &state )
+Task 1 TASK_TEST has trapped with xcause 0000000000000003 BKPT - Breakpoint
+ xepc=000000000401e304	xbadaddr=0000000000000000	xcause=0000000000000003 BKPT - Breakpoint
+ x0=0000000000000000	 ra=000000000401e2f4	 sp=0000000004027f80	 gp=0000000000000000
+ tp=0000000000000000	 t0=0000000000000010	 t1=0000000000000001	 t2=ffffffffffffffff
+ s0=0000000004027fa0	 s1=0000000000000006	 a0=00000000deadb00f	 a1=0000000004027f88
+ a2=000000000401d000	 a3=000000000401d020	 a4=000000000403b000	 a5=0000000000000013
+ a6=0000000000000002	 a7=0000000000000002	 s2=0000000000000000	 s3=0000000000000000
+ s4=0000000000000000	 s5=0000000000000000	 s6=0000000000000000	 s7=0000000000000000
+ s8=0000000000000000	 s9=0000000000000000	s10=0000000000000000	s11=0000000000000000
+ t3=000000000401d000	 t4=000000000401d000	 t5=0000000000000001	 t6=0000000000000000
+		Exelwting: ../../init.c:733 initTaskBacktrace(remote_task_id, &state)
+ 000000000401e304 b+224 (test.c:61)
+ 000000000401e364 a+76 (test.c:77)
+ 000000000401e3b8 task_test_entry+68 (test.c:89)
+		Exelwting: ../../init.c:762 libosPortReply( TASK_INIT_SHUTTLE_PANIC, &state, sizeof(state), 0)
+		Exelwting: ../../init.c:771 libosPortAsyncRecv( TASK_INIT_SHUTTLE_PANIC, TASK_INIT_PANIC_PORT, 0, 0)
+		Exelwting: ../../init.c:641 libosPortWait( LIBOS_SHUTTLE_ANY, &shuttle, &payload_size, &remote_task_id, LIBOS_TIMEOUT_INFINITE)
+	Test task about to breakpoint with callstack including a, b.(a0 == 0xdeadb00f)
+Init got shuttle: 11  remote_task_id: 1 TASK_TEST  payload_size 0
+		Exelwting: ../../init.c:672 libosTaskStateQuery(remote_task_id, &state )
+Task 1 TASK_TEST has trapped with xcause 0000000000000003 BKPT - Breakpoint
+ xepc=000000000401e304	xbadaddr=0000000000000000	xcause=0000000000000003 BKPT - Breakpoint
+ x0=0000000000000000	 ra=000000000401e2f4	 sp=0000000004027f80	 gp=0000000000000000
+ tp=0000000000000000	 t0=0000000000000010	 t1=0000000000000001	 t2=ffffffffffffffff
+ s0=0000000004027fa0	 s1=0000000000000006	 a0=00000000deadb00f	 a1=0000000004027f88
+ a2=000000000401d000	 a3=000000000401d020	 a4=000000000403b000	 a5=0000000000000015
+ a6=0000000000000002	 a7=0000000000000002	 s2=0000000000000000	 s3=0000000000000000
+ s4=0000000000000000	 s5=0000000000000000	 s6=0000000000000000	 s7=0000000000000000
+ s8=0000000000000000	 s9=0000000000000000	s10=0000000000000000	s11=0000000000000000
+ t3=000000000401d000	 t4=000000000401d000	 t5=0000000000000001	 t6=0000000000000000
+		Exelwting: ../../init.c:733 initTaskBacktrace(remote_task_id, &state)
+ 000000000401e304 b+224 (test.c:61)
+ 000000000401e364 a+76 (test.c:77)
+ 000000000401e3b8 task_test_entry+68 (test.c:89)
+		Exelwting: ../../init.c:762 libosPortReply( TASK_INIT_SHUTTLE_PANIC, &state, sizeof(state), 0)
+		Exelwting: ../../init.c:771 libosPortAsyncRecv( TASK_INIT_SHUTTLE_PANIC, TASK_INIT_PANIC_PORT, 0, 0)
+		Exelwting: ../../init.c:641 libosPortWait( LIBOS_SHUTTLE_ANY, &shuttle, &payload_size, &remote_task_id, LIBOS_TIMEOUT_INFINITE)
+	Test task sending TASK_INIT_UTIL_CMD_STACK
+		Exelwting: ../../test.c:28 libosPortSyncSendRecv( LIBOS_SHUTTLE_DEFAULT, TASK_INIT_UTIL_PORT, &payload, sizeof payload, LIBOS_SHUTTLE_DEFAULT_ALT, TASK_TEST_REPLY, &payload, sizeof payload, &payload_size, LIBOS_TIMEOUT_INFINITE)
+Init got shuttle: 8  remote_task_id: 1 TASK_TEST  payload_size 8
+		Exelwting: ../../init.c:651 process_util_command(&payload, remote_task_id)
+		Exelwting: ../../init.c:373 libosTaskStateQuery(task_id, &state)
+Callstack for task 1 TASK_TEST:
+		Exelwting: ../../init.c:386 initTaskBacktrace(task_id, &state)
+ 000000000401e190 task_init_util_command+120 (libos.h:437)
+ 000000000401e28c b+104 (test.c:73)
+ 000000000401e364 a+76 (test.c:77)
+ 000000000401e3b8 task_test_entry+68 (test.c:89)
+		Exelwting: ../../init.c:420 libosPortReply(TASK_INIT_SHUTTLE_UTIL, 0, 0, 0)
+		Exelwting: ../../init.c:659 libosPortAsyncRecv( TASK_INIT_SHUTTLE_UTIL, TASK_INIT_UTIL_PORT, &payload, sizeof payload)
+		Exelwting: ../../init.c:641 libosPortWait( LIBOS_SHUTTLE_ANY, &shuttle, &payload_size, &remote_task_id, LIBOS_TIMEOUT_INFINITE)
+	Test task about to exit (lwrrently a branch to address 0 -- we should see a crash)
+Init got shuttle: 11  remote_task_id: 1 TASK_TEST  payload_size 0
+		Exelwting: ../../init.c:672 libosTaskStateQuery(remote_task_id, &state )
+Task 1 TASK_TEST has trapped with xcause 000000000000000c IPAGE - Instruction page fault
+Task 1 TASK_TEST has terminated normally.
+		Exelwting: ../../init.c:771 libosPortAsyncRecv( TASK_INIT_SHUTTLE_PANIC, TASK_INIT_PANIC_PORT, 0, 0)
+		Exelwting: ../../init.c:641 libosPortWait( LIBOS_SHUTTLE_ANY, &shuttle, &payload_size, &remote_task_id, LIBOS_TIMEOUT_INFINITE)

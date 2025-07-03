@@ -1,0 +1,3146 @@
+#ifndef STANDARD_H
+#define STANDARD_H
+
+#ifdef __vxworks
+#include "vxWorks.h"
+#endif
+
+/* stdint.h is only guaranteed to be there starting with C99 */
+#if __STDC_VERSION__ >= 199901L
+#include <stdint.h>   /* for [u]int*_t */
+#endif
+
+#include <string.h>
+/* for memcpy(), memcmp(), used to implement assignments and comparisons
+   between composite objects.  */
+#include <math.h>
+/* for fabs*() - Ada abs operator on floating point
+   isfinite() - 'Valid on floating point
+   powl() - "**" operator on floating point
+   Ada.Numerics package hierarchy.  */
+
+#ifndef __USE_ISOC99
+#define __USE_ISOC99
+/* for enabling llabs() - implementation of abs operator on long long int */
+#endif
+#include <stdlib.h>
+/* for *abs() - abs operator on integers
+   malloc()  - Dynamic memory allocation via "new".  */
+
+/* Definition of Standard.Boolean type and True/False values, as well as
+   definition of the GNAT_INLINE qualifier */
+
+#if __STDC_VERSION__ >= 199901L
+#include <stdbool.h>
+
+#define GNAT_INLINE inline
+typedef bool boolean;
+
+#else
+
+#define GNAT_INLINE
+typedef unsigned char boolean;
+
+#ifndef false
+#define false 0
+#endif
+
+#ifndef true
+#define true 1
+#endif
+#endif
+
+/* Definition of various C extensions needed to support alignment and packed
+   clauses, as well as pragma Linker_Section and Machine_Attribute.
+   These are supported out of the box with a GNU C compatible compiler, and
+   are defined by default as no-op otherwise.  */
+
+#ifdef __GNUC__
+#define GNAT_ALIGN(ALIGNMENT) __attribute__((aligned(ALIGNMENT)))
+#define GNAT_PACKED __attribute__ ((packed))
+#define GNAT_LINKER_SECTION(SECTION) __attribute__((section(SECTION)))
+#define GNAT_ATTRIBUTE(ATTR) __attribute__((ATTR))
+#define GNAT_ATTRIBUTE_INFO(ATTR,INFO) __attribute__((ATTR(INFO)))
+#else
+#define GNAT_ALIGN(ALIGNMENT)
+#define GNAT_PACKED
+#define GNAT_LINKER_SECTION(SECTION)
+#define GNAT_ATTRIBUTE(ATTR)
+#define GNAT_ATTRIBUTE_INFO(ATTR,INFO)
+#endif
+
+/* Definition of entities needed by the code generator to define base types */
+
+#ifdef INT8_MIN  /* stdint.h supported */
+typedef uint8_t unsigned_8;
+typedef uint16_t unsigned_16;
+typedef uint32_t unsigned_32;
+typedef uint64_t unsigned_64;
+
+typedef int8_t integer_8;
+typedef int16_t integer_16;
+typedef int32_t integer_32;
+typedef int64_t integer_64;
+
+typedef intptr_t integer_ptr_t;
+#else
+typedef unsigned char unsigned_8;
+typedef unsigned short unsigned_16;
+typedef unsigned unsigned_32;
+typedef unsigned long long unsigned_64;
+
+typedef signed char integer_8;
+typedef short integer_16;
+typedef int integer_32;
+typedef long long integer_64;
+
+typedef long integer_ptr_t;
+#endif
+
+/* Definition of entities defined in package Standard */
+
+typedef int integer;
+
+typedef int natural;
+typedef int positive;
+
+typedef signed char short_short_integer;
+typedef short short_integer;
+typedef long long_integer;
+typedef long long long_long_integer;
+typedef long long universal_integer;
+
+typedef float short_float;
+typedef double long_float;
+typedef long double long_long_float;
+typedef long double universal_real;
+
+typedef unsigned char character;
+typedef unsigned_16 wide_character;
+typedef unsigned_32 wide_wide_character;
+
+typedef character *access_character;
+typedef character *string;
+typedef wide_character *wide_string;
+typedef wide_wide_character *wide_wide_string;
+
+typedef integer_32 duration;
+
+/* Definitions needed by exception handling */
+
+typedef void *_void_ptr;
+extern void __gnat_last_chance_handler (const _void_ptr file, integer line);
+
+#ifndef GNAT_LAST_CHANCE_HANDLER
+#define GNAT_LAST_CHANCE_HANDLER(FILE,LINE) \
+	__gnat_last_chance_handler(FILE, LINE)
+#endif
+
+/* Fat pointer of unidimensional unconstrained arrays */
+
+typedef struct {
+  void *all;
+  integer_ptr_t first;
+  integer_ptr_t last;
+} _fatptr_UNCarray;
+
+static GNAT_INLINE _fatptr_UNCarray
+_fatptr_UNCarray_CONS (void *all, integer_ptr_t first, integer_ptr_t last)
+{
+  _fatptr_UNCarray fatptr;
+  fatptr.all   = all;
+  fatptr.first = first;
+  fatptr.last  = last;
+  return fatptr;
+}
+
+/* Support for 'Max and 'Min attributes on all integer sizes */
+
+static GNAT_INLINE integer_8
+_imax8(const integer_8 a, integer_8 b)
+{
+   return (b > a) ? b : a;
+}
+
+static GNAT_INLINE integer_16
+_imax16(const integer_16 a, integer_16 b)
+{
+   return (b > a) ? b : a;
+}
+
+static GNAT_INLINE integer_32
+_imax32(const integer_32 a, integer_32 b)
+{
+   return (b > a) ? b : a;
+}
+
+static GNAT_INLINE integer_64
+_imax64(const integer_64 a, const integer_64 b)
+{
+   return (b > a) ? b : a;
+}
+
+static GNAT_INLINE integer_8
+_imin8(const integer_8 a, const integer_8 b)
+{
+   return (b < a) ? b : a;
+}
+
+static GNAT_INLINE integer_16
+_imin16(const integer_16 a, const integer_16 b)
+{
+   return (b < a) ? b : a;
+}
+
+static GNAT_INLINE integer_32
+_imin32(const integer_32 a, const integer_32 b)
+{
+   return (b < a) ? b : a;
+}
+
+static GNAT_INLINE integer_64
+_imin64(const integer_64 a, const integer_64 b)
+{
+   return (b < a) ? b : a;
+}
+
+static GNAT_INLINE unsigned_8
+_umax8(const unsigned_8 a, unsigned_8 b)
+{
+   return (b > a) ? b : a;
+}
+
+static GNAT_INLINE unsigned_16
+_umax16(const unsigned_16 a, unsigned_16 b)
+{
+   return (b > a) ? b : a;
+}
+
+static GNAT_INLINE unsigned_32
+_umax32(const unsigned_32 a, unsigned_32 b)
+{
+   return (b > a) ? b : a;
+}
+
+static GNAT_INLINE unsigned_64
+_umax64(const unsigned_64 a, const unsigned_64 b)
+{
+   return (b > a) ? b : a;
+}
+
+static GNAT_INLINE unsigned_8
+_umin8(const unsigned_8 a, const unsigned_8 b)
+{
+   return (b < a) ? b : a;
+}
+
+static GNAT_INLINE unsigned_16
+_umin16(const unsigned_16 a, const unsigned_16 b)
+{
+   return (b < a) ? b : a;
+}
+
+static GNAT_INLINE unsigned_32
+_umin32(const unsigned_32 a, const unsigned_32 b)
+{
+   return (b < a) ? b : a;
+}
+
+static GNAT_INLINE unsigned_64
+_umin64(const unsigned_64 a, const unsigned_64 b)
+{
+   return (b < a) ? b : a;
+}
+
+#endif /* STANDARD_H */
+
+#ifndef ADA_ADS
+#define ADA_ADS
+
+#endif /* ADA_ADS */
+
+#ifndef A_UNCCON_ADS
+#define A_UNCCON_ADS
+
+#endif /* A_UNCCON_ADS */
+
+#ifndef LW_TYPES_GENERIC_ADS
+#define LW_TYPES_GENERIC_ADS
+
+#endif /* LW_TYPES_GENERIC_ADS */
+
+#ifndef LW_TYPES_INTRINSIC_ADS
+#define LW_TYPES_INTRINSIC_ADS
+typedef unsigned_8 lw_types_intrinsic__lwu1_wrap;
+typedef unsigned_8 lw_types_intrinsic__lwu2_wrap;
+typedef unsigned_8 lw_types_intrinsic__lwu3_wrap;
+typedef unsigned_8 lw_types_intrinsic__lwu4_wrap;
+typedef unsigned_8 lw_types_intrinsic__lwu5_wrap;
+typedef unsigned_8 lw_types_intrinsic__lwu6_wrap;
+typedef unsigned_8 lw_types_intrinsic__lwu7_wrap;
+typedef unsigned_8 lw_types_intrinsic__lwu8_wrap;
+typedef unsigned_16 lw_types_intrinsic__lwu9_wrap;
+typedef unsigned_16 lw_types_intrinsic__lwu10_wrap;
+typedef unsigned_16 lw_types_intrinsic__lwu11_wrap;
+typedef unsigned_16 lw_types_intrinsic__lwu12_wrap;
+typedef unsigned_16 lw_types_intrinsic__lwu13_wrap;
+typedef unsigned_16 lw_types_intrinsic__lwu14_wrap;
+typedef unsigned_16 lw_types_intrinsic__lwu15_wrap;
+typedef unsigned_16 lw_types_intrinsic__lwu16_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu17_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu18_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu19_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu20_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu21_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu22_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu23_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu24_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu25_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu26_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu27_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu28_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu29_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu30_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu31_wrap;
+typedef unsigned_32 lw_types_intrinsic__lwu32_wrap;
+typedef unsigned_64 lw_types_intrinsic__lwu64_wrap;
+#endif /* LW_TYPES_INTRINSIC_ADS */
+
+#ifndef LW_TYPES_ADS
+#define LW_TYPES_ADS
+typedef lw_types_intrinsic__lwu1_wrap lw_types__lwu1_types__base_type;
+typedef lw_types_intrinsic__lwu1_wrap lw_types__lwu1_types__Tn_typeB;
+typedef lw_types__lwu1_types__Tn_typeB lw_types__lwu1_types__n_type;
+typedef lw_types_intrinsic__lwu2_wrap lw_types__lwu2_types__base_type;
+typedef lw_types_intrinsic__lwu2_wrap lw_types__lwu2_types__Tn_typeB;
+typedef lw_types__lwu2_types__Tn_typeB lw_types__lwu2_types__n_type;
+typedef lw_types_intrinsic__lwu3_wrap lw_types__lwu3_types__base_type;
+typedef lw_types_intrinsic__lwu3_wrap lw_types__lwu3_types__Tn_typeB;
+typedef lw_types__lwu3_types__Tn_typeB lw_types__lwu3_types__n_type;
+typedef lw_types_intrinsic__lwu4_wrap lw_types__lwu4_types__base_type;
+typedef lw_types_intrinsic__lwu4_wrap lw_types__lwu4_types__Tn_typeB;
+typedef lw_types__lwu4_types__Tn_typeB lw_types__lwu4_types__n_type;
+typedef lw_types_intrinsic__lwu5_wrap lw_types__lwu5_types__base_type;
+typedef lw_types_intrinsic__lwu5_wrap lw_types__lwu5_types__Tn_typeB;
+typedef lw_types__lwu5_types__Tn_typeB lw_types__lwu5_types__n_type;
+typedef lw_types_intrinsic__lwu6_wrap lw_types__lwu6_types__base_type;
+typedef lw_types_intrinsic__lwu6_wrap lw_types__lwu6_types__Tn_typeB;
+typedef lw_types__lwu6_types__Tn_typeB lw_types__lwu6_types__n_type;
+typedef lw_types_intrinsic__lwu7_wrap lw_types__lwu7_types__base_type;
+typedef lw_types_intrinsic__lwu7_wrap lw_types__lwu7_types__Tn_typeB;
+typedef lw_types__lwu7_types__Tn_typeB lw_types__lwu7_types__n_type;
+typedef lw_types_intrinsic__lwu8_wrap lw_types__lwu8_types__base_type;
+typedef lw_types_intrinsic__lwu8_wrap lw_types__lwu8_types__Tn_typeB;
+typedef lw_types__lwu8_types__Tn_typeB lw_types__lwu8_types__n_type;
+typedef lw_types_intrinsic__lwu9_wrap lw_types__lwu9_types__base_type;
+typedef lw_types_intrinsic__lwu9_wrap lw_types__lwu9_types__Tn_typeB;
+typedef lw_types__lwu9_types__Tn_typeB lw_types__lwu9_types__n_type;
+typedef lw_types_intrinsic__lwu10_wrap lw_types__lwu10_types__base_type;
+typedef lw_types_intrinsic__lwu10_wrap lw_types__lwu10_types__Tn_typeB;
+typedef lw_types__lwu10_types__Tn_typeB lw_types__lwu10_types__n_type;
+typedef lw_types_intrinsic__lwu11_wrap lw_types__lwu11_types__base_type;
+typedef lw_types_intrinsic__lwu11_wrap lw_types__lwu11_types__Tn_typeB;
+typedef lw_types__lwu11_types__Tn_typeB lw_types__lwu11_types__n_type;
+typedef lw_types_intrinsic__lwu12_wrap lw_types__lwu12_types__base_type;
+typedef lw_types_intrinsic__lwu12_wrap lw_types__lwu12_types__Tn_typeB;
+typedef lw_types__lwu12_types__Tn_typeB lw_types__lwu12_types__n_type;
+typedef lw_types_intrinsic__lwu13_wrap lw_types__lwu13_types__base_type;
+typedef lw_types_intrinsic__lwu13_wrap lw_types__lwu13_types__Tn_typeB;
+typedef lw_types__lwu13_types__Tn_typeB lw_types__lwu13_types__n_type;
+typedef lw_types_intrinsic__lwu14_wrap lw_types__lwu14_types__base_type;
+typedef lw_types_intrinsic__lwu14_wrap lw_types__lwu14_types__Tn_typeB;
+typedef lw_types__lwu14_types__Tn_typeB lw_types__lwu14_types__n_type;
+typedef lw_types_intrinsic__lwu15_wrap lw_types__lwu15_types__base_type;
+typedef lw_types_intrinsic__lwu15_wrap lw_types__lwu15_types__Tn_typeB;
+typedef lw_types__lwu15_types__Tn_typeB lw_types__lwu15_types__n_type;
+typedef lw_types_intrinsic__lwu16_wrap lw_types__lwu16_types__base_type;
+typedef lw_types_intrinsic__lwu16_wrap lw_types__lwu16_types__Tn_typeB;
+typedef lw_types__lwu16_types__Tn_typeB lw_types__lwu16_types__n_type;
+typedef lw_types_intrinsic__lwu17_wrap lw_types__lwu17_types__base_type;
+typedef lw_types_intrinsic__lwu17_wrap lw_types__lwu17_types__Tn_typeB;
+typedef lw_types__lwu17_types__Tn_typeB lw_types__lwu17_types__n_type;
+typedef lw_types_intrinsic__lwu18_wrap lw_types__lwu18_types__base_type;
+typedef lw_types_intrinsic__lwu18_wrap lw_types__lwu18_types__Tn_typeB;
+typedef lw_types__lwu18_types__Tn_typeB lw_types__lwu18_types__n_type;
+typedef lw_types_intrinsic__lwu19_wrap lw_types__lwu19_types__base_type;
+typedef lw_types_intrinsic__lwu19_wrap lw_types__lwu19_types__Tn_typeB;
+typedef lw_types__lwu19_types__Tn_typeB lw_types__lwu19_types__n_type;
+typedef lw_types_intrinsic__lwu20_wrap lw_types__lwu20_types__base_type;
+typedef lw_types_intrinsic__lwu20_wrap lw_types__lwu20_types__Tn_typeB;
+typedef lw_types__lwu20_types__Tn_typeB lw_types__lwu20_types__n_type;
+typedef lw_types_intrinsic__lwu21_wrap lw_types__lwu21_types__base_type;
+typedef lw_types_intrinsic__lwu21_wrap lw_types__lwu21_types__Tn_typeB;
+typedef lw_types__lwu21_types__Tn_typeB lw_types__lwu21_types__n_type;
+typedef lw_types_intrinsic__lwu22_wrap lw_types__lwu22_types__base_type;
+typedef lw_types_intrinsic__lwu22_wrap lw_types__lwu22_types__Tn_typeB;
+typedef lw_types__lwu22_types__Tn_typeB lw_types__lwu22_types__n_type;
+typedef lw_types_intrinsic__lwu23_wrap lw_types__lwu23_types__base_type;
+typedef lw_types_intrinsic__lwu23_wrap lw_types__lwu23_types__Tn_typeB;
+typedef lw_types__lwu23_types__Tn_typeB lw_types__lwu23_types__n_type;
+typedef lw_types_intrinsic__lwu24_wrap lw_types__lwu24_types__base_type;
+typedef lw_types_intrinsic__lwu24_wrap lw_types__lwu24_types__Tn_typeB;
+typedef lw_types__lwu24_types__Tn_typeB lw_types__lwu24_types__n_type;
+typedef lw_types_intrinsic__lwu25_wrap lw_types__lwu25_types__base_type;
+typedef lw_types_intrinsic__lwu25_wrap lw_types__lwu25_types__Tn_typeB;
+typedef lw_types__lwu25_types__Tn_typeB lw_types__lwu25_types__n_type;
+typedef lw_types_intrinsic__lwu26_wrap lw_types__lwu26_types__base_type;
+typedef lw_types_intrinsic__lwu26_wrap lw_types__lwu26_types__Tn_typeB;
+typedef lw_types__lwu26_types__Tn_typeB lw_types__lwu26_types__n_type;
+typedef lw_types_intrinsic__lwu27_wrap lw_types__lwu27_types__base_type;
+typedef lw_types_intrinsic__lwu27_wrap lw_types__lwu27_types__Tn_typeB;
+typedef lw_types__lwu27_types__Tn_typeB lw_types__lwu27_types__n_type;
+typedef lw_types_intrinsic__lwu28_wrap lw_types__lwu28_types__base_type;
+typedef lw_types_intrinsic__lwu28_wrap lw_types__lwu28_types__Tn_typeB;
+typedef lw_types__lwu28_types__Tn_typeB lw_types__lwu28_types__n_type;
+typedef lw_types_intrinsic__lwu29_wrap lw_types__lwu29_types__base_type;
+typedef lw_types_intrinsic__lwu29_wrap lw_types__lwu29_types__Tn_typeB;
+typedef lw_types__lwu29_types__Tn_typeB lw_types__lwu29_types__n_type;
+typedef lw_types_intrinsic__lwu30_wrap lw_types__lwu30_types__base_type;
+typedef lw_types_intrinsic__lwu30_wrap lw_types__lwu30_types__Tn_typeB;
+typedef lw_types__lwu30_types__Tn_typeB lw_types__lwu30_types__n_type;
+typedef lw_types_intrinsic__lwu31_wrap lw_types__lwu31_types__base_type;
+typedef lw_types_intrinsic__lwu31_wrap lw_types__lwu31_types__Tn_typeB;
+typedef lw_types__lwu31_types__Tn_typeB lw_types__lwu31_types__n_type;
+typedef lw_types_intrinsic__lwu32_wrap lw_types__lwu32_types__base_type;
+typedef lw_types_intrinsic__lwu32_wrap lw_types__lwu32_types__Tn_typeB;
+typedef lw_types__lwu32_types__Tn_typeB lw_types__lwu32_types__n_type;
+typedef lw_types_intrinsic__lwu64_wrap lw_types__lwu64_types__base_type;
+typedef lw_types_intrinsic__lwu64_wrap lw_types__lwu64_types__Tn_typeB;
+typedef lw_types__lwu64_types__Tn_typeB lw_types__lwu64_types__n_type;
+typedef lw_types__lwu1_types__Tn_typeB lw_types__Tlwu1B;
+typedef lw_types__Tlwu1B lw_types__lwu1;
+typedef lw_types__lwu2_types__Tn_typeB lw_types__Tlwu2B;
+typedef lw_types__Tlwu2B lw_types__lwu2;
+typedef lw_types__lwu3_types__Tn_typeB lw_types__Tlwu3B;
+typedef lw_types__Tlwu3B lw_types__lwu3;
+typedef lw_types__lwu4_types__Tn_typeB lw_types__Tlwu4B;
+typedef lw_types__Tlwu4B lw_types__lwu4;
+typedef lw_types__lwu5_types__Tn_typeB lw_types__Tlwu5B;
+typedef lw_types__Tlwu5B lw_types__lwu5;
+typedef lw_types__lwu6_types__Tn_typeB lw_types__Tlwu6B;
+typedef lw_types__Tlwu6B lw_types__lwu6;
+typedef lw_types__lwu7_types__Tn_typeB lw_types__Tlwu7B;
+typedef lw_types__Tlwu7B lw_types__lwu7;
+typedef lw_types__lwu8_types__Tn_typeB lw_types__Tlwu8B;
+typedef lw_types__Tlwu8B lw_types__lwu8;
+typedef lw_types__lwu9_types__Tn_typeB lw_types__Tlwu9B;
+typedef lw_types__Tlwu9B lw_types__lwu9;
+typedef lw_types__lwu10_types__Tn_typeB lw_types__Tlwu10B;
+typedef lw_types__Tlwu10B lw_types__lwu10;
+typedef lw_types__lwu11_types__Tn_typeB lw_types__Tlwu11B;
+typedef lw_types__Tlwu11B lw_types__lwu11;
+typedef lw_types__lwu12_types__Tn_typeB lw_types__Tlwu12B;
+typedef lw_types__Tlwu12B lw_types__lwu12;
+typedef lw_types__lwu13_types__Tn_typeB lw_types__Tlwu13B;
+typedef lw_types__Tlwu13B lw_types__lwu13;
+typedef lw_types__lwu14_types__Tn_typeB lw_types__Tlwu14B;
+typedef lw_types__Tlwu14B lw_types__lwu14;
+typedef lw_types__lwu15_types__Tn_typeB lw_types__Tlwu15B;
+typedef lw_types__Tlwu15B lw_types__lwu15;
+typedef lw_types__lwu16_types__Tn_typeB lw_types__Tlwu16B;
+typedef lw_types__Tlwu16B lw_types__lwu16;
+typedef lw_types__lwu17_types__Tn_typeB lw_types__Tlwu17B;
+typedef lw_types__Tlwu17B lw_types__lwu17;
+typedef lw_types__lwu18_types__Tn_typeB lw_types__Tlwu18B;
+typedef lw_types__Tlwu18B lw_types__lwu18;
+typedef lw_types__lwu19_types__Tn_typeB lw_types__Tlwu19B;
+typedef lw_types__Tlwu19B lw_types__lwu19;
+typedef lw_types__lwu20_types__Tn_typeB lw_types__Tlwu20B;
+typedef lw_types__Tlwu20B lw_types__lwu20;
+typedef lw_types__lwu21_types__Tn_typeB lw_types__Tlwu21B;
+typedef lw_types__Tlwu21B lw_types__lwu21;
+typedef lw_types__lwu22_types__Tn_typeB lw_types__Tlwu22B;
+typedef lw_types__Tlwu22B lw_types__lwu22;
+typedef lw_types__lwu23_types__Tn_typeB lw_types__Tlwu23B;
+typedef lw_types__Tlwu23B lw_types__lwu23;
+typedef lw_types__lwu24_types__Tn_typeB lw_types__Tlwu24B;
+typedef lw_types__Tlwu24B lw_types__lwu24;
+typedef lw_types__lwu25_types__Tn_typeB lw_types__Tlwu25B;
+typedef lw_types__Tlwu25B lw_types__lwu25;
+typedef lw_types__lwu26_types__Tn_typeB lw_types__Tlwu26B;
+typedef lw_types__Tlwu26B lw_types__lwu26;
+typedef lw_types__lwu27_types__Tn_typeB lw_types__Tlwu27B;
+typedef lw_types__Tlwu27B lw_types__lwu27;
+typedef lw_types__lwu28_types__Tn_typeB lw_types__Tlwu28B;
+typedef lw_types__Tlwu28B lw_types__lwu28;
+typedef lw_types__lwu29_types__Tn_typeB lw_types__Tlwu29B;
+typedef lw_types__Tlwu29B lw_types__lwu29;
+typedef lw_types__lwu30_types__Tn_typeB lw_types__Tlwu30B;
+typedef lw_types__Tlwu30B lw_types__lwu30;
+typedef lw_types__lwu31_types__Tn_typeB lw_types__Tlwu31B;
+typedef lw_types__Tlwu31B lw_types__lwu31;
+typedef lw_types__lwu32_types__Tn_typeB lw_types__Tlwu32B;
+typedef lw_types__Tlwu32B lw_types__lwu32;
+typedef lw_types__lwu64_types__Tn_typeB lw_types__Tlwu64B;
+typedef lw_types__Tlwu64B lw_types__lwu64;
+
+#endif /* LW_TYPES_ADS */
+
+#ifndef LW_TYPES_REG_ADDR_TYPES_ADS
+#define LW_TYPES_REG_ADDR_TYPES_ADS
+extern const lw_types__lwu32 lw_types__reg_addr_types__max_bar0_addr;
+typedef lw_types__Tlwu32B lw_types__reg_addr_types__Tbar0_addrB;
+typedef lw_types__reg_addr_types__Tbar0_addrB lw_types__reg_addr_types__bar0_addr;
+typedef lw_types__Tlwu32B lw_types__reg_addr_types__Tcsb_addrB;
+typedef lw_types__reg_addr_types__Tcsb_addrB lw_types__reg_addr_types__csb_addr;
+#endif /* LW_TYPES_REG_ADDR_TYPES_ADS */
+
+#ifndef SYSTEM_ADS
+#define SYSTEM_ADS
+typedef integer_8 system__name;
+enum {system__system_name_gnat=0};
+typedef character system__TnameSS[16];
+typedef character system__T1s[16];
+typedef integer system__TTnameSSP1;
+extern const system__TnameSS system__nameS;
+typedef integer_8 *system__TnameNB;
+typedef integer_8 system__T5s[2];
+typedef integer_8 system__TnameNT[2];
+typedef integer system__TnameND1;
+extern const system__TnameNT system__nameN;
+extern const system__name system__system_name;
+typedef void* system__address;
+extern const system__address system__null_address;
+typedef integer_8 system__bit_order;
+enum {system__high_order_first=0, system__low_order_first=1};
+typedef character system__Tbit_orderSS[31];
+typedef character system__T6s[31];
+typedef integer system__TTbit_orderSSP1;
+extern const system__Tbit_orderSS system__bit_orderS;
+typedef integer_8 *system__Tbit_orderNB;
+typedef integer_8 system__T10s[3];
+typedef integer_8 system__Tbit_orderNT[3];
+typedef integer system__Tbit_orderND1;
+extern const system__Tbit_orderNT system__bit_orderN;
+extern const system__bit_order system__default_bit_order;
+extern const positive system__max_priority;
+extern const positive system__max_interrupt_priority;
+typedef integer system__any_priority;
+typedef integer system__priority;
+typedef integer system__interrupt_priority;
+extern const system__priority system__default_priority;
+extern const boolean system__backend_divide_checks;
+extern const boolean system__backend_overflow_checks;
+extern const boolean system__command_line_args;
+extern const boolean system__configurable_run_time;
+extern const boolean system__denorm;
+extern const boolean system__duration_32_bits;
+extern const boolean system__exit_status_supported;
+extern const boolean system__fractional_fixed_ops;
+extern const boolean system__frontend_layout;
+extern const boolean system__machine_overflows;
+extern const boolean system__machine_rounds;
+extern const boolean system__preallocated_stacks;
+extern const boolean system__signed_zeros;
+extern const boolean system__stack_check_default;
+extern const boolean system__stack_check_probes;
+extern const boolean system__stack_check_limits;
+extern const boolean system__support_aggregates;
+extern const boolean system__support_composite_assign;
+extern const boolean system__support_composite_compare;
+extern const boolean system__support_long_shifts;
+extern const boolean system__always_compatible_rep;
+extern const boolean system__suppress_standard_library;
+extern const boolean system__use_ada_main_program_name;
+extern const boolean system__frontend_exceptions;
+extern const boolean system__zcx_by_default;
+#endif /* SYSTEM_ADS */
+
+#ifndef S_UNSTYP_ADS
+#define S_UNSTYP_ADS
+typedef unsigned_8 system__unsigned_types__short_short_unsigned;
+typedef unsigned_16 system__unsigned_types__short_unsigned;
+typedef unsigned_32 system__unsigned_types__unsigned;
+typedef unsigned_32 system__unsigned_types__long_unsigned;
+typedef unsigned_64 system__unsigned_types__long_long_unsigned;
+typedef unsigned_32 system__unsigned_types__float_unsigned;
+typedef unsigned_8 system__unsigned_types__packed_byte;
+typedef system__unsigned_types__packed_byte *system__unsigned_types__packed_bytes1
+  GNAT_ALIGN(1);
+typedef system__unsigned_types__packed_bytes1 system__unsigned_types__packed_bytes2
+  GNAT_ALIGN(2);
+typedef system__unsigned_types__packed_bytes1 system__unsigned_types__packed_bytes4
+  GNAT_ALIGN(4);
+typedef unsigned_8 system__unsigned_types__bits_1;
+typedef unsigned_8 system__unsigned_types__bits_2;
+typedef unsigned_8 system__unsigned_types__bits_4;
+typedef system__unsigned_types__packed_byte system__unsigned_types__bytes_f[4]
+  GNAT_ALIGN(4);
+typedef system__unsigned_types__packed_byte *system__unsigned_types__packed_bytes
+  GNAT_ALIGN(4);
+typedef system__unsigned_types__packed_byte *system__unsigned_types__packed_bytes_unaligned
+  GNAT_ALIGN(1);
+#endif /* S_UNSTYP_ADS */
+
+#ifndef DEV_SEC_CSB_ADA_ADS
+#define DEV_SEC_CSB_ADA_ADS
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_read_protection_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_read_protection_all_levels_disabled=0, dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_read_protection_all_levels_enabled=
+  7};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_read_violation_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_read_violation_soldier_on=0, dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_read_violation_report_error=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_write_protection_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_write_protection_all_levels_disabled=0, dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_write_protection_all_levels_enabled=
+  7};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_write_violation_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_write_violation_soldier_on=0, dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_write_violation_report_error=
+  1};
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_register {
+  unsigned_32 f_read_protection : 3;
+  unsigned_32 f_read_violation : 1;
+  unsigned_32 f_write_protection : 3;
+  unsigned_32 f_write_violation : 1;
+  unsigned_32 _pad1 : 24;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_protection_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_protection_all_levels_disabled=0, dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_protection_level2_enabled=
+  4, dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_protection_all_levels_enabled=7};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_violation_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_violation_soldier_on=0, dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_violation_report_error=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_protection_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_protection_all_levels_disabled=0, dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_protection_level2_enabled=
+  4, dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_protection_all_levels_enabled=7};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_violation_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_violation_soldier_on=0, dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_violation_report_error=
+  1};
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_register {
+  unsigned_32 f_read_protection : 3;
+  unsigned_32 f_read_violation : 1;
+  unsigned_32 f_write_protection : 3;
+  unsigned_32 f_write_violation : 1;
+  unsigned_32 _pad1 : 24;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_irqmset;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_gptmr_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_gptmr_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_gptmr_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_gptmr_field dev_sec_csb_ada__lw_csec_falcon_irqmset_gptmr_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_wdtmr_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_wdtmr_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_wdtmr_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_wdtmr_field dev_sec_csb_ada__lw_csec_falcon_irqmset_wdtmr_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_mthd_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_mthd_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_mthd_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_mthd_field dev_sec_csb_ada__lw_csec_falcon_irqmset_mthd_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ctxsw_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ctxsw_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_ctxsw_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_ctxsw_field dev_sec_csb_ada__lw_csec_falcon_irqmset_ctxsw_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_halt_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_halt_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_halt_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_halt_field dev_sec_csb_ada__lw_csec_falcon_irqmset_halt_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_exterr_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_exterr_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_exterr_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_exterr_field dev_sec_csb_ada__lw_csec_falcon_irqmset_exterr_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_swgen0_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_swgen0_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_swgen0_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_swgen0_field dev_sec_csb_ada__lw_csec_falcon_irqmset_swgen0_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_swgen1_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_swgen1_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_swgen1_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_swgen1_field dev_sec_csb_ada__lw_csec_falcon_irqmset_swgen1_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq1_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq1_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq1_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq1_field dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq1_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq2_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq2_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq2_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq2_field dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq2_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq3_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq3_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq3_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq3_field dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq3_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq4_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq4_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq4_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq4_field dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq4_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq5_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq5_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq5_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq5_field dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq5_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq6_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq6_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq6_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq6_field dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq6_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq7_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq7_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq7_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq7_field dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq7_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq8_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_ext_extirq8_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq8_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq8_field dev_sec_csb_ada__lw_csec_falcon_irqmset_ext_extirq8_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_dma_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_dma_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_dma_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_dma_field dev_sec_csb_ada__lw_csec_falcon_irqmset_dma_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_sha_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_sha_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_sha_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_sha_field dev_sec_csb_ada__lw_csec_falcon_irqmset_sha_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_memerr_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_memerr_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_memerr_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_memerr_field dev_sec_csb_ada__lw_csec_falcon_irqmset_memerr_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_falcon_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_falcon_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_falcon_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_falcon_field dev_sec_csb_ada__lw_csec_falcon_irqmset_falcon_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_riscv_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_riscv_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_riscv_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_riscv_field dev_sec_csb_ada__lw_csec_falcon_irqmset_riscv_set;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_irqmset_trace_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_irqmset_trace_fieldB dev_sec_csb_ada__lw_csec_falcon_irqmset_trace_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqmset_trace_field dev_sec_csb_ada__lw_csec_falcon_irqmset_trace_set;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_irqmset_register {
+  unsigned_32 f_gptmr : 1;
+  unsigned_32 f_wdtmr : 1;
+  unsigned_32 f_mthd : 1;
+  unsigned_32 f_ctxsw : 1;
+  unsigned_32 f_halt : 1;
+  unsigned_32 f_exterr : 1;
+  unsigned_32 f_swgen0 : 1;
+  unsigned_32 f_swgen1 : 1;
+  unsigned_32 f_ext_extirq1 : 1;
+  unsigned_32 f_ext_extirq2 : 1;
+  unsigned_32 f_ext_extirq3 : 1;
+  unsigned_32 f_ext_extirq4 : 1;
+  unsigned_32 f_ext_extirq5 : 1;
+  unsigned_32 f_ext_extirq6 : 1;
+  unsigned_32 f_ext_extirq7 : 1;
+  unsigned_32 f_ext_extirq8 : 1;
+  unsigned_32 f_dma : 1;
+  unsigned_32 f_sha : 1;
+  unsigned_32 f_memerr : 1;
+  unsigned_32 f_falcon : 1;
+  unsigned_32 f_riscv : 1;
+  unsigned_32 f_trace : 1;
+  unsigned_32 _pad1 : 10;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_irqmset_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_irqdest;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_gptmr_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_gptmr_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_gptmr_host=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_gptmr_fieldSS[76];
+typedef character dev_sec_csb_ada__T1s[76];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_gptmr_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_gptmr_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_gptmr_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_gptmr_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T5s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_gptmr_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_gptmr_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_gptmr_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_gptmr_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_host_gptmr_field dev_sec_csb_ada__lw_csec_falcon_irqdest_host_gptmr_falcon;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_wdtmr_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_wdtmr_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_wdtmr_host=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_wdtmr_fieldSS[76];
+typedef character dev_sec_csb_ada__T6s[76];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_wdtmr_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_wdtmr_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_wdtmr_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_wdtmr_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T10s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_wdtmr_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_wdtmr_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_wdtmr_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_wdtmr_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_host_wdtmr_field dev_sec_csb_ada__lw_csec_falcon_irqdest_host_wdtmr_falcon;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_mthd_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_mthd_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_mthd_host=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_mthd_fieldSS[74];
+typedef character dev_sec_csb_ada__T11s[74];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_mthd_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_mthd_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_mthd_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_mthd_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T15s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_mthd_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_mthd_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_mthd_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_mthd_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_host_mthd_field dev_sec_csb_ada__lw_csec_falcon_irqdest_host_mthd_falcon;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ctxsw_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ctxsw_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ctxsw_host=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ctxsw_fieldSS[76];
+typedef character dev_sec_csb_ada__T16s[76];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_ctxsw_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ctxsw_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ctxsw_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ctxsw_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T20s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ctxsw_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ctxsw_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ctxsw_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ctxsw_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ctxsw_field dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ctxsw_falcon;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_halt_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_halt_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_halt_host=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_halt_fieldSS[74];
+typedef character dev_sec_csb_ada__T21s[74];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_halt_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_halt_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_halt_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_halt_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T25s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_halt_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_halt_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_halt_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_halt_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_host_halt_field dev_sec_csb_ada__lw_csec_falcon_irqdest_host_halt_falcon;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_exterr_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_exterr_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_exterr_host=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_exterr_fieldSS[78];
+typedef character dev_sec_csb_ada__T26s[78];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_exterr_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_exterr_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_exterr_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_exterr_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T30s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_exterr_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_exterr_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_exterr_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_exterr_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_host_exterr_field dev_sec_csb_ada__lw_csec_falcon_irqdest_host_exterr_falcon;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_swgen0_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_swgen0_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_swgen0_host=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_swgen0_fieldSS[78];
+typedef character dev_sec_csb_ada__T31s[78];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_swgen0_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_swgen0_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_swgen0_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_swgen0_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T35s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_swgen0_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_swgen0_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_swgen0_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_swgen0_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_host_swgen0_field dev_sec_csb_ada__lw_csec_falcon_irqdest_host_swgen0_falcon;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_swgen1_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_swgen1_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_swgen1_host=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_swgen1_fieldSS[78];
+typedef character dev_sec_csb_ada__T36s[78];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_swgen1_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_swgen1_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_swgen1_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_swgen1_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T40s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_swgen1_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_swgen1_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_swgen1_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_swgen1_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_host_swgen1_field dev_sec_csb_ada__lw_csec_falcon_irqdest_host_swgen1_falcon;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq1_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq1_falcon=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq1_host=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq2_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq2_falcon=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq2_host=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq3_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq3_falcon=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq3_host=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq4_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq4_falcon=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq4_host=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq5_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq5_falcon=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq5_host=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq6_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq6_falcon=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq6_host=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq7_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq7_falcon=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq7_host=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq8_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq8_falcon=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq8_host=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_gptmr_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_gptmr_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_gptmr_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_gptmr_fieldSS[87];
+typedef character dev_sec_csb_ada__T41s[87];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_gptmr_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_gptmr_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_gptmr_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_gptmr_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T45s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_gptmr_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_gptmr_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_gptmr_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_gptmr_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_gptmr_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_gptmr_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_gptmr_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_gptmr_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_gptmr_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_gptmr_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_wdtmr_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_wdtmr_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_wdtmr_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_wdtmr_fieldSS[87];
+typedef character dev_sec_csb_ada__T46s[87];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_wdtmr_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_wdtmr_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_wdtmr_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_wdtmr_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T50s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_wdtmr_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_wdtmr_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_wdtmr_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_wdtmr_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_wdtmr_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_wdtmr_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_wdtmr_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_wdtmr_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_wdtmr_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_wdtmr_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_mthd_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_mthd_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_mthd_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_mthd_fieldSS[85];
+typedef character dev_sec_csb_ada__T51s[85];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_mthd_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_mthd_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_mthd_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_mthd_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T55s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_mthd_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_mthd_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_mthd_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_mthd_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_mthd_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_mthd_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_mthd_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_mthd_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_mthd_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_mthd_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ctxsw_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ctxsw_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ctxsw_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ctxsw_fieldSS[87];
+typedef character dev_sec_csb_ada__T56s[87];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_ctxsw_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ctxsw_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ctxsw_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ctxsw_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T60s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ctxsw_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ctxsw_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ctxsw_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ctxsw_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ctxsw_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ctxsw_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ctxsw_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ctxsw_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ctxsw_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ctxsw_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_halt_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_halt_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_halt_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_halt_fieldSS[85];
+typedef character dev_sec_csb_ada__T61s[85];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_halt_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_halt_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_halt_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_halt_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T65s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_halt_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_halt_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_halt_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_halt_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_halt_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_halt_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_halt_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_halt_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_halt_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_halt_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_exterr_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_exterr_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_exterr_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_exterr_fieldSS[89];
+typedef character dev_sec_csb_ada__T66s[89];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_exterr_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_exterr_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_exterr_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_exterr_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T70s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_exterr_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_exterr_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_exterr_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_exterr_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_exterr_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_exterr_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_exterr_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_exterr_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_exterr_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_exterr_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen0_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen0_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen0_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_swgen0_fieldSS[89];
+typedef character dev_sec_csb_ada__T71s[89];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_swgen0_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_swgen0_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen0_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_swgen0_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T75s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_swgen0_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_swgen0_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_swgen0_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen0_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen0_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen0_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen0_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen0_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen0_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen0_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen1_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen1_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen1_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_swgen1_fieldSS[89];
+typedef character dev_sec_csb_ada__T76s[89];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_swgen1_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_swgen1_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen1_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_swgen1_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T80s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_swgen1_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_swgen1_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_swgen1_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen1_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen1_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen1_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen1_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen1_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen1_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_swgen1_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq1_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq1_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq1_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq1_fieldSS[99];
+typedef character dev_sec_csb_ada__T81s[99];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_ext_extirq1_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq1_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq1_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq1_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T85s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq1_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq1_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq1_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq1_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq1_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq1_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq1_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq1_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq1_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq1_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq2_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq2_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq2_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq2_fieldSS[99];
+typedef character dev_sec_csb_ada__T86s[99];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_ext_extirq2_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq2_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq2_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq2_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T90s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq2_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq2_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq2_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq2_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq2_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq2_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq2_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq2_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq2_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq2_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq3_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq3_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq3_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq3_fieldSS[99];
+typedef character dev_sec_csb_ada__T91s[99];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_ext_extirq3_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq3_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq3_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq3_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T95s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq3_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq3_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq3_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq3_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq3_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq3_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq3_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq3_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq3_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq3_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq4_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq4_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq4_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq4_fieldSS[99];
+typedef character dev_sec_csb_ada__T96s[99];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_ext_extirq4_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq4_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq4_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq4_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T100s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq4_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq4_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq4_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq4_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq4_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq4_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq4_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq4_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq4_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq4_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq5_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq5_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq5_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq5_fieldSS[99];
+typedef character dev_sec_csb_ada__T101s[99];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_ext_extirq5_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq5_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq5_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq5_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T105s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq5_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq5_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq5_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq5_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq5_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq5_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq5_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq5_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq5_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq5_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq6_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq6_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq6_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq6_fieldSS[99];
+typedef character dev_sec_csb_ada__T106s[99];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_ext_extirq6_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq6_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq6_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq6_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T110s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq6_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq6_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq6_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq6_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq6_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq6_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq6_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq6_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq6_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq6_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq7_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq7_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq7_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq7_fieldSS[99];
+typedef character dev_sec_csb_ada__T111s[99];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_ext_extirq7_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq7_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq7_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq7_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T115s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq7_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq7_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq7_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq7_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq7_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq7_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq7_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq7_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq7_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq7_host_nonstall;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq8_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq8_init=0, dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq8_falcon_irq1=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq8_fieldSS[99];
+typedef character dev_sec_csb_ada__T116s[99];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_target_ext_extirq8_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq8_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq8_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq8_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T120s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq8_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq8_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_target_ext_extirq8_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq8_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq8_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq8_falcon_irq0;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq8_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq8_host_normal;
+extern const dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq8_field dev_sec_csb_ada__lw_csec_falcon_irqdest_target_ext_extirq8_host_nonstall;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_irqdest_register {
+  unsigned_32 f_host_gptmr : 1;
+  unsigned_32 f_host_wdtmr : 1;
+  unsigned_32 f_host_mthd : 1;
+  unsigned_32 f_host_ctxsw : 1;
+  unsigned_32 f_host_halt : 1;
+  unsigned_32 f_host_exterr : 1;
+  unsigned_32 f_host_swgen0 : 1;
+  unsigned_32 f_host_swgen1 : 1;
+  unsigned_32 f_host_ext_extirq1 : 1;
+  unsigned_32 f_host_ext_extirq2 : 1;
+  unsigned_32 f_host_ext_extirq3 : 1;
+  unsigned_32 f_host_ext_extirq4 : 1;
+  unsigned_32 f_host_ext_extirq5 : 1;
+  unsigned_32 f_host_ext_extirq6 : 1;
+  unsigned_32 f_host_ext_extirq7 : 1;
+  unsigned_32 f_host_ext_extirq8 : 1;
+  unsigned_32 f_target_gptmr : 1;
+  unsigned_32 f_target_wdtmr : 1;
+  unsigned_32 f_target_mthd : 1;
+  unsigned_32 f_target_ctxsw : 1;
+  unsigned_32 f_target_halt : 1;
+  unsigned_32 f_target_exterr : 1;
+  unsigned_32 f_target_swgen0 : 1;
+  unsigned_32 f_target_swgen1 : 1;
+  unsigned_32 f_target_ext_extirq1 : 1;
+  unsigned_32 f_target_ext_extirq2 : 1;
+  unsigned_32 f_target_ext_extirq3 : 1;
+  unsigned_32 f_target_ext_extirq4 : 1;
+  unsigned_32 f_target_ext_extirq5 : 1;
+  unsigned_32 f_target_ext_extirq6 : 1;
+  unsigned_32 f_target_ext_extirq7 : 1;
+  unsigned_32 f_target_ext_extirq8 : 1;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_irqdest_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_irqscmask;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_gptmr_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_gptmr_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_gptmr_enable=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_wdtmr_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_wdtmr_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_wdtmr_enable=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_mthd_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_mthd_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_mthd_enable=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_ctxsw_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_ctxsw_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_ctxsw_enable=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_halt_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_halt_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_halt_enable=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_exterr_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_exterr_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_exterr_enable=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_swgen0_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_swgen0_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_swgen0_enable=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_swgen1_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_swgen1_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_swgen1_enable=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_ext_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_ext_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_ext_enable=
+  255};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_dma_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_dma_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_dma_enable=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_sha_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_sha_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_sha_enable=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_memerr_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_memerr_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_memerr_enable=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_falcon_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_falcon_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_falcon_enable=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_riscv_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_riscv_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_riscv_enable=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_irqscmask_trace_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_irqscmask_trace_disable=0, dev_sec_csb_ada__lw_csec_falcon_irqscmask_trace_enable=
+  1};
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_irqscmask_register {
+  unsigned_32 f_gptmr : 1;
+  unsigned_32 f_wdtmr : 1;
+  unsigned_32 f_mthd : 1;
+  unsigned_32 f_ctxsw : 1;
+  unsigned_32 f_halt : 1;
+  unsigned_32 f_exterr : 1;
+  unsigned_32 f_swgen0 : 1;
+  unsigned_32 f_swgen1 : 1;
+  unsigned_32 f_ext : 8;
+  unsigned_32 f_dma : 1;
+  unsigned_32 f_sha : 1;
+  unsigned_32 f_memerr : 1;
+  unsigned_32 f_falcon : 1;
+  unsigned_32 f_riscv : 1;
+  unsigned_32 f_trace : 1;
+  unsigned_32 _pad1 : 10;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_irqscmask_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_ptimer0;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__Tlw_csec_falcon_ptimer0_val_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_ptimer0_val_fieldB dev_sec_csb_ada__lw_csec_falcon_ptimer0_val_field;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_ptimer0_register {
+  unsigned_32 f_val : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_ptimer0_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_debug1;
+typedef lw_types__Tlwu16B dev_sec_csb_ada__Tlw_csec_falcon_debug1_mthd_drain_time_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_debug1_mthd_drain_time_fieldB dev_sec_csb_ada__lw_csec_falcon_debug1_mthd_drain_time_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_debug1_mthd_drain_time_field dev_sec_csb_ada__lw_csec_falcon_debug1_mthd_drain_time_init;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_debug1_ctxsw_mode_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_debug1_ctxsw_mode_fieldB dev_sec_csb_ada__lw_csec_falcon_debug1_ctxsw_mode_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_debug1_ctxsw_mode_field dev_sec_csb_ada__lw_csec_falcon_debug1_ctxsw_mode_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_debug1_trace_format_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_debug1_trace_format_init=0, dev_sec_csb_ada__lw_csec_falcon_debug1_trace_format_compressed=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_debug1_trace_format_fieldSS[84];
+typedef character dev_sec_csb_ada__T121s[84];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_debug1_trace_format_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_debug1_trace_format_fieldSS dev_sec_csb_ada__lw_csec_falcon_debug1_trace_format_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_debug1_trace_format_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T125s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_debug1_trace_format_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_debug1_trace_format_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_debug1_trace_format_fieldNT dev_sec_csb_ada__lw_csec_falcon_debug1_trace_format_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_debug1_trace_format_field dev_sec_csb_ada__lw_csec_falcon_debug1_trace_format_uncompressed;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_debug1_ctxsw_mode1_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_debug1_ctxsw_mode1_init=0, dev_sec_csb_ada__lw_csec_falcon_debug1_ctxsw_mode1_bypass_idle_checks=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_debug1_ctxsw_mode1_fieldSS[90];
+typedef character dev_sec_csb_ada__T126s[90];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_debug1_ctxsw_mode1_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_debug1_ctxsw_mode1_fieldSS dev_sec_csb_ada__lw_csec_falcon_debug1_ctxsw_mode1_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_debug1_ctxsw_mode1_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T130s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_debug1_ctxsw_mode1_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_debug1_ctxsw_mode1_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_debug1_ctxsw_mode1_fieldNT dev_sec_csb_ada__lw_csec_falcon_debug1_ctxsw_mode1_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_debug1_ctxsw_mode1_field dev_sec_csb_ada__lw_csec_falcon_debug1_ctxsw_mode1_default;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_debug1_register {
+  unsigned_32 f_mthd_drain_time : 16;
+  unsigned_32 f_ctxsw_mode : 1;
+  unsigned_32 f_trace_format : 1;
+  unsigned_32 f_ctxsw_mode1 : 1;
+  unsigned_32 _pad1 : 13;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_debug1_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_ibrkpt1;
+typedef lw_types__Tlwu24B dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_pc_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_pc_fieldB dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_pc_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_pc_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_pc_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_suppress_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_suppress_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_suppress_enable=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_suppress_fieldSS[74];
+typedef character dev_sec_csb_ada__T131s[74];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt1_suppress_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_suppress_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_suppress_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_suppress_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T135s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_suppress_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_suppress_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_suppress_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_suppress_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_suppress_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_suppress_disable;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_skip_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_skip_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_skip_enable=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_skip_fieldSS[66];
+typedef character dev_sec_csb_ada__T136s[66];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt1_skip_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_skip_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_skip_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_skip_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T140s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_skip_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_skip_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_skip_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_skip_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_skip_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_skip_disable;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_en_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_en_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_en_enable=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_en_fieldSS[62];
+typedef character dev_sec_csb_ada__T141s[62];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt1_en_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_en_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_en_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_en_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T145s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_en_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_en_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt1_en_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_en_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_en_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_en_disable;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_register {
+  unsigned_32 f_pc : 24;
+  unsigned_32 _pad1 : 5;
+  unsigned_32 f_suppress : 1;
+  unsigned_32 f_skip : 1;
+  unsigned_32 f_en : 1;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_ibrkpt1_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_ibrkpt2;
+typedef lw_types__Tlwu24B dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_pc_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_pc_fieldB dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_pc_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_pc_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_pc_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_suppress_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_suppress_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_suppress_enable=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_suppress_fieldSS[74];
+typedef character dev_sec_csb_ada__T146s[74];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt2_suppress_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_suppress_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_suppress_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_suppress_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T150s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_suppress_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_suppress_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_suppress_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_suppress_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_suppress_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_suppress_disable;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_skip_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_skip_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_skip_enable=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_skip_fieldSS[66];
+typedef character dev_sec_csb_ada__T151s[66];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt2_skip_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_skip_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_skip_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_skip_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T155s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_skip_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_skip_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_skip_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_skip_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_skip_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_skip_disable;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_en_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_en_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_en_enable=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_en_fieldSS[62];
+typedef character dev_sec_csb_ada__T156s[62];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt2_en_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_en_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_en_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_en_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T160s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_en_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_en_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt2_en_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_en_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_en_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_en_disable;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_register {
+  unsigned_32 f_pc : 24;
+  unsigned_32 _pad1 : 5;
+  unsigned_32 f_suppress : 1;
+  unsigned_32 f_skip : 1;
+  unsigned_32 f_en : 1;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_ibrkpt2_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_ibrkpt3;
+typedef lw_types__Tlwu24B dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_pc_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_pc_fieldB dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_pc_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_pc_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_pc_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_suppress_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_suppress_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_suppress_enable=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_suppress_fieldSS[74];
+typedef character dev_sec_csb_ada__T161s[74];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt3_suppress_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_suppress_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_suppress_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_suppress_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T165s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_suppress_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_suppress_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_suppress_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_suppress_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_suppress_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_suppress_disable;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_skip_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_skip_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_skip_enable=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_skip_fieldSS[66];
+typedef character dev_sec_csb_ada__T166s[66];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt3_skip_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_skip_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_skip_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_skip_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T170s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_skip_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_skip_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_skip_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_skip_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_skip_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_skip_disable;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_en_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_en_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_en_enable=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_en_fieldSS[62];
+typedef character dev_sec_csb_ada__T171s[62];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt3_en_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_en_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_en_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_en_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T175s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_en_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_en_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt3_en_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_en_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_en_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_en_disable;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_register {
+  unsigned_32 f_pc : 24;
+  unsigned_32 _pad1 : 5;
+  unsigned_32 f_suppress : 1;
+  unsigned_32 f_skip : 1;
+  unsigned_32 f_en : 1;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_ibrkpt3_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_ibrkpt4;
+typedef lw_types__Tlwu24B dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_pc_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_pc_fieldB dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_pc_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_pc_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_pc_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_suppress_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_suppress_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_suppress_enable=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_suppress_fieldSS[74];
+typedef character dev_sec_csb_ada__T176s[74];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt4_suppress_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_suppress_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_suppress_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_suppress_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T180s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_suppress_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_suppress_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_suppress_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_suppress_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_suppress_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_suppress_disable;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_skip_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_skip_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_skip_enable=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_skip_fieldSS[66];
+typedef character dev_sec_csb_ada__T181s[66];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt4_skip_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_skip_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_skip_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_skip_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T185s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_skip_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_skip_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_skip_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_skip_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_skip_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_skip_disable;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_en_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_en_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_en_enable=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_en_fieldSS[62];
+typedef character dev_sec_csb_ada__T186s[62];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt4_en_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_en_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_en_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_en_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T190s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_en_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_en_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt4_en_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_en_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_en_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_en_disable;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_register {
+  unsigned_32 f_pc : 24;
+  unsigned_32 _pad1 : 5;
+  unsigned_32 f_suppress : 1;
+  unsigned_32 f_skip : 1;
+  unsigned_32 f_en : 1;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_ibrkpt4_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_ibrkpt5;
+typedef lw_types__Tlwu24B dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_pc_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_pc_fieldB dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_pc_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_pc_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_pc_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_suppress_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_suppress_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_suppress_enable=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_suppress_fieldSS[74];
+typedef character dev_sec_csb_ada__T191s[74];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt5_suppress_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_suppress_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_suppress_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_suppress_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T195s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_suppress_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_suppress_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_suppress_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_suppress_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_suppress_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_suppress_disable;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_skip_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_skip_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_skip_enable=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_skip_fieldSS[66];
+typedef character dev_sec_csb_ada__T196s[66];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt5_skip_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_skip_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_skip_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_skip_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T200s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_skip_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_skip_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_skip_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_skip_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_skip_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_skip_disable;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_en_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_en_init=0, dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_en_enable=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_en_fieldSS[62];
+typedef character dev_sec_csb_ada__T201s[62];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_ibrkpt5_en_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_en_fieldSS dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_en_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_en_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T205s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_en_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_en_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_ibrkpt5_en_fieldNT dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_en_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_en_field dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_en_disable;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_register {
+  unsigned_32 f_pc : 24;
+  unsigned_32 _pad1 : 5;
+  unsigned_32 f_suppress : 1;
+  unsigned_32 f_skip : 1;
+  unsigned_32 f_en : 1;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_ibrkpt5_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_exci;
+typedef lw_types__Tlwu20B dev_sec_csb_ada__Tlw_csec_falcon_exci_expc_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_exci_expc_fieldB dev_sec_csb_ada__lw_csec_falcon_exci_expc_field;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_exci_excause_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_exci_excause_trap0=0, dev_sec_csb_ada__lw_csec_falcon_exci_excause_trap1=1, dev_sec_csb_ada__lw_csec_falcon_exci_excause_trap2=
+  2, dev_sec_csb_ada__lw_csec_falcon_exci_excause_trap3=3, dev_sec_csb_ada__lw_csec_falcon_exci_excause_ill_ins=8, dev_sec_csb_ada__lw_csec_falcon_exci_excause_ilw_ins=
+  9, dev_sec_csb_ada__lw_csec_falcon_exci_excause_miss_ins=10, dev_sec_csb_ada__lw_csec_falcon_exci_excause_dhit_ins=
+  11, dev_sec_csb_ada__lw_csec_falcon_exci_excause_sp_overflow=13, dev_sec_csb_ada__lw_csec_falcon_exci_excause_brkpt_ins=
+  15, dev_sec_csb_ada__lw_csec_falcon_exci_excause_dmem_miss_ins=16, dev_sec_csb_ada__lw_csec_falcon_exci_excause_dmem_dhit_ins=
+  17, dev_sec_csb_ada__lw_csec_falcon_exci_excause_dmem_pafault_ins=18, dev_sec_csb_ada__lw_csec_falcon_exci_excause_dmem_permission_ins=
+  19, dev_sec_csb_ada__lw_csec_falcon_exci_excause_brom_call_ins=21, dev_sec_csb_ada__lw_csec_falcon_exci_excause_kmem_violation_ins=
+  22, dev_sec_csb_ada__lw_csec_falcon_exci_excause_bmem_permission_ins=23};
+typedef lw_types__Tlwu4B dev_sec_csb_ada__Tlw_csec_falcon_exci_expc_high_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_exci_expc_high_fieldB dev_sec_csb_ada__lw_csec_falcon_exci_expc_high_field;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_exci_register {
+  unsigned_32 f_expc : 20;
+  unsigned_32 f_excause : 5;
+  unsigned_32 _pad1 : 3;
+  unsigned_32 f_expc_high : 4;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_exci_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_svec_spr;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_svec_spr_sigpass_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_svec_spr_sigpass_false=0, dev_sec_csb_ada__lw_csec_falcon_svec_spr_sigpass_true=
+  1};
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_svec_spr_register {
+  unsigned_32 _pad1 : 18;
+  unsigned_32 f_sigpass : 1;
+  unsigned_32 _pad2 : 13;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_svec_spr_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_cpuctl;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_cpuctl_iilwal_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_cpuctl_iilwal_false=0, dev_sec_csb_ada__lw_csec_falcon_cpuctl_iilwal_true=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_cpuctl_startcpu_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_cpuctl_startcpu_false=0, dev_sec_csb_ada__lw_csec_falcon_cpuctl_startcpu_true=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_cpuctl_sreset_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_cpuctl_sreset_false=0, dev_sec_csb_ada__lw_csec_falcon_cpuctl_sreset_true=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_cpuctl_hreset_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_cpuctl_hreset_false=0, dev_sec_csb_ada__lw_csec_falcon_cpuctl_hreset_true=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_cpuctl_halted_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_cpuctl_halted_false=0, dev_sec_csb_ada__lw_csec_falcon_cpuctl_halted_true=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_cpuctl_stopped_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_cpuctl_stopped_false=0, dev_sec_csb_ada__lw_csec_falcon_cpuctl_stopped_true=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_cpuctl_alias_en_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_cpuctl_alias_en_false=0, dev_sec_csb_ada__lw_csec_falcon_cpuctl_alias_en_true=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_alias_en_fieldSS[71];
+typedef character dev_sec_csb_ada__T206s[71];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_cpuctl_alias_en_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_alias_en_fieldSS dev_sec_csb_ada__lw_csec_falcon_cpuctl_alias_en_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_alias_en_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T210s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_alias_en_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_alias_en_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_alias_en_fieldNT dev_sec_csb_ada__lw_csec_falcon_cpuctl_alias_en_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_cpuctl_alias_en_field dev_sec_csb_ada__lw_csec_falcon_cpuctl_alias_en_init;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_cpuctl_register {
+  unsigned_32 f_iilwal : 1;
+  unsigned_32 f_startcpu : 1;
+  unsigned_32 f_sreset : 1;
+  unsigned_32 f_hreset : 1;
+  unsigned_32 f_halted : 1;
+  unsigned_32 f_stopped : 1;
+  unsigned_32 f_alias_en : 1;
+  unsigned_32 _pad1 : 25;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_cpuctl_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_stackcfg;
+typedef lw_types__Tlwu24B dev_sec_csb_ada__Tlw_csec_falcon_stackcfg_bottom_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_stackcfg_bottom_fieldB dev_sec_csb_ada__lw_csec_falcon_stackcfg_bottom_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_stackcfg_bottom_field dev_sec_csb_ada__lw_csec_falcon_stackcfg_bottom_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_stackcfg_spexc_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_stackcfg_spexc_init=0, dev_sec_csb_ada__lw_csec_falcon_stackcfg_spexc_enable=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_stackcfg_spexc_fieldSS[70];
+typedef character dev_sec_csb_ada__T211s[70];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_stackcfg_spexc_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_stackcfg_spexc_fieldSS dev_sec_csb_ada__lw_csec_falcon_stackcfg_spexc_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_stackcfg_spexc_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T215s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_stackcfg_spexc_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_stackcfg_spexc_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_stackcfg_spexc_fieldNT dev_sec_csb_ada__lw_csec_falcon_stackcfg_spexc_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_stackcfg_spexc_field dev_sec_csb_ada__lw_csec_falcon_stackcfg_spexc_disable;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_stackcfg_register {
+  unsigned_32 f_bottom : 24;
+  unsigned_32 _pad1 : 7;
+  unsigned_32 f_spexc : 1;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_stackcfg_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_hwcfg1;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_1_0=1, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_2_0=2, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_3_0=
+  3, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_4_0=4, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_5_0=5, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_init=
+  6, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_7_0=7};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_fieldSS[239];
+typedef character dev_sec_csb_ada__T216s[239];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_hwcfg1_core_rev_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_fieldSS dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T220s[8];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_fieldNT[8];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_fieldNT dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_fieldN;
+typedef dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_field *dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_fieldAB;
+typedef dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_field dev_sec_csb_ada__T224s[1];
+typedef dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_field dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_fieldAT[
+  1];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_fieldAD1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_fieldAT dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_fieldA;
+extern const dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_field dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_6_0;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_hwcfg1_selwrity_model_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_hwcfg1_selwrity_model_none=0, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_selwrity_model_light=
+  2, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_selwrity_model_init=3};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_selwrity_model_fieldSS[124];
+typedef character dev_sec_csb_ada__T227s[124];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_hwcfg1_selwrity_model_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_selwrity_model_fieldSS dev_sec_csb_ada__lw_csec_falcon_hwcfg1_selwrity_model_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_selwrity_model_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T231s[4];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_selwrity_model_fieldNT[4];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_selwrity_model_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_selwrity_model_fieldNT dev_sec_csb_ada__lw_csec_falcon_hwcfg1_selwrity_model_fieldN;
+typedef dev_sec_csb_ada__lw_csec_falcon_hwcfg1_selwrity_model_field *dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_selwrity_model_fieldAB;
+typedef dev_sec_csb_ada__lw_csec_falcon_hwcfg1_selwrity_model_field dev_sec_csb_ada__T235s[3];
+typedef dev_sec_csb_ada__lw_csec_falcon_hwcfg1_selwrity_model_field dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_selwrity_model_fieldAT[
+  3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_selwrity_model_fieldAD1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_selwrity_model_fieldAT dev_sec_csb_ada__lw_csec_falcon_hwcfg1_selwrity_model_fieldA;
+extern const dev_sec_csb_ada__lw_csec_falcon_hwcfg1_selwrity_model_field dev_sec_csb_ada__lw_csec_falcon_hwcfg1_selwrity_model_heavy;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_subversion_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_subversion_init=0, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_subversion_1=
+  1, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_subversion_2=2, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_subversion_3=
+  3};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_subversion_fieldSS[175];
+typedef character dev_sec_csb_ada__T240s[175];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_hwcfg1_core_rev_subversion_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_subversion_fieldSS dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_subversion_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_subversion_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T244s[5];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_subversion_fieldNT[5];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_subversion_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_core_rev_subversion_fieldNT dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_subversion_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_subversion_field dev_sec_csb_ada__lw_csec_falcon_hwcfg1_core_rev_subversion_0;
+typedef lw_types__Tlwu4B dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_imem_ports_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_imem_ports_fieldB dev_sec_csb_ada__lw_csec_falcon_hwcfg1_imem_ports_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_hwcfg1_imem_ports_field dev_sec_csb_ada__lw_csec_falcon_hwcfg1_imem_ports_init;
+typedef lw_types__Tlwu4B dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dmem_ports_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dmem_ports_fieldB dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dmem_ports_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dmem_ports_field dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dmem_ports_init;
+typedef lw_types__Tlwu5B dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_tag_width_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_tag_width_fieldB dev_sec_csb_ada__lw_csec_falcon_hwcfg1_tag_width_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_hwcfg1_tag_width_field dev_sec_csb_ada__lw_csec_falcon_hwcfg1_tag_width_init;
+typedef lw_types__Tlwu5B dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dmem_tag_width_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dmem_tag_width_fieldB dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dmem_tag_width_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dmem_tag_width_field dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dmem_tag_width_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dbg_priv_bus_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dbg_priv_bus_disable=0, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dbg_priv_bus_init=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dbg_priv_bus_fieldSS[81];
+typedef character dev_sec_csb_ada__T245s[81];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_hwcfg1_dbg_priv_bus_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dbg_priv_bus_fieldSS dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dbg_priv_bus_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dbg_priv_bus_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T249s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dbg_priv_bus_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dbg_priv_bus_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dbg_priv_bus_fieldNT dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dbg_priv_bus_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dbg_priv_bus_field dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dbg_priv_bus_enable;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_hwcfg1_csb_size_16m_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_hwcfg1_csb_size_16m_init=0, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_csb_size_16m_true=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_csb_size_16m_fieldSS[78];
+typedef character dev_sec_csb_ada__T250s[78];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_hwcfg1_csb_size_16m_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_csb_size_16m_fieldSS dev_sec_csb_ada__lw_csec_falcon_hwcfg1_csb_size_16m_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_csb_size_16m_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T254s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_csb_size_16m_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_csb_size_16m_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_csb_size_16m_fieldNT dev_sec_csb_ada__lw_csec_falcon_hwcfg1_csb_size_16m_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_hwcfg1_csb_size_16m_field dev_sec_csb_ada__lw_csec_falcon_hwcfg1_csb_size_16m_false;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_hwcfg1_priv_direct_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_hwcfg1_priv_direct_init=0, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_priv_direct_true=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_priv_direct_fieldSS[76];
+typedef character dev_sec_csb_ada__T255s[76];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_hwcfg1_priv_direct_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_priv_direct_fieldSS dev_sec_csb_ada__lw_csec_falcon_hwcfg1_priv_direct_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_priv_direct_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T259s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_priv_direct_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_priv_direct_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_priv_direct_fieldNT dev_sec_csb_ada__lw_csec_falcon_hwcfg1_priv_direct_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_hwcfg1_priv_direct_field dev_sec_csb_ada__lw_csec_falcon_hwcfg1_priv_direct_false;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dmem_apertures_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dmem_apertures_disable=0, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dmem_apertures_init=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dmem_apertures_fieldSS[85];
+typedef character dev_sec_csb_ada__T260s[85];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_hwcfg1_dmem_apertures_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dmem_apertures_fieldSS dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dmem_apertures_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dmem_apertures_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T264s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dmem_apertures_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dmem_apertures_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_dmem_apertures_fieldNT dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dmem_apertures_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dmem_apertures_field dev_sec_csb_ada__lw_csec_falcon_hwcfg1_dmem_apertures_enable;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_hwcfg1_imem_autofill_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_hwcfg1_imem_autofill_disable=0, dev_sec_csb_ada__lw_csec_falcon_hwcfg1_imem_autofill_init=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_imem_autofill_fieldSS[83];
+typedef character dev_sec_csb_ada__T265s[83];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_hwcfg1_imem_autofill_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_imem_autofill_fieldSS dev_sec_csb_ada__lw_csec_falcon_hwcfg1_imem_autofill_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_imem_autofill_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T269s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_imem_autofill_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_imem_autofill_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_hwcfg1_imem_autofill_fieldNT dev_sec_csb_ada__lw_csec_falcon_hwcfg1_imem_autofill_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_hwcfg1_imem_autofill_field dev_sec_csb_ada__lw_csec_falcon_hwcfg1_imem_autofill_enable;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_hwcfg1_register {
+  unsigned_32 f_core_rev : 4;
+  unsigned_32 f_selwrity_model : 2;
+  unsigned_32 f_core_rev_subversion : 2;
+  unsigned_32 f_imem_ports : 4;
+  unsigned_32 f_dmem_ports : 4;
+  unsigned_32 f_tag_width : 5;
+  unsigned_32 f_dmem_tag_width : 5;
+  unsigned_32 _pad1 : 1;
+  unsigned_32 f_dbg_priv_bus : 1;
+  unsigned_32 f_csb_size_16m : 1;
+  unsigned_32 f_priv_direct : 1;
+  unsigned_32 f_dmem_apertures : 1;
+  unsigned_32 f_imem_autofill : 1;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_hwcfg1_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_traceidx;
+typedef lw_types__Tlwu8B dev_sec_csb_ada__Tlw_csec_falcon_traceidx_idx_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_traceidx_idx_fieldB dev_sec_csb_ada__lw_csec_falcon_traceidx_idx_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_traceidx_idx_field dev_sec_csb_ada__lw_csec_falcon_traceidx_idx_init;
+typedef lw_types__Tlwu8B dev_sec_csb_ada__Tlw_csec_falcon_traceidx_maxidx_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_traceidx_maxidx_fieldB dev_sec_csb_ada__lw_csec_falcon_traceidx_maxidx_field;
+typedef lw_types__Tlwu8B dev_sec_csb_ada__Tlw_csec_falcon_traceidx_cnt_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_traceidx_cnt_fieldB dev_sec_csb_ada__lw_csec_falcon_traceidx_cnt_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_traceidx_cnt_field dev_sec_csb_ada__lw_csec_falcon_traceidx_cnt_init;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_traceidx_register {
+  unsigned_32 f_idx : 8;
+  unsigned_32 _pad1 : 8;
+  unsigned_32 f_maxidx : 8;
+  unsigned_32 f_cnt : 8;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_traceidx_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_tracepc;
+typedef lw_types__Tlwu24B dev_sec_csb_ada__Tlw_csec_falcon_tracepc_pc_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_tracepc_pc_fieldB dev_sec_csb_ada__lw_csec_falcon_tracepc_pc_field;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_tracepc_register {
+  unsigned_32 f_pc : 24;
+  unsigned_32 _pad1 : 8;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_tracepc_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_dmemapert;
+typedef lw_types__Tlwu8B dev_sec_csb_ada__Tlw_csec_falcon_dmemapert_time_out_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_dmemapert_time_out_fieldB dev_sec_csb_ada__lw_csec_falcon_dmemapert_time_out_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_dmemapert_time_out_field dev_sec_csb_ada__lw_csec_falcon_dmemapert_time_out_init;
+typedef lw_types__Tlwu4B dev_sec_csb_ada__Tlw_csec_falcon_dmemapert_time_unit_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_dmemapert_time_unit_fieldB dev_sec_csb_ada__lw_csec_falcon_dmemapert_time_unit_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_dmemapert_time_unit_field dev_sec_csb_ada__lw_csec_falcon_dmemapert_time_unit_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_dmemapert_enable_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_dmemapert_enable_init=0, dev_sec_csb_ada__lw_csec_falcon_dmemapert_enable_true=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_dmemapert_enable_fieldSS[72];
+typedef character dev_sec_csb_ada__T270s[72];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_dmemapert_enable_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemapert_enable_fieldSS dev_sec_csb_ada__lw_csec_falcon_dmemapert_enable_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_dmemapert_enable_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T274s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_dmemapert_enable_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_dmemapert_enable_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemapert_enable_fieldNT dev_sec_csb_ada__lw_csec_falcon_dmemapert_enable_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_dmemapert_enable_field dev_sec_csb_ada__lw_csec_falcon_dmemapert_enable_false;
+typedef lw_types__Tlwu3B dev_sec_csb_ada__Tlw_csec_falcon_dmemapert_ldstq_num_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_dmemapert_ldstq_num_fieldB dev_sec_csb_ada__lw_csec_falcon_dmemapert_ldstq_num_field;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_dmemapert_register {
+  unsigned_32 f_time_out : 8;
+  unsigned_32 f_time_unit : 4;
+  unsigned_32 _pad1 : 4;
+  unsigned_32 f_enable : 1;
+  unsigned_32 f_ldstq_num : 3;
+  unsigned_32 _pad2 : 12;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_dmemapert_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_exterraddr;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__Tlw_csec_falcon_exterraddr_addr_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_exterraddr_addr_fieldB dev_sec_csb_ada__lw_csec_falcon_exterraddr_addr_field;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_exterraddr_register {
+  unsigned_32 f_addr : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_exterraddr_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_exterrstat;
+typedef lw_types__Tlwu24B dev_sec_csb_ada__Tlw_csec_falcon_exterrstat_pc_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_exterrstat_pc_fieldB dev_sec_csb_ada__lw_csec_falcon_exterrstat_pc_field;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_exterrstat_stat_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_exterrstat_stat_ack_pos=0, dev_sec_csb_ada__lw_csec_falcon_exterrstat_stat_ack_tout=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_exterrstat_valid_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_exterrstat_valid_init=0, dev_sec_csb_ada__lw_csec_falcon_exterrstat_valid_true=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_exterrstat_valid_fieldSS[72];
+typedef character dev_sec_csb_ada__T275s[72];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_exterrstat_valid_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_exterrstat_valid_fieldSS dev_sec_csb_ada__lw_csec_falcon_exterrstat_valid_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_exterrstat_valid_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T279s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_exterrstat_valid_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_exterrstat_valid_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_exterrstat_valid_fieldNT dev_sec_csb_ada__lw_csec_falcon_exterrstat_valid_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_exterrstat_valid_field dev_sec_csb_ada__lw_csec_falcon_exterrstat_valid_false;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_exterrstat_register {
+  unsigned_32 f_pc : 24;
+  unsigned_32 f_stat : 4;
+  unsigned_32 _pad1 : 3;
+  unsigned_32 f_valid : 1;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_exterrstat_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_engid;
+typedef lw_types__Tlwu8B dev_sec_csb_ada__Tlw_csec_falcon_engid_instid_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_engid_instid_fieldB dev_sec_csb_ada__lw_csec_falcon_engid_instid_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_engid_instid_field dev_sec_csb_ada__lw_csec_falcon_engid_instid_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_engid_familyid_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_engid_familyid_sec=1, dev_sec_csb_ada__lw_csec_falcon_engid_familyid_dpu=2, dev_sec_csb_ada__lw_csec_falcon_engid_familyid_lwdec=
+  3, dev_sec_csb_ada__lw_csec_falcon_engid_familyid_pwr_pmu=4, dev_sec_csb_ada__lw_csec_falcon_engid_familyid_fbfaclon=
+  5, dev_sec_csb_ada__lw_csec_falcon_engid_familyid_lwenc=6, dev_sec_csb_ada__lw_csec_falcon_engid_familyid_gpccs=7, dev_sec_csb_ada__lw_csec_falcon_engid_familyid_fecs=
+  8, dev_sec_csb_ada__lw_csec_falcon_engid_familyid_minion=9, dev_sec_csb_ada__lw_csec_falcon_engid_familyid_xusb=10, dev_sec_csb_ada__lw_csec_falcon_engid_familyid_gsp=
+  11, dev_sec_csb_ada__lw_csec_falcon_engid_familyid_lwjpg=12};
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_engid_register {
+  unsigned_32 f_instid : 8;
+  unsigned_32 f_familyid : 8;
+  unsigned_32 _pad1 : 16;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_engid_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_csberrstat;
+typedef lw_types__Tlwu24B dev_sec_csb_ada__Tlw_csec_falcon_csberrstat_pc_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_csberrstat_pc_fieldB dev_sec_csb_ada__lw_csec_falcon_csberrstat_pc_field;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_csberrstat_enable_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_csberrstat_enable_false=0, dev_sec_csb_ada__lw_csec_falcon_csberrstat_enable_init=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_csberrstat_enable_fieldSS[75];
+typedef character dev_sec_csb_ada__T280s[75];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_csberrstat_enable_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_csberrstat_enable_fieldSS dev_sec_csb_ada__lw_csec_falcon_csberrstat_enable_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_csberrstat_enable_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T284s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_csberrstat_enable_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_csberrstat_enable_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_csberrstat_enable_fieldNT dev_sec_csb_ada__lw_csec_falcon_csberrstat_enable_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_csberrstat_enable_field dev_sec_csb_ada__lw_csec_falcon_csberrstat_enable_true;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_csberrstat_valid_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_csberrstat_valid_init=0, dev_sec_csb_ada__lw_csec_falcon_csberrstat_valid_true=
+  1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_csberrstat_valid_fieldSS[72];
+typedef character dev_sec_csb_ada__T285s[72];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_csberrstat_valid_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_csberrstat_valid_fieldSS dev_sec_csb_ada__lw_csec_falcon_csberrstat_valid_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_csberrstat_valid_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T289s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_csberrstat_valid_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_csberrstat_valid_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_csberrstat_valid_fieldNT dev_sec_csb_ada__lw_csec_falcon_csberrstat_valid_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_csberrstat_valid_field dev_sec_csb_ada__lw_csec_falcon_csberrstat_valid_false;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_csberrstat_register {
+  unsigned_32 f_pc : 24;
+  unsigned_32 _pad1 : 6;
+  unsigned_32 f_enable : 1;
+  unsigned_32 f_valid : 1;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_csberrstat_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_imemc;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__lw_csec_falcon_imemc_index;
+typedef lw_types__Tlwu6B dev_sec_csb_ada__Tlw_csec_falcon_imemc_offs_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_imemc_offs_fieldB dev_sec_csb_ada__lw_csec_falcon_imemc_offs_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_imemc_offs_field dev_sec_csb_ada__lw_csec_falcon_imemc_offs_init;
+typedef lw_types__Tlwu8B dev_sec_csb_ada__Tlw_csec_falcon_imemc_blk_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_imemc_blk_fieldB dev_sec_csb_ada__lw_csec_falcon_imemc_blk_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_imemc_blk_field dev_sec_csb_ada__lw_csec_falcon_imemc_blk_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_imemc_aincw_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_imemc_aincw_init=0, dev_sec_csb_ada__lw_csec_falcon_imemc_aincw_true=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_imemc_aincw_fieldSS[62];
+typedef character dev_sec_csb_ada__T293s[62];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_imemc_aincw_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_imemc_aincw_fieldSS dev_sec_csb_ada__lw_csec_falcon_imemc_aincw_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_imemc_aincw_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T297s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_imemc_aincw_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_imemc_aincw_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_imemc_aincw_fieldNT dev_sec_csb_ada__lw_csec_falcon_imemc_aincw_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_imemc_aincw_field dev_sec_csb_ada__lw_csec_falcon_imemc_aincw_false;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_imemc_aincr_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_imemc_aincr_init=0, dev_sec_csb_ada__lw_csec_falcon_imemc_aincr_true=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_imemc_aincr_fieldSS[62];
+typedef character dev_sec_csb_ada__T298s[62];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_imemc_aincr_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_imemc_aincr_fieldSS dev_sec_csb_ada__lw_csec_falcon_imemc_aincr_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_imemc_aincr_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T302s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_imemc_aincr_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_imemc_aincr_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_imemc_aincr_fieldNT dev_sec_csb_ada__lw_csec_falcon_imemc_aincr_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_imemc_aincr_field dev_sec_csb_ada__lw_csec_falcon_imemc_aincr_false;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_imemc_selwre_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_imemc_selwre_fieldB dev_sec_csb_ada__lw_csec_falcon_imemc_selwre_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_imemc_selwre_field dev_sec_csb_ada__lw_csec_falcon_imemc_selwre_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_imemc_sec_atomic_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_imemc_sec_atomic_false=0, dev_sec_csb_ada__lw_csec_falcon_imemc_sec_atomic_true=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_imemc_sec_wr_vio_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_imemc_sec_wr_vio_false=0, dev_sec_csb_ada__lw_csec_falcon_imemc_sec_wr_vio_true=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_imemc_sec_lock_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_imemc_sec_lock_false=0, dev_sec_csb_ada__lw_csec_falcon_imemc_sec_lock_true=1};
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_imemc_register {
+  unsigned_32 _pad1 : 2;
+  unsigned_32 f_offs : 6;
+  unsigned_32 f_blk : 8;
+  unsigned_32 _pad2 : 8;
+  unsigned_32 f_aincw : 1;
+  unsigned_32 f_aincr : 1;
+  unsigned_32 _pad3 : 2;
+  unsigned_32 f_selwre : 1;
+  unsigned_32 f_sec_atomic : 1;
+  unsigned_32 f_sec_wr_vio : 1;
+  unsigned_32 f_sec_lock : 1;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_imemc_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_imemd;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__lw_csec_falcon_imemd_index;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__Tlw_csec_falcon_imemd_data_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_imemd_data_fieldB dev_sec_csb_ada__lw_csec_falcon_imemd_data_field;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_imemd_register {
+  unsigned_32 f_data : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_imemd_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_imemt;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__lw_csec_falcon_imemt_index;
+typedef lw_types__Tlwu16B dev_sec_csb_ada__Tlw_csec_falcon_imemt_tag_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_imemt_tag_fieldB dev_sec_csb_ada__lw_csec_falcon_imemt_tag_field;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_imemt_register {
+  unsigned_32 f_tag : 16;
+  unsigned_32 _pad1 : 16;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_imemt_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_dmemc;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__lw_csec_falcon_dmemc_index;
+typedef lw_types__Tlwu24B dev_sec_csb_ada__Tlw_csec_falcon_dmemc_address_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_dmemc_address_fieldB dev_sec_csb_ada__lw_csec_falcon_dmemc_address_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_dmemc_address_field dev_sec_csb_ada__lw_csec_falcon_dmemc_address_init;
+typedef lw_types__Tlwu6B dev_sec_csb_ada__Tlw_csec_falcon_dmemc_offs_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_dmemc_offs_fieldB dev_sec_csb_ada__lw_csec_falcon_dmemc_offs_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_dmemc_offs_field dev_sec_csb_ada__lw_csec_falcon_dmemc_offs_init;
+typedef lw_types__Tlwu8B dev_sec_csb_ada__Tlw_csec_falcon_dmemc_blk_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_dmemc_blk_fieldB dev_sec_csb_ada__lw_csec_falcon_dmemc_blk_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_dmemc_blk_field dev_sec_csb_ada__lw_csec_falcon_dmemc_blk_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_dmemc_aincw_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_dmemc_aincw_init=0, dev_sec_csb_ada__lw_csec_falcon_dmemc_aincw_true=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_dmemc_aincw_fieldSS[62];
+typedef character dev_sec_csb_ada__T312s[62];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_dmemc_aincw_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_aincw_fieldSS dev_sec_csb_ada__lw_csec_falcon_dmemc_aincw_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_dmemc_aincw_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T316s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_dmemc_aincw_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_dmemc_aincw_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_aincw_fieldNT dev_sec_csb_ada__lw_csec_falcon_dmemc_aincw_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_dmemc_aincw_field dev_sec_csb_ada__lw_csec_falcon_dmemc_aincw_false;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_dmemc_aincr_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_dmemc_aincr_init=0, dev_sec_csb_ada__lw_csec_falcon_dmemc_aincr_true=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_dmemc_aincr_fieldSS[62];
+typedef character dev_sec_csb_ada__T317s[62];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_dmemc_aincr_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_aincr_fieldSS dev_sec_csb_ada__lw_csec_falcon_dmemc_aincr_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_dmemc_aincr_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T321s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_dmemc_aincr_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_dmemc_aincr_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_aincr_fieldNT dev_sec_csb_ada__lw_csec_falcon_dmemc_aincr_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_dmemc_aincr_field dev_sec_csb_ada__lw_csec_falcon_dmemc_aincr_false;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_dmemc_settag_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_dmemc_settag_init=0, dev_sec_csb_ada__lw_csec_falcon_dmemc_settag_true=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_dmemc_settag_fieldSS[64];
+typedef character dev_sec_csb_ada__T322s[64];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_dmemc_settag_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_settag_fieldSS dev_sec_csb_ada__lw_csec_falcon_dmemc_settag_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_dmemc_settag_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T326s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_dmemc_settag_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_dmemc_settag_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_settag_fieldNT dev_sec_csb_ada__lw_csec_falcon_dmemc_settag_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_dmemc_settag_field dev_sec_csb_ada__lw_csec_falcon_dmemc_settag_false;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_dmemc_setlvl_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_dmemc_setlvl_init=0, dev_sec_csb_ada__lw_csec_falcon_dmemc_setlvl_true=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_dmemc_setlvl_fieldSS[64];
+typedef character dev_sec_csb_ada__T327s[64];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_dmemc_setlvl_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_setlvl_fieldSS dev_sec_csb_ada__lw_csec_falcon_dmemc_setlvl_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_dmemc_setlvl_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T331s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_dmemc_setlvl_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_dmemc_setlvl_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_setlvl_fieldNT dev_sec_csb_ada__lw_csec_falcon_dmemc_setlvl_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_dmemc_setlvl_field dev_sec_csb_ada__lw_csec_falcon_dmemc_setlvl_false;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_dmemc_va_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_dmemc_va_init=0, dev_sec_csb_ada__lw_csec_falcon_dmemc_va_true=1};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_dmemc_va_fieldSS[56];
+typedef character dev_sec_csb_ada__T332s[56];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_dmemc_va_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_va_fieldSS dev_sec_csb_ada__lw_csec_falcon_dmemc_va_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_dmemc_va_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T336s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_dmemc_va_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_dmemc_va_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_va_fieldNT dev_sec_csb_ada__lw_csec_falcon_dmemc_va_fieldN;
+extern const dev_sec_csb_ada__lw_csec_falcon_dmemc_va_field dev_sec_csb_ada__lw_csec_falcon_dmemc_va_false;
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_dmemc_miss_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_dmemc_miss_false=0, dev_sec_csb_ada__lw_csec_falcon_dmemc_miss_true=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_dmemc_multihit_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_dmemc_multihit_false=0, dev_sec_csb_ada__lw_csec_falcon_dmemc_multihit_true=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_falcon_dmemc_lvlerr_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_dmemc_lvlerr_false=0, dev_sec_csb_ada__lw_csec_falcon_dmemc_lvlerr_true=1};
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_dmemc_register_0 {
+  unsigned_32 f_address : 24;
+  unsigned_32 f_aincw : 1;
+  unsigned_32 f_aincr : 1;
+  unsigned_32 f_settag : 1;
+  unsigned_32 f_setlvl : 1;
+  unsigned_32 f_va : 1;
+  unsigned_32 f_miss : 1;
+  unsigned_32 f_multihit : 1;
+  unsigned_32 f_lvlerr : 1;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_dmemc_register_0
+  GNAT_ALIGN(4);
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_dmemc_register_1 {
+  unsigned_32 _pad1 : 2;
+  unsigned_32 f_offs : 6;
+  unsigned_32 f_blk : 8;
+  unsigned_32 _pad2 : 16;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_dmemc_register_1
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_dmemd;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__lw_csec_falcon_dmemd_index;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__Tlw_csec_falcon_dmemd_data_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_dmemd_data_fieldB dev_sec_csb_ada__lw_csec_falcon_dmemd_data_field;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_dmemd_register {
+  unsigned_32 f_data : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_dmemd_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_doc_ctrl;
+typedef lw_types__Tlwu8B dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_count_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_count_fieldB dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_count_field;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_reset_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_reset_fieldB dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_reset_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_reset_field dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_reset_init;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_stop_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_stop_fieldB dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_stop_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_stop_field dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_stop_init;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_empty_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_empty_fieldB dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_empty_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_empty_field dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_empty_init;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_wr_finished_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_wr_finished_fieldB dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_wr_finished_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_wr_finished_field dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_wr_finished_init;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_rd_finished_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_rd_finished_fieldB dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_rd_finished_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_rd_finished_field dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_rd_finished_init;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_wr_error_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_wr_error_fieldB dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_wr_error_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_wr_error_field dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_wr_error_init;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_rd_error_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_rd_error_fieldB dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_rd_error_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_rd_error_field dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_rd_error_init;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_protocol_error_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_doc_ctrl_protocol_error_fieldB dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_protocol_error_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_protocol_error_field dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_protocol_error_init;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_register {
+  unsigned_32 f_count : 8;
+  unsigned_32 _pad1 : 8;
+  unsigned_32 f_reset : 1;
+  unsigned_32 f_stop : 1;
+  unsigned_32 f_empty : 1;
+  unsigned_32 f_wr_finished : 1;
+  unsigned_32 f_rd_finished : 1;
+  unsigned_32 f_wr_error : 1;
+  unsigned_32 f_rd_error : 1;
+  unsigned_32 f_protocol_error : 1;
+  unsigned_32 _pad2 : 8;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_doc_ctrl_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_doc_d0;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__Tlw_csec_falcon_doc_d0_data_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_doc_d0_data_fieldB dev_sec_csb_ada__lw_csec_falcon_doc_d0_data_field;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_doc_d0_register {
+  unsigned_32 f_data : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_doc_d0_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_doc_d1;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__Tlw_csec_falcon_doc_d1_data_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_doc_d1_data_fieldB dev_sec_csb_ada__lw_csec_falcon_doc_d1_data_field;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_doc_d1_register {
+  unsigned_32 f_data : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_doc_d1_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_dic_ctrl;
+typedef lw_types__Tlwu8B dev_sec_csb_ada__Tlw_csec_falcon_dic_ctrl_count_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_dic_ctrl_count_fieldB dev_sec_csb_ada__lw_csec_falcon_dic_ctrl_count_field;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_dic_ctrl_reset_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_dic_ctrl_reset_fieldB dev_sec_csb_ada__lw_csec_falcon_dic_ctrl_reset_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_dic_ctrl_reset_field dev_sec_csb_ada__lw_csec_falcon_dic_ctrl_reset_init;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_dic_ctrl_valid_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_dic_ctrl_valid_fieldB dev_sec_csb_ada__lw_csec_falcon_dic_ctrl_valid_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_dic_ctrl_valid_field dev_sec_csb_ada__lw_csec_falcon_dic_ctrl_valid_init;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_falcon_dic_ctrl_pop_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_dic_ctrl_pop_fieldB dev_sec_csb_ada__lw_csec_falcon_dic_ctrl_pop_field;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_dic_ctrl_register {
+  unsigned_32 f_count : 8;
+  unsigned_32 _pad1 : 8;
+  unsigned_32 f_reset : 1;
+  unsigned_32 _pad2 : 2;
+  unsigned_32 f_valid : 1;
+  unsigned_32 f_pop : 1;
+  unsigned_32 _pad3 : 11;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_dic_ctrl_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_dic_d0;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__Tlw_csec_falcon_dic_d0_data_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_dic_d0_data_fieldB dev_sec_csb_ada__lw_csec_falcon_dic_d0_data_field;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_dic_d0_register {
+  unsigned_32 f_data : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_dic_d0_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base;
+typedef integer_32 dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base_val_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base_val_deft=0, dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base_val_sec=
+  33280, dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base_val_pwr_pmu=33776, dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base_val_lwdec=
+  34272, dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base_val_gsp=34528};
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base_register {
+  unsigned_32 f_val : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum;
+typedef integer_32 dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_val_field;
+enum {dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_val_deft=0, dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_val_gsp=
+  3, dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_val_lwdec=5, dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_val_sec=
+  10};
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_entnum_val_fieldSS[147];
+typedef character dev_sec_csb_ada__T340s[147];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_vhrcfg_entnum_val_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_entnum_val_fieldSS dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_val_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_entnum_val_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T344s[5];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_entnum_val_fieldNT[5];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_entnum_val_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_entnum_val_fieldNT dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_val_fieldN;
+typedef dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_val_field *dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_entnum_val_fieldAB;
+typedef dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_val_field dev_sec_csb_ada__T348s[4];
+typedef dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_val_field dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_entnum_val_fieldAT[
+  4];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_entnum_val_fieldAD1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_entnum_val_fieldAT dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_val_fieldA;
+extern const dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_val_field dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_val_pwr_pmu;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_register {
+  unsigned_32 f_val : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_vhrcfg_entnum_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_scp_ctl1;
+typedef integer_8 dev_sec_csb_ada__lw_csec_scp_ctl1_seq_clear_field;
+enum {dev_sec_csb_ada__lw_csec_scp_ctl1_seq_clear_idle=0, dev_sec_csb_ada__lw_csec_scp_ctl1_seq_clear_pending=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_scp_ctl1_pipe_reset_field;
+enum {dev_sec_csb_ada__lw_csec_scp_ctl1_pipe_reset_idle=0, dev_sec_csb_ada__lw_csec_scp_ctl1_pipe_reset_pending=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_scp_ctl1_rng_fake_mode_field;
+enum {dev_sec_csb_ada__lw_csec_scp_ctl1_rng_fake_mode_disabled=0, dev_sec_csb_ada__lw_csec_scp_ctl1_rng_fake_mode_enabled=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_scp_ctl1_rng_en_field;
+enum {dev_sec_csb_ada__lw_csec_scp_ctl1_rng_en_disabled=0, dev_sec_csb_ada__lw_csec_scp_ctl1_rng_en_enabled=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_scp_ctl1_sf_fetch_as_zero_field;
+enum {dev_sec_csb_ada__lw_csec_scp_ctl1_sf_fetch_as_zero_disabled=0, dev_sec_csb_ada__lw_csec_scp_ctl1_sf_fetch_as_zero_enabled=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_scp_ctl1_sf_fetch_bypass_field;
+enum {dev_sec_csb_ada__lw_csec_scp_ctl1_sf_fetch_bypass_disabled=0, dev_sec_csb_ada__lw_csec_scp_ctl1_sf_fetch_bypass_enabled=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_scp_ctl1_sf_push_bypass_field;
+enum {dev_sec_csb_ada__lw_csec_scp_ctl1_sf_push_bypass_disabled=0, dev_sec_csb_ada__lw_csec_scp_ctl1_sf_push_bypass_enabled=
+  1};
+typedef struct _dev_sec_csb_ada__lw_csec_scp_ctl1_register {
+  unsigned_32 f_seq_clear : 1;
+  unsigned_32 _pad1 : 7;
+  unsigned_32 f_pipe_reset : 1;
+  unsigned_32 _pad2 : 2;
+  unsigned_32 f_rng_fake_mode : 1;
+  unsigned_32 f_rng_en : 1;
+  unsigned_32 _pad3 : 3;
+  unsigned_32 f_sf_fetch_as_zero : 1;
+  unsigned_32 _pad4 : 3;
+  unsigned_32 f_sf_fetch_bypass : 1;
+  unsigned_32 _pad5 : 3;
+  unsigned_32 f_sf_push_bypass : 1;
+  unsigned_32 _pad6 : 7;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_scp_ctl1_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_scp_ctl_stat;
+typedef integer_8 dev_sec_csb_ada__lw_csec_scp_ctl_stat_sboot_field;
+enum {dev_sec_csb_ada__lw_csec_scp_ctl_stat_sboot_false=0, dev_sec_csb_ada__lw_csec_scp_ctl_stat_sboot_true=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_scp_ctl_stat_hsmode_field;
+enum {dev_sec_csb_ada__lw_csec_scp_ctl_stat_hsmode_false=0, dev_sec_csb_ada__lw_csec_scp_ctl_stat_hsmode_true=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_scp_ctl_stat_aes_scc_dis_field;
+enum {dev_sec_csb_ada__lw_csec_scp_ctl_stat_aes_scc_dis_false=0, dev_sec_csb_ada__lw_csec_scp_ctl_stat_aes_scc_dis_true=
+  1};
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_debug_mode_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_debug_mode_fieldB dev_sec_csb_ada__lw_csec_scp_ctl_stat_debug_mode_field;
+extern const dev_sec_csb_ada__lw_csec_scp_ctl_stat_debug_mode_field dev_sec_csb_ada__lw_csec_scp_ctl_stat_debug_mode_disabled;
+typedef struct _dev_sec_csb_ada__lw_csec_scp_ctl_stat_register {
+  unsigned_32 f_sboot : 1;
+  unsigned_32 f_hsmode : 1;
+  unsigned_32 f_aes_scc_dis : 1;
+  unsigned_32 _pad1 : 17;
+  unsigned_32 f_debug_mode : 1;
+  unsigned_32 _pad2 : 11;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_scp_ctl_stat_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_scp_rndctl0;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__Tlw_csec_scp_rndctl0_holdoff_init_lower_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_scp_rndctl0_holdoff_init_lower_fieldB dev_sec_csb_ada__lw_csec_scp_rndctl0_holdoff_init_lower_field;
+extern const dev_sec_csb_ada__lw_csec_scp_rndctl0_holdoff_init_lower_field dev_sec_csb_ada__lw_csec_scp_rndctl0_holdoff_init_lower_init;
+typedef struct _dev_sec_csb_ada__lw_csec_scp_rndctl0_register {
+  unsigned_32 f_holdoff_init_lower : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_scp_rndctl0_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_scp_rndctl1;
+typedef lw_types__Tlwu16B dev_sec_csb_ada__Tlw_csec_scp_rndctl1_holdoff_init_upper_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_scp_rndctl1_holdoff_init_upper_fieldB dev_sec_csb_ada__lw_csec_scp_rndctl1_holdoff_init_upper_field;
+extern const dev_sec_csb_ada__lw_csec_scp_rndctl1_holdoff_init_upper_field dev_sec_csb_ada__lw_csec_scp_rndctl1_holdoff_init_upper_zero;
+typedef lw_types__Tlwu16B dev_sec_csb_ada__Tlw_csec_scp_rndctl1_holdoff_intra_mask_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_scp_rndctl1_holdoff_intra_mask_fieldB dev_sec_csb_ada__lw_csec_scp_rndctl1_holdoff_intra_mask_field;
+extern const dev_sec_csb_ada__lw_csec_scp_rndctl1_holdoff_intra_mask_field dev_sec_csb_ada__lw_csec_scp_rndctl1_holdoff_intra_mask_init;
+typedef struct _dev_sec_csb_ada__lw_csec_scp_rndctl1_register {
+  unsigned_32 f_holdoff_init_upper : 16;
+  unsigned_32 f_holdoff_intra_mask : 16;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_scp_rndctl1_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_scp_rndctl11;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_enable_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_enable_fieldB dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_enable_field;
+extern const dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_enable_field dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_enable_init;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_masterslave_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_masterslave_fieldB dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_masterslave_field;
+extern const dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_masterslave_field dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_masterslave_init;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_scp_rndctl11_synch_rand_a_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_scp_rndctl11_synch_rand_a_fieldB dev_sec_csb_ada__lw_csec_scp_rndctl11_synch_rand_a_field;
+extern const dev_sec_csb_ada__lw_csec_scp_rndctl11_synch_rand_a_field dev_sec_csb_ada__lw_csec_scp_rndctl11_synch_rand_a_init;
+typedef lw_types__Tlwu1B dev_sec_csb_ada__Tlw_csec_scp_rndctl11_synch_rand_b_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_scp_rndctl11_synch_rand_b_fieldB dev_sec_csb_ada__lw_csec_scp_rndctl11_synch_rand_b_field;
+extern const dev_sec_csb_ada__lw_csec_scp_rndctl11_synch_rand_b_field dev_sec_csb_ada__lw_csec_scp_rndctl11_synch_rand_b_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_scp_rndctl11_rand_sample_select_a_field;
+enum {dev_sec_csb_ada__lw_csec_scp_rndctl11_rand_sample_select_a_osc=0, dev_sec_csb_ada__lw_csec_scp_rndctl11_rand_sample_select_a_autocal=
+  1, dev_sec_csb_ada__lw_csec_scp_rndctl11_rand_sample_select_a_lfsr=2, dev_sec_csb_ada__lw_csec_scp_rndctl11_rand_sample_select_a_zero=
+  3};
+typedef integer_8 dev_sec_csb_ada__lw_csec_scp_rndctl11_rand_sample_select_b_field;
+enum {dev_sec_csb_ada__lw_csec_scp_rndctl11_rand_sample_select_b_osc=0, dev_sec_csb_ada__lw_csec_scp_rndctl11_rand_sample_select_b_autocal=
+  1, dev_sec_csb_ada__lw_csec_scp_rndctl11_rand_sample_select_b_lfsr=2, dev_sec_csb_ada__lw_csec_scp_rndctl11_rand_sample_select_b_zero=
+  3};
+typedef lw_types__Tlwu4B dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_static_tap_a_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_static_tap_a_fieldB dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_static_tap_a_field;
+extern const dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_static_tap_a_field dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_static_tap_a_init;
+typedef lw_types__Tlwu4B dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_static_tap_b_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_static_tap_b_fieldB dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_static_tap_b_field;
+extern const dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_static_tap_b_field dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_static_tap_b_init;
+typedef lw_types__Tlwu4B dev_sec_csb_ada__Tlw_csec_scp_rndctl11_min_auto_tap_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_scp_rndctl11_min_auto_tap_fieldB dev_sec_csb_ada__lw_csec_scp_rndctl11_min_auto_tap_field;
+extern const dev_sec_csb_ada__lw_csec_scp_rndctl11_min_auto_tap_field dev_sec_csb_ada__lw_csec_scp_rndctl11_min_auto_tap_init;
+typedef lw_types__Tlwu4B dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_holdoff_delay_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_holdoff_delay_fieldB dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_holdoff_delay_field;
+extern const dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_holdoff_delay_field dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_holdoff_delay_init;
+typedef lw_types__Tlwu7B dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_asynch_hold_delay_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_asynch_hold_delay_fieldB dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_asynch_hold_delay_field;
+extern const dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_asynch_hold_delay_field dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_asynch_hold_delay_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_safe_mode_field;
+enum {dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_safe_mode_disable=0, dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_safe_mode_enable=
+  1};
+typedef struct _dev_sec_csb_ada__lw_csec_scp_rndctl11_register {
+  unsigned_32 f_autocal_enable : 1;
+  unsigned_32 f_autocal_masterslave : 1;
+  unsigned_32 f_synch_rand_a : 1;
+  unsigned_32 f_synch_rand_b : 1;
+  unsigned_32 f_rand_sample_select_a : 2;
+  unsigned_32 f_rand_sample_select_b : 2;
+  unsigned_32 f_autocal_static_tap_a : 4;
+  unsigned_32 f_autocal_static_tap_b : 4;
+  unsigned_32 f_min_auto_tap : 4;
+  unsigned_32 f_autocal_holdoff_delay : 4;
+  unsigned_32 f_autocal_asynch_hold_delay : 7;
+  unsigned_32 f_autocal_safe_mode : 1;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_scp_rndctl11_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_bar0_csr;
+typedef integer_8 dev_sec_csb_ada__lw_csec_bar0_csr_cmd_field;
+enum {dev_sec_csb_ada__lw_csec_bar0_csr_cmd_undefined=0, dev_sec_csb_ada__lw_csec_bar0_csr_cmd_read=1, dev_sec_csb_ada__lw_csec_bar0_csr_cmd_write=
+  2};
+typedef lw_types__Tlwu4B dev_sec_csb_ada__Tlw_csec_bar0_csr_byte_enable_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_bar0_csr_byte_enable_fieldB dev_sec_csb_ada__lw_csec_bar0_csr_byte_enable_field;
+extern const dev_sec_csb_ada__lw_csec_bar0_csr_byte_enable_field dev_sec_csb_ada__lw_csec_bar0_csr_byte_enable_init;
+typedef integer_8 dev_sec_csb_ada__lw_csec_bar0_csr_xact_check_field;
+enum {dev_sec_csb_ada__lw_csec_bar0_csr_xact_check_false=0, dev_sec_csb_ada__lw_csec_bar0_csr_xact_check_true=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_bar0_csr_xact_stalled_field;
+enum {dev_sec_csb_ada__lw_csec_bar0_csr_xact_stalled_false=0, dev_sec_csb_ada__lw_csec_bar0_csr_xact_stalled_true=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_bar0_csr_xact_finished_field;
+enum {dev_sec_csb_ada__lw_csec_bar0_csr_xact_finished_false=0, dev_sec_csb_ada__lw_csec_bar0_csr_xact_finished_true=
+  1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_bar0_csr_status_field;
+enum {dev_sec_csb_ada__lw_csec_bar0_csr_status_idle=0, dev_sec_csb_ada__lw_csec_bar0_csr_status_busy=1, dev_sec_csb_ada__lw_csec_bar0_csr_status_tmout=
+  2, dev_sec_csb_ada__lw_csec_bar0_csr_status_dis=3, dev_sec_csb_ada__lw_csec_bar0_csr_status_err=4};
+typedef lw_types__Tlwu2B dev_sec_csb_ada__Tlw_csec_bar0_csr_level_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_bar0_csr_level_fieldB dev_sec_csb_ada__lw_csec_bar0_csr_level_field;
+typedef integer_8 dev_sec_csb_ada__lw_csec_bar0_csr_warn_field;
+enum {dev_sec_csb_ada__lw_csec_bar0_csr_warn_clean=0, dev_sec_csb_ada__lw_csec_bar0_csr_warn_new_cmd_when_wip=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_bar0_csr_halted_field;
+enum {dev_sec_csb_ada__lw_csec_bar0_csr_halted_false=0, dev_sec_csb_ada__lw_csec_bar0_csr_halted_true=1};
+typedef integer_8 dev_sec_csb_ada__lw_csec_bar0_csr_trig_field;
+enum {dev_sec_csb_ada__lw_csec_bar0_csr_trig_false=0, dev_sec_csb_ada__lw_csec_bar0_csr_trig_true=1};
+typedef struct _dev_sec_csb_ada__lw_csec_bar0_csr_register {
+  unsigned_32 f_cmd : 2;
+  unsigned_32 _pad1 : 2;
+  unsigned_32 f_byte_enable : 4;
+  unsigned_32 f_xact_check : 1;
+  unsigned_32 f_xact_stalled : 1;
+  unsigned_32 f_xact_finished : 1;
+  unsigned_32 _pad2 : 1;
+  unsigned_32 f_status : 3;
+  unsigned_32 _pad3 : 1;
+  unsigned_32 f_level : 2;
+  unsigned_32 _pad4 : 2;
+  unsigned_32 f_warn : 2;
+  unsigned_32 _pad5 : 2;
+  unsigned_32 f_halted : 1;
+  unsigned_32 _pad6 : 6;
+  unsigned_32 f_trig : 1;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_bar0_csr_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_bar0_addr;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__Tlw_csec_bar0_addr_reg_addr_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_bar0_addr_reg_addr_fieldB dev_sec_csb_ada__lw_csec_bar0_addr_reg_addr_field;
+extern const dev_sec_csb_ada__lw_csec_bar0_addr_reg_addr_field dev_sec_csb_ada__lw_csec_bar0_addr_reg_addr_init;
+typedef struct _dev_sec_csb_ada__lw_csec_bar0_addr_register {
+  unsigned_32 f_reg_addr : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_bar0_addr_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_bar0_data;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__Tlw_csec_bar0_data_rwdata_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_bar0_data_rwdata_fieldB dev_sec_csb_ada__lw_csec_bar0_data_rwdata_field;
+extern const dev_sec_csb_ada__lw_csec_bar0_data_rwdata_field dev_sec_csb_ada__lw_csec_bar0_data_rwdata_init;
+typedef struct _dev_sec_csb_ada__lw_csec_bar0_data_register {
+  unsigned_32 f_rwdata : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_bar0_data_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_bar0_tmout;
+typedef integer_32 dev_sec_csb_ada__lw_csec_bar0_tmout_cycles_field;
+enum {dev_sec_csb_ada__lw_csec_bar0_tmout_cycles_init=0, dev_sec_csb_ada__lw_csec_bar0_tmout_cycles_prod=20000000};
+typedef struct _dev_sec_csb_ada__lw_csec_bar0_tmout_register {
+  unsigned_32 f_cycles : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_bar0_tmout_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_mailbox;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__lw_csec_mailbox_index;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__Tlw_csec_mailbox_data_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_mailbox_data_fieldB dev_sec_csb_ada__lw_csec_mailbox_data_field;
+extern const dev_sec_csb_ada__lw_csec_mailbox_data_field dev_sec_csb_ada__lw_csec_mailbox_data_init;
+typedef struct _dev_sec_csb_ada__lw_csec_mailbox_register {
+  unsigned_32 f_data : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_mailbox_register
+  GNAT_ALIGN(4);
+extern const lw_types__reg_addr_types__csb_addr dev_sec_csb_ada__lw_csec_falcon_mailbox0;
+typedef lw_types__Tlwu32B dev_sec_csb_ada__Tlw_csec_falcon_mailbox0_data_fieldB;
+typedef dev_sec_csb_ada__Tlw_csec_falcon_mailbox0_data_fieldB dev_sec_csb_ada__lw_csec_falcon_mailbox0_data_field;
+extern const dev_sec_csb_ada__lw_csec_falcon_mailbox0_data_field dev_sec_csb_ada__lw_csec_falcon_mailbox0_data_init;
+typedef struct _dev_sec_csb_ada__lw_csec_falcon_mailbox0_register {
+  unsigned_32 f_data : 32;
+} GNAT_PACKED dev_sec_csb_ada__lw_csec_falcon_mailbox0_register
+  GNAT_ALIGN(4);
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_protection_fieldSS[145];
+typedef character dev_sec_csb_ada__T357s[145];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqtmr_priv_level_mask_read_protection_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_protection_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_read_protection_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_protection_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T361s[3];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_protection_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_protection_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_protection_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_read_protection_fieldN;
+typedef dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_read_protection_field *dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_protection_fieldAB;
+typedef dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_read_protection_field dev_sec_csb_ada__T365s[2];
+typedef dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_read_protection_field dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_protection_fieldAT[
+  2];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_protection_fieldAD1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_protection_fieldAT dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_read_protection_fieldA;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_violation_fieldSS[128];
+typedef character dev_sec_csb_ada__T369s[128];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqtmr_priv_level_mask_read_violation_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_violation_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_read_violation_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_violation_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T373s[3];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_violation_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_violation_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_read_violation_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_read_violation_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_protection_fieldSS[147];
+typedef character dev_sec_csb_ada__T374s[147];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqtmr_priv_level_mask_write_protection_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_protection_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_write_protection_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_protection_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T378s[3];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_protection_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_protection_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_protection_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_write_protection_fieldN;
+typedef dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_write_protection_field *dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_protection_fieldAB;
+typedef dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_write_protection_field dev_sec_csb_ada__T382s[2];
+typedef dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_write_protection_field dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_protection_fieldAT[
+  2];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_protection_fieldAD1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_protection_fieldAT dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_write_protection_fieldA;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_violation_fieldSS[130];
+typedef character dev_sec_csb_ada__T386s[130];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqtmr_priv_level_mask_write_violation_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_violation_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_write_violation_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_violation_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T390s[3];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_violation_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_violation_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqtmr_priv_level_mask_write_violation_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqtmr_priv_level_mask_write_violation_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_protection_fieldSS[210];
+typedef character dev_sec_csb_ada__T391s[210];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_reset_priv_level_mask_read_protection_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_protection_fieldSS dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_protection_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_protection_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T395s[4];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_protection_fieldNT[4];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_protection_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_protection_fieldNT dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_protection_fieldN;
+typedef dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_protection_field *dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_protection_fieldAB;
+typedef dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_protection_field dev_sec_csb_ada__T399s[3];
+typedef dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_protection_field dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_protection_fieldAT[
+  3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_protection_fieldAD1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_protection_fieldAT dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_protection_fieldA;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_violation_fieldSS[126];
+typedef character dev_sec_csb_ada__T404s[126];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_reset_priv_level_mask_read_violation_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_violation_fieldSS dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_violation_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_violation_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T408s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_violation_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_violation_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_read_violation_fieldNT dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_read_violation_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_protection_fieldSS[213];
+typedef character dev_sec_csb_ada__T409s[213];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_reset_priv_level_mask_write_protection_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_protection_fieldSS dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_protection_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_protection_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T413s[4];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_protection_fieldNT[4];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_protection_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_protection_fieldNT dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_protection_fieldN;
+typedef dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_protection_field *dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_protection_fieldAB;
+typedef dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_protection_field dev_sec_csb_ada__T417s[3];
+typedef dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_protection_field dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_protection_fieldAT[
+  3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_protection_fieldAD1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_protection_fieldAT dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_protection_fieldA;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_violation_fieldSS[128];
+typedef character dev_sec_csb_ada__T422s[128];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_reset_priv_level_mask_write_violation_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_violation_fieldSS dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_violation_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_violation_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T426s[3];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_violation_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_violation_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_reset_priv_level_mask_write_violation_fieldNT dev_sec_csb_ada__lw_csec_falcon_reset_priv_level_mask_write_violation_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq1_fieldSS[90];
+typedef character dev_sec_csb_ada__T427s[90];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_ext_extirq1_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq1_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq1_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq1_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T431s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq1_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq1_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq1_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq1_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq2_fieldSS[90];
+typedef character dev_sec_csb_ada__T432s[90];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_ext_extirq2_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq2_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq2_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq2_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T436s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq2_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq2_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq2_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq2_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq3_fieldSS[90];
+typedef character dev_sec_csb_ada__T437s[90];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_ext_extirq3_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq3_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq3_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq3_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T441s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq3_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq3_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq3_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq3_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq4_fieldSS[90];
+typedef character dev_sec_csb_ada__T442s[90];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_ext_extirq4_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq4_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq4_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq4_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T446s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq4_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq4_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq4_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq4_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq5_fieldSS[90];
+typedef character dev_sec_csb_ada__T447s[90];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_ext_extirq5_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq5_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq5_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq5_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T451s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq5_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq5_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq5_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq5_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq6_fieldSS[90];
+typedef character dev_sec_csb_ada__T452s[90];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_ext_extirq6_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq6_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq6_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq6_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T456s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq6_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq6_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq6_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq6_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq7_fieldSS[90];
+typedef character dev_sec_csb_ada__T457s[90];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_ext_extirq7_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq7_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq7_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq7_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T461s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq7_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq7_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq7_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq7_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq8_fieldSS[90];
+typedef character dev_sec_csb_ada__T462s[90];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqdest_host_ext_extirq8_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq8_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq8_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq8_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T466s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq8_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq8_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqdest_host_ext_extirq8_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqdest_host_ext_extirq8_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_gptmr_fieldSS[75];
+typedef character dev_sec_csb_ada__T467s[75];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_gptmr_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_gptmr_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_gptmr_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_gptmr_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T471s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_gptmr_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_gptmr_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_gptmr_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_gptmr_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_wdtmr_fieldSS[75];
+typedef character dev_sec_csb_ada__T472s[75];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_wdtmr_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_wdtmr_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_wdtmr_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_wdtmr_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T476s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_wdtmr_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_wdtmr_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_wdtmr_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_wdtmr_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_mthd_fieldSS[73];
+typedef character dev_sec_csb_ada__T477s[73];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_mthd_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_mthd_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_mthd_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_mthd_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T481s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_mthd_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_mthd_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_mthd_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_mthd_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ctxsw_fieldSS[75];
+typedef character dev_sec_csb_ada__T482s[75];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_ctxsw_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ctxsw_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_ctxsw_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ctxsw_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T486s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ctxsw_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ctxsw_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ctxsw_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_ctxsw_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_halt_fieldSS[73];
+typedef character dev_sec_csb_ada__T487s[73];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_halt_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_halt_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_halt_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_halt_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T491s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_halt_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_halt_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_halt_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_halt_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_exterr_fieldSS[77];
+typedef character dev_sec_csb_ada__T492s[77];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_exterr_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_exterr_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_exterr_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_exterr_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T496s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_exterr_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_exterr_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_exterr_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_exterr_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_swgen0_fieldSS[77];
+typedef character dev_sec_csb_ada__T497s[77];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_swgen0_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_swgen0_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_swgen0_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_swgen0_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T501s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_swgen0_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_swgen0_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_swgen0_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_swgen0_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_swgen1_fieldSS[77];
+typedef character dev_sec_csb_ada__T502s[77];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_swgen1_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_swgen1_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_swgen1_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_swgen1_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T506s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_swgen1_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_swgen1_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_swgen1_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_swgen1_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ext_fieldSS[71];
+typedef character dev_sec_csb_ada__T507s[71];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_ext_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ext_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_ext_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ext_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T511s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ext_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ext_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ext_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_ext_fieldN;
+typedef dev_sec_csb_ada__lw_csec_falcon_irqscmask_ext_field *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ext_fieldAB;
+typedef dev_sec_csb_ada__lw_csec_falcon_irqscmask_ext_field dev_sec_csb_ada__T515s[2];
+typedef dev_sec_csb_ada__lw_csec_falcon_irqscmask_ext_field dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ext_fieldAT[
+  2];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ext_fieldAD1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_ext_fieldAT dev_sec_csb_ada__lw_csec_falcon_irqscmask_ext_fieldA;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_dma_fieldSS[71];
+typedef character dev_sec_csb_ada__T519s[71];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_dma_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_dma_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_dma_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_dma_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T523s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_dma_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_dma_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_dma_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_dma_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_sha_fieldSS[71];
+typedef character dev_sec_csb_ada__T524s[71];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_sha_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_sha_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_sha_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_sha_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T528s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_sha_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_sha_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_sha_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_sha_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_memerr_fieldSS[77];
+typedef character dev_sec_csb_ada__T529s[77];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_memerr_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_memerr_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_memerr_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_memerr_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T533s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_memerr_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_memerr_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_memerr_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_memerr_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_falcon_fieldSS[77];
+typedef character dev_sec_csb_ada__T534s[77];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_falcon_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_falcon_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_falcon_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_falcon_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T538s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_falcon_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_falcon_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_falcon_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_falcon_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_riscv_fieldSS[75];
+typedef character dev_sec_csb_ada__T539s[75];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_riscv_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_riscv_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_riscv_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_riscv_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T543s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_riscv_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_riscv_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_riscv_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_riscv_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_trace_fieldSS[75];
+typedef character dev_sec_csb_ada__T544s[75];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_irqscmask_trace_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_trace_fieldSS dev_sec_csb_ada__lw_csec_falcon_irqscmask_trace_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_trace_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T548s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_trace_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_trace_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_irqscmask_trace_fieldNT dev_sec_csb_ada__lw_csec_falcon_irqscmask_trace_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_exci_excause_fieldSS[657];
+typedef character dev_sec_csb_ada__T549s[657];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_exci_excause_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_exci_excause_fieldSS dev_sec_csb_ada__lw_csec_falcon_exci_excause_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_falcon_exci_excause_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T553s[18];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_falcon_exci_excause_fieldNT[18];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_exci_excause_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_exci_excause_fieldNT dev_sec_csb_ada__lw_csec_falcon_exci_excause_fieldN;
+typedef dev_sec_csb_ada__lw_csec_falcon_exci_excause_field *dev_sec_csb_ada__Tlw_csec_falcon_exci_excause_fieldAB;
+typedef dev_sec_csb_ada__lw_csec_falcon_exci_excause_field dev_sec_csb_ada__T557s[17];
+typedef dev_sec_csb_ada__lw_csec_falcon_exci_excause_field dev_sec_csb_ada__Tlw_csec_falcon_exci_excause_fieldAT[17];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_exci_excause_fieldAD1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_exci_excause_fieldAT dev_sec_csb_ada__lw_csec_falcon_exci_excause_fieldA;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_svec_spr_sigpass_fieldSS[73];
+typedef character dev_sec_csb_ada__T576s[73];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_svec_spr_sigpass_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_svec_spr_sigpass_fieldSS dev_sec_csb_ada__lw_csec_falcon_svec_spr_sigpass_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_svec_spr_sigpass_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T580s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_svec_spr_sigpass_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_svec_spr_sigpass_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_svec_spr_sigpass_fieldNT dev_sec_csb_ada__lw_csec_falcon_svec_spr_sigpass_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_iilwal_fieldSS[67];
+typedef character dev_sec_csb_ada__T581s[67];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_cpuctl_iilwal_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_iilwal_fieldSS dev_sec_csb_ada__lw_csec_falcon_cpuctl_iilwal_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_iilwal_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T585s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_iilwal_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_iilwal_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_iilwal_fieldNT dev_sec_csb_ada__lw_csec_falcon_cpuctl_iilwal_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_startcpu_fieldSS[71];
+typedef character dev_sec_csb_ada__T586s[71];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_cpuctl_startcpu_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_startcpu_fieldSS dev_sec_csb_ada__lw_csec_falcon_cpuctl_startcpu_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_startcpu_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T590s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_startcpu_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_startcpu_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_startcpu_fieldNT dev_sec_csb_ada__lw_csec_falcon_cpuctl_startcpu_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_sreset_fieldSS[67];
+typedef character dev_sec_csb_ada__T591s[67];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_cpuctl_sreset_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_sreset_fieldSS dev_sec_csb_ada__lw_csec_falcon_cpuctl_sreset_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_sreset_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T595s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_sreset_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_sreset_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_sreset_fieldNT dev_sec_csb_ada__lw_csec_falcon_cpuctl_sreset_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_hreset_fieldSS[67];
+typedef character dev_sec_csb_ada__T596s[67];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_cpuctl_hreset_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_hreset_fieldSS dev_sec_csb_ada__lw_csec_falcon_cpuctl_hreset_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_hreset_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T600s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_hreset_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_hreset_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_hreset_fieldNT dev_sec_csb_ada__lw_csec_falcon_cpuctl_hreset_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_halted_fieldSS[67];
+typedef character dev_sec_csb_ada__T601s[67];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_cpuctl_halted_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_halted_fieldSS dev_sec_csb_ada__lw_csec_falcon_cpuctl_halted_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_halted_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T605s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_halted_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_halted_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_halted_fieldNT dev_sec_csb_ada__lw_csec_falcon_cpuctl_halted_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_stopped_fieldSS[69];
+typedef character dev_sec_csb_ada__T606s[69];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_cpuctl_stopped_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_stopped_fieldSS dev_sec_csb_ada__lw_csec_falcon_cpuctl_stopped_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_stopped_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T610s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_stopped_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_stopped_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_cpuctl_stopped_fieldNT dev_sec_csb_ada__lw_csec_falcon_cpuctl_stopped_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_exterrstat_stat_fieldSS[77];
+typedef character dev_sec_csb_ada__T611s[77];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_exterrstat_stat_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_exterrstat_stat_fieldSS dev_sec_csb_ada__lw_csec_falcon_exterrstat_stat_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_exterrstat_stat_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T615s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_exterrstat_stat_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_exterrstat_stat_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_exterrstat_stat_fieldNT dev_sec_csb_ada__lw_csec_falcon_exterrstat_stat_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_engid_familyid_fieldSS[418];
+typedef character dev_sec_csb_ada__T616s[418];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_engid_familyid_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_engid_familyid_fieldSS dev_sec_csb_ada__lw_csec_falcon_engid_familyid_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_falcon_engid_familyid_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T620s[13];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_falcon_engid_familyid_fieldNT[13];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_engid_familyid_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_engid_familyid_fieldNT dev_sec_csb_ada__lw_csec_falcon_engid_familyid_fieldN;
+typedef dev_sec_csb_ada__lw_csec_falcon_engid_familyid_field *dev_sec_csb_ada__Tlw_csec_falcon_engid_familyid_fieldAB;
+typedef dev_sec_csb_ada__lw_csec_falcon_engid_familyid_field dev_sec_csb_ada__T624s[1];
+typedef dev_sec_csb_ada__lw_csec_falcon_engid_familyid_field dev_sec_csb_ada__Tlw_csec_falcon_engid_familyid_fieldAT[
+  1];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_engid_familyid_fieldAD1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_engid_familyid_fieldAT dev_sec_csb_ada__lw_csec_falcon_engid_familyid_fieldA;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_atomic_fieldSS[73];
+typedef character dev_sec_csb_ada__T627s[73];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_imemc_sec_atomic_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_atomic_fieldSS dev_sec_csb_ada__lw_csec_falcon_imemc_sec_atomic_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_atomic_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T631s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_atomic_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_atomic_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_atomic_fieldNT dev_sec_csb_ada__lw_csec_falcon_imemc_sec_atomic_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_wr_vio_fieldSS[73];
+typedef character dev_sec_csb_ada__T632s[73];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_imemc_sec_wr_vio_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_wr_vio_fieldSS dev_sec_csb_ada__lw_csec_falcon_imemc_sec_wr_vio_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_wr_vio_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T636s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_wr_vio_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_wr_vio_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_wr_vio_fieldNT dev_sec_csb_ada__lw_csec_falcon_imemc_sec_wr_vio_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_lock_fieldSS[69];
+typedef character dev_sec_csb_ada__T637s[69];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_imemc_sec_lock_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_lock_fieldSS dev_sec_csb_ada__lw_csec_falcon_imemc_sec_lock_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_lock_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T641s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_lock_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_lock_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_imemc_sec_lock_fieldNT dev_sec_csb_ada__lw_csec_falcon_imemc_sec_lock_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_dmemc_miss_fieldSS[61];
+typedef character dev_sec_csb_ada__T642s[61];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_dmemc_miss_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_miss_fieldSS dev_sec_csb_ada__lw_csec_falcon_dmemc_miss_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_dmemc_miss_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T646s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_dmemc_miss_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_dmemc_miss_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_miss_fieldNT dev_sec_csb_ada__lw_csec_falcon_dmemc_miss_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_dmemc_multihit_fieldSS[69];
+typedef character dev_sec_csb_ada__T647s[69];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_dmemc_multihit_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_multihit_fieldSS dev_sec_csb_ada__lw_csec_falcon_dmemc_multihit_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_dmemc_multihit_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T651s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_dmemc_multihit_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_dmemc_multihit_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_multihit_fieldNT dev_sec_csb_ada__lw_csec_falcon_dmemc_multihit_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_dmemc_lvlerr_fieldSS[65];
+typedef character dev_sec_csb_ada__T652s[65];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_dmemc_lvlerr_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_lvlerr_fieldSS dev_sec_csb_ada__lw_csec_falcon_dmemc_lvlerr_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_falcon_dmemc_lvlerr_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T656s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_falcon_dmemc_lvlerr_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_dmemc_lvlerr_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_dmemc_lvlerr_fieldNT dev_sec_csb_ada__lw_csec_falcon_dmemc_lvlerr_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_base_val_fieldSS[177];
+typedef character dev_sec_csb_ada__T657s[177];
+typedef integer dev_sec_csb_ada__TTlw_csec_falcon_vhrcfg_base_val_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_base_val_fieldSS dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base_val_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_base_val_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T661s[6];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_base_val_fieldNT[6];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_base_val_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_base_val_fieldNT dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base_val_fieldN;
+typedef dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base_val_field *dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_base_val_fieldAB;
+typedef dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base_val_field dev_sec_csb_ada__T665s[5];
+typedef dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base_val_field dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_base_val_fieldAT[
+  5];
+typedef integer dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_base_val_fieldAD1;
+extern const dev_sec_csb_ada__Tlw_csec_falcon_vhrcfg_base_val_fieldAT dev_sec_csb_ada__lw_csec_falcon_vhrcfg_base_val_fieldA;
+typedef character dev_sec_csb_ada__Tlw_csec_scp_ctl1_seq_clear_fieldSS[65];
+typedef character dev_sec_csb_ada__T672s[65];
+typedef integer dev_sec_csb_ada__TTlw_csec_scp_ctl1_seq_clear_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl1_seq_clear_fieldSS dev_sec_csb_ada__lw_csec_scp_ctl1_seq_clear_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_scp_ctl1_seq_clear_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T676s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_scp_ctl1_seq_clear_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_scp_ctl1_seq_clear_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl1_seq_clear_fieldNT dev_sec_csb_ada__lw_csec_scp_ctl1_seq_clear_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_scp_ctl1_pipe_reset_fieldSS[67];
+typedef character dev_sec_csb_ada__T677s[67];
+typedef integer dev_sec_csb_ada__TTlw_csec_scp_ctl1_pipe_reset_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl1_pipe_reset_fieldSS dev_sec_csb_ada__lw_csec_scp_ctl1_pipe_reset_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_scp_ctl1_pipe_reset_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T681s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_scp_ctl1_pipe_reset_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_scp_ctl1_pipe_reset_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl1_pipe_reset_fieldNT dev_sec_csb_ada__lw_csec_scp_ctl1_pipe_reset_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_scp_ctl1_rng_fake_mode_fieldSS[77];
+typedef character dev_sec_csb_ada__T682s[77];
+typedef integer dev_sec_csb_ada__TTlw_csec_scp_ctl1_rng_fake_mode_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl1_rng_fake_mode_fieldSS dev_sec_csb_ada__lw_csec_scp_ctl1_rng_fake_mode_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_scp_ctl1_rng_fake_mode_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T686s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_scp_ctl1_rng_fake_mode_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_scp_ctl1_rng_fake_mode_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl1_rng_fake_mode_fieldNT dev_sec_csb_ada__lw_csec_scp_ctl1_rng_fake_mode_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_scp_ctl1_rng_en_fieldSS[63];
+typedef character dev_sec_csb_ada__T687s[63];
+typedef integer dev_sec_csb_ada__TTlw_csec_scp_ctl1_rng_en_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl1_rng_en_fieldSS dev_sec_csb_ada__lw_csec_scp_ctl1_rng_en_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_scp_ctl1_rng_en_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T691s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_scp_ctl1_rng_en_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_scp_ctl1_rng_en_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl1_rng_en_fieldNT dev_sec_csb_ada__lw_csec_scp_ctl1_rng_en_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_fetch_as_zero_fieldSS[83];
+typedef character dev_sec_csb_ada__T692s[83];
+typedef integer dev_sec_csb_ada__TTlw_csec_scp_ctl1_sf_fetch_as_zero_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_fetch_as_zero_fieldSS dev_sec_csb_ada__lw_csec_scp_ctl1_sf_fetch_as_zero_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_fetch_as_zero_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T696s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_fetch_as_zero_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_fetch_as_zero_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_fetch_as_zero_fieldNT dev_sec_csb_ada__lw_csec_scp_ctl1_sf_fetch_as_zero_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_fetch_bypass_fieldSS[81];
+typedef character dev_sec_csb_ada__T697s[81];
+typedef integer dev_sec_csb_ada__TTlw_csec_scp_ctl1_sf_fetch_bypass_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_fetch_bypass_fieldSS dev_sec_csb_ada__lw_csec_scp_ctl1_sf_fetch_bypass_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_fetch_bypass_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T701s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_fetch_bypass_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_fetch_bypass_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_fetch_bypass_fieldNT dev_sec_csb_ada__lw_csec_scp_ctl1_sf_fetch_bypass_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_push_bypass_fieldSS[79];
+typedef character dev_sec_csb_ada__T702s[79];
+typedef integer dev_sec_csb_ada__TTlw_csec_scp_ctl1_sf_push_bypass_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_push_bypass_fieldSS dev_sec_csb_ada__lw_csec_scp_ctl1_sf_push_bypass_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_push_bypass_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T706s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_push_bypass_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_push_bypass_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl1_sf_push_bypass_fieldNT dev_sec_csb_ada__lw_csec_scp_ctl1_sf_push_bypass_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_sboot_fieldSS[63];
+typedef character dev_sec_csb_ada__T707s[63];
+typedef integer dev_sec_csb_ada__TTlw_csec_scp_ctl_stat_sboot_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_sboot_fieldSS dev_sec_csb_ada__lw_csec_scp_ctl_stat_sboot_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_sboot_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T711s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_sboot_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_sboot_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_sboot_fieldNT dev_sec_csb_ada__lw_csec_scp_ctl_stat_sboot_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_hsmode_fieldSS[65];
+typedef character dev_sec_csb_ada__T712s[65];
+typedef integer dev_sec_csb_ada__TTlw_csec_scp_ctl_stat_hsmode_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_hsmode_fieldSS dev_sec_csb_ada__lw_csec_scp_ctl_stat_hsmode_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_hsmode_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T716s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_hsmode_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_hsmode_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_hsmode_fieldNT dev_sec_csb_ada__lw_csec_scp_ctl_stat_hsmode_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_aes_scc_dis_fieldSS[75];
+typedef character dev_sec_csb_ada__T717s[75];
+typedef integer dev_sec_csb_ada__TTlw_csec_scp_ctl_stat_aes_scc_dis_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_aes_scc_dis_fieldSS dev_sec_csb_ada__lw_csec_scp_ctl_stat_aes_scc_dis_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_aes_scc_dis_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T721s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_aes_scc_dis_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_aes_scc_dis_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_ctl_stat_aes_scc_dis_fieldNT dev_sec_csb_ada__lw_csec_scp_ctl_stat_aes_scc_dis_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_scp_rndctl11_rand_sample_select_a_fieldSS[186];
+typedef character dev_sec_csb_ada__T722s[186];
+typedef integer dev_sec_csb_ada__TTlw_csec_scp_rndctl11_rand_sample_select_a_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_rndctl11_rand_sample_select_a_fieldSS dev_sec_csb_ada__lw_csec_scp_rndctl11_rand_sample_select_a_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_scp_rndctl11_rand_sample_select_a_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T726s[5];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_scp_rndctl11_rand_sample_select_a_fieldNT[5];
+typedef integer dev_sec_csb_ada__Tlw_csec_scp_rndctl11_rand_sample_select_a_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_rndctl11_rand_sample_select_a_fieldNT dev_sec_csb_ada__lw_csec_scp_rndctl11_rand_sample_select_a_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_scp_rndctl11_rand_sample_select_b_fieldSS[186];
+typedef character dev_sec_csb_ada__T727s[186];
+typedef integer dev_sec_csb_ada__TTlw_csec_scp_rndctl11_rand_sample_select_b_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_rndctl11_rand_sample_select_b_fieldSS dev_sec_csb_ada__lw_csec_scp_rndctl11_rand_sample_select_b_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_scp_rndctl11_rand_sample_select_b_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T731s[5];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_scp_rndctl11_rand_sample_select_b_fieldNT[5];
+typedef integer dev_sec_csb_ada__Tlw_csec_scp_rndctl11_rand_sample_select_b_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_rndctl11_rand_sample_select_b_fieldNT dev_sec_csb_ada__lw_csec_scp_rndctl11_rand_sample_select_b_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_safe_mode_fieldSS[91];
+typedef character dev_sec_csb_ada__T732s[91];
+typedef integer dev_sec_csb_ada__TTlw_csec_scp_rndctl11_autocal_safe_mode_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_safe_mode_fieldSS dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_safe_mode_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_safe_mode_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T736s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_safe_mode_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_safe_mode_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_scp_rndctl11_autocal_safe_mode_fieldNT dev_sec_csb_ada__lw_csec_scp_rndctl11_autocal_safe_mode_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_bar0_csr_cmd_fieldSS[81];
+typedef character dev_sec_csb_ada__T737s[81];
+typedef integer dev_sec_csb_ada__TTlw_csec_bar0_csr_cmd_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_cmd_fieldSS dev_sec_csb_ada__lw_csec_bar0_csr_cmd_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_bar0_csr_cmd_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T741s[4];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_bar0_csr_cmd_fieldNT[4];
+typedef integer dev_sec_csb_ada__Tlw_csec_bar0_csr_cmd_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_cmd_fieldNT dev_sec_csb_ada__lw_csec_bar0_csr_cmd_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_check_fieldSS[65];
+typedef character dev_sec_csb_ada__T742s[65];
+typedef integer dev_sec_csb_ada__TTlw_csec_bar0_csr_xact_check_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_check_fieldSS dev_sec_csb_ada__lw_csec_bar0_csr_xact_check_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_check_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T746s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_check_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_check_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_check_fieldNT dev_sec_csb_ada__lw_csec_bar0_csr_xact_check_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_stalled_fieldSS[69];
+typedef character dev_sec_csb_ada__T747s[69];
+typedef integer dev_sec_csb_ada__TTlw_csec_bar0_csr_xact_stalled_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_stalled_fieldSS dev_sec_csb_ada__lw_csec_bar0_csr_xact_stalled_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_stalled_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T751s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_stalled_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_stalled_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_stalled_fieldNT dev_sec_csb_ada__lw_csec_bar0_csr_xact_stalled_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_finished_fieldSS[71];
+typedef character dev_sec_csb_ada__T752s[71];
+typedef integer dev_sec_csb_ada__TTlw_csec_bar0_csr_xact_finished_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_finished_fieldSS dev_sec_csb_ada__lw_csec_bar0_csr_xact_finished_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_finished_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T756s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_finished_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_finished_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_xact_finished_fieldNT dev_sec_csb_ada__lw_csec_bar0_csr_xact_finished_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_bar0_csr_status_fieldSS[139];
+typedef character dev_sec_csb_ada__T757s[139];
+typedef integer dev_sec_csb_ada__TTlw_csec_bar0_csr_status_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_status_fieldSS dev_sec_csb_ada__lw_csec_bar0_csr_status_fieldS;
+typedef integer_16 *dev_sec_csb_ada__Tlw_csec_bar0_csr_status_fieldNB;
+typedef integer_16 dev_sec_csb_ada__T761s[6];
+typedef integer_16 dev_sec_csb_ada__Tlw_csec_bar0_csr_status_fieldNT[6];
+typedef integer dev_sec_csb_ada__Tlw_csec_bar0_csr_status_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_status_fieldNT dev_sec_csb_ada__lw_csec_bar0_csr_status_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_bar0_csr_warn_fieldSS[65];
+typedef character dev_sec_csb_ada__T762s[65];
+typedef integer dev_sec_csb_ada__TTlw_csec_bar0_csr_warn_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_warn_fieldSS dev_sec_csb_ada__lw_csec_bar0_csr_warn_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_bar0_csr_warn_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T766s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_bar0_csr_warn_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_bar0_csr_warn_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_warn_fieldNT dev_sec_csb_ada__lw_csec_bar0_csr_warn_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_bar0_csr_halted_fieldSS[57];
+typedef character dev_sec_csb_ada__T767s[57];
+typedef integer dev_sec_csb_ada__TTlw_csec_bar0_csr_halted_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_halted_fieldSS dev_sec_csb_ada__lw_csec_bar0_csr_halted_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_bar0_csr_halted_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T771s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_bar0_csr_halted_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_bar0_csr_halted_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_halted_fieldNT dev_sec_csb_ada__lw_csec_bar0_csr_halted_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_bar0_csr_trig_fieldSS[53];
+typedef character dev_sec_csb_ada__T772s[53];
+typedef integer dev_sec_csb_ada__TTlw_csec_bar0_csr_trig_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_trig_fieldSS dev_sec_csb_ada__lw_csec_bar0_csr_trig_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_bar0_csr_trig_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T776s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_bar0_csr_trig_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_bar0_csr_trig_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_csr_trig_fieldNT dev_sec_csb_ada__lw_csec_bar0_csr_trig_fieldN;
+typedef character dev_sec_csb_ada__Tlw_csec_bar0_tmout_cycles_fieldSS[60];
+typedef character dev_sec_csb_ada__T777s[60];
+typedef integer dev_sec_csb_ada__TTlw_csec_bar0_tmout_cycles_fieldSSP1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_tmout_cycles_fieldSS dev_sec_csb_ada__lw_csec_bar0_tmout_cycles_fieldS;
+typedef integer_8 *dev_sec_csb_ada__Tlw_csec_bar0_tmout_cycles_fieldNB;
+typedef integer_8 dev_sec_csb_ada__T781s[3];
+typedef integer_8 dev_sec_csb_ada__Tlw_csec_bar0_tmout_cycles_fieldNT[3];
+typedef integer dev_sec_csb_ada__Tlw_csec_bar0_tmout_cycles_fieldND1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_tmout_cycles_fieldNT dev_sec_csb_ada__lw_csec_bar0_tmout_cycles_fieldN;
+typedef dev_sec_csb_ada__lw_csec_bar0_tmout_cycles_field *dev_sec_csb_ada__Tlw_csec_bar0_tmout_cycles_fieldAB;
+typedef dev_sec_csb_ada__lw_csec_bar0_tmout_cycles_field dev_sec_csb_ada__T785s[2];
+typedef dev_sec_csb_ada__lw_csec_bar0_tmout_cycles_field dev_sec_csb_ada__Tlw_csec_bar0_tmout_cycles_fieldAT[2];
+typedef integer dev_sec_csb_ada__Tlw_csec_bar0_tmout_cycles_fieldAD1;
+extern const dev_sec_csb_ada__Tlw_csec_bar0_tmout_cycles_fieldAT dev_sec_csb_ada__lw_csec_bar0_tmout_cycles_fieldA;
+#endif /* DEV_SEC_CSB_ADA_ADS */
+
+#ifndef LW_TYPES_ARRAY_TYPES_ADS
+#define LW_TYPES_ARRAY_TYPES_ADS
+typedef lw_types__lwu32 *lw_types__array_types__arr_lwu32_idx8;
+typedef lw_types__lwu8 *lw_types__array_types__arr_lwu8_idx8;
+typedef lw_types__lwu8 *lw_types__array_types__arr_lwu8_idx32;
+typedef lw_types__lwu32 *lw_types__array_types__arr_lwu32_idx32;
+#endif /* LW_TYPES_ARRAY_TYPES_ADS */
+
+#ifndef LW_TYPES_FALCON_TYPES_ADS
+#define LW_TYPES_FALCON_TYPES_ADS
+extern const lw_types__lwu32 lw_types__falcon_types__max_falcon_imem_size_bytes;
+extern const lw_types__lwu32 lw_types__falcon_types__max_falcon_imem_offset_bytes_for_last_dword_datum;
+extern const lw_types__lwu16 lw_types__falcon_types__max_num_of_imem_tags;
+extern const lw_types__lwu16 lw_types__falcon_types__max_falcon_imem_tag_index;
+extern const lw_types__lwu32 lw_types__falcon_types__max_falcon_dmem_size_bytes;
+extern const lw_types__lwu32 lw_types__falcon_types__max_falcon_dmem_offset_bytes;
+typedef lw_types__Tlwu16B lw_types__falcon_types__Tucode_imem_tagB;
+typedef lw_types__falcon_types__Tucode_imem_tagB lw_types__falcon_types__ucode_imem_tag;
+typedef lw_types__Tlwu32B lw_types__falcon_types__Tucode_imem_offset_in_falcon_bytesB;
+typedef lw_types__falcon_types__Tucode_imem_offset_in_falcon_bytesB lw_types__falcon_types__ucode_imem_offset_in_falcon_bytes;
+typedef lw_types__falcon_types__Tucode_imem_offset_in_falcon_bytesB lw_types__falcon_types__ucode_imem_offset_in_falcon_4b_aligned_bytes;
+extern boolean lw_types__falcon_types__ucode_imem_offset_in_falcon_4b_aligned_bytesPredicate(lw_types__falcon_types__ucode_imem_offset_in_falcon_4b_aligned_bytes I13s);
+typedef lw_types__Tlwu32B lw_types__falcon_types__Tucode_dmem_offset_in_falcon_bytesB;
+typedef lw_types__falcon_types__Tucode_dmem_offset_in_falcon_bytesB lw_types__falcon_types__ucode_dmem_offset_in_falcon_bytes;
+typedef lw_types__falcon_types__Tucode_dmem_offset_in_falcon_bytesB lw_types__falcon_types__ucode_dmem_offset_in_falcon_4b_aligned_bytes;
+extern boolean lw_types__falcon_types__ucode_dmem_offset_in_falcon_4b_aligned_bytesPredicate(lw_types__falcon_types__ucode_dmem_offset_in_falcon_4b_aligned_bytes I15s);
+typedef lw_types__Tlwu32B lw_types__falcon_types__Tucode_imem_size_in_falcon_bytesB;
+typedef lw_types__falcon_types__Tucode_imem_size_in_falcon_bytesB lw_types__falcon_types__ucode_imem_size_in_falcon_bytes;
+typedef lw_types__falcon_types__Tucode_imem_size_in_falcon_bytesB lw_types__falcon_types__ucode_imem_size_in_falcon_4b_aligned_bytes;
+extern boolean lw_types__falcon_types__ucode_imem_size_in_falcon_4b_aligned_bytesPredicate(lw_types__falcon_types__ucode_imem_size_in_falcon_4b_aligned_bytes I17s);
+typedef lw_types__Tlwu32B lw_types__falcon_types__Tucode_dmem_size_in_falcon_bytesB;
+typedef lw_types__falcon_types__Tucode_dmem_size_in_falcon_bytesB lw_types__falcon_types__ucode_dmem_size_in_falcon_bytes;
+typedef lw_types__falcon_types__Tucode_dmem_size_in_falcon_bytesB lw_types__falcon_types__ucode_dmem_size_in_falcon_4b_aligned_bytes;
+extern boolean lw_types__falcon_types__ucode_dmem_size_in_falcon_4b_aligned_bytesPredicate(lw_types__falcon_types__ucode_dmem_size_in_falcon_4b_aligned_bytes I19s);
+typedef lw_types__Tlwu32B lw_types__falcon_types__Tucode_desc_dmem_offsetB;
+typedef lw_types__falcon_types__Tucode_desc_dmem_offsetB lw_types__falcon_types__ucode_desc_dmem_offset;
+typedef lw_types__falcon_types__Tucode_desc_dmem_offsetB lw_types__falcon_types__ucode_desc_dmem_4b_aligned_offset;
+extern boolean lw_types__falcon_types__ucode_desc_dmem_4b_aligned_offsetPredicate(lw_types__falcon_types__ucode_desc_dmem_4b_aligned_offset I21s);
+#endif /* LW_TYPES_FALCON_TYPES_ADS */
+
+#ifndef UTILITY_ADS
+#define UTILITY_ADS
+typedef system__address utility__uc_address_to_lwu32GP1244__source;
+typedef lw_types__Tlwu32B utility__uc_address_to_lwu32GP1244__target;
+typedef lw_types__Tlwu32B utility__uc_lwu32_to_addressGP1422__source;
+typedef system__address utility__uc_lwu32_to_addressGP1422__target;
+extern void
+  GNAT_LINKER_SECTION(".imem_pub")
+__lwstom_gnat_last_chance_handler(void);
+extern void
+  GNAT_LINKER_SECTION(".imem_pub")
+utility__initialize_to_please_flow_analysis(_fatptr_UNCarray buf_all);
+
+#endif /* UTILITY_ADS */
+
+#ifndef SCP_RAND_TU10X_ADS
+#define SCP_RAND_TU10X_ADS
+
+#endif /* SCP_RAND_TU10X_ADS */
+
+#ifndef SCP_CCI_INTRINSICS_ADS
+#define SCP_CCI_INTRINSICS_ADS
+
+#endif /* SCP_CCI_INTRINSICS_ADS */
+
+#ifndef SCP_RAND_COMMON_LW_ADS
+#define SCP_RAND_COMMON_LW_ADS
+
+#endif /* SCP_RAND_COMMON_LW_ADS */
+
+#ifndef SCP_RAND_TU10X_ADB
+#define SCP_RAND_TU10X_ADB
+typedef lw_types__Tlwu32B scp_rand_tu10x__from_raw_scp_rndctl1GP182__sourceX;
+typedef dev_sec_csb_ada__lw_csec_scp_rndctl1_register scp_rand_tu10x__from_raw_scp_rndctl1GP182__targetX
+  GNAT_ALIGN(4);
+typedef dev_sec_csb_ada__lw_csec_scp_rndctl1_register scp_rand_tu10x__to_raw_scp_rndctl1GP374__sourceX
+  GNAT_ALIGN(4);
+typedef lw_types__Tlwu32B scp_rand_tu10x__to_raw_scp_rndctl1GP374__targetX;
+typedef lw_types__Tlwu32B scp_rand_tu10x__from_raw_scp_rndctl11GP562__sourceX;
+typedef dev_sec_csb_ada__lw_csec_scp_rndctl11_register scp_rand_tu10x__from_raw_scp_rndctl11GP562__targetX
+  GNAT_ALIGN(4);
+typedef dev_sec_csb_ada__lw_csec_scp_rndctl11_register scp_rand_tu10x__to_raw_scp_rndctl11GP757__sourceX
+  GNAT_ALIGN(4);
+typedef lw_types__Tlwu32B scp_rand_tu10x__to_raw_scp_rndctl11GP757__targetX;
+typedef lw_types__Tlwu32B scp_rand_tu10x__from_raw_scp_ctl1GP948__sourceX;
+typedef dev_sec_csb_ada__lw_csec_scp_ctl1_register scp_rand_tu10x__from_raw_scp_ctl1GP948__targetX
+  GNAT_ALIGN(4);
+typedef dev_sec_csb_ada__lw_csec_scp_ctl1_register scp_rand_tu10x__to_raw_scp_ctl1GP1131__sourceX
+  GNAT_ALIGN(4);
+typedef lw_types__Tlwu32B scp_rand_tu10x__to_raw_scp_ctl1GP1131__targetX;
+
+#endif /* SCP_RAND_TU10X_ADB */
+
+#ifndef UTILITY_ADB
+#define UTILITY_ADB
+
+#endif /* UTILITY_ADB */
+
+#ifndef SCP_CCI_INTRINSICS_ADB
+#define SCP_CCI_INTRINSICS_ADB
+
+#endif /* SCP_CCI_INTRINSICS_ADB */

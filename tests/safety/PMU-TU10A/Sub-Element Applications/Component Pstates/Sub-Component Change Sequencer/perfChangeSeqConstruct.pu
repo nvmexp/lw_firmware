@@ -1,0 +1,17 @@
+@startuml
+title Construct
+activate PERF
+    PERF -> ChangeSeq : Construct()
+    activate ChangeSeq
+        ChangeSeq -> OS : attachOverlays()
+        activate OS
+        deactivate OS
+        ChangeSeq -> ChangeSeq : initialize()
+        activate ChangeSeq
+            return status
+        ChangeSeq -> OS : detachOverlays()
+        activate OS
+        deactivate OS
+    return status
+
+@enduml

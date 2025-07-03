@@ -1,0 +1,42 @@
+/* _LWRM_COPYRIGHT_BEGIN_
+ *
+ * Copyright 2021 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * _LWRM_COPYRIGHT_END_
+ */
+
+/*!
+ * @file    soe_objic.c
+ * @brief   Interface to soe interrupt service routine handler
+ *
+ *  Most of this driver is actually platform independent, it's SOE only because
+ *  we assume interrupt tree belongs to SOE (and parse it as such).
+ */
+
+/* ------------------------ LW Includes ------------------------------------ */
+#include <lwmisc.h>
+/* ------------------------ Register Includes ------------------------------ */
+#include <engine.h>
+#include <riscv-intrinsics.h>
+
+// MK TODO: this is required to link with SafeRTOS core (that we must link with).
+#define SAFE_RTOS_BUILD
+#include <SafeRTOS.h>
+
+#include <portfeatures.h>
+#include <task.h>
+#include <lwrtos.h>
+#include "drivers/drivers.h"
+/* ------------------------ Module Includes -------------------------------- */
+
+#include "config/g_ic_hal.h"
+
+
+sysKERNEL_CODE void
+lwrtosRiscvExtIrqHook(void)
+{
+    icService_HAL(&IcHal);
+}

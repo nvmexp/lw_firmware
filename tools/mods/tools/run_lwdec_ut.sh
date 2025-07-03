@@ -1,0 +1,2 @@
+cd $MODS_RUNSPACE
+./sim.pl -chip gh100 -gpubios 0 gh100_sim_hbm.rom -fmod64 -chipLib ghlit1_fmodel_64 -modsOpt rmtest.js -enable_lwdec_ut -no_stack_dump -engr -only_family hopper -enable_acr -pmu_bootstrap_mode 0 -exelwte_rm_devinit_on_pmu 0 -lwswitch_minion_disable 0x1 -minion_disable_sw_boot -enable_fbflcn 0 -forcetestname lwdelwtest -testarg LwdelwTest InstanceId 0 -testarg LwdelwTest DbgEnabled 0 -testarg LwdelwTest ACREnabled 1

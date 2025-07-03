@@ -1,0 +1,70 @@
+/*
+ * Memory map is fixed, based on table
+ * https://confluence.lwpu.com/display/LW/Partition+Arch+for+Supporting+SPT+and+SMIG
+ * We assign it with memory sections, as it's more colwinient that way.
+ *
+ * WARNING: Some sizes deviate from spec, esp for ga102 to fit in memory
+ */
+
+/*
+ * WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+ *
+ * If you change this file, you must rebuild both FMC and FB image.
+ *
+ */
+
+imem_sk_size    = IMEM_SK_SIZE;
+imem_shr_size   = IMEM_SHR_SIZE;
+imem_acr_size   = IMEM_ACR_SIZE;
+imem_att_size   = IMEM_ATT_SIZE;
+imem_rm_size    = IMEM_RM_SIZE;
+imem_init_size  = IMEM_INIT_SIZE;
+imem_spdm_size  = IMEM_SPDM_SIZE;
+
+dmem_sk_size    = DMEM_SK_SIZE;
+dmem_shr_size   = DMEM_SHR_SIZE;
+dmem_acr_size   = DMEM_ACR_SIZE;
+dmem_att_size   = DMEM_ATT_SIZE;
+dmem_rm_size    = DMEM_RM_SIZE;
+dmem_init_size  = DMEM_INIT_SIZE;
+dmem_spdm_size  = DMEM_SPDM_SIZE;
+dmem_print_size = DMEM_PRINT_SIZE;
+
+MEMORY {
+    // DO NOT REORDER THOSE REGIONS OR BAD THINGS WILL HAPPEN
+    imem_sk   (rx) : ORIGIN = 0x0000000000100000,                    LENGTH = imem_sk_size
+    imem_shr  (rx) : ORIGIN = ORIGIN(imem_sk)   + LENGTH(imem_sk),   LENGTH = imem_shr_size
+    imem_acr  (rx) : ORIGIN = ORIGIN(imem_shr)  + LENGTH(imem_shr),  LENGTH = imem_acr_size
+    imem_att  (rx) : ORIGIN = ORIGIN(imem_acr)  + LENGTH(imem_acr),  LENGTH = imem_att_size
+    imem_rm   (rx) : ORIGIN = ORIGIN(imem_att)  + LENGTH(imem_att),  LENGTH = imem_rm_size
+    imem_init (rx) : ORIGIN = ORIGIN(imem_rm)   + LENGTH(imem_rm),   LENGTH = imem_init_size
+    imem_spdm (rx) : ORIGIN = ORIGIN(imem_init) + LENGTH(imem_init), LENGTH = imem_spdm_size
+
+    dmem_sk    (rw) : ORIGIN = 0x0000000000180000,                    LENGTH = dmem_sk_size
+    dmem_shr   (rw) : ORIGIN = ORIGIN(dmem_sk)   + LENGTH(dmem_sk),   LENGTH = dmem_shr_size
+    dmem_acr   (rw) : ORIGIN = ORIGIN(dmem_shr)  + LENGTH(dmem_shr),  LENGTH = dmem_acr_size
+    dmem_att   (rw) : ORIGIN = ORIGIN(dmem_acr)  + LENGTH(dmem_acr),  LENGTH = dmem_att_size
+    dmem_rm    (rw) : ORIGIN = ORIGIN(dmem_att)  + LENGTH(dmem_att),  LENGTH = dmem_rm_size
+    dmem_init  (rw) : ORIGIN = ORIGIN(dmem_rm)   + LENGTH(dmem_rm),   LENGTH = dmem_init_size
+    dmem_spdm  (rw) : ORIGIN = ORIGIN(dmem_init) + LENGTH(dmem_init), LENGTH = dmem_spdm_size
+    dmem_print (rw) : ORIGIN = ORIGIN(dmem_sk)   + LWRISCV_DMEM_SIZE - dmem_print_size, LENGTH = dmem_print_size
+
+    emem (rw) : ORIGIN = 0x0000000001200000, LENGTH = LWRISCV_EMEM_SIZE
+}
+
+// Export RM regions for GSP-RM. Note that RM consumes the init partition since it boots later.
+ASSERT(ORIGIN(imem_rm) + LENGTH(imem_rm) == ORIGIN(imem_init), "RM partition must immediately precede init");
+ASSERT(ORIGIN(dmem_rm) + LENGTH(dmem_rm) == ORIGIN(dmem_init), "RM partition must immediately precede init");
+
+ASSERT(ORIGIN(imem_spdm) + LENGTH(imem_spdm) <= 0x100000 + LWRISCV_IMEM_SIZE, "Run out of IMEM");
+ASSERT(ORIGIN(dmem_spdm) + LENGTH(dmem_spdm) <= ORIGIN(dmem_print), "Run out of DMEM");
+
+ASSERT(LENGTH(dmem_print) < 0x10000, "Print buffer too big");
+ASSERT(ORIGIN(dmem_print) + LENGTH(dmem_print) == 0x180000 + LWRISCV_DMEM_SIZE, "Print buffer is not at the end of DMEM")
+
+__imem_rm_start = ORIGIN(imem_rm);
+__imem_rm_size  = LENGTH(imem_rm) + LENGTH(imem_init);
+__dmem_rm_start = ORIGIN(dmem_rm);
+__dmem_rm_size  = LENGTH(dmem_rm) + LENGTH(dmem_init);
+__dmem_print_start = ORIGIN(dmem_print);
+__dmem_print_size  = LENGTH(dmem_print);

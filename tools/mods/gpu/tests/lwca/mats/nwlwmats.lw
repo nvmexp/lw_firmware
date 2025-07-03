@@ -1,0 +1,1186 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2009-2018,2020-2021 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+/*
+ * This is a MATS (Modified Algorithmic Test Sequence) memory test
+ * based on LWCA.
+ */
+
+#include <type_traits>
+#include "newlwdamats.h"
+#include "../tools/gpusync.h"
+#include "../tools/newrandom.h"
+
+using namespace NewLwdaMats;
+
+#if (SM_VER == 89)
+#define WIDE_LOAD_STORE
+#endif
+
+// Allow large numbers of threads for normal kernels
+#define MAX_NUM_THREADS  1024
+#define MIN_NUM_BLOCKS   1
+
+// Colwerts pointer to a host-compatible value
+__device__ device_ptr MakeHostPtr(void* ptr)
+{
+    return reinterpret_cast<device_ptr>(ptr);
+}
+
+// This function is for testing purposes only
+#if INJECT_ERRORS == 1
+__device__ UINT32 MakeError(void* ptr, void* endPtr, void* basePtr)
+{
+    const UINT64 offset =
+        static_cast<UINT08*>(ptr) - static_cast<UINT08*>(basePtr);
+    const UINT64 endOffset =
+        static_cast<UINT08*>(endPtr) - static_cast<UINT08*>(basePtr);
+    UINT32 value = 0;
+    //if (offset == 0xe89f9ef4)
+    if (offset == 0xc438057c - 0x02300000)
+    {
+        value = 0x80000000;
+    }
+    return value;
+}
+#else
+#define MakeError(ptr, endPtr, basePtr) 0
+#endif
+
+// Returns overall number of running threads
+__device__ UINT32 GetNumThreads()
+{
+    return blockDim.x * gridDim.x;
+}
+
+// Returns global index of the calling thread
+__device__ UINT32 GetThreadIdx()
+{
+    return blockIdx.x * blockDim.x + threadIdx.x;
+}
+
+// Builds error description
+__device__ void SetError
+(
+    const volatile UINT32* ptr,
+    UINT32 actualValue,
+    UINT32 expectedValue,
+    BadValue* badValue,
+    UINT32 outerIteration,
+    UINT32 innerIteration,
+    UINT32 patternIdx,
+    bool forward
+)
+{
+    badValue->address = MakeHostPtr(const_cast<UINT32*>(ptr));
+    badValue->actual = actualValue;
+    badValue->expected = expectedValue;
+    badValue->encFailData = BadValue::EncodeFailData(blockIdx.x, threadIdx.x,
+        outerIteration, innerIteration, patternIdx, forward);
+}
+
+// NOTE: Need to update the LwdaMatsInput.maxLocalErrors value if
+// you decide on adding or removing __shared__ variables.
+__shared__ UINT32 s_NumErrors;
+__shared__ UINT32 s_NumPatterns;
+__shared__ UINT32 s_Patterns[maxLwdaMatsPatterns];
+extern __shared__ BadValue s_Errors[];
+
+// Reports an error
+__device__ void ReportError
+(
+    const LwdaMatsInput& input,
+    const UINT32* ptr,
+    UINT32 actualVal,
+    UINT32 expectedVal,
+    UINT32 outerIter,
+    UINT32 innerIter,
+    UINT32 patternIdx,
+    bool forward
+)
+{
+    const UINT32 errorIndex = atomicAdd(&s_NumErrors, 1);
+    if (errorIndex < input.maxLocalErrors)
+    {
+        BadValue& badValue = s_Errors[errorIndex];
+        SetError(ptr, actualVal, expectedVal, &badValue, outerIter, innerIter, patternIdx, forward);
+    }
+}
+
+// This function will be called on loop, causing thread to
+// busy wait.
+// TODO Refactor this for better performance / correctness
+__device__ bool BufferHasSpace
+(
+    const LwdaMatsInput& input,
+    UINT32* pIdx
+)
+{
+    BufferStatus* pBlockBufStatus = &GetPtr<BufferStatus*>(input.ovfHandler.blkBufStatusPtr)[blockIdx.x];
+    UINT32* pBlockBufIndex = &GetPtr<UINT32*>(input.ovfHandler.indexPtr)[blockIdx.x];
+
+    if (*pBlockBufStatus == BUFFER_FULL)
+    {
+        return false;
+    }
+
+    // Has been recently flushed. By having exactly one device thread be responsible for transitioning
+    // buffer states and resetting index, we maintain synchronicity between host and device
+    if (*pBlockBufStatus == BUFFER_FLUSHED)
+    {
+        if (atomicCAS(pBlockBufStatus, BUFFER_FLUSHED, BUFFER_AVAILABLE) == BUFFER_FLUSHED)
+        {
+            // First and only thread to successfully set flushed buffer as available
+            // is responsible for resetting index to 0
+            atomicExch(pBlockBufIndex, 0);
+        }
+    }
+    __threadfence_system();
+
+    // There's a chance multiple threads passed the hostBusy check above
+    // Only allow those that don't go past max overflow index
+    const UINT32 blockBufferIndex = atomicAdd(pBlockBufIndex, 1);
+    if (blockBufferIndex >= input.ovfHandler.maxBlockErrors)
+    {
+        return false;
+    }
+
+    *pIdx = blockBufferIndex;
+
+    return true;
+}
+
+// Reports bit error. If we're encountering this error while doing R/W, increment s_NumErrors
+// and attempt to store it in shared memory if it has space.
+// Using templates to avoid register spilling
+template<bool errorInSharedMem>
+__device__ void ReportBitError
+(
+    const LwdaMatsInput& input,
+    UINT32* ptr,
+    UINT32 badBits
+)
+{
+    UINT32 errorIndex;
+    // We try to store as many errors as we can in shared memory first, before storing them in
+    // host memory at the end. If we're reporting bit errors already in shared memory, we shouldn't
+    // re-increment s_NumErrors
+    if (!errorInSharedMem)
+    {
+        errorIndex = atomicAdd(&s_NumErrors, 1);
+        if (errorIndex < input.maxLocalErrors)
+        {
+            BitError* pBitError = &reinterpret_cast<BitError*>(s_Errors)[errorIndex];
+            pBitError->address = MakeHostPtr(ptr);
+            pBitError->badBits = badBits;
+            return;
+        }
+    }
+
+    while (!BufferHasSpace(input, &errorIndex));
+
+    RangeBitErrors* pResults = GetPtr<RangeBitErrors*>(input.results);
+    BitError* pBlockBuffer = &pResults->overflowBuffer[input.ovfHandler.maxBlockErrors * blockIdx.x];
+    BitError* pBitError = &pBlockBuffer[errorIndex];
+    pBitError->address = MakeHostPtr(ptr);
+    pBitError->badBits = badBits;
+
+    // Make sure all error logs have been written to buffer before the last thread designates it full
+    __threadfence_block();
+
+    BufferStatus* pBlockBufStatus = &GetPtr<BufferStatus*>(input.ovfHandler.blkBufStatusPtr)[blockIdx.x];
+    if (errorIndex == input.ovfHandler.maxBlockErrors - 1)
+    {
+        *pBlockBufStatus = BUFFER_FULL;
+    }
+}
+
+__device__ __forceinline__ void ReportMatsError
+(
+    const LwdaMatsInput &input,
+    const UINT32* ptr,
+    UINT32 actualVal,
+    UINT32 expectedVal,
+    UINT32 outerIter,
+    UINT32 innerIter,
+    UINT32 patternIdx,
+    bool forward
+)
+{
+    if (input.skipErrReport)
+    {
+        return;
+    }
+    else if (input.reportBitErrors)
+    {
+        ReportBitError<false>(input, const_cast<UINT32*>(ptr), actualVal ^ expectedVal);
+    }
+    else
+    {
+        ReportError(input, ptr, actualVal, expectedVal,
+                    outerIter, innerIter, patternIdx, forward);
+    }
+}
+
+// Init local error table
+template<Variant V>
+__device__ void InitLocalData(const LwdaMatsInput& input)
+{
+    if (threadIdx.x == 0)
+    {
+        s_NumErrors = 0;
+        s_NumPatterns = input.numPatterns;
+    }
+    __syncthreads();
+
+    if (V == Variant::Standard || V == Variant::BusTest)
+    {
+        // Use multiple threads to initialize pattern data
+        for (UINT32 iPat = threadIdx.x; iPat < s_NumPatterns; iPat += blockDim.x)
+        {
+            const UINT32* patterns = GetPtr<UINT32*>(input.patterns);
+            s_Patterns[iPat] = patterns[iPat];
+        }
+        __syncthreads();
+    }
+}
+
+// Store local errors in output table
+__device__ void StoreErrors(const LwdaMatsInput& input)
+{
+    // Using multiple threads will give better performance
+    // as number of errors to report per block increases
+    RangeErrors& errors = *(GetPtr<RangeErrors*>(input.results));
+    UINT32 numErrors = min(input.maxLocalErrors, s_NumErrors);
+    if (threadIdx.x == 0 && numErrors > 0)
+    {
+        atomicAdd(&errors.numErrors, s_NumErrors);
+    }
+    for (UINT32 i = threadIdx.x; i < numErrors; i += blockDim.x)
+    {
+        const UINT32 idx = atomicAdd(&errors.numReportedErrors, 1);
+        if (idx >= input.maxGlobalErrors)
+        {
+            atomicSub(&errors.numReportedErrors, 1);
+            break;
+        }
+        errors.reportedValues[idx] = s_Errors[i];
+    }
+}
+
+// Store bit errors in host overflow buffer
+__device__ void StoreBitErrors(const LwdaMatsInput& input)
+{
+    RangeBitErrors* pErrors = GetPtr<RangeBitErrors*>(input.results);
+    UINT32 numErrors = min(input.maxLocalErrors, s_NumErrors);
+    if (threadIdx.x == 0 && numErrors > 0)
+    {
+        atomicAdd(&pErrors->numErrors, s_NumErrors);
+    }
+    // Store overflow errors in overflow buffer.
+    for (UINT32 i = threadIdx.x; i < numErrors; i += blockDim.x)
+    {
+        BitError* pBitError = &reinterpret_cast<BitError*>(s_Errors)[i];
+        ReportBitError<true>(input, reinterpret_cast<UINT32*>(pBitError->address), pBitError->badBits);
+    }
+}
+
+// Init the RNG depending on the current pass of the memory
+template<typename R>
+__device__ __forceinline__ R GetRand(const UINT64& seed, const UINT64& passNum)
+{
+    R rnd;
+    InitRand<sizeof(rnd) / sizeof(UINT64)>
+    (
+        reinterpret_cast<UINT64*>(&rnd),
+        1 + seed + GetThreadIdx() + passNum * GetNumThreads()
+    );
+    return rnd;
+}
+
+template<UINT32 levelMask>
+__device__ __forceinline__ uint4 PAM4PatImpl(const LwdaMatsInput& input, const PAM4Rand& rnd)
+{
+    uint4 vec;
+
+    // Generate patterns determining first bit of PAM4 encoding
+    //
+    // vec.x/vec.y and vec.x/vec.w aren't fully independent for some level masks as we may
+    // reuse the same random numbers in a different order. This is a compromise to avoid
+    // register spilling. Post-processing of the data patterns shows that the level transitions
+    // aren't impacted in a significant way.
+    //
+    switch (levelMask)
+    {
+        // p(1) = 31.25% (Approximation of 1/3)
+        case 0xB:
+        case 0xD:
+            vec.x = 0xFFFF & (rnd.x & (rnd.y | (rnd.z & rnd.w)));
+            vec.y = 0xFFFF & (rnd.x & (rnd.y | (rnd.z & rnd.w))) >> 16;
+            vec.z = 0xFFFF & (rnd.w & (rnd.z | (rnd.y & rnd.x)));
+            vec.w = 0xFFFF & (rnd.w & (rnd.z | (rnd.y & rnd.x))) >> 16;
+            break;
+        // p(1) = 68.75% (Approximation of 2/3)
+        case 0x7:
+        case 0xE:
+            vec.x = 0xFFFF & ~(rnd.x & (rnd.y | (rnd.z & rnd.w)));
+            vec.y = 0xFFFF & ~(rnd.x & (rnd.y | (rnd.z & rnd.w))) >> 16;
+            vec.z = 0xFFFF & ~(rnd.w & (rnd.z | (rnd.y & rnd.x)));
+            vec.w = 0xFFFF & ~(rnd.w & (rnd.z | (rnd.y & rnd.x))) >> 16;
+            break;
+        // p(1) = 50% (Default RNG Output)
+        case 0x3:
+        case 0x5:
+        case 0xC:
+        case 0xA:
+        case 0xF:
+            vec.x = 0xFFFF & (rnd.x);
+            vec.y = 0xFFFF & (rnd.y);
+            vec.z = 0xFFFF & (rnd.z);
+            vec.w = 0xFFFF & (rnd.w);
+            break;
+        // Zeros
+        case 0x1:
+        case 0x8:
+        case 0x9:
+            vec.x = 0x0000;
+            vec.y = 0x0000;
+            vec.z = 0x0000;
+            vec.w = 0x0000;
+            break;
+        // Ones
+        case 0x2:
+        case 0x4:
+        case 0x6:
+            vec.x = 0xFFFF;
+            vec.y = 0xFFFF;
+            vec.z = 0xFFFF;
+            vec.w = 0xFFFF;
+            break;
+    }
+
+    // Generate patterns determining second bit of PAM4 encoding given the first bit
+    //
+    // The strange bitwise operations we do here ensure that each PAM4 level is selected
+    // with equal probability.
+    //
+    const UINT32 randHiA = (rnd.data[0] & 0xFFFF0000);
+    const UINT32 randHiB = (rnd.data[0] << 16);
+    const UINT32 randHiC = (rnd.data[1] & 0xFFFF0000);
+    const UINT32 randHiD = (rnd.data[1] << 16);
+    switch (levelMask)
+    {
+        // Zeros
+        case 0x1:
+        case 0x2:
+        case 0x3:
+            break;
+        // Ones
+        case 0x4:
+        case 0x8:
+        case 0xC:
+            vec.x |= 0xFFFFu << 16;
+            vec.y |= 0xFFFFu << 16;
+            vec.z |= 0xFFFFu << 16;
+            vec.w |= 0xFFFFu << 16;
+            break;
+        // Match first bit
+        case 0x5:
+            vec.x |= vec.x << 16;
+            vec.y |= vec.y << 16;
+            vec.z |= vec.z << 16;
+            vec.w |= vec.w << 16;
+            break;
+        // Match ilwersion of first bit
+        case 0xA:
+            vec.x |= ~vec.x << 16;
+            vec.y |= ~vec.y << 16;
+            vec.z |= ~vec.z << 16;
+            vec.w |= ~vec.w << 16;
+            break;
+        // RAND
+        case 0x9:
+        case 0xF:
+            vec.x |= randHiA;
+            vec.y |= randHiB;
+            vec.z |= randHiC;
+            vec.w |= randHiD;
+            break;
+        // PREV AND RAND
+        case 0x6:
+        case 0x7:
+            vec.x |= (vec.x << 16) & randHiA;
+            vec.y |= (vec.y << 16) & randHiB;
+            vec.z |= (vec.z << 16) & randHiC;
+            vec.w |= (vec.w << 16) & randHiD;
+            break;
+        // NOT PREV AND RAND
+        case 0xB:
+            vec.x |= (~vec.x << 16) & randHiA;
+            vec.y |= (~vec.y << 16) & randHiB;
+            vec.z |= (~vec.z << 16) & randHiC;
+            vec.w |= (~vec.w << 16) & randHiD;
+            break;
+        // PREV OR RAND
+        case 0xD:
+            vec.x |= (vec.x << 16) | randHiA;
+            vec.y |= (vec.y << 16) | randHiB;
+            vec.z |= (vec.z << 16) | randHiC;
+            vec.w |= (vec.w << 16) | randHiD;
+            break;
+        // NOT PREV OR RAND
+        case 0xE:
+            vec.x |= (~vec.x << 16) | randHiA;
+            vec.y |= (~vec.y << 16) | randHiB;
+            vec.z |= (~vec.z << 16) | randHiC;
+            vec.w |= (~vec.w << 16) | randHiD;
+            break;
+    }
+
+    // If useSafeLevels is set, never use Level -3 for the first level of a 32-byte burst
+    // This isn't compatible with levelMask 0xF
+    if (input.useSafeLevels)
+    {
+        // The first level of a burst is set by vec.x of even threads
+        if (levelMask & 0x1 & ~threadIdx.x)
+        {
+            vec.x |= 0xFFFF;
+        }
+        __syncwarp();
+    }
+
+    return vec;
+}
+
+// R: rng state type, T: pattern vector type
+template<Variant V, typename R, typename T>
+__device__
+T GetPat(const LwdaMatsInput& input, const R& rnd);
+
+template<>
+__device__ __forceinline__
+uint4 GetPat<Variant::Random, uint4, uint4>(const LwdaMatsInput& input, const uint4& rnd)
+{
+    return rnd;
+}
+
+#ifdef WIDE_LOAD_STORE
+template<>
+__device__ __forceinline__
+uint4x2 GetPat<Variant::Random, uint4x2, uint4x2>(const LwdaMatsInput& input, const uint4x2& rnd)
+{
+    return rnd;
+}
+#endif
+
+template<>
+__device__ __forceinline__
+uint4 GetPat<Variant::PAM4, PAM4Rand, uint4>(const LwdaMatsInput& input, const PAM4Rand& rnd)
+{
+    // This switch statement is a necessary evil
+    //
+    // The issue is that the case statements in PAM4PatImpl will cause the LWCA compiler
+    // to run out of registers and spill into framebuffer, which is unacceptable for a memory test.
+    //
+    // By templatizing levelMask we can save a few registers. We are so close to the 64 register limit
+    // that we don't really have any other options here.
+    //
+    switch (input.levelMask)
+    {
+        case 0x1:
+            return PAM4PatImpl<0x1>(input, rnd);
+        case 0x2:
+            return PAM4PatImpl<0x2>(input, rnd);
+        case 0x3:
+            return PAM4PatImpl<0x3>(input, rnd);
+        case 0x4:
+            return PAM4PatImpl<0x4>(input, rnd);
+        case 0x5:
+            return PAM4PatImpl<0x5>(input, rnd);
+        case 0x6:
+            return PAM4PatImpl<0x6>(input, rnd);
+        case 0x7:
+            return PAM4PatImpl<0x7>(input, rnd);
+        case 0x8:
+            return PAM4PatImpl<0x8>(input, rnd);
+        case 0x9:
+            return PAM4PatImpl<0x9>(input, rnd);
+        case 0xA:
+            return PAM4PatImpl<0xA>(input, rnd);
+        case 0xB:
+            return PAM4PatImpl<0xB>(input, rnd);
+        case 0xC:
+            return PAM4PatImpl<0xC>(input, rnd);
+        case 0xD:
+            return PAM4PatImpl<0xD>(input, rnd);
+        case 0xE:
+            return PAM4PatImpl<0xE>(input, rnd);
+        case 0xF:
+            return PAM4PatImpl<0xF>(input, rnd);
+        default:
+            return make_vec<uint4>(0);
+    }
+}
+
+template<>
+__device__ __forceinline__
+uint4 GetPat<Variant::BusTest, uint2, uint4>(const LwdaMatsInput& input, const uint2& rnd)
+{
+    const UINT32 patsPerBusPat = input.busPatBytes / sizeof(s_Patterns[0]);
+    const UINT32 patsPerLane = sizeof(uint4) / sizeof(s_Patterns[0]);
+    const UINT32 numBusPats = (s_NumPatterns - 1) / patsPerBusPat;
+
+    // BusPatBytes is verified by the test to be a power of 2
+    const UINT32 lanesPerBusPat = input.busPatBytes / sizeof(uint4);
+    const UINT32 laneMask = lanesPerBusPat - 1;
+    const UINT32 laneId = threadIdx.x & laneMask;
+
+    // For each group of threads select a random BusPat
+    // Threads within a group share a random idx in order to target the correct BusPat length
+    UINT32 idx = (rnd.y % numBusPats) * patsPerBusPat;
+    idx = __shfl_sync(0xFFFFFFFF, idx, 0, lanesPerBusPat) + laneId * patsPerLane;
+    const uint4 buspat = make_uint4(s_Patterns[idx + 0],
+                                    s_Patterns[idx + 1],
+                                    s_Patterns[idx + 2],
+                                    s_Patterns[idx + 3]);
+    return buspat;
+}
+
+__device__ __forceinline__ uint4 ReadVec(uint4* pVec)
+{
+    return *pVec;
+}
+
+#ifdef WIDE_LOAD_STORE
+__device__ __forceinline__ uint4x2 ReadVec(uint4x2* pVec)
+{
+    uint4x2 out;
+    asm volatile
+    (
+        "ld.global.v8.u32 {%0, %1, %2, %3, %4, %5, %6, %7}, [%8];"
+        : "=r"(out.a.x), "=r"(out.a.y)
+        , "=r"(out.a.z), "=r"(out.a.w)
+        , "=r"(out.b.x), "=r"(out.b.y)
+        , "=r"(out.b.z), "=r"(out.b.w)
+        : "l"(pVec)
+    );
+    return out;
+}
+#endif
+
+__device__ __forceinline__ void WriteVec(uint4* pVec, const uint4& val)
+{
+    *pVec = val;
+}
+
+#ifdef WIDE_LOAD_STORE
+__device__ __forceinline__ void WriteVec(uint4x2* pVec, const uint4x2& val)
+{
+    asm volatile
+    (
+        "st.global.v8.u32 [%0], {%1, %2, %3, %4, %5, %6, %7, %8};"
+        :
+        : "l"(pVec)
+        , "r"(val.a.x), "r"(val.a.y)
+        , "r"(val.a.z), "r"(val.a.w)
+        , "r"(val.b.x), "r"(val.b.y)
+        , "r"(val.b.z), "r"(val.b.w)
+    );
+}
+#endif
+
+template<typename T>
+__device__ void FillPattern
+(
+    const LwdaMatsInput& input,
+    T newPattern
+)
+{
+    const UINT32 stride = GetNumThreads();
+    T* vecptr = GetPtr<T*>(input.mem) + GetThreadIdx();
+    T* endPtr = GetPtr<T*>(input.memEnd);
+
+    for (; vecptr < endPtr; vecptr += stride)
+    {
+        WriteVec(vecptr, newPattern);
+    }
+    __syncthreads();
+}
+
+__device__ __forceinline__ void ComparePattern
+(
+    const LwdaMatsInput& input,
+    const uint4& readvec,
+    const uint4& oldPattern,
+    uint4* const pVec,
+    const UINT32 patternIdx,
+    const UINT32 iteration,
+    const bool dirprint
+)
+{
+    // Reduce the number of branches in the generated code in the normal (no miscompare) case
+    if (readvec.x != oldPattern.x ||
+        readvec.y != oldPattern.y ||
+        readvec.z != oldPattern.z ||
+        readvec.w != oldPattern.w)
+    {
+        // Check 32bit patterns within vector
+        const UINT32* srcptr = reinterpret_cast<UINT32*>(pVec);
+
+        if (readvec.x != oldPattern.x)
+        {
+            ReportMatsError(input, &srcptr[0], readvec.x, oldPattern.x, input.outerIter,
+                            iteration, patternIdx, dirprint);
+        }
+        if (readvec.y != oldPattern.y)
+        {
+            ReportMatsError(input, &srcptr[1], readvec.y, oldPattern.y, input.outerIter,
+                            iteration, patternIdx, dirprint);
+        }
+        if (readvec.z != oldPattern.z)
+        {
+            ReportMatsError(input, &srcptr[2], readvec.z, oldPattern.z, input.outerIter,
+                            iteration, patternIdx, dirprint);
+        }
+        if (readvec.w != oldPattern.w)
+        {
+            ReportMatsError(input, &srcptr[3], readvec.w, oldPattern.w, input.outerIter,
+                            iteration, patternIdx, dirprint);
+        }
+    }
+}
+
+#ifdef WIDE_LOAD_STORE
+__device__ __forceinline__ void ComparePattern
+(
+    const LwdaMatsInput& input,
+    const uint4x2& readvec,
+    const uint4x2& oldPattern,
+    uint4x2* const pWideVec,
+    const UINT32 patternIdx,
+    const UINT32 iteration,
+    const bool dirprint
+)
+{
+    uint4* const pVec = reinterpret_cast<uint4*>(pWideVec);
+    ComparePattern(input, readvec.a, oldPattern.a, pVec,
+                   patternIdx, iteration, dirprint);
+    ComparePattern(input, readvec.b, oldPattern.b, &pVec[1],
+                   patternIdx, iteration, dirprint);
+}
+#endif
+
+template<typename T, bool forward>
+__device__ void ReadWritePattern
+(
+    const LwdaMatsInput& input,
+    const T& oldPattern,
+    const T& newPattern,
+    const UINT32 patternIdx,
+    const UINT32 iteration,
+    const bool restore,
+    UINT64* pTick
+)
+{
+    const UINT32 stride = GetNumThreads();
+    const UINT64 totalLoops = (input.memEnd - input.mem) / (stride * sizeof(T));
+    T* vecptr = GetPtr<T*>(input.mem) + GetThreadIdx();
+
+    for (UINT64 i = (restore ? input.state.loop : 0); i < totalLoops; i++)
+    {
+        const UINT64 vecIdx = forward ?
+                                  i * stride :
+                                  (totalLoops - 1 - i) * stride;
+        const T readvec = ReadVec(&vecptr[vecIdx]);
+
+        ComparePattern(input, readvec, oldPattern, &vecptr[vecIdx], patternIdx,
+                       iteration, forward);
+
+        if (!input.readOnly)
+        {
+            WriteVec(&vecptr[vecIdx], newPattern);
+        }
+
+        // Only exit early if we have reached the specified number of ticks.
+        // If numTicks is 0, we never exit early.
+        if (++(*pTick) == input.numTicks)
+        {
+            break;
+        }
+    }
+    __syncthreads();
+}
+
+template<typename T, bool dirprint>
+__device__ void RandomOffset
+(
+    const LwdaMatsInput& input,
+    const T& oldPattern,
+    const T& newPattern,
+    const UINT32 patternIdx,
+    const UINT32 iteration,
+    const UINT32 startLoop,
+    const bool restore,
+    UINT64* pTick
+)
+{
+    const UINT32 totalThreads = GetNumThreads();
+    const UINT64 totalLoops =
+        (input.memEnd - input.mem) / (totalThreads * sizeof(T));
+
+    // Derive the thread's starting loop from the first dword of the new random data.
+    // Use the shuffle instruction to control access size by copying the starting loop
+    // to adjacent threads.
+    //
+    // If we end up addressing >512GB of address space we might want to consider using
+    // a 64bit number for the startLoop
+    UINT64 lwrLoop = startLoop +
+                         (restore ? input.state.loop : 0);
+    lwrLoop = __shfl_sync(0xFFFFFFFF, lwrLoop, 0, input.randAccessBytes / sizeof(T)) %
+             totalLoops;
+
+    T* vecptr = GetPtr<T*>(input.mem) + GetThreadIdx();
+    for (UINT64 countLoop = (restore ? input.state.loop : 0);
+         countLoop < totalLoops;
+         countLoop++)
+    {
+        const UINT64 vecIdx = lwrLoop * totalThreads;
+        const T readvec = ReadVec(&vecptr[vecIdx]);
+
+        ComparePattern(input, readvec, oldPattern, &vecptr[vecIdx], patternIdx,
+                       iteration, dirprint);
+
+        if (!input.readOnly)
+        {
+            WriteVec(&vecptr[vecIdx], newPattern);
+        }
+
+        // Increment lwrLoop
+        // Don't use modulo, the GPU doesn't have HW integer division
+        if (++lwrLoop >= totalLoops)
+        {
+            lwrLoop = 0;
+        }
+
+        // If numTicks is 0, we never exit early.
+        if (++(*pTick) == input.numTicks)
+        {
+            break;
+        }
+    }
+    __syncthreads();
+}
+
+template<typename T>
+__device__ void InitCommon(const LwdaMatsInput& input, T initPat)
+{
+    FillPattern<T>(input, initPat);
+
+    // Clear error numbers
+    if ((threadIdx.x == 0) && (blockIdx.x == 0))
+    {
+        if (input.reportBitErrors)
+        {
+            RangeBitErrors& threadErrors = *GetPtr<RangeBitErrors*>(input.results);
+            threadErrors.numErrors = 0;
+        }
+        else
+        {
+            RangeErrors& threadErrors = *GetPtr<RangeErrors*>(input.results);
+            threadErrors.numErrors = 0;
+            threadErrors.numReportedErrors = 0;
+        }
+    }
+    // Dump initial data if requested
+    if (input.debugPtr)
+    {
+        T* pDebugPtr = GetPtr<T*>(input.debugPtr) + GetThreadIdx();
+        WriteVec(pDebugPtr, initPat);
+    }
+}
+
+extern "C" __global__ void InitLwdaMats(const LwdaMatsInput input)
+{
+    // Set memory values for this thread to the first pattern
+    const UINT32 pattern0 = GetPtr<UINT32*>(input.patterns)[0];
+    InitCommon<uint4>(input, make_vec<uint4>(pattern0));
+}
+
+#ifdef WIDE_LOAD_STORE
+extern "C" __global__ void InitLwdaMatsWide(const LwdaMatsInput input)
+{
+    // Set memory values for this thread to the first pattern
+    const UINT32 pattern0 = GetPtr<UINT32*>(input.patterns)[0];
+    InitCommon<uint4x2>(input, make_vec<uint4x2>(pattern0));
+}
+#endif
+
+extern "C" __global__ void InitLwdaMatsRandom(const LwdaMatsInput input)
+{
+    // Separate RNG for each thread
+    const uint4 initRand = GetRand<uint4>(input.randSeed, 0);
+    InitCommon<uint4>(input, GetPat<Variant::Random, uint4, uint4>(input, initRand));
+}
+
+#ifdef WIDE_LOAD_STORE
+extern "C" __global__ void InitLwdaMatsRandomWide(const LwdaMatsInput input)
+{
+    const uint4x2 initRand = GetRand<uint4x2>(input.randSeed, 0);
+    InitCommon<uint4x2>(input, GetPat<Variant::Random, uint4x2, uint4x2>(input, initRand));
+}
+#endif
+
+extern "C" __global__ void InitLwdaMatsPAM4(const LwdaMatsInput input)
+{
+    // Separate RNG for each thread
+    const PAM4Rand initRand = GetRand<PAM4Rand>(input.randSeed, 0);
+    InitCommon<uint4>(input, GetPat<Variant::PAM4, PAM4Rand, uint4>(input, initRand));
+}
+
+extern "C" __global__ void InitLwdaMatsBus(const LwdaMatsInput input)
+{
+    // Separate RNG for each thread
+    const uint2 initRand = GetRand<uint2>(input.randSeed, 0);
+
+    // Init pattern
+    InitLocalData<Variant::BusTest>(input);
+    const uint4 initPat = GetPat<Variant::BusTest, uint2, uint4>(input, initRand);
+
+    // Write Pattern
+    InitCommon<uint4>(input, initPat);
+}
+
+extern "C" __global__ void FillLwdaMatsRandom(const LwdaMatsInput input)
+{
+    // Restore the RNG
+    const uint4 fillRand = GetRand<uint4>(input.randSeed, input.outerIter);
+    FillPattern<uint4>(input, GetPat<Variant::Random, uint4, uint4>(input, fillRand));
+}
+
+#ifdef WIDE_LOAD_STORE
+extern "C" __global__ void FillLwdaMatsRandomWide(const LwdaMatsInput input)
+{
+    // Restore the RNG
+    const uint4x2 fillRand = GetRand<uint4x2>(input.randSeed, input.outerIter);
+    FillPattern<uint4x2>(input, GetPat<Variant::Random, uint4x2, uint4x2>(input, fillRand));
+}
+#endif
+
+extern "C" __global__ void FillLwdaMatsPAM4(const LwdaMatsInput input)
+{
+    // Restore the RNG
+    const PAM4Rand fillRand = GetRand<PAM4Rand>(input.randSeed, input.outerIter);
+    FillPattern<uint4>(input, GetPat<Variant::PAM4, PAM4Rand, uint4>(input, fillRand));
+}
+
+extern "C" __global__ void FillLwdaMatsBus(const LwdaMatsInput input)
+{
+    // Restore the RNG
+    const uint2 fillRand = GetRand<uint2>(input.randSeed, input.outerIter);
+
+    // Init pattern
+    InitLocalData<Variant::BusTest>(input);
+    const uint4 fillPat = GetPat<Variant::BusTest, uint2, uint4>(input, fillRand);
+
+    // Write Pattern
+    FillPattern<uint4>(input, fillPat);
+}
+
+template<typename R>
+__device__ __forceinline__ UINT32 GetStartLoop(const R& rng)
+{
+    return rng.x;
+}
+
+#ifdef WIDE_LOAD_STORE
+template<>
+__device__ __forceinline__
+UINT32 GetStartLoop<uint4x2>(const uint4x2& rng)
+{
+    return rng.a.x;
+}
+#endif
+
+// R: rng state type, T: pattern vector type
+template<Variant V, typename R, typename T, bool useRandomOffset>
+__device__ void RandomCommon(const LwdaMatsInput input)
+{
+    // Initialize variables for subsequent kernel exelwtion
+    // Only init patterns when running the BusTest
+    InitLocalData<V>(input);
+    R prevRand;
+    R newRand;
+
+    // Restore the RNG
+    UINT64 passNum = (input.readOnly) ? input.outerIter : input.state.prevPass;
+    newRand = GetRand<R>(input.randSeed, passNum++);
+
+    // Run for the same number of iterations as when using patterns.
+    // For each "pattern" and inner iteration, a new random value
+    // is used by each thread.
+    UINT64 tick = 0;
+    bool restore = true;
+    bool exitEarly = false;
+    for (UINT32 i = (restore ? input.state.innerIteration : 0);
+         i < input.numIterations && !exitEarly;
+         i++)
+    {
+        if (!restore || !input.state.dirReverse)
+        {
+            // Use a different random pattern for each "pattern"
+            for (UINT32 iptn = (restore ? input.state.pattern : 0);
+                 iptn < DEFAULT_PATTERN_ITERATIONS && !exitEarly;
+                 iptn++)
+            {
+                if (!input.readOnly || tick == 0)
+                {
+                    prevRand = newRand;
+                    newRand  = GetRand<R>(input.randSeed, passNum++);
+                }
+                const T oldPat = GetPat<V, R, T>(input, prevRand);
+                const T newPat = GetPat<V, R, T>(input, newRand);
+
+                if (useRandomOffset)
+                {
+                    // In the case of random offsets, the "direction" is only used for the timestamp
+                    RandomOffset<T, true>(input, oldPat, newPat, iptn, i, GetStartLoop<R>(newRand), restore, &tick);
+                }
+                else
+                {
+                    ReadWritePattern<T, true>(input, oldPat, newPat, iptn, i, restore, &tick);
+                }
+                restore = false;
+
+                if (tick == input.numTicks)
+                {
+                    exitEarly = true;
+                    break;
+                }
+            }
+        }
+
+        for (UINT32 iptn = (restore ? input.state.pattern : 0);
+             iptn < DEFAULT_PATTERN_ITERATIONS && !exitEarly;
+             iptn++)
+        {
+            if (!input.readOnly || tick == 0)
+            {
+                prevRand = newRand;
+                newRand  = GetRand<R>(input.randSeed, passNum++);
+            }
+            const T oldPat = GetPat<V, R, T>(input, prevRand);
+            const T newPat = GetPat<V, R, T>(input, newRand);
+
+            if (useRandomOffset)
+            {
+                // In the case of random offsets, the "direction" is only used for the timestamp
+                RandomOffset<T, false>(input, oldPat, newPat, iptn, i, GetStartLoop<R>(newRand), restore, &tick);
+            }
+            else
+            {
+                ReadWritePattern<T, false>(input, oldPat, newPat, iptn, i, restore, &tick);
+            }
+            restore = false;
+
+            if (tick == input.numTicks)
+            {
+                exitEarly = true;
+                break;
+            }
+        }
+    }
+
+    // Store results in memory
+    if (input.reportBitErrors)
+    {
+        StoreBitErrors(input);
+    }
+    else
+    {
+        StoreErrors(input);
+    }
+
+    // Delay kernel completion if requested
+    // Only have one thread per block poll on the timer
+    //
+    // Kernel runtime will be determined by the slowest block
+    if (input.delayNs)
+    {
+        __syncthreads();
+        if (threadIdx.x == 0)
+        {
+            LwdaDelayNs(input.delayNs);
+        }
+    }
+}
+
+// LWCA MATS random test routine
+extern "C" __global__ void LwdaMatsRandom(const LwdaMatsInput input)
+    __launch_bounds__(MAX_NUM_THREADS, MIN_NUM_BLOCKS);
+extern "C" __global__ void LwdaMatsRandom(const LwdaMatsInput input)
+{
+    RandomCommon<Variant::Random, uint4, uint4, false>(input);
+}
+
+#ifdef WIDE_LOAD_STORE
+extern "C" __global__ void LwdaMatsRandomWide(const LwdaMatsInput input)
+    __launch_bounds__(MAX_NUM_THREADS, MIN_NUM_BLOCKS);
+extern "C" __global__ void LwdaMatsRandomWide(const LwdaMatsInput input)
+{
+    RandomCommon<Variant::Random, uint4x2, uint4x2, false>(input);
+}
+#endif
+
+// LWCA MATS random offset test routine
+extern "C" __global__ void LwdaMatsRandomOffset(const LwdaMatsInput input)
+    __launch_bounds__(MAX_NUM_THREADS, MIN_NUM_BLOCKS);
+extern "C" __global__ void LwdaMatsRandomOffset(const LwdaMatsInput input)
+{
+    RandomCommon<Variant::Random, uint4, uint4, true>(input);
+}
+
+#ifdef WIDE_LOAD_STORE
+extern "C" __global__ void LwdaMatsRandomOffsetWide(const LwdaMatsInput input)
+    __launch_bounds__(MAX_NUM_THREADS, MIN_NUM_BLOCKS);
+extern "C" __global__ void LwdaMatsRandomOffsetWide(const LwdaMatsInput input)
+{
+    RandomCommon<Variant::Random, uint4x2, uint4x2, true>(input);
+}
+#endif
+
+// PAM4 is only supported on SM 8.6+
+#if (SM_VER >= 86)
+// LWCA MATS test routine with patterns targeting PAM4
+extern "C" __global__ void LwdaMatsPAM4(const LwdaMatsInput input)
+    __launch_bounds__(MAX_NUM_THREADS, MIN_NUM_BLOCKS);
+extern "C" __global__ void LwdaMatsPAM4(const LwdaMatsInput input)
+{
+    RandomCommon<Variant::PAM4, PAM4Rand, uint4, false>(input);
+}
+
+// LWCA MATS random offset test routine targeting PAM4
+extern "C" __global__ void LwdaMatsPAM4Offset(const LwdaMatsInput input)
+    __launch_bounds__(MAX_NUM_THREADS, MIN_NUM_BLOCKS);
+extern "C" __global__ void LwdaMatsPAM4Offset(const LwdaMatsInput input)
+{
+    RandomCommon<Variant::PAM4, PAM4Rand, uint4, true>(input);
+}
+#endif
+
+// BusTest mode is only supported on SM 6.0+
+#if (SM_VER >= 60)
+// LWCA MATS test routine with bus patterns
+extern "C" __global__ void LwdaMatsBus(const LwdaMatsInput input)
+    __launch_bounds__(MAX_NUM_THREADS, MIN_NUM_BLOCKS);
+extern "C" __global__ void LwdaMatsBus(const LwdaMatsInput input)
+{
+    RandomCommon<Variant::BusTest, uint2, uint4, false>(input);
+}
+
+// LWCA MATS random offset test routine with bus patterns
+extern "C" __global__ void LwdaMatsBusOffset(const LwdaMatsInput input)
+    __launch_bounds__(MAX_NUM_THREADS, MIN_NUM_BLOCKS);
+extern "C" __global__ void LwdaMatsBusOffset(const LwdaMatsInput input)
+{
+    RandomCommon<Variant::BusTest, uint2, uint4, true>(input);
+}
+#endif
+
+template<typename T>
+__device__ void LwdaMatsCommon(const LwdaMatsInput input)
+{
+    // Initialize variables for subsequent kernel exelwtion
+    InitLocalData<Variant::Standard>(input);
+
+    UINT64 tick = 0;
+    bool restore = true;
+    bool exitEarly = false;
+    for (UINT32 i = (restore ? input.state.innerIteration : 0);
+         i < input.numIterations && !exitEarly;
+         i++)
+    {
+        // Try each pattern in forward direction
+        if (!restore || !input.state.dirReverse)
+        {
+            for (UINT32 iptn = (restore ? input.state.pattern : 0);
+                 iptn < s_NumPatterns - 1 && !exitEarly;
+                 iptn++)
+            {
+                const T prev = make_vec<T>(s_Patterns[iptn]);
+                const T next = make_vec<T>(s_Patterns[iptn + 1]);
+                ReadWritePattern<T, true>(input, prev, next, iptn, i, restore, &tick);
+                restore = false;
+                if (tick == input.numTicks)
+                {
+                    exitEarly = true;
+                }
+            }
+        }
+        // Try each pattern in reverse direction
+        for (UINT32 iptn = (restore ? input.state.pattern : 0);
+             iptn < s_NumPatterns - 1 && !exitEarly;
+             iptn++)
+        {
+            const T prev = make_vec<T>(s_Patterns[iptn]);
+            const T next = make_vec<T>(s_Patterns[iptn + 1]);
+            ReadWritePattern<T, false>(input, prev, next, iptn, i, restore, &tick);
+            restore = false;
+            if (tick == input.numTicks)
+            {
+                exitEarly = true;
+            }
+        }
+    }
+
+    // Store results in memory
+    if (input.reportBitErrors)
+    {
+        StoreBitErrors(input);
+    }
+    else
+    {
+        StoreErrors(input);
+    }
+
+    // Delay kernel completion if requested
+    // Only have one thread per block poll on the timer
+    //
+    // Kernel runtime will be determined by the slowest block
+    if (input.delayNs)
+    {
+        __syncthreads();
+        if (threadIdx.x == 0)
+        {
+            LwdaDelayNs(input.delayNs);
+        }
+    }
+}
+
+// LWCA MATS test routine
+extern "C" __global__ void LwdaMats(const LwdaMatsInput input)
+    __launch_bounds__(MAX_NUM_THREADS, MIN_NUM_BLOCKS);
+
+extern "C" __global__ void LwdaMats(const LwdaMatsInput input)
+{
+    LwdaMatsCommon<uint4>(input);
+}
+
+#ifdef WIDE_LOAD_STORE
+extern "C" __global__ void LwdaMatsWide(const LwdaMatsInput input)
+    __launch_bounds__(MAX_NUM_THREADS, MIN_NUM_BLOCKS);
+
+extern "C" __global__ void LwdaMatsWide(const LwdaMatsInput input)
+{
+    LwdaMatsCommon<uint4x2>(input);
+}
+#endif
+
+// vim:ft=cpp

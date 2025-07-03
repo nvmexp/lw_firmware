@@ -1,0 +1,148 @@
+# This makefile is responsible for building (combined) partitions image and manifest.
+# It should be only called from top level makefile.
+# It relies on (given) variables and prebuilt liblwriscv
+include $(LWRISCVX_SDK_ROOT)/build/build_elw.mk
+# Preconfigure chip (mini chip-config)
+include $(LIBLWRISCV_CONFIG_MK)
+
+# Setup compilation flags
+include $(LWRISCVX_SDK_ROOT)/build/build_flags.mk
+
+#MK TODO: Move this out
+LWRISCV_APP_DMEM_LIMIT:=0x4000
+LWRISCV_APP_IMEM_LIMIT:=0x4000
+
+LDSCRIPT_IN := $(APP_ROOT)/ldscript.ld.in
+LDSCRIPT    := $(BUILD_DIR)/ldscript.ld
+
+# Add liblwriscv to include path
+INCLUDES += $(LIBLWRISCV_INSTALL_DIR)/inc
+# Add LWRISCV SDK to include path
+INCLUDES += $(LWRISCVX_SDK_ROOT)/inc
+INCLUDES += $(LWRISCVX_SDK_ROOT)/inc/lwpu-sdk
+
+INCLUDES := $(addprefix -I,$(INCLUDES))
+
+DEFINES += -DLWRISCV_APP_DMEM_LIMIT=$(LWRISCV_APP_DMEM_LIMIT)
+DEFINES += -DLWRISCV_APP_IMEM_LIMIT=$(LWRISCV_APP_IMEM_LIMIT)
+DEFINES += -DSAMPLE_PROFILE_$(SAMPLE_PROFILE)=1
+
+# Link with liblwriscv
+LIBS := -L$(LIBLWRISCV_LIB_DIR) -llwriscv
+
+CFLAGS += -Og
+CFLAGS += $(INCLUDES)
+CFLAGS += $(DEFINES)
+CFLAGS += $(EXTRA_CFLAGS)
+
+ASFLAGS += $(INCLUDES)
+ASFLAGS += $(DEFINES)
+ASFLAGS += $(EXTRA_ASFLAGS)
+
+LDFLAGS += -Wl,--print-gc-sections
+LDFLAGS += -Wl,--print-memory-usage
+LDFLAGS += -Wl,-Map=link.log
+LDFLAGS += $(LIBS) -T$(LDSCRIPT)
+LDFLAGS += $(DEFINES) $(EXTRA_LDFLAGS)
+
+LD_INCLUDES += $(INCLUDES)
+
+TARGET:=$(BUILD_DIR)/$(INSTALL_NAME_PREFIX)partitions
+
+DIRS := partition_0 partition_1
+OBJS :=
+
+OBJS += partition_0/partition_0_startup.o
+OBJS += partition_0/partition_0_main.o
+OBJS += partition_1/partition_1_startup.o
+OBJS += partition_1/partition_1_main.o
+
+ELF                 := $(TARGET).elf
+PARTITIONS_TEXT     := $(TARGET).text
+PARTITIONS_DATA     := $(TARGET).data
+PARTITIONS_OBJDUMP  := $(TARGET).objdump.src
+PARTITIONS_READELF  := $(TARGET).readelf
+
+MANIFEST        := $(BUILD_DIR)/manifest.o
+MANIFEST_BIN    := $(BUILD_DIR)/$(INSTALL_NAME_PREFIX)manifest.bin
+MANIFEST_HEX    := $(BUILD_DIR)/$(INSTALL_NAME_PREFIX)manifest.hex
+MANIFEST_SRC    := $(APP_ROOT)/manifest_$(ENGINE)_$(CHIP).c
+
+CAT                  := /bin/cat
+
+BUILD_FILES := $(MANIFEST_BIN) $(MANIFEST_HEX) $(ELF) $(PARTITIONS_TEXT)
+BUILD_FILES += $(PARTITIONS_DATA) $(PARTITIONS_OBJDUMP) $(PARTITIONS_READELF)
+
+.PHONY: install build sign
+
+install: build
+	install -D -t $(INSTALL_DIR) $(BUILD_FILES)
+
+build: $(BUILD_FILES)
+
+$(MANIFEST_HEX): $(MANIFEST_BIN)
+	/usr/bin/xxd $< $@
+
+$(MANIFEST_BIN): $(MANIFEST)
+	$(OBJCOPY) -O binary -j .rodata.manifest $(MANIFEST) $(MANIFEST_BIN)
+
+# MK TODO: Don't hardcode SEPKERN IMEM/DMEM limit
+# MK Note: disable sign colwersion, or DRF macros complain
+$(MANIFEST): $(MANIFEST_SRC) $(BUILD_DIR)
+	$(CC) $(CFLAGS) -Wno-error=sign-colwersion $(MANIFEST_SRC) $(INCLUDES) $(DEFINES) -DSEPKERN_IMEM_LIMIT=0x1000 -DSEPKERN_DMEM_LIMIT=0x1000 -include $(LIBLWRISCV_CONFIG_H) -c -o $@
+
+$(LDSCRIPT): $(LDSCRIPT_IN)
+	$(CPP) -x c -P -o $@ $(DEFINES) $(INCLUDES) -include $(LIBLWRISCV_CONFIG_H) $^
+
+$(PARTITIONS_TEXT): $(ELF)
+	$(OBJCOPY) -O binary -j .partition_shared_code -j .partition_hs_code -j .partition_rtos_code $^ $@
+
+$(PARTITIONS_DATA): $(ELF)
+	$(OBJCOPY) -O binary -j .partition_shared_data -j .partition_hs_data -j .partition_rtos_data $^ $@
+
+$(PARTITIONS_OBJDUMP): $(ELF)
+	$(OBJDUMP) -S $^ > $@
+
+$(PARTITIONS_READELF): $(ELF)
+	$(READELF) --all $^ > $@
+
+# Object dependencies are generated
+$(ELF): $(LDSCRIPT) $(LIBLWRISCV_LIB)
+	$(CC) $(CFLAGS) $(addprefix $(BUILD_DIR)/,$(OBJS)) -o $(ELF) $(LDFLAGS)
+
+clean:
+	# rm -f $(INTERMEDIATE_FILES) $(BUILD_FILES) $(OBJS) $(DEPS)
+
+# Rule generation for files
+# generate rule for directories
+define add-dir =
+$(info adding dir rule: $(BUILD_DIR)/$(1)/)
+$(BUILD_DIR)/$(1)/:
+	mkdir -p $(BUILD_DIR)/$(1)
+OUTPUT_DIRS += $(BUILD_DIR)/$(1)
+endef
+$(foreach c,$(DIRS),$(eval $(call add-dir,$(c))))
+
+# generate rule for files
+define add-rule-c =
+$(info adding C file rule: $(BUILD_DIR)/$(1) depends on $(BUILD_DIR)/$(dir $(1)) $(LIBLWRISCV_CONFIG_H) $(basename $(1)).c)
+$(ELF): $(BUILD_DIR)/$(1)
+$(BUILD_DIR)/$(1): $(BUILD_DIR)/$(dir $(1)) $(basename $(1)).c $(LIBLWRISCV_CONFIG_H)
+	@echo CC $(basename $(1)).c
+	$$(CC) $$(CFLAGS) -c $(basename $(1)).c -o $$@
+endef
+
+define add-rule-as =
+$(info adding ASM file rule: $(BUILD_DIR)/$(1) depends on $(BUILD_DIR)/$(dir $(1)) $(LIBLWRISCV_CONFIG_H) $(basename $(1)).S)
+$(ELF): $(BUILD_DIR)/$(1)
+$(BUILD_DIR)/$(1): $(BUILD_DIR)/$(dir $(1)) $(basename $(1)).S $(LIBLWRISCV_CONFIG_H)
+	@echo AS $(basename $(1)).S
+	$$(CC) $$(ASFLAGS) -c $(basename $(1)).S -o $$@
+endef
+
+define add-file =
+$(if $(wildcard $(basename $(1)).c),$(eval $(call add-rule-c,$(1))))
+$(if $(wildcard $(basename $(1)).S),$(eval $(call add-rule-as,$(1))))
+$(TARGET): $(BUILD_DIR)/$(1)
+endef
+$(foreach c,$(OBJS),$(eval $(call add-file,$(c))))

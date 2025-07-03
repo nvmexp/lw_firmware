@@ -1,0 +1,380 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2014-2022 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD      ?= false
+NO_RELEASE          ?= false
+INCLUDE_DT          ?= false
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+LWUPROC        = $(LW_SOURCE)/uproc
+LWRISCV        = $(LWUPROC)/lwriscv
+BLSW           = $(LWRISCV)/bootloader
+RESMAN_ROOT    = $(LW_SOURCE)/drivers/resman
+SCP_PARSER     = $(LWUPROC)/utilities/cci_pp.pl
+SEC_ENUM_H     = $(LWUPROC)/utilities/sec_enum_types.h
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target RISC-V
+# architecture (ex. lwriscv), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+BLCFG_PROFILE  = $(BLCFG_PROFILE)
+include $(BLSW)/config/bl-profiles.mk
+
+###############################################################################
+# Load common RISC-V make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LWUPROC)/build/common/lwRiscvArch.lwmk
+override LW_TARGET_ARCH = $(RISCV_TOOLS_BUILD)
+override LW_TARGET_OS   = riscv
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Define the output directory paths for the BL build and all sub-make builds.
+###############################################################################
+
+OUTPUTDIR := _out/$(subst bl-,,$(BLCFG_PROFILE))
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+export LW_TARGET_ARCH
+export MANUAL_PATHS
+
+###############################################################################
+# Define macros based on profile
+###############################################################################
+
+ENGINE_NAME = ""
+
+ifdef GSP_RTOS
+    CFLAGS += -DGSP_RTOS
+    ifeq ($(RUN_ON_SEC),true)
+        CFLAGS += -DRUN_ON_SEC
+    endif
+    ifeq ($(USE_GSCID), true)
+        CFLAGS += -DUSE_GSCID
+    endif
+endif
+
+ifdef SEC2_RTOS
+    CFLAGS += -DSEC2_RTOS
+endif
+
+ifdef PMU_RTOS
+    CFLAGS += -DPMU_RTOS
+endif
+
+ifdef LWRISCV_DEBUG_PRINT_LEVEL
+    ifeq ($(LWRISCV_BL_PRINT_ENABLED), true)
+        CFLAGS += -DLWRISCV_DEBUG_PRINT_LEVEL=$(LWRISCV_DEBUG_PRINT_LEVEL)
+    else
+        CFLAGS += -DLWRISCV_DEBUG_PRINT_LEVEL=0
+    endif
+endif
+
+
+ifeq ($(USE_CSB), true)
+    CFLAGS += -DUSE_CSB=1
+else
+    CFLAGS += -DUSE_CSB=0
+endif
+
+ifeq ($(USE_CBB), true)
+    CFLAGS += -DUSE_CBB=1
+else
+    CFLAGS += -DUSE_CBB=0
+endif
+
+ifeq ($(IS_FUSE_CHECK_ENABLED), true)
+    CFLAGS += -DIS_FUSE_CHECK_ENABLED
+endif
+
+ifeq ($(IS_PRESILICON), true)
+    CFLAGS += -DIS_PRESILICON
+endif
+
+ifeq ($(ELF_IN_PLACE), true)
+    CFLAGS += -DELF_IN_PLACE=1
+else
+    CFLAGS += -DELF_IN_PLACE=0
+endif
+
+ifeq ($(ELF_IN_PLACE_FULL_IF_NOWPR), true)
+    CFLAGS += -DELF_IN_PLACE_FULL_IF_NOWPR=1
+else
+    CFLAGS += -DELF_IN_PLACE_FULL_IF_NOWPR=0
+endif
+
+ifeq ($(ELF_IN_PLACE_FULL_ODP_COW), true)
+    CFLAGS += -DELF_IN_PLACE_FULL_ODP_COW=1
+else
+    CFLAGS += -DELF_IN_PLACE_FULL_ODP_COW=0
+endif
+
+ifeq ($(ELF_LOAD_USE_DMA), true)
+    CFLAGS += -DELF_LOAD_USE_DMA=1
+    CFLAGS += -DDMEM_DMA_BUFFER_SIZE=$(DMEM_DMA_BUFFER_SIZE)
+    CFLAGS += -DDMEM_DMA_ZERO_BUFFER_SIZE=$(DMEM_DMA_ZERO_BUFFER_SIZE)
+else
+    CFLAGS += -DELF_LOAD_USE_DMA=0
+    CFLAGS += -DDMEM_DMA_BUFFER_SIZE=0
+    CFLAGS += -DDMEM_DMA_ZERO_BUFFER_SIZE=0
+endif
+
+CFLAGS += -DUPROC_RISCV
+CFLAGS += -DEMEM_SIZE=$(EMEM_SIZE) -DIMEM_SIZE=$(IMEM_SIZE) -DDMEM_SIZE=$(DMEM_SIZE)
+CFLAGS += -DDMEM_END_CARVEOUT_SIZE=$(DMEM_END_CARVEOUT_SIZE)
+CFLAGS += -DSTACK_SIZE=$(STACK_SIZE)
+
+ifeq ($(IS_SSP_ENABLED), true)
+    CFLAGS += -fstack-protector-all -Wstack-protector --param ssp-buffer-size=4 -DIS_SSP_ENABLED
+endif
+
+ifdef LWRISCV_SDK
+    CFLAGS += -DLWRISCV_SDK=$(LWRISCV_SDK)
+    CFLAGS += -DLWRISCV_SDK_PROFILE=$(LWRISCV_SDK_PROFILE)
+endif
+
+ifdef DMESG_BUFFER_SIZE
+    CFLAGS += -DDMESG_BUFFER_SIZE=$(DMESG_BUFFER_SIZE)
+else
+    CFLAGS += -DDMESG_BUFFER_SIZE=$(DMEM_END_CARVEOUT_SIZE)
+endif
+
+# As of today, there is no reasonable way for this bootloader to support raw-mode prints
+CFLAGS += -DLWRISCV_PRINT_RAW_MODE=0
+
+# DMEM_BASE is defined for each BL profile.
+# LW_RISCV_AMAP_DMEM_START
+CFLAGS += -DDMEM_BASE=$(DMEM_BASE)
+ASMFLAGS += -DDMEM_BASE=$(DMEM_BASE)
+
+###############################################################################
+# Submake Configuration
+#
+# This makefile builds libraries and tools that are shared with other projects.
+# Many of these builds may be lwstomized based on the needs of the project
+# building it. It is therefore necessary to ensure isolation between the
+# projects. Isolation is also required to allow for parallelization of project
+# builds.
+#
+# Isolation is achieved by ensuring that all build output is kept separate
+# between the projects. Ideally, output could all be redirected to a path
+# defined within the BL's/project's output directory. However, the common
+# lwmake rules require that each submake target's output directory be contained
+# within that target's source directory. As a result, the only way to ensure
+# isolation is by establishing proper namespacing within each submake target's
+# local output directory.
+###############################################################################
+
+SUBMAKE_NAMESPACE := rvbl
+SUBMAKE_OUTPUTDIR := \
+  _out/$(SUBMAKE_NAMESPACE)/$(RISCV_ARCH)_$(LW_BUILD_TYPE)
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(BLSW)/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/swref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/hwref
+LW_INCLUDES += $(RESMAN_ROOT)/kernel/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(LWRISCV_TOOLS)/include
+LW_INCLUDES += $(LWRISCV)/inc
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+LW_INCLUDES += $(MEMMAP_PATH)
+ifdef LWRISCV_SDK
+  LW_INCLUDES += $(LWRISCV_SDK)/inc
+  LW_INCLUDES += $(LWRISCV_SDK_PROFILE)/inc
+endif
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+
+IMG_TARGET  := $(OUTPUTDIR)/g_$(BLCFG_PROFILE)
+IMG_ELF     := $(IMG_TARGET).elf
+IMG_READELF := $(IMG_TARGET).readelf
+IMG_BIN     := $(IMG_TARGET).bin
+IMG_OBJDUMP := $(IMG_TARGET).objdump
+IMG_NM      := $(IMG_TARGET).nm
+IMG_DT      := $(IMG_TARGET).dt
+IMG_DBGLINE := $(IMG_TARGET).dbgline
+
+RELEASE_FILES            = $(IMG_NM) $(IMG_OBJDUMP) $(IMG_READELF)
+RESTRICTED_RELEASE_FILES =
+
+# Don't delete the ELF
+.PRECIOUS: $(IMG_ELF)
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+CFLAGS += -ffreestanding -ffast-math -fno-common -Os -fpie -fno-jump-tables
+CFLAGS += -Wextra -Wcolwersion -Wsign-colwersion -Wformat-security
+CFLAGS += -Wa,-fno-pic
+LDFLAGS += -nostdlib -nostartfiles
+LDFLAGS += -T $(LDSCRIPT)
+
+###############################################################################
+# Set the [GENERATED_]SOURCES that need to be picked-up by the build
+###############################################################################
+
+GENERATED_SOURCES := $(BLSRC_PARSED)
+SOURCES += $(BLSRC)
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(.)); delete $$ELW{PWD}; \
+                          print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(BLCFG_PROFILE)]"
+
+###############################################################################
+# Rules for building the ELF image and binary files
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+all: $(IMG_ELF) check_ifdef
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files and preprocessing
+# linker script is the prerequisite for this rule.
+###############################################################################
+$(IMG_ELF): $(OBJECTS) $(LDSCRIPT)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(CFLAGS) $(OBJECTS) -o $(IMG_ELF) $(LDFLAGS)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_READELF)
+	$(OBJDUMP) -x    $(IMG_ELF) >> $(IMG_OBJDUMP)
+	$(OBJDUMP) -d    $(IMG_ELF) >> $(IMG_OBJDUMP)
+	$(OBJDUMP) -S -d $(IMG_ELF) >> $(IMG_OBJDUMP).source
+	$(NM)      -S -n $(IMG_ELF) >> $(IMG_NM)
+	$(OBJCOPY) -j .text -Obinary $(IMG_ELF) $(IMG_BIN)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_READELF))
+	$(READELF) --all $(IMG_ELF) >> $(IMG_READELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(IMG_ELF) >> $(IMG_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(IMG_ELF)
+
+###############################################################################
+# Rule to parse the source with CCI tool
+###############################################################################
+
+$(BLSRC_PARSED): $(BLSRC_ORIGINAL)
+	$(ECHO) $(BUILD_PROJECT_NAME) CCI parsing $(notdir $@)
+	$(PERL) $(SCP_PARSER) $(SEC_ENUM_H) $(BLSRC_ORIGINAL) $(BLSRC_PARSED)
+
+###############################################################################
+# Rule to preprocess the linker script for current profile
+###############################################################################
+
+LDSCRIPT_DEP := $(LDSCRIPT:.ld=_dep.lwmk)
+-include $(LDSCRIPT_DEP)
+
+$(LDSCRIPT): $(LDSCRIPT_IN)
+	$(ECHO) $(BUILD_PROJECT_NAME) preprocessing $(notdir $@)
+	$(CPP) -x c -P -MMD -MT $@ -MF $(LDSCRIPT_DEP) -o $@ $(CFLAGS) $<
+
+#
+# When not building for DVS, the output image files need copied over to the RM
+# so that they get picked up by the driver/mods build. Trigger the process by
+# adding a phony prerequisite to 'all' called 'install'. The rule to rebuild
+# that target will perform the install process and will copy the files to the
+# RM if necessary.  Skip this process if the user has requested that files NOT
+# be installed via NO_INSTALL=true.
+#
+ifneq ($(LW_DVS_BLD),1)
+  ifneq ("$(NO_RELEASE)","true")
+    .PHONY: install
+    all: install
+  endif
+endif
+
+###############################################################################
+# Rule for generating .dt/symdump file
+###############################################################################
+
+SYMDUMP_SCRIPT = $(LW_SOURCE)/pmu_sw/build/symdump/symdump.pl
+
+SYMDUMP_ARGS  += $(IMG_ELF) $(IMG_DT)
+SYMDUMP_ARGS  += --acl          $(APP_P4_CL)
+
+$(IMG_DT):
+	-$(PERL) $(SYMDUMP_SCRIPT) $(SYMDUMP_ARGS)
+
+ifeq ("$(INCLUDE_DT)","true")
+  all: $(IMG_DT)
+endif
+
+###############################################################################
+# Rule to run ifdef_checker script and fail the build if wrong ifdef is used
+###############################################################################
+
+IFDEF_CHECKER_SCRIPT       = $(LWUPROC)/utilities/ifdef_checker.pl
+IFDEF_CHECKER_SCRIPT_ARGS += --dir 'lwriscv/bootloader'
+IFDEF_CHECKER_SCRIPT_ARGS += --LWUPROC '$(LWUPROC)'
+check_ifdef: $(IMG_ELF)
+	$(PERL) $(IFDEF_CHECKER_SCRIPT) $(IFDEF_CHECKER_SCRIPT_ARGS)
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For riscv
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clean_ucode
+clean: clean_ucode

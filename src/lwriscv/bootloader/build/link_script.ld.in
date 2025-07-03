@@ -1,0 +1,91 @@
+#ifdef IS_SSP_ENABLED
+#include  <dmem_addrs.h>
+#endif
+
+OUTPUT_ARCH("riscv")
+ENTRY(_entrypoint)
+
+MEMORY
+{
+  /* If we would use more than 64K, we have several problems... */
+  MEM (rx) : ORIGIN = 0xDEAD0000000, LENGTH = 64K
+}
+
+#ifdef IS_SSP_ENABLED
+PROVIDE (__dmem_contents_base         = DMEM_CONTENTS_BASE);
+#endif
+
+SECTIONS
+{
+  . = ORIGIN(MEM);
+  .text : ALIGN(8)
+  {
+    *(.text.init)
+    *(.text*)
+    *(.gnu.linkonce.t.*)
+    /* rodata */
+    *(.rdata*)
+
+#ifdef IS_SSP_ENABLED
+    *(.got .got.*)
+#endif
+
+    *(.rodata*)
+    *(.gnu.linkonce.r.*)
+    *(.sdata*)
+    *debug.*(.data.hack_dmem_base)
+
+    /* Align to 1K (MPU granularity on GA10X+) and offset by 16 to account for
+       bootloader params (provided in image by rvmkimg.pl).
+       Then the ELF image becomes aligned in memory and run-in-place ELF can work and the
+       run-in-place sections can be easily DMAd and even MPU-mapped (assuming they're aligned
+       inside the ELF as well). */
+    . = ALIGN(ABSOLUTE(. + 16), 0x400) - 16;
+
+    /* Goes at the end so build process can concatenate the config and ELF file onto
+     * the end of the bootloader binary.
+     */
+    *(.LWPU.ucode)
+  }
+
+#ifdef IS_SSP_ENABLED
+
+  /* We intentionally lack writable data and BSS, because trying to put them
+   * where we want in DMEM would be painful. The exception is __stack_chk_guard
+   * variable required for enabling SSP. This is placed in the data section which
+   * is in turn located at the start of the DMEM window right before the stack..
+   * The only other writable memory is the stack (and perf counters and debug buffer).
+   * These are allocated in dmem_addrs.h
+   * Note : The data section is never loaded into the memory and and has been added
+   * here to get past the linker.
+   */
+
+  .= __dmem_contents_base;
+  .data ALIGN(8) : AT ( ADDR(.text) + SIZEOF(.text))
+  {
+      *(.data.__stack_chk_guard);
+      __dmem_stack_base = .;
+  }
+
+
+#endif
+
+  /* DWARF2 debug sections.
+     Symbols in the DWARF debugging sections are relative to the beginning
+     of the section so we begin them at 0.  */
+  .debug_aranges  0 : { *(.debug_aranges) }
+  .debug_ranges   0 : { *(.debug_ranges) }
+  .debug_pubnames 0 : { *(.debug_pubnames) }
+  .debug_info     0 : { *(.debug_info .gnu.linkonce.wi.*) }
+  .debug_abbrev   0 : { *(.debug_abbrev) }
+  .debug_line     0 : { *(.debug_line) }
+  .debug_frame    0 : { *(.debug_frame) }
+  .debug_str      0 : { *(.debug_str) }
+  .debug_loc      0 : { *(.debug_loc) }
+  .debug_macinfo  0 : { *(.debug_macinfo) }
+  /DISCARD/ : { *(.note.GNU-stack) }
+}
+
+#ifdef IS_SSP_ENABLED
+ASSERT ((__dmem_stack_base == DMEM_STACK_BASE), "ERROR: stack base symbol doesn't match the expected layout");
+#endif

@@ -1,0 +1,157 @@
+OUTPUT_FORMAT("elf32-falcon", "elf32-falcon", "elf32-falcon")
+OUTPUT_ARCH(falcon)
+
+ENTRY(_start)
+
+MEMORY
+{
+    CODE (X)  : ORIGIN = 0x00000000, LENGTH = MAX_CODE_SIZE_IN_BYTES
+    DATA (A)  : ORIGIN = 0x10000000, LENGTH = MAX_DATA_SIZE_IN_BYTES
+}
+
+PROVIDE (__stack = LENGTH(DATA));
+
+SECTIONS
+{
+  /***************************************/
+  /* RESIDENT CODE SECTION               */
+
+  /* Define the components which comprise the Resident Code Section. The   
+     Resident Code Section is a logical code section which physically maps 
+     to the .text section of the image.  */ 
+  /***************************************/
+
+  
+  __resident_code_start = IMAGE_BASE;
+
+  /* NSLS = Non Secure / Light Secure Code */
+
+  __imemNSLSBase = IMAGE_BASE;
+  /* Fill mem with 0xf802 before the actual IMEM offsets start.
+  This is required by siggen, as it uses the PC and FBIFOffset
+  while fetching the HS overlay and signing it. In falcon making script,
+  we will only take the code from IMAGE_BASE and ignore anything before
+  that. Falcon making script relies on .textSize and .imem_hsSize linker
+  variable, so we need to make sure they are in sync with any changes in
+  linker script */
+  .text :
+  {
+      . = IMAGE_BASE ;
+      *(.start)
+      *(.text)
+      *(.text.*)
+      __codeNSLSEndBeforePadding = .;
+      . = ALIGN(256);
+  } = 0xf80202
+
+  /* Fill mem hole after NSLS with halt/mvi
+     0xf802 = halt, 0x02XX = mvi a2 XX
+     Rogue branch to even or odd byte will lead to halt
+     Only exposure is branching to end of region
+     earlier proposal:
+     Fill mem holes with invalid inst that will cause exception.
+     I tried 0x77, but the disassembler fails when I do this. */
+
+  __imemNSLSEnd = .;
+  __imemNSLSSize = __imemNSLSEnd - __imemNSLSBase;
+  _textSize = __imemNSLSSize;
+
+  __imem_hsBase = .;
+
+  .imem_hs :
+  { 
+    KEEP(*(.imem_hs._entry))
+    *(.imem_hs.*)
+    *(.imem_hs)
+    __codeHSEndBeforePadding = .;
+    . =  ALIGN(256);
+  } = 0xf80202
+
+  /* Fill mem hole after HS: see explanation above */
+
+
+  __imem_hsEnd = .;
+  __imem_hsSize = __imem_hsEnd - __imem_hsBase;
+  _imem_hsBaseFB     = ADDR(.imem_hs);
+
+  _imem_hsSize       = __imem_hsSize;
+
+  /*Making all the code resident*/
+
+  __resident_code_end = .;
+
+  __imemImageSize  = __resident_code_end - __resident_code_start;
+
+  /*********************************************/
+  /* RESIDENT DATA SECTION                     */
+  /* Since, we want to keep the address of .data_hs variables static, they will be added first
+     in .data section. Also, as .stackchkguard is used in HS Code, it also needs to have a static
+     address. Hence, we add a size constraint on .data section, which is defined in
+     selwrebl-profiles.mk. If this size is modified or .data section goes beyond the specified
+     size limit, HS code needs to be resigned.
+
+     Stack Bottom is set to the ending address of .stackchkguard.                      */ 
+  /*********************************************/
+  .data :
+  {
+      . = DATA_BASE;
+      _dataBaseOffset = .; /*Use another variable for linker script, _dataBaseDMEM is used by siggen*/
+      *(.data_hs.*)
+      *(.data.*)
+      *(.rodata)
+      . =  DATA_BASE + MAX_DATASECTION_SIZE_IN_BYTES;
+  }
+  _endDataImage = .;
+
+  /*Need to keep __stack_chk_guard in a specific static location */
+  .stackchkguard :
+  {
+      *(.stack_hs)
+  }
+  __stackChkGuardEndLoc = .;
+
+  .bss :
+  {
+      *(.bss)
+      *(COMMON)
+  }
+
+  __dataStackBottom = .;
+  _endDataAll = .;
+
+  _dataBaseFB     = ADDR(.data);
+  _dataBaseDMEM   = ADDR(.data);
+
+  __dmemBase      = ADDR(.data);
+  __dmemImageSize = _endDataImage - _dataBaseDMEM;
+  __dmemUsedSize  = _endDataAll - _dataBaseDMEM;
+
+
+  __dataStackBottom = _endDataAll;
+
+  /*********************************************/
+  /* SET STACK POINTER                         */ 
+  /*********************************************/
+
+  PROVIDE (__stack = LENGTH(DATA));
+
+  /*******************************************/
+  /* DWARF2 debug sections.                  
+     Symbols in the DWARF debugging sections are relative to the beginning 
+     of the section so we begin them at 0. */
+  /*******************************************/
+
+  .debug_aranges  0 : { *(.debug_aranges) }
+  .debug_ranges   0 : { *(.debug_ranges) }
+  .debug_pubnames 0 : { *(.debug_pubnames) }
+  .debug_info     0 : { *(.debug_info .gnu.linkonce.wi.*) }
+  .debug_abbrev   0 : { *(.debug_abbrev) }
+  .debug_line     0 : { *(.debug_line) }
+  .debug_frame    0 : { *(.debug_frame) }
+  .debug_str      0 : { *(.debug_str) }
+  .debug_loc      0 : { *(.debug_loc) }
+  .debug_macinfo  0 : { *(.debug_macinfo) }
+  /DISCARD/ : { *(.note.GNU-stack) }
+}
+
+NOCROSSREFS(.ovlhs .text);

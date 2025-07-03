@@ -1,0 +1,236 @@
+# -*- mode: perl; -*-
+
+# I2C Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $i2cHal = [
+
+    DEFAULTS => [
+
+        GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_i2c", "__FUNC__")',
+        FLAGS          => ":DIRECT_HAL_CALLS",
+    ],
+
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        GET_SCL_GPIO_BIT  => [
+            DESCRIPTION   => "Get the SCL GPIO bit position for an I2C port.",
+            RETURN_TYPE   => LwU32,
+            ARGUMENTS     => "LwU8 port",
+            STUB_RETURNS  => 32,
+
+            _GMXXX        => [ GM10X_and_later, ],
+
+        ],
+
+        GET_SDA_GPIO_BIT  => [
+            DESCRIPTION   => "Get the SDA GPIO bit position for an I2C port.",
+            RETURN_TYPE   => LwU32,
+            ARGUMENTS     => "LwU8 port",
+            STUB_RETURNS  => 32,
+
+            LIKE_INTERFACE => GET_SCL_GPIO_BIT,
+        ],
+
+        INIT_I2C_GPIOS    => [
+            DESCRIPTION   => "Initialize the I2C GPIOs.",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => void,
+
+            _GMXXX        => [ GM10X_and_later, ],
+        ],
+
+        IS_BUS_READY      => [
+            DESCRIPTION   => "Check if a particular bus is in a valid state and ready for use",
+            RETURN_TYPE   => LwBool,
+            ARGUMENTS     => "LwU32 port",
+            STUB_RETURNS  => LW_FALSE,
+
+            _GMXXX        => [ GM10X_and_later, ],
+        ],
+
+        MUTEX_MASK_RD32 => [
+            DESCRIPTION     => "Accessor of per-port I2C mutex state register",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => "void",
+            STUB_RETURNS    => ZERO,
+
+            _GM10X          => [ GM10X, ],
+            _GM20X          => [ GM20X_and_later, -GA100, -GH100, -GB100, ],
+            _GA100          => [ GA100, GH100, GB100, ],
+            _STUB           => [ tMAXWELL_and_later, ],
+        ],
+
+        MUTEX_MASK_WR32 => [
+            DESCRIPTION     => "Mutator of per-port I2C mutex state register",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 mutexMask",
+
+            LIKE_INTERFACE  => MUTEX_MASK_RD32,
+        ],
+
+        MUTEX_ACQUIRE => [
+            DESCRIPTION    => "Acquire the i2c port mutex if available",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 port, LwBool bAcquire, LwU32 timeoutns",
+            STUB_RETURNS   => FLCN_OK,
+
+            _GMXXX         => [ MAXWELL, ],
+            _GP10X         => [ dPASCAL_and_later, ],
+            _STUB          => [ tMAXWELL_and_later, ],
+        ],
+
+        PORTS_PRIV_MASK_GET => [
+            DESCRIPTION     => "Read all I2C Port's Priv Masks and cache if Priv Sec is enabled for that port",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM20X          => [ GM20X_and_later, ],
+            _STUB           => [ GM10X, CHEETAH, ],
+        ],
+
+        HW_RESET => [
+            DESCRIPTION     => "Reset the HW engine and wait for it to idle",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 port",
+            STUB_RETURNS    => FLCN_ERR_I2C_BUSY,
+
+            _GMXXX          => [ GM10X_and_later, ],
+        ],
+
+        WAIT_FOR_HW_IDLE => [
+            DESCRIPTION     => "Wait for the HW I2C controller to idle",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 port",
+            STUB_RETURNS    => FLCN_ERROR,
+
+            LIKE_INTERFACE  => HW_RESET,
+        ],
+
+        RESTORE_MODE => [
+            DESCRIPTION     => "Restore the previous operating mode",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 port, LwU32 bWasBb",
+
+            LIKE_INTERFACE  => HW_RESET,
+        ],
+
+        SET_MODE => [
+            DESCRIPTION     => "Set the new operating mode as hardware I2C",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 port , LwBool bSwI2c,  LwBool *pBWasSwI2c",
+            STUB_RETURNS    => FLCN_ERR_I2C_BUSY,
+
+            LIKE_INTERFACE  => HW_RESET,
+        ],
+
+        HW_SET_SPEED_MODE => [
+            DESCRIPTION     => "Set the speed of the HW I2C controller on a given port",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 port, LwU32 speedMode",
+
+            _GMXXX          => [ GM10X_thru_GA10X, AD10X, ],
+            _GH100          => [ GH100_and_later, ],
+        ],
+
+        HW_WAIT_FOR_IDLE => [
+            DESCRIPTION     => "Wait for the HW I2C controller to idle",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 port",
+            STUB_RETURNS    => FLCN_ERROR,
+
+            LIKE_INTERFACE  => HW_RESET,
+        ],
+
+        SEND_START_VIA_HW => [
+            DESCRIPTION     => "Send a start in manual mode",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 portId",
+            STUB_RETURNS    => FLCN_ERR_I2C_BUSY,
+
+            LIKE_INTERFACE  => HW_RESET,
+        ],
+
+        WRITE_BYTE_VIA_HW => [
+            DESCRIPTION     => "Write a byte in manual mode",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 portId, LwU32 data",
+            STUB_RETURNS    => FLCN_ERR_I2C_BUSY,
+
+            LIKE_INTERFACE  => HW_RESET,
+        ],
+
+        SEND_STOP_VIA_HW => [
+            DESCRIPTION     => "Send stop in a manual mode",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 portId",
+            STUB_RETURNS    => FLCN_ERR_I2C_BUSY,
+
+            LIKE_INTERFACE  => HW_RESET,
+        ],
+
+        SEND_ADDRESS_VIA_HW => [
+            DESCRIPTION     => "Send an address in manual mode",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "I2C_PMU_TRANSACTION *pTa, LwU32 bSending",
+            STUB_RETURNS    => FLCN_ERR_I2C_BUSY,
+
+            LIKE_INTERFACE  => HW_RESET,
+        ],
+
+        HW_INIT_CMD_WRITE => [
+            DESCRIPTION     => "Start off a write",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "I2C_PMU_TRANSACTION *pTa, I2C_HW_CMD *pCmd",
+            STUB_RETURNS    => FLCN_ERR_I2C_BUSY,
+
+            LIKE_INTERFACE  => HW_RESET,
+        ],
+
+        HW_WRITE_NEXT => [
+            DESCRIPTION     => "Write next byte",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "I2C_HW_CMD *pCmd",
+            STUB_RETURNS    => FLCN_ERR_I2C_BUSY,
+
+            LIKE_INTERFACE  => HW_RESET,
+        ],
+
+        HW_INIT_CMD_READ_WITH_SHORT_INDEX => [
+            DESCRIPTION     => "Send a read with a 0/1-byte index",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "I2C_PMU_TRANSACTION *pTa, I2C_HW_CMD *pCmd, LwBool bIndexPresent, LwBool genStop, LwU32 bytesRemaining",
+
+            LIKE_INTERFACE  => HW_RESET,
+        ],
+
+        HW_READ_NEXT => [
+            DESCRIPTION     => "Read next byte",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "I2C_PMU_TRANSACTION *pTa, I2C_HW_CMD *pCmd, LwBool bReadNext",
+            STUB_RETURNS    => FLCN_ERR_I2C_BUSY,
+
+            LIKE_INTERFACE  => HW_RESET,
+        ],
+
+        HW_WRITE_BYTE_WAIT_EDDC_SEGMENT => [
+            DESCRIPTION     => "Write the segment pointer value, used in EDDC transaction",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "I2C_PMU_TRANSACTION *pTa",
+            STUB_RETURNS    => FLCN_ERR_I2C_BUSY,
+
+            LIKE_INTERFACE  => HW_RESET,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $i2cHal;
+

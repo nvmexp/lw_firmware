@@ -1,0 +1,8 @@
+#define IN_ADA_BODY
+#include "lw_types-reg_addr_types.h"
+
+const lw_types__lwu32 lw_types__reg_addr_types__max_bar0_addr = 16777212U;
+typedef lw_types__Tlwu32B lw_types__reg_addr_types__Tbar0_addrB;
+typedef lw_types__reg_addr_types__Tbar0_addrB lw_types__reg_addr_types__bar0_addr;
+typedef lw_types__Tlwu32B lw_types__reg_addr_types__Tcsb_addrB;
+typedef lw_types__reg_addr_types__Tcsb_addrB lw_types__reg_addr_types__csb_addr;

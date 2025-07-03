@@ -1,0 +1,49 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2014-2021 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+all: build
+
+PROFILES ?=
+
+FW_ROOT ?= $(LW_SOURCE)/pmu_sw/fmc
+export FW_ROOT
+
+ifndef PROFILE
+  ifeq ("$(strip $(PROFILES))", "")
+    include $(FW_ROOT)/config/profiles.mk
+    override PROFILES = $(PROFILES_ALL)
+  endif
+else
+  PROFILES = $(PROFILE)
+endif
+
+###############################################################################
+# Create submake build/clobber targets for profiles being built.
+###############################################################################
+
+PROFILES.build = $(PROFILES:=.build)
+PROFILES.clobber = $(PROFILES:=.clobber)
+
+###############################################################################
+# Targets/Rules
+###############################################################################
+
+.PHONY: PROFILES.build build
+.PHONY: PROFILES.clobber clobber
+
+build:: $(PROFILES.build)
+clobber:: $(PROFILES.clobber)
+
+$(PROFILES.build):
+	$(MAKE) -f make-profile.lwmk PROFILE=$(basename $@) build
+
+$(PROFILES.clobber):
+	$(MAKE) -f make-profile.lwmk PROFILE=$(basename $@) clobber

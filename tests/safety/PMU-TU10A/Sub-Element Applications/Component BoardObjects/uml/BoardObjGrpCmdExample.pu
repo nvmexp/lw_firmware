@@ -1,0 +1,22 @@
+@startuml{BoardObjGrpCmdExample.png} "BoardObjGrpCmd Example"
+actor "lwgpu-rm" as RM
+participant "PMU CMDMGMT" as CMDMGMT
+participant "PMU Unit XYZ" as UNIT_XYZ
+participant "MY_CLASS BoardObjGrp" as MY_CLASS
+
+activate RM
+== BOARDOBJGRP CMD ==
+RM  ->  CMDMGMT : RM_PMU_RPC(BOARDOBJGRP_CMD, XYZ, {MY_CLASS, SET})
+activate CMDMGMT
+CMDMGMT -> UNIT_XYZ : pmuRpcXyzBoardObjGrpCmd(MY_CLASS , SET)
+activate UNIT_XYZ
+UNIT_XYZ -> MY_CLASS : myClassBoardObjGrpSet()
+activate MY_CLASS
+UNIT_XYZ <-- MY_CLASS : status
+deactivate MY_CLASS
+CMDMGMT <-- UNIT_XYZ : status
+deactivate UNIT_XYZ
+RM  <-- CMDMGMT : ACK
+deactivate CMDMGMT
+
+@enduml

@@ -1,0 +1,42 @@
+// LWIDIA_COPYRIGHT_BEGIN
+//
+// Copyright by LWPU Corporation.  All rights reserved.  All
+// information contained herein is proprietary and confidential to LWPU
+// Corporation.  Any use, reproduction, or disclosure without the written
+// permission of LWPU Corporation is prohibited.
+//
+// LWIDIA_COPYRIGHT_END
+
+Policy.Version(2);
+
+#include "default.pcy"
+AddFileId(Out.PriNormal, "$Id:  $");
+
+ActionBlock.Define("DisableElpg");
+    Action.Print("Disable Elpg Eng 0/1...");
+    Action.EnableElpg(Gpu.DevInst(0), 0, false);
+    Action.EnableElpg(Gpu.DevInst(0), 1, false);
+ActionBlock.End();
+
+ActionBlock.Define("PowerDownGr");
+    Action.Print("Block channl flush and Power Down Gr...");
+    Action.EnableElpg(Gpu.DevInst(0), 0, true);
+    Action.BlockChannelFlush(Channel.Number([0]), true);
+ActionBlock.End();
+
+ActionBlock.Define("PowerDowlwid");
+    Action.Print("GR powering down, power down Vid...");
+    Action.EnableElpg(Gpu.DevInst(0), 1, true);
+ActionBlock.End();
+
+ActionBlock.Define("Enable methods")
+Action.Print("GR powering down complete");
+     Action.BlockChannelFlush(Channel.Number([0]), false);
+ActionBlock.End();
+
+Policy.Define(Trigger.OnMethodExelwte(Channel.Number([0]), ["list", 200, 0]), "DisableElpg");
+Policy.Define(Trigger.OnMethodExelwte(Channel.Number([0]), ["list", 350, 0]), "PowerDownGr");
+Policy.Define(Trigger.OnRmEvent(Gpu.DevInst(0), Constants.ON_POWER_DOWN_GRAPHICS_ENTER), "PowerDowlwid");
+Policy.Define(Trigger.OnRmEvent(Gpu.DevInst(0), Constants.ON_POWER_DOWN_VIDEO_ENTER), Action.Print("VID powering down"));
+Policy.Define(Trigger.OnRmEvent(Gpu.DevInst(0), Constants.ON_POWER_DOWN_GRAPHICS_COMPLETE), "Enable methods");
+Policy.Define(Trigger.OnRmEvent(Gpu.DevInst(0), Constants.ON_POWER_DOWN_VIDEO_COMPLETE), Action.Print("VID powering down complete"));

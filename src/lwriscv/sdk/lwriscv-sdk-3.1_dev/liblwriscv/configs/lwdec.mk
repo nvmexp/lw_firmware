@@ -1,0 +1,27 @@
+# Engine configuration, to be included by other configs
+LWRISCV_IS_ENGINE := lwdec
+
+# MK TODO: copied from gsp, check
+
+# t234 and t239 are the same
+ifeq ($(LWRISCV_IS_CHIP),$(filter $(LWRISCV_IS_CHIP),t234 t239))
+LWRISCV_IMEM_SIZE := 0xC000
+LWRISCV_DMEM_SIZE := 0xA000
+LWRISCV_EMEM_SIZE := 0x0
+LWRISCV_HAS_DIO_SNIC := y
+endif
+
+ifeq ($(LWRISCV_IS_CHIP),gh100)
+LWRISCV_IMEM_SIZE := 0xC000
+LWRISCV_DMEM_SIZE := 0xA000
+LWRISCV_EMEM_SIZE := 0x0
+endif
+
+ifeq ($(LWRISCV_IS_CHIP),gb100)
+LWRISCV_IMEM_SIZE := 0xC000
+LWRISCV_DMEM_SIZE := 0xA000
+LWRISCV_EMEM_SIZE := 0x0
+endif
+
+LWRISCV_HAS_DIO_SE := y
+LWRISCV_HAS_SHA := y

@@ -1,0 +1,329 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2015-2018 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD ?= false
+NO_RELEASE     ?= false
+INCLUDE_DT     ?= false
+INCLUDE_DISAS  ?= false
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+DMVASW         = $(LW_SOURCE)/uproc/dmemva
+LWUPROC        = $(LW_SOURCE)/uproc
+GEN_CLASS_OS   = $(DMVASW)/utilities/gen_class_os.pl
+RESMAN_ROOT    = $(LW_SOURCE)/drivers/resman
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+DMVACFG_PROFILE ?= dmva-pmu_gp10x
+DMVACFG_PROFILE  = $(DMVACFG_PROFILE)
+include $(DMVASW)/config/dmva-profiles.mk
+
+###############################################################################
+# Load common falcon make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LWUPROC)/build/common/lwFalconArch.lwmk
+
+override LW_TARGET_ARCH = $(FALCON_TOOLS_BUILD)
+override LW_TARGET_OS   = falcon
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Define the output directory paths for the DMVA build and all sub-make builds.
+###############################################################################
+
+CHIPNAME  := $(subst dmva-,,$(DMVACFG_PROFILE))
+OUTPUTDIR := _out/$(CHIPNAME)
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+export LW_TARGET_ARCH
+export MANUAL_PATHS
+
+###############################################################################
+# Submake Configuration
+#
+# This makefile builds libraries and tools that are shared with other projects.
+# Many of these builds may be lwstomized based on the needs of the project
+# building it. It is therefore necessary to ensure isolation between the
+# projects. Isolation is also required to allow for parallelization of project
+# builds.
+#
+# Isolation is achieved by ensuring that all build output is kept separate
+# between the projects. Ideally, output could all be redirected to a path
+# defined within the DMVA's/project's output directory. However, the common
+# lwmake rules require that each submake target's output directory be contained
+# within that target's source directory. As a result, the only way to ensure
+# isolation is by establishing proper namespacing within each submake target's
+# local output directory.
+###############################################################################
+
+SUBMAKE_NAMESPACE := dmva
+SUBMAKE_OUTPUTDIR := \
+  _out/$(SUBMAKE_NAMESPACE)/$(FALCON_ARCH)_$(LW_BUILD_TYPE)
+
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES += $(DMVASW)/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/swref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/hwref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/lwdec1_1/csb_headers
+LW_INCLUDES += $(RESMAN_ROOT)/kernel/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(FALCON_TOOLS)/include
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+
+IMG_TARGET  := $(OUTPUTDIR)/g_dmvauc_$(CHIPNAME)
+IMG_ELF     := $(IMG_TARGET).out
+IMG_READELF := $(IMG_TARGET).readelf
+IMG_SECTIONS:= $(IMG_TARGET).sections
+IMG_H       := $(IMG_TARGET).h
+IMG_BIN     := $(IMG_TARGET).bin
+IMG_OBJDUMP := $(IMG_TARGET).objdump
+IMG_NM      := $(IMG_TARGET).nm
+IMG_MAP     := $(IMG_TARGET).map
+IMG_DT      := $(IMG_TARGET).dt
+IMG_DBGLINE := $(IMG_TARGET).dbgline
+IMG_EXDUMP  := $(addprefix $(IMG_ELF).,0x00000000 0x10000000 0x20000000)
+
+RELEASE_FILES            = $(IMG_H)
+RELEASE_PATH             = $(LW_SOURCE)/diag/mods/gpu/tests/rm/dmemva/ucode
+RELEASED_FILES           = $(addprefix $(RELEASE_PATH)/,$(notdir $(RELEASE_FILES)))
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+
+LDFLAGS += -T $(DMVASW)/build/$(LDSCRIPT)
+
+ifeq ($(DMVA_FALCON_PMU), true)
+        CFLAGS += -DDMVA_FALCON_PMU
+endif
+
+ifeq ($(DMVA_FALCON_LWDEC), true)
+        CFLAGS += -DDMVA_FALCON_LWDEC
+endif
+
+ifeq ($(DMVA_FALCON_SEC2), true)
+        CFLAGS += -DDMVA_FALCON_SEC2
+endif
+
+ifeq ($(DMVA_FALCON_GSP), true)
+        CFLAGS += -DDMVA_FALCON_GSP
+endif
+
+ifeq ($(DMVA_FALCON_APERT), true)
+        CFLAGS += -DDMVA_FALCON_APERT
+endif
+
+###############################################################################
+# Check if LWWATCH profile and if yes, use special siggen to skip common header
+###############################################################################
+SIG_GEN       = $(LWUPROC)/hdcp2x/keydecrypt/utilities/siggen/siggen
+ifneq (,$(findstring lww, $(DMVACFG_PROFILE)))
+    SIG_GEN       = $(LWUPROC)/utilities/siggen/siggen_lwwatch
+endif
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(.)); delete $$ELW{PWD}; \
+		  print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(DMVACFG_PROFILE)]"
+
+###############################################################################
+# Parse the source files
+###############################################################################
+
+%.S.p.c: %.S
+	$(PERL) $(PERL_PARSER) --suffix "p" $<
+	$(ECHO) # perl parser does not print a newline
+
+%.c.p.c: %.c
+	$(PERL) $(PERL_PARSER) --suffix "p" $<
+	$(ECHO) # perl parser does not print a newline
+
+PERL_PARSER := $(LWUPROC)/utilities/parse_files.pl
+ADD_OBJECTS =
+SOURCES = $(addsuffix .p.c,$(DMVASRC_ALL))
+
+###############################################################################
+# Rules for buildig the ELF image and binary files
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+all: $(IMG_ELF) release
+
+###############################################################################
+# Sign the binary. Uses pre-build signing tool (linux only for now)
+###############################################################################
+
+RELEASE_FILES += $(OUTPUTDIR)/g_dmvauc_$(CHIPNAME)_$(SIGGEN_CHIP)_sig.h
+
+# MK TODO: must patch structures to be per-falcon family so there is no name clash
+# or make them static.
+%_sig.h: $(IMG_H) $(IMG_EXDUMP) $(IMG_MAP) $(IMG_SECTIONS)
+	$(SIG_GEN) $(SIG_GEN_CFG) $(IMG_TARGET) $(IMG_TARGET) -app $(OUTPUTDIR)/g_dmvauc_$(CHIPNAME)_$(SIGGEN_CHIP)_sig.h -sig $(OUTPUTDIR)/g_dmvauc_$(CHIPNAME)_$(SIGGEN_CHIP)_sig.h
+	/bin/sed -i 's/lwrm\.h/core\/include\/lwrm\.h/' $(OUTPUTDIR)/g_dmvauc_$(CHIPNAME)_$(SIGGEN_CHIP)_sig.h
+	/bin/sed -i 's/^LwU32/static LwU32/' $(OUTPUTDIR)/g_dmvauc_$(CHIPNAME)_$(SIGGEN_CHIP)_sig.h
+	/bin/sed -i '/^extern/d' $(OUTPUTDIR)/g_dmvauc_$(CHIPNAME)_$(SIGGEN_CHIP)_sig.h
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(LW_SOURCE)/uproc/build/scripts/release-imgs-if-changed.pl
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_ARGS += --output-prefix $(BUILD_PROJECT_NAME)
+RELEASE_IMG_ARGS += --image         $(IMG_BIN)
+RELEASE_IMG_ARGS += --p4            $(P4)
+
+RELEASE_IMG_ARGS += --release-path $(RELEASE_PATH)
+
+RELEASE_IMG_ARGS += --release-files            \
+  $(subst $(SPACE),$(COMMA),$(RELEASE_FILES))
+
+# unless disabled, make sure the environment is fresh before installing
+ifneq ("$(NO_CHECK_BUILD)","true")
+  .PHONY: checkbuild
+  install: checkbuild
+endif
+
+$(RELEASED_FILES): $(RELEASE_FILES)
+	$(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)
+
+###############################################################################
+# Rule to generate header file from binary
+###############################################################################
+
+$(IMG_H): $(IMG_ELF)
+	$(PERL) $(GEN_CLASS_OS) -vppath $(FALCON_TOOLS)/bin -dump $(IMG_ELF).dump -hdr $(IMG_H) -bin $(IMG_ELF) -chip $(CHIPNAME)
+
+.PHONY: release
+release: $(RELEASED_FILES)
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files is the prerequisite
+# for this rule.
+###############################################################################
+
+$(IMG_EXDUMP): $(IMG_ELF)
+	$(DUMPEXEC) -img $(IMG_ELF) -b $(IMG_ELF)
+
+$(IMG_MAP): $(IMG_ELF)
+	$(ECHO) $(NM)      $(IMG_ELF)       > $(IMG_MAP)
+	$(NM) $(IMG_ELF) >> $(IMG_MAP)
+
+$(IMG_SECTIONS): $(IMG_ELF)
+	$(READELF) -S $(IMG_ELF) >> $(IMG_SECTIONS)
+
+$(IMG_ELF): $(OBJECTS) $(DMVASW)/build/$(LDSCRIPT)
+	$(CC) $(CFLAGS) $(OBJECTS) $(ADD_OBJECTS) -o $(IMG_ELF) $(LDFLAGS)
+ifeq ("$(INCLUDE_DISAS)","true")
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(IMG_ELF)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_READELF)
+	$(OBJDUMP) -d    $(IMG_ELF) >> $(IMG_OBJDUMP)
+	$(OBJDUMP) -S -d $(IMG_ELF) >> $(IMG_OBJDUMP).source
+	$(NM)      -S -n $(IMG_ELF) >> $(IMG_NM)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_READELF))
+	$(READELF) --all $(IMG_ELF) >> $(IMG_READELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(IMG_ELF) >> $(IMG_DBGLINE)
+endif
+
+
+###############################################################################
+# Rule for generating .dt/symdump file
+###############################################################################
+
+SYMDUMP_SCRIPT = $(LW_SOURCE)/pmu_sw/build/symdump/symdump.pl
+
+SYMDUMP_ARGS  += $(IMG_ELF) $(IMG_DT)
+SYMDUMP_ARGS  += --falcon-tools $(FALCON_TOOLS)
+SYMDUMP_ARGS  += --acl          $(APP_P4_CL)
+
+$(IMG_DT):
+	$(PERL) $(SYMDUMP_SCRIPT) $(SYMDUMP_ARGS)
+
+ ifeq ("$(INCLUDE_DT)","true")
+   all: $(IMG_DT)
+ endif
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+	$(shell $(PERL) $(PERL_PARSER) --clean $(SOURCES))
+
+.PHONY: clean_ucode
+clean: clean_ucode

@@ -1,0 +1,45 @@
+# -*- mode: perl; -*-
+
+# Bus Interface Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $vgpuHal = [
+
+    DEFAULTS => [
+        FLAGS  => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        VF_BAR1_SIZE_UPDATE => [
+            DESCRIPTION     => "Update the per-VF BAR1 size",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 vfBar1SizeMB, LwU32 *pNumVfs",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libVgpu", "__FUNC__")',
+ 
+            _GA10X          => [ GA10X, -GA100, ],
+            _STUB           => [ ALL, -GA10X, GA100, ],
+        ],
+
+        VF_BAR1_SIZE_GET => [
+            DESCRIPTION     => "Get the current per-VF BAR1 size",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 *pBar1SizeMB",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libVgpu", "__FUNC__")',
+
+            LIKE_INTERFACE  => VF_BAR1_SIZE_UPDATE,
+        ],
+
+    ],   # HAL_INTERFACES
+
+];
+
+# Return a reference to the Hal definition
+return $vgpuHal;

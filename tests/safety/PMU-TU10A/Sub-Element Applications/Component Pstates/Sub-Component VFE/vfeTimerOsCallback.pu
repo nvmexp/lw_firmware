@@ -1,0 +1,104 @@
+@startuml
+title OS Timer Callback
+activate Timer
+    Timer -> VFE : Timer Callback
+    activate VFE
+        VFE -> OS : attachOverlays(PRI)
+        activate OS
+        deactivate OS
+
+        VFE -> OS: takeSemaphore(PERF_WRITE)
+        activate OS
+        deactivate OS
+
+        VFE -> VFE_VAR : sampleAll()
+        activate VFE_VAR
+        return bChanged
+
+        alt bChanged || bObjectsUpdated
+            VFE -> CLK : preIlwalidate()
+            activate CLK
+            deactivate CLK
+        end
+
+        VFE -> OS : giveSemaphore(PERF_WRITE)
+        activate OS
+        deactivate OS
+
+        VFE -> OS : takeSemaphore(PERF_READ)
+        activate OS
+        deactivate OS
+
+        VFE -> VFE_EQU : monitorUpdate(bIlwalidate = true)
+        activate VFE_EQU
+            alt bIlwalidate
+                VFE_EQU -> VFE_EQU : ilwalidateAllMonitors()
+            end
+            loop for each invalid monitor
+                VFE_EQU -> VFE_EQU : evaluate()
+                activate VFE_EQU
+                deactivate VFE_EQU
+                VFE_EQU -> VFE_EQU : monitorValid = true
+            end
+        deactivate VFE_EQU
+
+        alt FEATURE_ENABLED(PMU_PERF_VFE_PMU_EQU_MONITOR)
+            VFE -> VFE_EQU : monitorUpdate()
+            activate VFE_EQU
+            deactivate VFE_EQU
+        end
+
+        VFE -> CLK : postIlwalide()
+        activate CLK
+        deactivate CLK
+
+        VFE -> VFE : processDynamilwpdate()
+        activate VFE
+            VFE -> OS : attachOverlays()
+            activate OS
+            deactivate OS
+
+            VFE -> VOLT : processDynamilwpdate()
+            activate VOLT
+            deactivate VOLT
+
+            VFE -> OS : detachOverlays()
+            activate OS
+            deactivate OS
+        deactivate VFE
+
+        alt FEATURE_ENABLED(PMU_DI_SEQUENCE_COMMON)
+            VFE -> LPWR : processVfeDynamilwpdate()
+            activate LPWR
+            deactivate LPWR
+        end
+
+        VFE -> VFE : notifyRM()
+        activate VFE
+        deactivate VFE
+        VFE -> VFE : updateObjects = false
+
+        VFE -> OS : giveSemaphore(PERF_READ)
+        activate OS
+        deactivate OS
+
+        VFE -> OS : detachOverlays(PRI)
+        activate OS
+        deactivate OS
+
+        alt FEATURE_ENABLED(PMU_PERF_VFE_RPPM)
+            VFE -> OS : attachOverlays(RPPM)
+            activate OS
+            deactivate OS
+
+            VFE -> VFE_VAR : sampleAll(RPPM_VARS)
+            activate VFE_VAR
+            return bChanged
+
+            VFE -> OS : detachOverlays(RPPM)
+            activate OS
+            deactivate OS
+        end
+    deactivate VFE
+deactivate Timer
+@enduml

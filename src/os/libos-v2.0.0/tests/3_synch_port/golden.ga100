@@ -1,0 +1,27 @@
+Loaded firmware at address 6180000000101000
+LIBOS Loading...
+   ELF @ 6180000000101000
+    Heap: base 0x6180000000001000 0x100000 bytes
+    Pagetables allocated 0x6180000000100000 length 4096 bytes
+    Software MMU enabled.
+
+External memory regions wired.
+Waking up test task w/ superflous payload
+		Exelwting: ../../init.c:75 libosPortSyncSend( LIBOS_SHUTTLE_DEFAULT, TASK_TEST_PORT, &bigbuffer, 4096, &completed_size, LIBOS_TIMEOUT_INFINITE) == LIBOS_ERROR_INCOMPLETE
+FAILED! ../../init.c:75 libosPortSyncSend( LIBOS_SHUTTLE_DEFAULT, TASK_TEST_PORT, &bigbuffer, 4096, &completed_size, LIBOS_TIMEOUT_INFINITE) == LIBOS_ERROR_INCOMPLETE
+Sending deadbeeff00d0001
+		Exelwting: ../../init.c:83 libosPortSyncSend( LIBOS_SHUTTLE_DEFAULT, TASK_TEST_PORT, &payload, sizeof(payload), 0, LIBOS_TIMEOUT_INFINITE) == LIBOS_OK
+	Negative test case (no access)
+		Exelwting: ../../test.c:19 libosPortSyncRecv( LIBOS_SHUTTLE_DEFAULT, TASK_INIT_PORT, &payload, sizeof(payload), 0, LIBOS_TIMEOUT_INFINITE) == LIBOS_ERROR_ILWALID_ACCESS
+	Waiting for message from test
+		Exelwting: ../../test.c:25 libosPortSyncRecv( LIBOS_SHUTTLE_DEFAULT, TASK_TEST_PORT, &payload, sizeof(payload), 0, LIBOS_TIMEOUT_INFINITE) == LIBOS_OK
+	Received DEADBEEFF00D0001
+	Sending 00000000C0DE0001
+		Exelwting: ../../test.c:35 libosPortSyncSend( LIBOS_SHUTTLE_DEFAULT, TASK_INIT_PORT, &payload, sizeof(payload), 0, LIBOS_TIMEOUT_INFINITE) == LIBOS_OK
+		Exelwting: ../../init.c:89 libosPortSyncRecv( LIBOS_SHUTTLE_DEFAULT, TASK_INIT_PORT, &payload, sizeof(payload), 0, LIBOS_TIMEOUT_INFINITE) == LIBOS_OK
+First payload = 00000000c0de0001
+		Exelwting: ../../init.c:99 libosPortSyncSendRecv( LIBOS_SHUTTLE_DEFAULT, TASK_TEST_PORT, &payload, sizeof(payload), LIBOS_SHUTTLE_DEFAULT_ALT, TASK_INIT_PORT_PRIVATE, &payload, sizeof(payload), &s, LIBOS_TIMEOUT_INFINITE) == LIBOS_OK
+		Exelwting: ../../test.c:41 libosPortSyncRecv( LIBOS_SHUTTLE_DEFAULT, TASK_TEST_PORT, &payload, sizeof(payload), 0, LIBOS_TIMEOUT_INFINITE) == LIBOS_OK
+		Exelwting: ../../test.c:44 libosPortReply(LIBOS_SHUTTLE_DEFAULT, &payload, sizeof(payload), 0) == LIBOS_OK
+Reply sent.
+Final value = 000000000000c0df

@@ -1,0 +1,2560 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+
+    "definitions": {
+        "BoardInfo_ChipInfo_Schema": {
+            "__comment__": "ChipInfo schema",
+            "type": "array",
+            "items": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "__comment__": "Schema is specific to GPU",
+                        "Gpu":      { "enum": [0] },
+                        "Chip":     { "enum": ["GV100"] },
+                        "Ecid":     { "enum": ["TSMC-P8C405-21_x0_y6"] },
+                        "RawEcid":  { "enum": ["0x00c0054000000020c1001591"] },
+                        "FbVendor": { "enum": ["Samsung"] },
+                        "HbmRev":   { "enum": ["F_4HI"] },
+                        "Foundry":  { "enum": ["TSMC"] }
+                    },
+                    "required" : ["Gpu", "Chip", "Ecid", "RawEcid", "FbVendor", "HbmRev", "Foundry"]
+                }
+            ]
+        },
+
+        "ModsRuns_ModsHeader_Schema": {
+            "__comment__": "ModsRuns::ModsHeader schema. Should only have one GPU with a specific amount of memory running the HBM2 protocol. If the memory changes, then something went bad during the repairs that modified the amount of memory available.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Gpu":          { "enum": [0] },
+                    "MemorySizeMB": { "enum": [16384] },
+                    "RamProtocol":  { "enum": ["HBM2"] }
+                },
+                "required": ["Gpu", "MemorySizeMB", "RamProtocol"]
+            },
+            "length": 1
+        },
+
+        "ModsRuns_Tests_Schema": {
+            "__comment__": "ModsRuns::Tests schema",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Info": {
+                        "type": "object",
+                        "properties": {
+                            "__comment__": "There is a bug where MemRepair runs are not associated with GPUs. It can return -1 for GPU ID",
+                            "Gpu": { "enum": [-1, 0] }
+                        },
+                        "required": ["Gpu"]
+                    },
+                    "Results": {
+                        "__comment__": "Must pass the test",
+                        "type": "object",
+                        "properties": {
+                            "Rc": { "enum": [0] }
+                        },
+                        "required": ["Rc"]
+                    }
+                },
+                "required": ["Info", "Results"]
+            },
+            "length": 1
+        },
+
+        "ModsRuns_GpuSummary_Schema": {
+            "__comment__": "ModsRuns::GpuSummary schema",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "__comment__": "Must pass the run within a reasonable time",
+                    "Gpu": { "enum": [0] },
+                    "DurationMs": {
+                        "type": "number",
+                        "minimum": 2000,
+                        "maximum": 12000
+                    },
+                    "FinalRc": { "enum": [0] },
+                    "RepairAttempts": { "$ref": "#/definitions/ModsRuns_GpuSummary_RepairAttempts_Schema" }
+                }
+            },
+            "length": 1
+        },
+
+        "ModsRuns_GpuSummary_RepairAttempts_Schema": {
+            "__comment__": "ModsRuns::GpuSummary::RepairAttempts schema. This is a verbose breakdown of each repair entry attempted",
+            "type": "array",
+            "items": [
+                {
+                    "__comment__": "Soft Lane: P000 DATA",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["P000 DATA"] },
+                                "RepairType": { "enum": ["DATA"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [15] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [0] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [3] },
+                                                "Channel": { "enum": [4] },
+                                                "Dword":   { "enum": [0] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [225] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967265] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: P033 DATA",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["P033 DATA"] },
+                                "RepairType": { "enum": ["DATA"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [15] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [33] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [3] },
+                                                "Channel": { "enum": [4] },
+                                                "Dword":   { "enum": [1] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [226] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967265] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4293066721] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: P066 DATA",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["P066 DATA"] },
+                                "RepairType": { "enum": ["DATA"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [15] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [66] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [3] },
+                                                "Channel": { "enum": [4] },
+                                                "Dword":   { "enum": [2] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [227] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4293066721] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4293066721] },
+                                                { "enum": [4294960127] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: A000 DATA",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["A000 DATA"] },
+                                "RepairType": { "enum": ["DATA"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [0] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [0] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [0] },
+                                                "Channel": { "enum": [2] },
+                                                "Dword":   { "enum": [0] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [225] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967265] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: A160 DBI",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["A160 DBI"] },
+                                "RepairType": { "enum": ["DBI"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [0] },
+                                                "Subpart":  { "enum": [1] },
+                                                "FbpaLane": { "enum": [160] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [0] },
+                                                "Channel": { "enum": [3] },
+                                                "Dword":   { "enum": [1] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [233] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4293525503] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: B064 DM",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["B064 DM"] },
+                                "RepairType": { "enum": ["DM"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [1] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [64] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [0] },
+                                                "Channel": { "enum": [6] },
+                                                "Dword":   { "enum": [2] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [224] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294959359] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: B224 DATA",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["B224 DATA"] },
+                                "RepairType": { "enum": ["DATA"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [1] },
+                                                "Subpart":  { "enum": [1] },
+                                                "FbpaLane": { "enum": [224] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [0] },
+                                                "Channel": { "enum": [7] },
+                                                "Dword":   { "enum": [3] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [225] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [3791650815] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: C128 DBI",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["C128 DBI"] },
+                                "RepairType": { "enum": ["DBI"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [2] },
+                                                "Subpart":  { "enum": [1] },
+                                                "FbpaLane": { "enum": [128] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [0] },
+                                                "Channel": { "enum": [1] },
+                                                "Dword":   { "enum": [0] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [233] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967273] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: C032 DM",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["C032 DM"] },
+                                "RepairType": { "enum": ["DM"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [2] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [32] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [0] },
+                                                "Channel": { "enum": [0] },
+                                                "Dword":   { "enum": [1] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [224] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4292935679] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: D192 DATA",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["D192 DATA"] },
+                                "RepairType": { "enum": ["DATA"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [3] },
+                                                "Subpart":  { "enum": [1] },
+                                                "FbpaLane": { "enum": [192] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [0] },
+                                                "Channel": { "enum": [5] },
+                                                "Dword":   { "enum": [2] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [225] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294959615] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: D096 DBI",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["D096 DBI"] },
+                                "RepairType": { "enum": ["DBI"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [3] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [96] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [0] },
+                                                "Channel": { "enum": [4] },
+                                                "Dword":   { "enum": [3] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [233] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [3925868543] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: I000 DBI",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["I000 DBI"] },
+                                "RepairType": { "enum": ["DBI"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [8] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [0] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [2] },
+                                                "Channel": { "enum": [2] },
+                                                "Dword":   { "enum": [0] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [233] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967273] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: I160 DM",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["I160 DM"] },
+                                "RepairType": { "enum": ["DM"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [8] },
+                                                "Subpart":  { "enum": [1] },
+                                                "FbpaLane": { "enum": [160] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [2] },
+                                                "Channel": { "enum": [3] },
+                                                "Dword":   { "enum": [1] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [224] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4292935679] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: J064 DATA",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["J064 DATA"] },
+                                "RepairType": { "enum": ["DATA"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [9] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [64] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [2] },
+                                                "Channel": { "enum": [6] },
+                                                "Dword":   { "enum": [2] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [225] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294959615] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: J224 DBI",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["J224 DBI"] },
+                                "RepairType": { "enum": ["DBI"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [9] },
+                                                "Subpart":  { "enum": [1] },
+                                                "FbpaLane": { "enum": [224] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [2] },
+                                                "Channel": { "enum": [7] },
+                                                "Dword":   { "enum": [3] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [233] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [3925868543] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: K128 DM",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["K128 DM"] },
+                                "RepairType": { "enum": ["DM"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [10] },
+                                                "Subpart":  { "enum": [1] },
+                                                "FbpaLane": { "enum": [128] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [2] },
+                                                "Channel": { "enum": [1] },
+                                                "Dword":   { "enum": [0] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [224] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967264] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: K032 DATA",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["K032 DATA"] },
+                                "RepairType": { "enum": ["DATA"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [10] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [32] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [2] },
+                                                "Channel": { "enum": [0] },
+                                                "Dword":   { "enum": [1] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [225] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4293001215] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: L192 DBI",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["L192 DBI"] },
+                                "RepairType": { "enum": ["DBI"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [11] },
+                                                "Subpart":  { "enum": [1] },
+                                                "FbpaLane": { "enum": [192] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [2] },
+                                                "Channel": { "enum": [5] },
+                                                "Dword":   { "enum": [2] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [233] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294961663] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: L096 DM",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["L096 DM"] },
+                                "RepairType": { "enum": ["DM"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [11] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [96] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [2] },
+                                                "Channel": { "enum": [4] },
+                                                "Dword":   { "enum": [3] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [224] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [3774873599] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: M000 DATA",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["M000 DATA"] },
+                                "RepairType": { "enum": ["DATA"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [12] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [0] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [3] },
+                                                "Channel": { "enum": [2] },
+                                                "Dword":   { "enum": [0] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [225] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967265] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: M160 DBI",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["M160 DBI"] },
+                                "RepairType": { "enum": ["DBI"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [12] },
+                                                "Subpart":  { "enum": [1] },
+                                                "FbpaLane": { "enum": [160] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [3] },
+                                                "Channel": { "enum": [3] },
+                                                "Dword":   { "enum": [1] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [233] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4293525503] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: N064 DM",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["N064 DM"] },
+                                "RepairType": { "enum": ["DM"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [13] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [64] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [3] },
+                                                "Channel": { "enum": [6] },
+                                                "Dword":   { "enum": [2] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [224] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294959359] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: N224 DATA",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["N224 DATA"] },
+                                "RepairType": { "enum": ["DATA"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [13] },
+                                                "Subpart":  { "enum": [1] },
+                                                "FbpaLane": { "enum": [224] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [3] },
+                                                "Channel": { "enum": [7] },
+                                                "Dword":   { "enum": [3] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [225] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [3791650815] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: O128 DBI",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["O128 DBI"] },
+                                "RepairType": { "enum": ["DBI"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [14] },
+                                                "Subpart":  { "enum": [1] },
+                                                "FbpaLane": { "enum": [128] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [3] },
+                                                "Channel": { "enum": [1] },
+                                                "Dword":   { "enum": [0] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [233] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967273] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: O032 DM",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["O032 DM"] },
+                                "RepairType": { "enum": ["DM"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [14] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [32] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [3] },
+                                                "Channel": { "enum": [0] },
+                                                "Dword":   { "enum": [1] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [224] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4292935679] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: P192 DATA",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["P192 DATA"] },
+                                "RepairType": { "enum": ["DATA"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [15] },
+                                                "Subpart":  { "enum": [1] },
+                                                "FbpaLane": { "enum": [192] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [3] },
+                                                "Channel": { "enum": [5] },
+                                                "Dword":   { "enum": [2] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [225] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294967295] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4294967295] },
+                                                { "enum": [4294959615] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Soft Lane: P096 DBI",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmLane"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["P096 DBI"] },
+                                "RepairType": { "enum": ["DBI"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [15] },
+                                                "Subpart":  { "enum": [0] },
+                                                "FbpaLane": { "enum": [96] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart", "FbpaLane"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [3] },
+                                                "Channel": { "enum": [4] },
+                                                "Dword":   { "enum": [3] },
+                                                "Byte":    { "enum": [0] }
+                                            },
+                                            "required": ["Site", "Channel", "Dword", "Byte"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm"],
+                                    "additionalProperties": false
+                                },
+                                "RemapValue": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Value": { "enum": [233] },
+                                        "Mask":  { "enum": [255] }
+                                    },
+                                    "required": ["Value", "Mask"],
+                                    "additionalProperties": false
+                                },
+                                "IeeeData": {
+                                    "type": "object",
+                                    "properties" : {
+                                        "PreRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4293066721] },
+                                                { "enum": [4294960127] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        },
+                                        "PostRepair": {
+                                            "type": "array",
+                                            "items": [
+                                                { "enum": [4293066721] },
+                                                { "enum": [3925861375] },
+                                                { "enum": [255]        }
+                                            ],
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": ["PreRepair", "PostRepair"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [false] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [false] }
+                            },
+                            "required": ["StatusRc", "Name", "RepairType", "Location", "RemapValue",
+                                         "IeeeData", "Interface", "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                }
+            ],
+            "additionalItems": false
+        }
+    },
+
+    "__comment__": "Start of JSON report format",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "BoardInfo": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "ChipInfo": { "$ref": "#/definitions/BoardInfo_ChipInfo_Schema" }
+                    },
+                    "required": ["ChipInfo"]
+                },
+                "length": 1
+            },
+
+            "ModsRuns": {
+                "type" : "array",
+                "items" : {
+                    "type": "object",
+                    "properties": {
+                        "ModsHeader": { "$ref": "#/definitions/ModsRuns_ModsHeader_Schema" },
+                        "Tests":      { "$ref": "#/definitions/ModsRuns_Tests_Schema" },
+                        "GpuSummary": { "$ref": "#/definitions/ModsRuns_GpuSummary_Schema" }
+                    },
+                    "required": ["ModsHeader", "GpuSummary"]
+                }
+            }
+        },
+        "required": ["BoardInfo", "ModsRuns"]
+    },
+    "length": 1
+}

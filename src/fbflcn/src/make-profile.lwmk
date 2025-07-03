@@ -1,0 +1,757 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2016-2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD ?= false
+NO_RELEASE     ?= false
+INCLUDE_DT     ?= false
+FALCON_ARCH    ?= falcon6
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+LS_FALCON          = true
+FBFALCON_SW        = $(LW_SOURCE)/uproc/fbflcn
+FBFALCON_CFG       = $(LW_SOURCE)/uproc/fbflcn/config
+FBFALCON_BUILD     = $(LW_SOURCE)/uproc/fbflcn/build
+FBFALCON_BIOS      = $(LW_SOURCE)/uproc/fbflcn/bios
+LWUPROC            = $(LW_SOURCE)/uproc
+BUILD_SCRIPTS      = $(LWUPROC)/build/scripts
+RESMAN_ROOT        = $(LW_SOURCE)/drivers/resman
+LIB_UPROC_CMN_SRC  = $(LWUPROC)/libs/cmn
+
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+include $(FBFALCON_SW)/config/fbfalcon-profiles.mk
+
+###############################################################################
+# Load common falcon make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LWUPROC)/build/common/lwFalconArch.lwmk
+
+override LW_TARGET_ARCH = $(FALCON_TOOLS_BUILD)
+override LW_TARGET_OS   = falcon
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Define the output directory paths for the FBFALCON build and all sub-make builds.
+###############################################################################
+
+CHIPNAME   := $(subst fbfalcon-,,$(FBFALCONCFG_PROFILE))
+CHIPNAME_ONLY := $(firstword $(subst -, ,$(CHIPNAME)))
+FALCONNAME := fbfalcon
+
+OUTPUTDIR  := _out/$(FALCONNAME)/$(CHIPNAME)
+
+###############################################################################
+# Setup fbfalcon-config make vars and ilwoke fbfalcon-config. Use fbfalcon-config's
+# makefile.mk to do all the work. The makefile will generate fbfalcon-config.mk in
+# the output directory and then include it.
+###############################################################################
+
+FBFALCONSRC_ALL             :=
+FBFALCONCFG_OPTIONS         :=
+FBFALCONCFG_OUTPUTDIR       ?= $(OUTPUTDIR)/config
+FBFALCONCFG_RESMAN_ROOT     := $(RESMAN_ROOT)
+FBFALCONCFG_FBFALCONSW_ROOT := $(FBFALCON_SW)/src
+LDR_SRC = $(FBFALCON_SW)/loader
+SHA_SRC = $(LWUPROC)/libs/crypto/sha
+
+include $(FBFALCON_SW)/config/makefile.mk
+
+# include the generated list of source files
+ifdef FBFALCONCFG_INITIALIZED
+  include $(FBFALCONCFG_OUTPUTDIR)/g_sources.mk
+endif
+
+###############################################################################
+# Include profile-specific make settings to account for profile-specific build
+# options/requirements.
+###############################################################################
+
+-include $(FBFALCON_SW)/config/$(FBFALCONCFG_PROFILE).mk
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+export LW_TARGET_ARCH
+export LW_TARGET_OS
+export MANUAL_PATHS
+export RTOS_VERSION
+export FBFALCON_ONLY_BO
+export FBFALCON_UNLOAD
+export FBFALCON_LOAD
+export FBFALCON_BSI_LOCK
+export FBFALCON_BSI_BOOT
+export FBFALCON_SIG_VERIF
+export FBFALCON_SKIP_MEMRANGE
+export FBFALCON_SKIP_SCRUB
+export FBFALCON_BUILD_ONLY
+export FBFLCN_BUILD
+export SKIP_SHA_HS_BUILD
+
+ifneq ($(IS_LS_ENCRYPTED),0)
+  export SFK_CHIP
+ifdef SFK_CHIP_1
+  export SFK_CHIP_1
+endif
+endif
+
+###############################################################################
+# Submake Configuration
+#
+# This makefile builds libraries and tools that are shared with other projects.
+# Many of these builds may be lwstomized based on the needs of the project
+# building it. It is therefore necessary to ensure isolation between the
+# projects. Isolation is also required to allow for parallelization of project
+# builds.
+#
+# Isolation is achieved by ensuring that all build output is kept separate
+# between the projects. Ideally, output could all be redirected to a path
+# defined within the FBFALCON's/project's output directory. However, the common
+# lwmake rules require that each submake target's output directory be contained
+# within that target's source directory. As a result, the only way to ensure
+# isolation is by establishing proper namespacing within each submake target's
+# local output directory.
+###############################################################################
+
+SUBMAKE_NAMESPACE := fbfalcon
+SUBMAKE_OUTPUTDIR := \
+  _out/$(SUBMAKE_NAMESPACE)/$(FALCON_ARCH)_$(LW_BUILD_TYPE)_$(FBFALCONCFG_PROFILE)
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+ifeq ($(LW_TARGET_OS),falcon)
+  CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+  CFLAGS += -DUPROC_RISCV
+endif
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(LW_SOURCE)/uproc/cmn/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc/fbflcn
+LW_INCLUDES += $(FBFALCONSW)/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/swref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/hwref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(RESMAN_ROOT)/kernel/inc
+LW_INCLUDES += $(FALCON_TOOLS)/include
+LW_INCLUDES += $(LW_SOURCE)/uproc/common/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/lwos/$(LWOS_VERSION)/inc
+LW_INCLUDES += $(LIB_UPROC_CMN_SRC)/inc
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+LW_INCLUDES += $(SHA_SRC)/inc
+
+
+###############################################################################
+# Propagacting profile configs to the precompiler
+###############################################################################
+
+STACK_PROTECTOR := -fstack-protector-all
+STACK_PROTECTOR += -DIS_SSP_ENABLED
+
+CFLAGS += -DCFG_BIOS_TABLE_ALLOCATION=$(CFG_BIOS_TABLE_ALLOCATION)
+CFLAGS += -DCFG_TRAINING_TABLE_ALLOCATION=$(CFG_TRAINING_TABLE_ALLOCATION)
+
+CFLAGS += $(STACK_PROTECTOR)
+CFLAGS += -fno-strict-aliasing
+CFLAGS += -fno-jump-tables
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+
+IMG_PREFIX   := g_fbfalconuc_$(CHIPNAME)
+IMG_TARGET   := $(OUTPUTDIR)/$(IMG_PREFIX)
+# Below "-" from IMG_PREFIX is removed
+# In case of LS encryption LS server is removing - from IMG_PREFIX while
+# assigning name to encrypted bins hence taking care over here
+# Once this is corrected from server side this can be removed
+IMG_PREFIX_ENC      = $(subst -,,$(IMG_PREFIX))
+
+#
+# The SFK_CHIP variable has been set by referring to Unit.pm to handle different encrypted.bin
+# files being released for different SFKs present for the same profile.
+# This has been added to support LS Encryption feature
+#
+ifneq ($(IS_LS_ENCRYPTED), 0)
+  IMG_TARGET_ENC               := $(OUTPUTDIR)/$(IMG_PREFIX_ENC)_$(SFK_CHIP)
+ifdef SFK_CHIP_1
+  IMG_TARGET_ENC_SFK_CHIP_1    := $(OUTPUTDIR)/$(IMG_PREFIX_ENC)_$(SFK_CHIP_1)
+endif
+endif
+
+IMG_ELF      := $(IMG_TARGET).out
+IMG_DESC_RAW := $(IMG_TARGET).out.0x30000000
+IMG_IMEM_RAW := $(IMG_TARGET).out.0x00000000
+IMG_DMEM_RAW := $(IMG_TARGET).out.0x10000000
+IMG_PAINFO_RAW := $(IMG_TARGET).out.0x40000000
+IMG_READELF  := $(IMG_TARGET).readelf
+IMG_SECTIONS := $(IMG_TARGET).sections
+IMG_H        := $(IMG_TARGET).h
+IMG_BIN      := $(IMG_TARGET).bin
+
+ifneq ($(IS_LS_ENCRYPTED), 0)
+  IMG_DBG_ENCRYPTED_BIN   := $(IMG_TARGET_ENC)_image_debug_encrypted.bin
+  IMG_PROD_ENCRYPTED_BIN  := $(IMG_TARGET_ENC)_image_prod_encrypted.bin
+ifdef SFK_CHIP_1
+  IMG_DBG_ENCRYPTED_BIN   += $(IMG_TARGET_ENC_SFK_CHIP_1)_image_debug_encrypted.bin
+  IMG_PROD_ENCRYPTED_BIN  += $(IMG_TARGET_ENC_SFK_CHIP_1)_image_prod_encrypted.bin
+endif
+endif
+
+IMG_SIGN     := $(IMG_TARGET)_sign.bin
+ifeq ($(SIGN_LICENSE), CODESIGN_LS_PKC)
+  IMG_SIG_H         := $(IMG_TARGET)_pkc_ls_sig.h
+  IMG_SIG_AES_H     := $(IMG_TARGET)_sig.h
+else
+  IMG_SIG_H         := $(IMG_TARGET)_sig.h
+endif
+
+IMG_OBJDUMP  := $(IMG_TARGET).objdump
+IMG_NM       := $(IMG_TARGET).nm
+IMG_MAP      := $(IMG_TARGET).map
+IMG_DT       := $(IMG_TARGET).dt
+IMG_DBGLINE  := $(IMG_TARGET).dbgline
+DESC_BIN     := $(IMG_TARGET)_desc.bin
+
+RELEASE_FILES            = $(IMG_H) $(IMG_NM) $(IMG_OBJDUMP) $(IMG_READELF) $(DESC_BIN) $(IMG_BIN)
+RESTRICTED_RELEASE_FILES =
+
+
+###############################################################################
+# Rule for generating overlay sections linker-script
+###############################################################################
+
+LDGEN_TEMPLATE  = $(LINKER_SCRIPT_TEMPLATE)
+LDGEN_LINKSCRIPT = g_$(LDGEN_TEMPLATE)
+LDGEN_SCRIPT    = $(BUILD_SCRIPTS)/rtos-flcn-script.pl --gen-ldscript
+
+LDGEN_INCLUDES += -I$(FBFALCON_BUILD)
+LDGEN_INCLUDES += -I$(FBFALCON_BIOS)
+LDGEN_INCLUDES += -I$(LW_SOURCE)/drivers/common/chip-config
+LDGEN_INCLUDES += -I$(BUILD_SCRIPTS) 
+
+LDGEN_DEPS     += $(FBFALCON_BUILD)/OverlaysImem.pm
+LDGEN_DEPS     += $(FBFALCON_BUILD)/OverlaysDmem.pm
+LDGEN_DEPS     += $(FBFALCON_BUILD)/Profiles.pm
+LDGEN_DEPS     += $(FBFALCON_BUILD)/templates/$(LDGEN_TEMPLATE)
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/GenLdscript.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfInputSectionImem.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfOutputSectionImem.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfKeepSectionImem.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfOutputSectionDmem.pm
+
+LDGEN_ARGS     += --lwroot $(LW_SOURCE)
+LDGEN_ARGS     += --perl $(PERL)
+LDGEN_ARGS     += --profile $(FBFALCONCFG_PROFILE)
+LDGEN_ARGS     += --template $(FBFALCON_BUILD)/templates/$(LDGEN_TEMPLATE)
+LDGEN_ARGS     += --outfile $(OUTPUTDIR)/$(LDGEN_LINKSCRIPT)
+
+FLCN_SCRIPT_DEPS =
+
+$(OUTPUTDIR)/$(LDGEN_LINKSCRIPT): $(LDGEN_DEPS) $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	-$(PERL) $(LDGEN_INCLUDES) $(LDGEN_SCRIPT) $(LDGEN_ARGS)
+
+
+###############################################################################
+# Export a flag to know inform other libraries that we are building FB falcon.
+# This helps us decide which CSB register offsets to use. This isn't very useful
+# in the .c files, where we can include the generic Falcon manuals and use the
+# base address to get to the right CSB offset. However, .S files are compiled with
+# a preprocessor that doesn't understand include paths. Hence, we use this flag
+# to define register offsets. This flag should be sparingly used (only when
+# absolutely necessary), and likely only in .S assembly files.
+###############################################################################
+FBFLCN_BUILD = 1
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+LDFLAGS += -L $(OUTPUTDIR)
+LDFLAGS += -T $(OUTPUTDIR)/$(LDGEN_LINKSCRIPT)
+LDFLAGS += $(addprefix -L,$(LIBDIRS))
+LDFLAGS += $(addprefix -l,$(LIBS))
+LDFLAGS += -nostartfiles
+LDFLAGS += -Wl,--wrap=___stack_chk_fail
+LDFLAGS += --cref
+
+###############################################################################
+# Bootloader Configuration
+###############################################################################
+
+LDR_BIN        := $(LDR_SRC)/$(SUBMAKE_OUTPUTDIR)/loader.0x00000000.bin
+LDR_IMEM_OFFS ?= $(FBFLCN_LDR_OFFS)
+LDR_STACK_OFFS ?= $(FBFLCN_LDR_STACK_OFFS)
+LDR_MAKE_ARGS  := IMEM_OFFS=$(LDR_IMEM_OFFS)
+LDR_MAKE_ARGS  += STACK_OFFS=$(LDR_STACK_OFFS)
+
+ifeq "$(BOOTLOADER_INCLUDED)" "1"
+SUBMAKE_TARGETS += LDR
+$(LDR_BIN): submake.LDR
+endif
+
+###############################################################################
+# Uproc Common Library
+###############################################################################
+
+LIB_UPROC_CMN := $(LIB_UPROC_CMN_SRC)/$(SUBMAKE_OUTPUTDIR)/libUprocCmn.a
+LIB_UPROC_CMN_MAKE_ARGS := EXTRA_CFLAGS="$(STACK_PROTECTOR)"
+
+SUBMAKE_TARGETS += LIB_UPROC_CMN
+$(LIB_UPROC_CMN): submake.LIB_UPROC_CMN
+
+###############################################################################
+# SHA Library
+###############################################################################
+
+ifeq ($(SHA_ENGINE), true)
+LIB_SHA := $(SHA_SRC)/$(SUBMAKE_OUTPUTDIR)/libSHA.a
+SKIP_SHA_HS_BUILD := 1
+
+SUBMAKE_TARGETS += SHA
+$(LIB_SHA): submake.SHA
+endif
+
+
+###############################################################################
+# Additional libraries to link against
+###############################################################################
+
+LIBDIRS += $(LIB_UPROC_CMN_SRC)/$(SUBMAKE_OUTPUTDIR)
+
+LIBS += UprocCmn
+
+ifeq ($(SHA_ENGINE), true)
+LIBS += SHA
+endif
+LIBDIRS += $(SHA_SRC)/$(SUBMAKE_OUTPUTDIR)
+
+
+###############################################################################
+# Make variable used to tell mkimage script which changelist number to include
+# in the descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(.)); delete $$ELW{PWD}; \
+		  print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+MKIMAGE = $(BUILD_SCRIPTS)/mkimage/flcnmkimg.pl
+
+#
+# rom versions of the ucode do not include a bootlodaer
+#
+ifeq "$(BOOTLOADER_INCLUDED)" "1"
+MKIMAGE_ARGS  = --bootloaderFilename           $(LDR_BIN)
+endif
+MKIMAGE_ARGS += --bootloaderImemOffset         $(LDR_IMEM_OFFS)
+MKIMAGE_ARGS += --bootloaderStackOffset        $(LDR_STACK_OFFS)
+MKIMAGE_ARGS += --rm-img-hfile                 $(IMG_H)
+MKIMAGE_ARGS += --rm-img-bfile                 $(IMG_BIN)
+MKIMAGE_ARGS += --rm-img-signfile              $(IMG_SIGN)
+MKIMAGE_ARGS += --rm-desc-bfile                $(DESC_BIN)
+MKIMAGE_ARGS += --rm-desc-tfile                $(OUTPUTDIR)/rmflcnucode.h
+MKIMAGE_ARGS += --rm-image-basename            g_fbfalcon_falcon_ucode_$(CHIPNAME)
+MKIMAGE_ARGS += --rm-descriptor-structure-name RM_FLCN_UCODE_DESC
+MKIMAGE_ARGS += --acl                          $(APP_P4_CL)
+MKIMAGE_ARGS += --falcon-tools                 $(FALCON_TOOLS)
+MKIMAGE_ARGS += --outdir                       $(OUTPUTDIR)
+MKIMAGE_ARGS += --output-prefix                $(BUILD_PROJECT_NAME)
+MKIMAGE_ARGS += $(IMG_ELF)
+ifeq "$(UCODE_SEGMENT_ALIGNMENT_4096)" "1"
+MKIMAGE_ARGS += --ucode-segment-alignment      4096     # Align ucode segments to 4K boundary required for mWPR setup
+endif
+
+###############################################################################
+# Variables needed to ilwoke the signing client for LS Falcons
+###############################################################################
+
+# common paths
+SIGN_ROOT           = $(LW_SOURCE)/apps/codesigning
+SIGN_CLIENT         = $(SIGN_ROOT)/client/makefile.lwmk
+
+# Common args:
+SIGN_LICENSE       ?= CODESIGN_LS
+SIGN_PERF_TRACKING  = 0
+
+SIGN_ARGS           = LICENSE=$(SIGN_LICENSE)
+SIGN_ARGS          += TRACK_PERF=$(SIGN_PERF_TRACKING)
+SIGN_ARGS          += WORK_DIR=$(OUTPUTDIR)
+
+# CODESIGN_LS specific args:
+
+# Check binary (sign only if binary changed)
+# this option can be specified when ilwoking build
+# (e.g. lwmake SIGN_CHECK_BINARY=0)
+SIGN_CHECK_BINARY  ?= 1
+
+# Sign locally, these options can be specified when ilwoking build
+SIGN_LOCAL         ?= 0
+SIGN_SERVER        ?= 1
+
+# chip, unit
+SIGN_CHIP           = $(subst fbfalcon-,,$(FBFALCONCFG_PROFILE))
+SIGN_UNIT           = fbfalcon
+
+# construct the client specific arguement for CODESIGN_LS\ CODESIGN_LS_PKC
+# we set the release path for the client to be OUTPUTDIR because
+# the release script will be responsible for releasing the signed
+# header
+# NOTE:
+#    With SIGN_LICENSE set to CODESIGN_LS_PKC, PKC signature is genrated
+#    for LS uCodes. LS_UCODE_ID is the extra paramtere passed.
+ifeq ($(SIGN_LICENSE), CODESIGN_LS_PKC)
+    SIGN_ARGS += CLIENT_PARAMS="$(IMG_BIN) $(IMG_SIGN) $(OUTPUTDIR) \
+    $(SIGN_CHECK_BINARY) $(RELEASE_PATH) $(SIGN_LOCAL) $(SIGN_SERVER) \
+    $(SIGN_CHIP) $(SIGN_UNIT) $(IMG_SIG_H) $(LS_UCODE_ID)\
+    $(LS_UCODE_VERSION) '' 1 $(IS_LS_ENCRYPTED) $(IMG_PREFIX_ENC)"
+else
+    SIGN_ARGS += CLIENT_PARAMS="$(IMG_BIN) $(IMG_SIGN) $(OUTPUTDIR) \
+    $(SIGN_CHECK_BINARY) $(RELEASE_PATH) $(SIGN_LOCAL) $(SIGN_SERVER) \
+    $(SIGN_CHIP) $(SIGN_UNIT) $(IMG_SIG_H)\
+    $(LS_UCODE_VERSION) '' 1 $(IS_LS_ENCRYPTED) $(IMG_PREFIX_ENC)"
+endif
+
+# Polling args used for polling
+# Clean can use the same args
+POLL_ARGS           = LICENSE=$(SIGN_LICENSE)
+POLL_ARGS          += TRACK_PERF=$(SIGN_PERF_TRACKING)
+POLL_ARGS          += WORK_DIR=$(OUTPUTDIR)
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(FBFALCONCFG_PROFILE)]"
+
+ADD_OBJECTS =
+SOURCES    := $(FBFALCON_SRC_ALL)
+
+###############################################################################
+# Define a utility macro for ilwoking make (submake) on any external libraries
+# or utilities that this build depends upon. The macro will establish the
+# targets and dependencies between the builds, override the output directory
+# of the submake build, and pass any other (optional) make arguments to the
+# submake build.
+#
+# Arguments:
+#     $(1) - name of the submake build
+#
+# The name supplied is used to define the the name of target for the build.
+# This macro will also use the name to construct the name of make-var
+# containing the path to the submake build's source directory. The caller is
+# responsible for defining this make-var. For an example, if $(1) is set to
+# 'FOO', this macro requires that the make-var 'FOO_SRC' be defined and that it
+# points to the source directory where the makefile for the project is located.
+# It may sometimes be desired to pass additional arguments/overrides on the
+# submake build command-line. In such cases, the caller may define a similarly
+# named make-var suffixed with _MAKE_ARGS and assign to it the list of
+# arguments that should be passed to the build. This is optional, if the make-
+# var is not defined, no additional arguments will be supplied.
+###############################################################################
+
+define SUBMAKE_DEFINITION
+  .PHONY: submake.$(1)
+
+  build: submake.$(1)
+  clean: submake.$(1)
+  clobber: submake.$(1)
+
+  $(1)_MAKE_ARGS ?=
+
+  submake.$(1):
+	  @$$(MAKE) -C $$($(1)_SRC) -f makefile.lwmk \
+        OUTPUTDIR=$$(SUBMAKE_OUTPUTDIR)          \
+        FALCON_ARCH=$$(FALCON_ARCH)              \
+        $$($(1)_MAKE_ARGS)                       \
+        $$(MAKECMDGOALS)
+endef
+
+###############################################################################
+# Create the target/rule definitions for each submake target
+###############################################################################
+
+$(foreach target, $(SUBMAKE_TARGETS), \
+  $(eval $(call SUBMAKE_DEFINITION,$(strip $(target)))))
+
+
+###############################################################################
+# Relink the image if any file in LINK_DEPS is changed
+###############################################################################
+
+LINK_DEPS += $(OBJECTS)
+LINK_DEPS += $(OUTPUTDIR)/$(LDGEN_LINKSCRIPT)
+
+
+###############################################################################
+# Rules for buildig the ELF image and binary files
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+#all: $(IMG_ELF) sign release
+#all: $(IMG_ELF) release
+#	$(RMDIR) -rf *.p.c
+
+all: $(IMG_BIN) install
+
+ifeq "$(BOOTLOADER_INCLUDED)" "1"
+$(IMG_ELF): $(LDR_BIN)
+endif
+ifeq ($(SHA_ENGINE), true)
+$(IMG_ELF): $(LIB_SHA)
+endif
+
+ifeq ($(LW_IN_UNIX_BUILD_CHROOT),1)
+  HEXDUMP = /bin/hexdump
+else
+  HEXDUMP = /usr/bin/hexdump
+endif
+
+$(IMG_BIN): $(IMG_ELF)
+	$(FBFALCONCFG_PERL) $(MKIMAGE) $(MKIMAGE_ARGS)
+	/bin/cat $(IMG_BIN) | $(HEXDUMP) -v -e '"BYTE(0x" 1/1 "%02X" ")\n"' > $(IMG_TARGET)_hexdump.ld
+	/bin/cat $(IMG_IMEM_RAW) | $(HEXDUMP) -v -e '"BYTE(0x" 1/1 "%02X" ")\n"' > $(IMG_TARGET)_imem_hexdump.ld
+	/bin/cat $(IMG_DMEM_RAW) | $(HEXDUMP) -v -e '"BYTE(0x" 1/1 "%02X" ")\n"' > $(IMG_TARGET)_dmem_hexdump.ld
+	/bin/cat $(IMG_DESC_RAW) | $(HEXDUMP) -v -e '"BYTE(0x" 1/1 "%02X" ")\n"' > $(IMG_TARGET)_desc_hexdump.ld
+	/bin/cat $(IMG_PAINFO_RAW) | $(HEXDUMP) -v -e '"BYTE(0x" 1/1 "%02X" ")\n"' > $(IMG_TARGET)_painfo_hexdump.ld
+
+# $(IMG_H) is created as part of the $(IMG_BIN) recipe
+$(IMG_H): $(IMG_BIN)
+#
+# We need to turn off --output-sync for the signing process, since otherwise
+# no interactive messages / warning etc would be displayed.
+#
+SIGN_MAKE_FLAGS = -Onone --no-print-directory
+
+###############################################################################
+# Rules for LS signing
+###############################################################################
+
+# IMG_SIG_H (*_sig.h) is not generated when IMG_BIN has no change
+# Here it needs a dummy file for make dependency
+LS_SIGNING = $(OUTPUTDIR)/_LS_Signing
+
+$(LS_SIGNING): $(IMG_BIN)
+	$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) clean $(POLL_ARGS)
+	$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) submit $(SIGN_ARGS)
+	$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) poll $(POLL_ARGS)
+	$(ECHO) "dummy file for makefile dependency : [ LS Signing ]" > $@
+$(IMG_SIG_H) : $(LS_SIGNING)
+
+#
+# If LS signing is supported for this profile, add the signature
+# file as prerequisite for `all` and to the list of release files.
+#
+ifeq ($(LS_FALCON), true)
+  all: $(LS_SIGNING)
+  install: $(LS_SIGNING)
+  RELEASE_FILES += $(IMG_SIG_H)
+  ifeq ($(SIGN_LICENSE), CODESIGN_LS_PKC)
+    RELEASE_FILES += $(IMG_SIG_AES_H)
+  endif
+ifneq ($(IS_LS_ENCRYPTED), 0)
+  RELEASE_FILES += $(IMG_DBG_ENCRYPTED_BIN)
+# Local sign is not releasing prod binaries
+# the below check if prod binaries are release is always true
+# Need to find better way to determine if enecrypted file is recieved from LS server
+  ifeq ($(SIGN_LOCAL), 0)
+    ifeq ($(LS_PKC_PROD_ENC_ENABLED),true)
+      RELEASE_FILES += $(IMG_PROD_ENCRYPTED_BIN)
+    endif
+  endif
+endif
+endif
+
+
+###############################################################################
+# Rules for GFW signing
+###############################################################################
+# The bios signing tool has local sign option that require access to outside
+# of the chips_a build scope. Local build could be enabled by removing the
+# --disable_local_signing option from the client command line and enabling
+# the BUILD_TOOLS_DIR path
+
+# export BUILD_TOOLS_DIR = $(P4ROOT)/sw/tools
+
+BIOS_SIGN_CLIENT = ../bios_sign/client
+
+GFW_SIGNING = $(OUTPUTDIR)/bios_fbfalcon_$(CHIPNAME_ONLY)_dbg_enc.bin
+GFW_SIGNING_H = $(OUTPUTDIR)/bios_fbfalcon_$(CHIPNAME_ONLY)_dbg_crypto.h
+GFW_SIGNING_PROD = $(OUTPUTDIR)/bios_fbfalcon_$(CHIPNAME_ONLY)_prod_enc.bin
+GFW_SIGNING_PROD_H = $(OUTPUTDIR)/bios_fbfalcon_$(CHIPNAME_ONLY)_prod_crypto.h
+
+$(GFW_SIGNING): $(IMG_BIN)
+	$(ECHO) [gfw signing] the chip name is: $(CHIPNAME_ONLY)
+	$(BIOS_SIGN_CLIENT) --role gfw --chip $(CHIPNAME_ONLY) --use_case fbfalcon --sig_alg RSAPSS3072 --enc_alg AES256GCM --enc_type $(GFW_SIGN_TYPE) --sig_type $(GFW_SIGN_TYPE) --op ENCRYPT_SIGN --out_dir $(LWRDIR)/$(OUTPUTDIR) --infile $(IMG_ELF)
+	$(ECHO) "Append App Version: $(APP_P4_CL)"
+	$(ECHO) "" >> $(GFW_SIGNING_H)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" >> $(GFW_SIGNING_H)
+ifeq ($(GFW_SIGN_TYPE),PROD)
+	$(ECHO) "Append App Version: $(APP_P4_CL)"
+	$(ECHO) "" >> $(GFW_SIGNING_PROD_H)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" >> $(GFW_SIGNING_PROD_H)
+endif
+		
+ifeq ($(GFW_ENCRYPTION), true)
+  all: $(GFW_SIGNING)
+  install:  $(GFW_SIGNING)
+  RELEASE_FILES += $(GFW_SIGNING) $(GFW_SIGNING_H) $(OUTPUTDIR)/bios_fbfalcon_$(CHIPNAME_ONLY)_dbg.sig
+  ifeq ($(GFW_SIGN_TYPE),PROD)
+    RELEASE_FILES += $(GFW_SIGNING_PROD) $(GFW_SIGNING_PROD_H) $(OUTPUTDIR)/bios_fbfalcon_$(CHIPNAME_ONLY)_prod.sig
+  endif
+endif
+
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(LW_SOURCE)/uproc/build/scripts/release-imgs-if-changed.pl
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_ARGS += --output-prefix $(BUILD_PROJECT_NAME)
+RELEASE_IMG_ARGS += --image         $(IMG_BIN)
+RELEASE_IMG_ARGS += --p4            $(P4)
+
+RELEASE_IMG_ARGS += --release-path $(RELEASE_PATH)
+
+RELEASE_IMG_ARGS += --release-files            \
+  $(subst $(SPACE),$(COMMA),$(RELEASE_FILES))
+
+RELEASE_IMG_ARGS += --restricted-release-path  \
+  ../../tools/restricted/falcon/bin/pmu
+
+# unless disabled, make sure the environment is fresh before installing
+ifneq ("$(NO_CHECK_BUILD)","true")
+  .PHONY: checkbuild
+  install: checkbuild
+endif
+
+#release: $(IMG_ELF)
+#	$(ECHO) $(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)  >> $(SIGN_SCRIPT)
+#	$(ECHO) hello
+
+
+install: $(IMG_BIN) $(IMG_H)
+	echo "installing to drivers/resman/kernel/inc/fbflcn/bin ..."
+	$(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)
+
+###############################################################################
+# Enable LwConfig feature flags
+###############################################################################
+LWCFG_DEFAULT_GEN       = --headerOutputFile=$(LWCFG_HEADER)
+ifeq ($(LW_VERBOSE),0)
+  LWCFG_VERBOSE         = quiet
+endif
+include $(LW_SOURCE)/drivers/common/build/lwconfig.lwmk
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files is the prerequisite
+# for this rule.
+###############################################################################
+$(IMG_ELF): $(OBJECTS) $(LINK_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(CFLAGS) $(OBJECTS) $(ADD_OBJECTS) -o $(IMG_ELF) $(LDFLAGS)
+	$(OBJCOPY) -j.paflcn -S -O binary $(IMG_ELF) $(OUTPUTDIR)/section_pafl.out
+	$(OBJCOPY) -j.init -S -O binary $(IMG_ELF) $(OUTPUTDIR)/section_init.out
+	$(OBJCOPY) -j.temp -S -O binary $(IMG_ELF) $(OUTPUTDIR)/section_temp.out
+	$(OBJCOPY) -j.mclk -S -O binary $(IMG_ELF) $(OUTPUTDIR)/section_mclk.out
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_READELF)
+	$(OBJDUMP) -d    $(IMG_ELF) >> $(IMG_OBJDUMP)
+	$(OBJDUMP) -S -d $(IMG_ELF) >> $(IMG_OBJDUMP).source
+	$(DUMPEXEC) -img $(IMG_ELF) -b $(IMG_ELF)
+	$(NM)      -S -n $(IMG_ELF) >> $(IMG_NM)
+	$(ECHO) $(NM)      $(IMG_ELF)       > $(IMG_MAP)
+	$(NM)      $(IMG_ELF)       >> $(IMG_MAP)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_READELF))
+	$(READELF) --all $(IMG_ELF) >> $(IMG_READELF)
+	$(READELF) -S $(IMG_ELF) >> $(IMG_SECTIONS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(IMG_ELF) >> $(IMG_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) the ELF name is: $(IMG_ELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) tool path: $(FALCON_TOOLS)
+	$(ECHO) $(BUILD_PROJECT_NAME) included libraries: $(LIBS)
+
+
+###############################################################################
+# Rule for generating .dt/symdump file
+###############################################################################
+
+SYMDUMP_SCRIPT = $(LW_SOURCE)/pmu_sw/build/symdump/symdump.pl
+
+SYMDUMP_ARGS  += $(IMG_ELF) $(IMG_DT)
+SYMDUMP_ARGS  += --falcon-tools $(FALCON_TOOLS)
+SYMDUMP_ARGS  += --acl          $(APP_P4_CL)
+
+$(IMG_DT):
+	-$(PERL) $(SYMDUMP_SCRIPT) $(SYMDUMP_ARGS)
+
+ifeq ("$(INCLUDE_DT)","true")
+  all: $(IMG_DT)
+endif
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clean_ucode
+clean: clean_ucode

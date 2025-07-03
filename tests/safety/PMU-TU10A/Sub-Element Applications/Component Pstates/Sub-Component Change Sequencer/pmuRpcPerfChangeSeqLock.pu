@@ -1,0 +1,32 @@
+@startuml
+title Locking the Change Sequencer
+RPC -> PERF : RPC
+activate PERF
+    PERF -> PERF : lock(bLock)
+    activate PERF
+        PERF -> ChangeSeq : lock(bLock)
+        activate ChangeSeq
+            ChangeSeq -> ChangeSeq
+            activate ChangeSeq
+                alt bLock = true
+                    alt state = idle
+                        ChangeSeq -> ChangeSeq : state = locked
+                    else state = busy
+                        ChangeSeq -> ChangeSeq : state = lock_pending
+                    end
+                else bLock = false
+                    ChangeSeq -> OS : attachOverlays()
+                    activate OS
+                    deactivate OS
+                    ChangeSeq -> ChangeSeq : processPendingChange()
+                    activate ChangeSeq
+                        return status
+                    ChangeSeq -> OS : detachOverlays()
+                    activate OS
+                    deactivate OS
+                end
+                return status
+            return status
+        return status
+    return status
+@enduml

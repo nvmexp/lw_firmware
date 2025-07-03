@@ -1,0 +1,43 @@
+# -*- mode: perl; -*-
+
+# Timer Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $timerHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_timer", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        SETUP => [
+            DESCRIPTION    => "Setup the General Purpose Timer (GPTMR)",
+            RETURN_TYPE    => "FLCN_STATUS",
+            STUB_RETURNS   => "ERROR",
+            ARGUMENTS      => 'TIMER_MODE mode, TIMER_EVENT event, LwU32 interval, LwBool bIsModeOneShot',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_timer", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        SERVICE => [
+            DESCRIPTION    => "Service General Purpose Timer interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_timer", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+        
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $timerHal;
+

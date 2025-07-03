@@ -1,0 +1,232 @@
+--*_LWRM_COPYRIGHT_BEGIN_
+--*
+--* Copyright 2021 by LWPU Corporation.  All rights reserved.  All
+--* information contained herein is proprietary and confidential to LWPU
+--* Corporation.  Any use, reproduction, or disclosure without the written
+--* permission of LWPU Corporation is prohibited.
+--*
+--*_LWRM_COPYRIGHT_END_
+
+with Lw_Types;                                use Lw_Types;
+with Policy_Types;                            use Policy_Types;
+with Mpu_Policy_Types;                        use Mpu_Policy_Types;
+with Iopmp_Policy_Types;                      use Iopmp_Policy_Types;
+with Policy;                                  use Policy;
+with Policy_External;                         use Policy_External;
+with Policy_External_To_Internal_Colwersions; use Policy_External_To_Internal_Colwersions;
+with Policies;                                use Policies;
+
+package Separation_Kernel.Policies
+is
+    Partition_Policies : constant Partition_Policy_Array := Partition_Policy_Array'(
+TEMPLATE_START
+        COMMA
+        PARTITION_INDEX =>(
+#if POLICY_CONFIG_SBI
+        SBI_Access_Config   => External_Policies(PARTITION_INDEX).SBI_Access_Config,
+#end if;
+#if POLICY_CONFIG_PRIV_LOCKDOWN
+        Priv_Lockdown       => External_Policies(PARTITION_INDEX).Priv_Lockdown,
+#end if;
+        Switchable_To       => External_Policies(PARTITION_INDEX).Switchable_To,
+        Entry_Point_Address => External_Policies(PARTITION_INDEX).Entry_Point_Address,
+        Ucode_Id            => External_Policies(PARTITION_INDEX).Ucode_Id,
+        Sspm                => LW_RISCV_CSR_SSPM_Register'(Wpri1 => LW_RISCV_CSR_SSPM_WPRI1_RST,
+                                                            Ssecm => External_Policies(PARTITION_INDEX).Sspm.Ssecm,
+                                                            Usecm => USECM_INSEC,
+                                                            Wpri0 => LW_RISCV_CSR_SSPM_WPRI0_RST,
+                                                            Splm  => External_Policies(PARTITION_INDEX).Sspm.Splm,
+                                                            Uplm  => LW_RISCV_CSR_SSPM_UPLM_LEVEL0),
+        Secret_Mask         => External_Policies(PARTITION_INDEX).Secret_Mask,
+        Debug_Control       => External_Policies(PARTITION_INDEX).Debug_Control,
+        Mpu_Control         => External_Policies(PARTITION_INDEX).Mpu_Control,
+        Device_Map          =>
+        Device_Map_Cfg'(
+            Cfg => (
+                    0 => LW_PRGNLCL_RISCV_DEVICEMAP_RISCVSUBMMODE_Register'(Val => Plcy_Device_Map_Group_0_To_LwU32(External_Policies(PARTITION_INDEX).Device_Map_Group_0)),
+                    1 => LW_PRGNLCL_RISCV_DEVICEMAP_RISCVSUBMMODE_Register'(Val => Plcy_Device_Map_Group_1_To_LwU32(External_Policies(PARTITION_INDEX).Device_Map_Group_1)),
+                    2 => LW_PRGNLCL_RISCV_DEVICEMAP_RISCVSUBMMODE_Register'(Val => Plcy_Device_Map_Group_2_To_LwU32(External_Policies(PARTITION_INDEX).Device_Map_Group_2)),
+                    3 => LW_PRGNLCL_RISCV_DEVICEMAP_RISCVSUBMMODE_Register'(Val => Plcy_Device_Map_Group_3_To_LwU32(External_Policies(PARTITION_INDEX).Device_Map_Group_3)))),
+
+        Core_Pmp            =>
+        Core_Pmp_Cfg'(
+            Cfg2 => LW_RISCV_CSR_PMPCFG2_Register'(
+                Pmp15l => PMP15L_UNLOCK,
+                Pmp15s => LW_RISCV_CSR_PMPCFG2_PMP15S_RST,
+                Pmp15a => PMP_Address_Mode_To_PMPCFG2_PMP15A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(7).Address_Mode),
+                Pmp15x => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP15X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(7).Access_Mode.Exelwtion_Access),
+                Pmp15w => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP15W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(7).Access_Mode.Write_Access),
+                Pmp15r => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP15R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(7).Access_Mode.Read_Access),
+                Pmp14l => PMP14L_UNLOCK,
+                Pmp14s => LW_RISCV_CSR_PMPCFG2_PMP14S_RST,
+                Pmp14a => PMP_Address_Mode_To_PMPCFG2_PMP14A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(6).Address_Mode),
+                Pmp14x => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP14X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(6).Access_Mode.Exelwtion_Access),
+                Pmp14w => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP14W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(6).Access_Mode.Write_Access),
+                Pmp14r => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP14R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(6).Access_Mode.Read_Access),
+                Pmp13l => PMP13L_UNLOCK,
+                Pmp13s => LW_RISCV_CSR_PMPCFG2_PMP13S_RST,
+                Pmp13a => PMP_Address_Mode_To_PMPCFG2_PMP13A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(5).Address_Mode),
+                Pmp13x => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP13X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(5).Access_Mode.Exelwtion_Access),
+                Pmp13w => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP13W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(5).Access_Mode.Write_Access),
+                Pmp13r => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP13R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(5).Access_Mode.Read_Access),
+                Pmp12l => PMP12L_UNLOCK,
+                Pmp12s => LW_RISCV_CSR_PMPCFG2_PMP12S_RST,
+                Pmp12a => PMP_Address_Mode_To_PMPCFG2_PMP12A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(4).Address_Mode),
+                Pmp12x => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP12X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(4).Access_Mode.Exelwtion_Access),
+                Pmp12w => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP12W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(4).Access_Mode.Write_Access),
+                Pmp12r => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP12R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(4).Access_Mode.Read_Access),
+                Pmp11l => PMP11L_UNLOCK,
+                Pmp11s => LW_RISCV_CSR_PMPCFG2_PMP11S_RST,
+                Pmp11a => PMP_Address_Mode_To_PMPCFG2_PMP11A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(3).Address_Mode),
+                Pmp11x => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP11X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(3).Access_Mode.Exelwtion_Access),
+                Pmp11w => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP11W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(3).Access_Mode.Write_Access),
+                Pmp11r => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP11R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(3).Access_Mode.Read_Access),
+                Pmp10l => PMP10L_UNLOCK,
+                Pmp10s => LW_RISCV_CSR_PMPCFG2_PMP10S_RST,
+                Pmp10a => PMP_Address_Mode_To_PMPCFG2_PMP10A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(2).Address_Mode),
+                Pmp10x => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP10X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(2).Access_Mode.Exelwtion_Access),
+                Pmp10w => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP10W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(2).Access_Mode.Write_Access),
+                Pmp10r => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP10R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(2).Access_Mode.Read_Access),
+                Pmp9l => PMP9L_UNLOCK,
+                Pmp9s => LW_RISCV_CSR_PMPCFG2_PMP9S_RST,
+                Pmp9a => PMP_Address_Mode_To_PMPCFG2_PMP9A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(1).Address_Mode),
+                Pmp9x => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP9X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(1).Access_Mode.Exelwtion_Access),
+                Pmp9w => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP9W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(1).Access_Mode.Write_Access),
+                Pmp9r => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP9R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(1).Access_Mode.Read_Access),
+                Pmp8l => PMP8L_UNLOCK,
+                Pmp8s => LW_RISCV_CSR_PMPCFG2_PMP8S_RST,
+                Pmp8a => PMP_Address_Mode_To_PMPCFG2_PMP8A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(0).Address_Mode),
+                Pmp8x => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP8X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(0).Access_Mode.Exelwtion_Access),
+                Pmp8w => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP8W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(0).Access_Mode.Write_Access),
+                Pmp8r => PMP_Access_To_LW_RISCV_CSR_PMPCFG2_PMP8R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(0).Access_Mode.Read_Access)),
+
+        Addr => Core_Pmp_Cfg_Addr_Array'(
+            0 => PMP_Address_To_LW_RISCV_CSR_PMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(0).Addr),
+            1 => PMP_Address_To_LW_RISCV_CSR_PMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(1).Addr),
+            2 => PMP_Address_To_LW_RISCV_CSR_PMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(2).Addr),
+            3 => PMP_Address_To_LW_RISCV_CSR_PMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(3).Addr),
+            4 => PMP_Address_To_LW_RISCV_CSR_PMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(4).Addr),
+            5 => PMP_Address_To_LW_RISCV_CSR_PMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(5).Addr),
+            6 => PMP_Address_To_LW_RISCV_CSR_PMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(6).Addr),
+            7 => PMP_Address_To_LW_RISCV_CSR_PMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(7).Addr)),
+
+        Ext_Cfg0 => LW_RISCV_CSR_MEXTPMPCFG0_Register'(
+                Pmp23l => PMP23L_UNLOCK,
+                Pmp23s => LW_RISCV_CSR_MEXTPMPCFG0_PMP23S_RST,
+                Pmp23a => PMP_Address_Mode_To_MEXTPMPCFG0_PMP23A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(15).Address_Mode),
+                Pmp23x => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP23X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(15).Access_Mode.Exelwtion_Access),
+                Pmp23w => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP23W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(15).Access_Mode.Write_Access),
+                Pmp23r => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP23R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(15).Access_Mode.Read_Access),
+                Pmp22l => PMP22L_UNLOCK,
+                Pmp22s => LW_RISCV_CSR_MEXTPMPCFG0_PMP22S_RST,
+                Pmp22a => PMP_Address_Mode_To_MEXTPMPCFG0_PMP22A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(14).Address_Mode),
+                Pmp22x => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP22X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(14).Access_Mode.Exelwtion_Access),
+                Pmp22w => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP22W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(14).Access_Mode.Write_Access),
+                Pmp22r => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP22R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(14).Access_Mode.Read_Access),
+                Pmp21l => PMP21L_UNLOCK,
+                Pmp21s => LW_RISCV_CSR_MEXTPMPCFG0_PMP21S_RST,
+                Pmp21a => PMP_Address_Mode_To_MEXTPMPCFG0_PMP21A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(13).Address_Mode),
+                Pmp21x => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP21X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(13).Access_Mode.Exelwtion_Access),
+                Pmp21w => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP21W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(13).Access_Mode.Write_Access),
+                Pmp21r => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP21R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(13).Access_Mode.Read_Access),
+                Pmp20l => PMP20L_UNLOCK,
+                Pmp20s => LW_RISCV_CSR_MEXTPMPCFG0_PMP20S_RST,
+                Pmp20a => PMP_Address_Mode_To_MEXTPMPCFG0_PMP20A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(12).Address_Mode),
+                Pmp20x => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP20X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(12).Access_Mode.Exelwtion_Access),
+                Pmp20w => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP20W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(12).Access_Mode.Write_Access),
+                Pmp20r => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP20R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(12).Access_Mode.Read_Access),
+                Pmp19l => PMP19L_UNLOCK,
+                Pmp19s => LW_RISCV_CSR_MEXTPMPCFG0_PMP19S_RST,
+                Pmp19a => PMP_Address_Mode_To_MEXTPMPCFG0_PMP19A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(11).Address_Mode),
+                Pmp19x => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP19X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(11).Access_Mode.Exelwtion_Access),
+                Pmp19w => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP19W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(11).Access_Mode.Write_Access),
+                Pmp19r => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP19R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(11).Access_Mode.Read_Access),
+                Pmp18l => PMP18L_UNLOCK,
+                Pmp18s => LW_RISCV_CSR_MEXTPMPCFG0_PMP18S_RST,
+                Pmp18a => PMP_Address_Mode_To_MEXTPMPCFG0_PMP18A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(10).Address_Mode),
+                Pmp18x => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP18X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(10).Access_Mode.Exelwtion_Access),
+                Pmp18w => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP18W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(10).Access_Mode.Write_Access),
+                Pmp18r => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP18R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(10).Access_Mode.Read_Access),
+                Pmp17l => PMP17L_UNLOCK,
+                Pmp17s => LW_RISCV_CSR_MEXTPMPCFG0_PMP17S_RST,
+                Pmp17a => PMP_Address_Mode_To_MEXTPMPCFG0_PMP17A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(9).Address_Mode),
+                Pmp17x => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP17X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(9).Access_Mode.Exelwtion_Access),
+                Pmp17w => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP17W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(9).Access_Mode.Write_Access),
+                Pmp17r => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP17R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(9).Access_Mode.Read_Access),
+                Pmp16l => PMP16L_UNLOCK,
+                Pmp16s => LW_RISCV_CSR_MEXTPMPCFG0_PMP16S_RST,
+                Pmp16a => PMP_Address_Mode_To_MEXTPMPCFG0_PMP16A_Field(External_Policies(PARTITION_INDEX).Core_Pmp(8).Address_Mode),
+                Pmp16x => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP16X_Field(External_Policies(PARTITION_INDEX).Core_Pmp(8).Access_Mode.Exelwtion_Access),
+                Pmp16w => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP16W_Field(External_Policies(PARTITION_INDEX).Core_Pmp(8).Access_Mode.Write_Access),
+                Pmp16r => PMP_Access_To_LW_RISCV_CSR_MEXTPMPCFG0_PMP16R_Field(External_Policies(PARTITION_INDEX).Core_Pmp(8).Access_Mode.Read_Access)),
+
+        Ext_Addr => Ext_Core_Pmp_Cfg_Addr_Array'(
+            0 => PMP_Address_To_LW_RISCV_CSR_MEXTPMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(8).Addr),
+            1 => PMP_Address_To_LW_RISCV_CSR_MEXTPMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(9).Addr),
+            2 => PMP_Address_To_LW_RISCV_CSR_MEXTPMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(10).Addr),
+            3 => PMP_Address_To_LW_RISCV_CSR_MEXTPMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(11).Addr),
+            4 => PMP_Address_To_LW_RISCV_CSR_MEXTPMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(12).Addr),
+            5 => PMP_Address_To_LW_RISCV_CSR_MEXTPMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(13).Addr),
+            6 => PMP_Address_To_LW_RISCV_CSR_MEXTPMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(14).Addr),
+            7 => PMP_Address_To_LW_RISCV_CSR_MEXTPMPADDR_Register(External_Policies(PARTITION_INDEX).Core_Pmp(15).Addr))),
+
+        Io_Pmp_Mode         =>
+        Io_Pmp_Mode_Cfg'(
+                Io_Pmp_Mode0 => Shift_Left(LwU32(Io_Pmp_Address_Mode_To_LwU2(External_Policies(PARTITION_INDEX).Io_Pmp(7).Mode)), 30) or
+                                Shift_Left(LwU32(Io_Pmp_Address_Mode_To_LwU2(External_Policies(PARTITION_INDEX).Io_Pmp(6).Mode)), 28) or
+                                Shift_Left(LwU32(Io_Pmp_Address_Mode_To_LwU2(External_Policies(PARTITION_INDEX).Io_Pmp(5).Mode)), 26) or
+                                Shift_Left(LwU32(Io_Pmp_Address_Mode_To_LwU2(External_Policies(PARTITION_INDEX).Io_Pmp(4).Mode)), 24) or
+                                Shift_Left(LwU32(Io_Pmp_Address_Mode_To_LwU2(External_Policies(PARTITION_INDEX).Io_Pmp(3).Mode)), 22) or
+                                Shift_Left(LwU32(Io_Pmp_Address_Mode_To_LwU2(External_Policies(PARTITION_INDEX).Io_Pmp(2).Mode)), 20) or
+                                Shift_Left(LwU32(Io_Pmp_Address_Mode_To_LwU2(External_Policies(PARTITION_INDEX).Io_Pmp(1).Mode)), 18) or
+                                Shift_Left(LwU32(Io_Pmp_Address_Mode_To_LwU2(External_Policies(PARTITION_INDEX).Io_Pmp(0).Mode)), 16)
+            ),
+        Io_Pmp           =>
+        Io_Pmp_Cfg'(
+                    Cfg => (
+                            0 => Plcy_Io_Pmp_Cfg_To_LW_PRGNLCL_RISCV_IOPMP_CFG_Register(External_Policies(PARTITION_INDEX).Io_Pmp(0).Cfg),
+                            1 => Plcy_Io_Pmp_Cfg_To_LW_PRGNLCL_RISCV_IOPMP_CFG_Register(External_Policies(PARTITION_INDEX).Io_Pmp(1).Cfg),
+                            2 => Plcy_Io_Pmp_Cfg_To_LW_PRGNLCL_RISCV_IOPMP_CFG_Register(External_Policies(PARTITION_INDEX).Io_Pmp(2).Cfg),
+                            3 => Plcy_Io_Pmp_Cfg_To_LW_PRGNLCL_RISCV_IOPMP_CFG_Register(External_Policies(PARTITION_INDEX).Io_Pmp(3).Cfg),
+                            4 => Plcy_Io_Pmp_Cfg_To_LW_PRGNLCL_RISCV_IOPMP_CFG_Register(External_Policies(PARTITION_INDEX).Io_Pmp(4).Cfg),
+                            5 => Plcy_Io_Pmp_Cfg_To_LW_PRGNLCL_RISCV_IOPMP_CFG_Register(External_Policies(PARTITION_INDEX).Io_Pmp(5).Cfg),
+                            6 => Plcy_Io_Pmp_Cfg_To_LW_PRGNLCL_RISCV_IOPMP_CFG_Register(External_Policies(PARTITION_INDEX).Io_Pmp(6).Cfg),
+                            7 => Plcy_Io_Pmp_Cfg_To_LW_PRGNLCL_RISCV_IOPMP_CFG_Register(External_Policies(PARTITION_INDEX).Io_Pmp(7).Cfg)
+                    ),
+
+                    Addr_Lo => (
+                                0 => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_Register'(Above1k => External_Policies(PARTITION_INDEX).Io_Pmp(0).Addr_Lo_Above1k,
+                                                                              Lo_1k   => External_Policies(PARTITION_INDEX).Io_Pmp(0).Addr_Lo_1k),
+                                1 => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_Register'(Above1k => External_Policies(PARTITION_INDEX).Io_Pmp(1).Addr_Lo_Above1k,
+                                                                              Lo_1k   => External_Policies(PARTITION_INDEX).Io_Pmp(1).Addr_Lo_1k),
+                                2 => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_Register'(Above1k => External_Policies(PARTITION_INDEX).Io_Pmp(2).Addr_Lo_Above1k,
+                                                                              Lo_1k   => External_Policies(PARTITION_INDEX).Io_Pmp(2).Addr_Lo_1k),
+                                3 => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_Register'(Above1k => External_Policies(PARTITION_INDEX).Io_Pmp(3).Addr_Lo_Above1k,
+                                                                              Lo_1k   => External_Policies(PARTITION_INDEX).Io_Pmp(3).Addr_Lo_1k),
+                                4 => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_Register'(Above1k => External_Policies(PARTITION_INDEX).Io_Pmp(4).Addr_Lo_Above1k,
+                                                                              Lo_1k   => External_Policies(PARTITION_INDEX).Io_Pmp(4).Addr_Lo_1k),
+                                5 => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_Register'(Above1k => External_Policies(PARTITION_INDEX).Io_Pmp(5).Addr_Lo_Above1k,
+                                                                              Lo_1k   => External_Policies(PARTITION_INDEX).Io_Pmp(5).Addr_Lo_1k),
+                                6 => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_Register'(Above1k => External_Policies(PARTITION_INDEX).Io_Pmp(6).Addr_Lo_Above1k,
+                                                                              Lo_1k   => External_Policies(PARTITION_INDEX).Io_Pmp(6).Addr_Lo_1k),
+                                7 => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_Register'(Above1k => External_Policies(PARTITION_INDEX).Io_Pmp(7).Addr_Lo_Above1k,
+                                                                              Lo_1k   => External_Policies(PARTITION_INDEX).Io_Pmp(7).Addr_Lo_1k)
+                    ),
+                    Addr_Hi => (
+                                0 => LW_PRGNLCL_RISCV_IOPMP_ADDR_HI_Register'(Val => External_Policies(PARTITION_INDEX).Io_Pmp(0).Addr_Hi),
+                                1 => LW_PRGNLCL_RISCV_IOPMP_ADDR_HI_Register'(Val => External_Policies(PARTITION_INDEX).Io_Pmp(1).Addr_Hi),
+                                2 => LW_PRGNLCL_RISCV_IOPMP_ADDR_HI_Register'(Val => External_Policies(PARTITION_INDEX).Io_Pmp(2).Addr_Hi),
+                                3 => LW_PRGNLCL_RISCV_IOPMP_ADDR_HI_Register'(Val => External_Policies(PARTITION_INDEX).Io_Pmp(3).Addr_Hi),
+                                4 => LW_PRGNLCL_RISCV_IOPMP_ADDR_HI_Register'(Val => External_Policies(PARTITION_INDEX).Io_Pmp(4).Addr_Hi),
+                                5 => LW_PRGNLCL_RISCV_IOPMP_ADDR_HI_Register'(Val => External_Policies(PARTITION_INDEX).Io_Pmp(5).Addr_Hi),
+                                6 => LW_PRGNLCL_RISCV_IOPMP_ADDR_HI_Register'(Val => External_Policies(PARTITION_INDEX).Io_Pmp(6).Addr_Hi),
+                                7 => LW_PRGNLCL_RISCV_IOPMP_ADDR_HI_Register'(Val => External_Policies(PARTITION_INDEX).Io_Pmp(7).Addr_Hi)
+                    )
+            )
+        )
+TEMPLATE_END
+    );
+
+    Clear_MPU_State : constant LwU1 := Always_Clear_MPU_On_Switch;
+
+end Separation_Kernel.Policies;

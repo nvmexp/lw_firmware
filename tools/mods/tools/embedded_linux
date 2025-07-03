@@ -1,0 +1,471 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if [[ $# -lt 3 ]]; then
+    echo "Usage: $(basename "$0") <IMAGE_DIR> <TARGET> flash <FLASH_TARGET>" >&2
+    echo "       $(basename "$0") <IMAGE_DIR> <TARGET> reset" >&2
+    echo "       $(basename "$0") <IMAGE_DIR> <TARGET> upload <MODS_DIR>" >&2
+    echo "       $(basename "$0") <IMAGE_DIR> <TARGET> mods [ARGS...]" >&2
+    exit 1
+fi
+
+IMAGE_DIR="$1"
+TARGET="$2"
+COMMAND="$3"
+shift 3
+
+if ! [[ $TARGET =~ ^x[12]$ ]]; then
+    echo "Error: Invalid target $TARGET" >&2
+    echo "Valid values are: x1 x2"
+    exit 1
+fi
+
+EXPORTFS_DIR="/local/$TARGET"
+DHCPD_IP="192.168.1.100"
+TARGET_IP="192.168.1.101"
+[[ $TARGET = x2 ]] && TARGET_IP="192.168.1.102"
+ETH_DEV=""
+AURIX_LOG="aurix.log"
+UART_LOG="uart.log"
+FLASH_LOG="flash.log"
+DHCP_LOG="dhcp.log"
+MODS_FILES=( modsexit.txt mods.log mods.mle stat.jso )
+
+runcmd()
+{
+    if [[ $1 = nofail ]]; then
+        shift
+        echo "%" "$@"
+        "$@" || true
+    else
+        echo "%" "$@"
+        "$@"
+    fi
+}
+
+other()
+{
+    if [[ $1 = x1 ]]; then
+        echo x2
+    else
+        echo x1
+    fi
+}
+
+get_aurix()
+{
+    echo "/dev/ttyUSB3"
+}
+
+get_uart()
+{
+    if [[ $TARGET = x1 ]]; then
+        echo "/dev/ttyUSB2"
+    elif [[ $TARGET = x2 ]]; then
+        echo "/dev/ttyUSB6"
+    else
+        echo "/dev/null"
+    fi
+}
+
+setup_uart()
+{
+    runcmd stty -F "$1" 115200 cs8 cread clocal -icrnl -opost onlcr -icanon -echo
+    runcmd stty -F "$1"
+}
+
+AURIX_INITIALIZED=0
+
+init_aurix()
+{
+    [[ $AURIX_INITIALIZED = 0 ]] || return 0
+
+    local UART="$(get_aurix)"
+
+    setup_uart "$UART"
+    AURIX_INITIALIZED=1
+}
+
+aurix()
+{
+    init_aurix
+
+    local UART="$(get_aurix)"
+
+    echo "% exec 3<>$UART"
+    exec 3<>"$UART"
+
+    echo "% echo -e '\n$@' | tr '\n' '\r' >&3"
+    echo -e "\n$@" | tr '\n' '\r' >&3
+
+    echo "% while read LINE; do tee -a $AURIX_LOG <<< \"\$LINE\" | sed 's/^/[aurix]/' ; [[ \$LINE =~ Command.Exelwted ]] && break ; done <&3"
+    local LINE
+    while read LINE; do
+        tee -a "$AURIX_LOG" <<< "$LINE" | sed 's/^/[aurix]/'
+        [[ $LINE =~ Command.Exelwted ]] && break
+    done <&3
+
+    echo "% exec 3<&-"
+    exec 3<&-
+}
+
+UART_INITIALIZED=0
+
+init_uart()
+{
+    [[ $UART_INITIALIZED = 0 ]] || return 0
+
+    local UART="$(get_uart)"
+
+    setup_uart "$UART"
+    echo "% exec 4<>$UART"
+    exec 4<>"$UART"
+    echo "% tee $UART_LOG <&4 | sed 's/^/[uart]/' &"
+    tee "$UART_LOG" <&4 | sed 's/^/[uart]/' &
+    sleep 1
+    UART_INITIALIZED=1
+}
+
+reset_target()
+{
+    if [[ ! -d "$EXPORTFS_DIR" ]]; then
+        echo "Directory $EXPORTFS_DIR does not exist.  Reflash target." >&2
+        exit 1
+    fi
+    runcmd sudo exportfs "*:$EXPORTFS_DIR" -o sync,rw,no_root_squash,no_all_squash,no_subtree_check
+    aurix tegrareset "$(other "$TARGET")" h # Hold the other side in reset (off)
+    setup_dhcp
+    init_uart
+    aurix tegrareset "$TARGET"
+}
+
+DHCP_INITIALIZED=0
+
+setup_dhcp()
+{
+    [[ $DHCP_INITIALIZED = 0 ]] || return 0
+
+    local FOUND=""
+    local IP=""
+    if [[ -z $ETH_DEV ]]; then
+        for ETH_DEV in $(ls /sys/class/net); do
+            [[ $ETH_DEV =~ ^e ]] || continue
+            if ! ifconfig "$ETH_DEV" | grep -q "\<inet "; then
+                FOUND=$ETH_DEV
+                IP="N/A"
+                break
+            fi
+            IP=$(ifconfig "$ETH_DEV" | grep "\<inet ")
+            IP=${IP#*inet addr:}
+            IP=${IP#*inet }
+            IP=${IP%% *}
+            # Skip Ethernet interfaces configured for regular networking
+            [[ $IP =~ ^172\. ]] && continue
+            [[ $IP =~ ^10\. ]] && continue
+            FOUND=$ETH_DEV
+            break
+        done
+        ETH_DEV=$FOUND
+        [[ $FOUND ]] && echo "Auto-detected $ETH_DEV (IP '$IP'), configuring DHCP"
+    fi
+
+    if [[ -z $ETH_DEV ]]; then
+        echo "Error: Did not find any Ethernet interfaces that could be used" >&2
+        echo "Found $(ls /sys/class/net)" >&2
+        exit 1
+    fi
+
+    if [[ $IP != $DHCPD_IP ]]; then
+        runcmd sudo ifconfig "$ETH_DEV" down
+        runcmd sudo ifconfig "$ETH_DEV" up
+        runcmd sudo ifconfig "$ETH_DEV" $DHCPD_IP netmask 255.255.255.0
+    else
+        echo "Auto-detected IP $IP"
+    fi
+    runcmd ifconfig "$ETH_DEV"
+
+    runcmd sudo mkdir -p /local/dhcp
+    echo "% sudo tee /local/dhcp/udhcpd.conf <<EOF"
+    sudo tee /local/dhcp/udhcpd.conf >/dev/null <<EOF
+        start $TARGET_IP
+        end $TARGET_IP
+        option subnet 255.255.255.0
+        interface $ETH_DEV
+        max_leases 1
+        option rootpath $DHCPD_IP:$EXPORTFS_DIR
+        lease_file /local/dhcp/udhcpd.leases
+        pidfile /local/dhcp/udhcpd.pid
+EOF
+    cat /local/dhcp/udhcpd.conf
+    echo 'EOF'
+    runcmd sudo sed -i 's/^ *//' /local/dhcp/udhcpd.conf
+
+    runcmd sudo rm -f /local/dhcp/udhcpd.leases
+    runcmd sudo touch /local/dhcp/udhcpd.leases
+    echo "% sudo busybox udhcpd -f -I $DHCPD_IP /local/dhcp/udhcpd.conf 2>&1 | tee $DHCP_LOG | sed 's/^/[dhcp]/' &"
+    sudo busybox udhcpd -f -I $DHCPD_IP /local/dhcp/udhcpd.conf 2>&1 | tee "$DHCP_LOG" | sed 's/^/[dhcp]/' &
+}
+
+flash()
+{
+    if [[ $# -ne 1 ]]; then
+        if [[ $# -eq 0 ]]; then
+            echo "Error: Missing flash target" >&2
+        else
+            echo "Error: Too many arguments" >&2
+        fi
+        echo "Usage: $(basename "$0") <IMAGE_DIR> <TARGET> flash <FLASH_TARGET>" >&2
+        exit 1
+    fi
+
+    local FLASH_TARGET="$1"
+    [[ $TARGET = x2 ]] && FLASH_TARGET="${FLASH_TARGET%a}b"
+
+    if [[ -f $IMAGE_DIR/test_package.tbz2 ]]; then
+        runcmd tar -x --use-compress-program lbzip2 -f "$IMAGE_DIR/test_package.tbz2" -C "$IMAGE_DIR"
+        runcmd rm "$IMAGE_DIR/test_package.tbz2"
+    fi
+
+    # Fix flashing scripts, because they detects the USB devices (e.g. recovery
+    # mode) by grepping the output from lsusb for "LWpu", but lsusb on Gentoo
+    # prints "LWPU".
+    runcmd sed -i '/^s_LwidiaCorp=/s/LWpu Corp/LW.... Corp/' "$IMAGE_DIR/foundation/embedded/tools-t19x/scripts/t194_bootburn/bootburn.sh"
+    runcmd sed -i '/lsusb/s/LWpu Corp/LW.... Corp/' "$IMAGE_DIR/foundation/embedded/tools-t19x/scripts/t194_bootburn/bootburn_adb.sh"
+
+    # Fix copy scripts, which use cp with -l option to create hard links,
+    # however in PVS we are unpacking package in a different volume than
+    # where the target root fs is deployed, so that just does not work.
+    runcmd sed -i '/cp.*-al/s/-al/-a/' "$IMAGE_DIR/sanity/scripts/linux_copy_rootfs_files.sh"
+    runcmd sed -i '/cp.*-al/s/-al/-a/' "$IMAGE_DIR/sanity/scripts/linux_copy_test_files.sh"
+
+    runcmd nofail sudo exportfs -u "*:$EXPORTFS_DIR"
+    runcmd sudo rm -rf "$EXPORTFS_DIR"
+    runcmd sudo mkdir -p "$EXPORTFS_DIR"
+    runcmd export WIN_INTERFACE=x11 # Needed by linux_copy_rootfs_files.sh
+    runcmd "$IMAGE_DIR/sanity/scripts/linux_copy_rootfs_files.sh" "$IMAGE_DIR" "$EXPORTFS_DIR"
+    runcmd "$IMAGE_DIR/sanity/scripts/linux_copy_test_files.sh" "$IMAGE_DIR" "$EXPORTFS_DIR"
+    runcmd sudo rm -rf "$EXPORTFS_DIR"/root/{mods,mods_internal}
+    runcmd sudo rm -rf "$EXPORTFS_DIR"/tests
+    runcmd sync
+
+    init_uart
+    aurix tegrareset "$(other "$TARGET")" h # Hold the other side in reset (off)
+    aurix tegrarecovery "$TARGET" on
+    aurix tegrareset "$TARGET"
+    runcmd sleep 2
+    runcmd lsusb
+    runcmd "$IMAGE_DIR/sanity/scripts/linux_flash_board.sh" "$IMAGE_DIR" "$FLASH_TARGET" embedded-linux automods
+    aurix tegrarecovery "$TARGET" off
+    reset_target
+    wait_for_target 60
+}
+
+wait_for_target()
+{
+    local START_TIME="$SECONDS"
+    while true; do
+        echo "% ping -c 1 -W $1 $TARGET_IP"
+        ping -c 1 -W "$1" "$TARGET_IP" && return 0
+        local DURATION=$(($SECONDS - $START_TIME))
+        [[ $DURATION -gt $1 ]] && break
+    done
+
+    # Last attempt in case the previous ping failed to connect
+    echo "% ping -c 1 -W 1 $TARGET_IP"
+    ping -c 1 -W 1 "$TARGET_IP" && return 0
+
+    echo "Error: Failed to detect remote host after $1 seconds" >&2
+    return 1
+}
+
+runssh()
+{
+    runcmd sshpass -plwidia ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "lwpu@$TARGET_IP" "$@"
+}
+
+check_target()
+{
+    local RETRIES=0
+    local MAX_RETRIES=2
+    local PASS=0
+    while [[ $RETRIES -lt $MAX_RETRIES ]]; do
+        RETRIES=$(($RETRIES + 1))
+
+        if ! wait_for_target 30; then
+            echo "Resetting target"
+            reset_target
+            continue
+        fi
+
+        if ! runssh true; then
+            sleep 10
+            if ! runssh true; then
+                reset_target
+                continue
+            fi
+        fi
+
+        PASS=1
+        break
+    done
+
+    if [[ $PASS = 0 ]]; then
+        echo "Failed to connect to the target at $TARGET_IP" >&2
+        exit 1
+    fi
+}
+
+upload_mods()
+{
+    if [[ $# -ne 1 ]]; then
+        if [[ $# -eq 0 ]]; then
+            echo "Error: Missing MODS runspace" >&2
+        else
+            echo "Error: Too many arguments" >&2
+        fi
+        echo "Usage: $(basename "$0") <IMAGE_DIR> <TARGET> upload <MODS_DIR>" >&2
+        exit 1
+    fi
+
+    if [[ ! -d "$1" ]]; then
+        echo "Error: Missing directory $1" >&2
+        exit 1
+    fi
+
+    local LWRRENT_DIR=$(cd -P . && pwd)
+    local MODS_DIR=$(cd -P "$1" && pwd)
+    if [[ $LWRRENT_DIR = $MODS_DIR ]]; then
+        echo "Error: Unable to upload MODS from current directory" >&2
+        exit 1
+    fi
+
+    if [ ! -x "$1/mods" ]; then
+        echo "Error: Missing MODS exelwtable $1/mods" >&2
+        exit 1
+    fi
+
+    echo "% sha512sum "$1"/* | sort -k 2 > checksum"
+    sha512sum "$1"/* | sort -k 2 > checksum
+    if [[ -f $EXPORTFS_DIR/mods/checksum ]]; then
+        echo "% diff $EXPORTFS_DIR/mods/checksum checksum"
+        if diff "$EXPORTFS_DIR/mods/checksum" checksum; then
+            echo "MODS did not change, skipping upload"
+            runcmd rm checksum
+            return 0
+        fi
+    fi
+
+    check_target
+
+    runssh sync
+    runcmd sudo rm -rf "$EXPORTFS_DIR/output"
+    runcmd sudo rm -rf "$EXPORTFS_DIR/mods"
+    runcmd sudo mkdir -p "$EXPORTFS_DIR/mods"
+    runcmd sudo cp -a "$1"/* "$EXPORTFS_DIR/mods"
+    runcmd sudo cp checksum  "$EXPORTFS_DIR/mods/checksum"
+    runcmd rm checksum
+    runssh sync
+}
+
+run_mods()
+{
+    check_target
+
+    local FILE
+    for FILE in "${MODS_FILES[@]}"; do
+        if [[ -f "$EXPORTFS_DIR/output/$FILE" ]]; then
+            runcmd sudo rm -f "$EXPORTFS_DIR/output/$FILE"
+        fi
+    done
+    runcmd sudo mkdir -p "$EXPORTFS_DIR/output"
+    runcmd sudo chmod 1777 "$EXPORTFS_DIR/output"
+    echo "% sudo tee $EXPORTFS_DIR/mods/runmods.sh <<EOF"
+    sudo tee "$EXPORTFS_DIR/mods/runmods.sh" >/dev/null <<EOF
+        #!/bin/bash
+
+        set -euo pipefail
+
+        runcmd()
+        {
+            echo "$ \$@"
+            "\$@" || return \$?
+        }
+
+        if grep -q lwgpu /proc/modules; then
+            runcmd sudo rmmod lwgpu
+            runcmd sudo rmmod mods || true
+        fi
+        if ! test -e /dev/mods; then
+            runcmd sudo modprobe mods
+        fi
+        runcmd sudo chown lwpu /dev/mods
+        if test -e /dev/t19x-lwlink-endpt; then
+            runcmd sudo chown lwpu /dev/t19x-lwlink-endpt
+        fi
+
+        runcmd sudo hostname "$(hostname)"
+        runcmd sudo sed -i 's/cheetah-ubuntu/$(hostname)/' /etc/hosts
+        runcmd sudo sed -i 's/cheetah-ubuntu/$(hostname)/' /etc/hostname
+
+        runcmd cd /output
+
+        if test -f /mods/librm.so; then
+            runcmd export LD_LIBRARY_PATH=/mods
+        fi
+
+        EC=0
+        runcmd /mods/mods "\$@" || EC=\$?
+        echo "MODS exit code: \$EC"
+        echo "\$EC" > modsexit.txt
+EOF
+    cat "$EXPORTFS_DIR/mods/runmods.sh"
+    echo 'EOF'
+    runcmd sudo sed -i 's/^ \{8\}//' "$EXPORTFS_DIR/mods/runmods.sh"
+    runcmd sudo chmod 755 "$EXPORTFS_DIR/mods/runmods.sh"
+
+    init_uart
+    runssh sync
+    runssh "/mods/runmods.sh" "$@"
+    for FILE in "${MODS_FILES[@]}"; do
+        if [[ -f "$EXPORTFS_DIR/output/$FILE" ]]; then
+            runcmd cp "$EXPORTFS_DIR/output/$FILE" "$PWD"/
+        fi
+    done
+}
+
+tidy_up()
+{
+    # Kill any remaining background job
+    kill %1 %2 %3 %4 2>/dev/null || true
+    # Kill DHCP server
+    sudo killall busybox 2>/dev/null || true
+}
+trap tidy_up EXIT
+
+runcmd rm -f "$UART_LOG" "$AURIX_LOG" "$FLASH_LOG" "$DHCP_LOG" "${MODS_FILES[@]}"
+
+case "$COMMAND" in
+    flash)
+        flash "$@" ;;
+
+    reset)
+        if [[ $# -ne 0 ]]; then
+            echo "Error: Too many arguments" >&2
+            echo "Usage: $(basename "$0") <IMAGE_DIR> <TARGET> reset" >&2
+            exit 1
+        fi
+        reset_target
+        wait_for_target 30
+        ;;
+
+    upload)
+        upload_mods "$@" ;;
+
+    mods)
+        run_mods "$@" ;;
+
+    *)
+        echo "Error: Unrecognized command - $COMMAND" >&2
+        exit 1
+esac

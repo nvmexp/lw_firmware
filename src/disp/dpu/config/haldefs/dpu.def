@@ -1,0 +1,587 @@
+# -*- mode: perl; -*-
+
+# DPU Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $dpuHal = [
+
+    # per-GPU defaults for DPU for all interfaces below
+    DEFAULTS => [
+        FLAGS          => ":DIRECT_HAL_CALLS",
+        GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+    ],
+
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        INIT => [
+            DESCRIPTION    => "DPU chip specific initialization",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _v02_00        => [ GF11X, dKEPLER, GM10X, ],
+            _v02_05        => [ GM20X, ],
+            _v02_07        => [ PASCAL, ],
+            _GV10X         => [ VOLTA_and_later, ],
+        ],
+
+        BAR0_TIMEOUT_INIT => [
+            DESCRIPTION    => "BAR0 timeout initialization",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GV10X         => [ VOLTA, ],
+            _TU10X         => [ TURING_and_later, ], # TODO: Check with HW and see if Ampere still need WAR to BUG 2198976.
+            _STUB          => [ pre_VOLTA, ],
+        ],
+
+        READ_CMD_QUEUE_HEAD => [
+            DESCRIPTION    => "Read command queue head register",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "LwU32 queueIndex",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_mgmt", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _v02_00        => [ ALL, ],
+        ],
+
+        READ_CMD_QUEUE_TAIL => [
+            DESCRIPTION    => "Read command queue tail register",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "LwU32 queueIndex",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_mgmt", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+
+        WRITE_CMD_QUEUE_HEAD => [
+            DESCRIPTION    => "Write command queue head register",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 queueIndex, LwU32 val",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_mgmt", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+        WRITE_CMD_QUEUE_TAIL => [
+            DESCRIPTION    => "Write command queue tail register",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 queueIndex, LwU32 val",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_mgmt", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+        QUEUE_RM_HEAD_GET => [
+            DESCRIPTION    => "Retrieve RM (MSG) queue head register",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB".
+                              ":GEN_FNPTR_DEFINE", # generate dpuQueueRmHeadGet_HAL_FNPTR
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+        QUEUE_RM_HEAD_SET => [
+            DESCRIPTION    => "Update RM (MSG) queue head register and trigger interrupt to host",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 head",
+            FLAGS          => ":NO_STUB".
+                              ":GEN_FNPTR_DEFINE", # generate dpuQueueRmHeadSet_HAL_FNPTR
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+        QUEUE_RM_TAIL_GET => [
+            DESCRIPTION    => "Retrieve RM (MSG) queue tail register",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB".
+                              ":GEN_FNPTR_DEFINE", # generate dpuQueueRmTailGet_HAL_FNPTR
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+        QUEUE_RM_INIT => [
+            DESCRIPTION    => "Initializes the head and tail pointers of the RM (MSG) queue",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 start",
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_mgmt", "__FUNC__")',
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+        FLCN_PRIV_LEVEL_SET => [
+            DESCRIPTION    => "Set the falcon privilege level",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 privLevelExt, LwU8 privLevelCsb",
+
+            _v02_05        => [ GM20X_and_later, -DISPLAYLESS, ],
+            _STUB          => [ pre_GM20X, DISPLAYLESS, ],
+        ],
+
+        MUTEX_ESTABLISH_MAPPING => [
+            DESCRIPTION    => "Establish the mapping between the logical mutex ID and the HW engine",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _v02_05        => [ GM20X, -DISPLAYLESS, ],
+            _v02_07        => [ GP10x, -DISPLAYLESS, ],
+            _GV10X         => [ VOLTA_and_later, -DISPLAYLESS, ],
+            _STUB          => [ pre_GM20X, DISPLAYLESS, ],
+        ],
+
+        GET_OS_TICK_INTR_MASK => [
+            DESCRIPTION    => "Return the IRQSTAT mask for the OS timer",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _v02_00        => [ GF11X, dKEPLER, GM10X, ],
+            _v02_05        => [ GM20X_thru_PASCAL, -DISPLAYLESS, ],
+            _GV10X         => [ VOLTA_and_later, ],
+        ],
+
+        GPTMR_SET => [
+            DESCRIPTION    => "Set and optionally enable the GPTMR",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwU32 freqHz, LwBool bEnable',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _v02_00         => [ ALL, ],
+        ],
+
+        GPTMR_ENABLE => [
+            DESCRIPTION    => "Enable the GPTMR",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => GPTMR_SET,
+        ],
+
+        GPTMR_DISABLE => [
+            DESCRIPTION    => "Disable the GPTMR",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => GPTMR_SET,
+        ],
+
+        RAISE_DMEM_PLM_TO_LEVEL3 => [
+            DESCRIPTION    => "Raise DMEM PLM to topmost level",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _v02_07        => [ GP10X_and_later, -DISPLAYLESS, ],
+            _STUB          => [ pre_GP10X, DISPLAYLESS, ],
+        ],
+
+        BAR0_REG_RD32 => [
+            DESCRIPTION    => "Read BAR0 register",
+            RETURN_TYPE    => 'LwU32',
+            ARGUMENTS      => 'LwU32',
+            STUB_RETURNS   => LW_U32_MAX,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GV10X         => [ VOLTA_and_later, ],
+            _STUB          => [ pre_VOLTA, ],
+        ],
+
+        BAR0_ERR_CHK_REG_RD_32 => [
+            DESCRIPTION    => "Error handling version of BAR0 register read",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 addr, LwU32 *pData",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_REG_RD32,
+        ],
+
+        BAR0_REG_WR32_NON_POSTED => [
+            DESCRIPTION    => "Write BAR0 register",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwU32, LwU32',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_REG_RD32,
+        ],
+
+        BAR0_ERR_CHK_REG_WR_32_NON_POSTED => [
+            DESCRIPTION    => "Error handling version of BAR0 register write",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32, LwU32",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_REG_RD32,
+        ],
+
+        BAR0_ERR_CHK_REG_RD_32_HS => [
+            DESCRIPTION    => "Read a BAR0 address, wait for completion, and check for priv errors",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 addr, LwU32 *pData",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_REG_RD32,
+        ],
+
+        BAR0_ERR_CHK_REG_WR_32_NON_POSTED_HS => [
+            DESCRIPTION    => "Write a 32-bit value to a BAR0 address, wait for completion, and check for priv errors",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 addr, LwU32 data",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_REG_RD32,
+        ],
+
+         CSB_ERR_CHK_REG_RD_32 => [
+            DESCRIPTION    => "Read a CSB addres and check for priv errors",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwUPtr addr, LwU32 *pData",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_REG_RD32,
+        ],
+
+        CSB_ERR_CHK_REG_WR_32_NON_POSTED => [
+            DESCRIPTION    => "Write a 32-bit value to a CSB address and check for priv errors",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwUPtr addr, LwU32 data",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_REG_RD32,
+        ],
+
+        CSB_ERR_CHK_REG_RD_32_HS => [
+            DESCRIPTION    => "Read a CSB address and check for priv errors",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwUPtr addr, LwU32 *pData",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_REG_RD32,
+        ],
+
+        CSB_ERR_CHK_REG_WR_32_NON_POSTED_HS => [
+            DESCRIPTION    => "Write a 32-bit value to a CSB address and check for priv errors",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwUPtr addr, LwU32 data",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_REG_RD32,
+        ],
+
+        ENABLE_EMEM_APERTURE => [
+            DESCRIPTION    => "Return the IRQSTAT mask for the OS timer",
+            RETURN_TYPE    => 'void',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_REG_RD32,
+        ],
+
+        HS_HDCP_PRE_CHECK => [
+            DESCRIPTION    => "HDCP HS pre-check",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'void*',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_REG_RD32,
+        ],
+
+        HS_PRE_CHECK_COMMON => [
+            DESCRIPTION    => "Common HS pre-check",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'void',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            # TODO: Need to halify this function for Hopper (bug: 200684159), as of now stubbing it for a quick fix.
+            _GV10X         => [ VOLTA_thru_ADA, ],
+            _STUB          => [ pre_VOLTA, HOPPER_and_later, ],
+        ],
+
+        IS_MST_PLMS_SELWRITY_INIT_DONE_HS => [
+            INTERFACE_TAG  => 'dpuIsMstPlmsSelwrityInitDoneHS',    # 'HS' instead of 'Hs'
+            DESCRIPTION    => "Check and do Ecf Security init",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'void',
+            STUB_RETURNS   => FLCN_OK,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA102, ],
+        ],
+
+        ENFORCE_ALLOWED_CHIPS_FOR_HDCP_HS => [
+            INTERFACE_TAG  => 'dpuEnforceAllowedChipsForHdcpHS',    # 'HS' instead of 'Hs'
+            DESCRIPTION    => "Allowed Chips for HDCP",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            _GV10X         => [ VOLTA, ],
+            _TU10X         => [ TURING, -TU116, -TU117, ],
+            _TU116         => [ TU116, TU117, ],
+            _GA10X         => [ AMPERE, -DISPLAYLESS, ],
+            _AD10X         => [ ADA_and_later, -DISPLAYLESS, ],
+            _STUB          => [ pre_VOLTA, GA100, ],
+        ],
+
+        ENFORCE_ALLOWED_CHIPS_FOR_HDCP => [
+            DESCRIPTION    => "Allowed Chips for HDCP",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GA10X          => [ AMPERE, -DISPLAYLESS, ],
+            _AD10X          => [ ADA_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GA102, DISPLAYLESS, ],
+        ],
+
+        GET_UCODE_SW_VERSION_HS => [
+            INTERFACE_TAG  => 'dpuGetUcodeSWVersionHS',    # 'SW' instead of 'Sw', 'HS' instead of 'Hs'
+            DESCRIPTION    => "HS Function to Get SW Ucode version",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwU32* pUcodeVersion',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            _GV10X         => [ VOLTA, ],
+            _TU10X         => [ TURING, -TU116, -TU117, ],
+            _TU116         => [ TU116, TU117, ],
+            _GA10X         => [ AMPERE, -GA100 ],
+            _AD10X         => [ ADA_and_later, ],
+            _STUB          => [ pre_VOLTA, GA100, ],
+        ],
+
+        GET_HW_FUSE_VERSION_HS => [
+            INTERFACE_TAG  => 'dpuGetHWFuseVersionHS',    # 'HW' instead of 'Hw', 'HS' instead of 'Hs'
+            DESCRIPTION    => "HS Function to Get HW Fuse version",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwU32* pFuseVersion',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            _GV10X         => [ VOLTA, ],
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_VOLTA, GA100, ],
+        ],
+
+        GET_HW_FUSE_VERSION => [
+            INTERFACE_TAG  => 'dpuGetHWFuseVersion',    # 'HW' instead of 'Hw'
+            DESCRIPTION    => "LS Function to Get HW Fuse version",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwU32* pFuseVersion',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA102, ],
+        ],
+
+        GET_HW_FPF_VERSION_HS => [
+            INTERFACE_TAG  => 'dpuGetHWFpfVersionHS',   # 'HW' instead of 'Hw', 'HS' instead of 'Hs'
+            DESCRIPTION    => "HS Function to get the HW FPF version",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwU32* pFpfVersion',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA102, ],
+        ],
+
+        GET_HW_FPF_VERSION => [
+            INTERFACE_TAG  => 'dpuGetHWFpfVersion',   # 'HW' instead of 'Hw',
+            DESCRIPTION    => "LS Function to get the HW FPF version",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwU32* pFpfVersion',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA102, ],
+        ],
+
+        CHECK_FUSE_REVOCATION_HS => [
+            INTERFACE_TAG  => 'dpuCheckFuseRevocationHS',    # 'HS' instead of 'Hs'
+            DESCRIPTION    => "Check fuse revocation",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'void',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            _GV10X         => [ VOLTA, TURING, ],
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_VOLTA, GA100, ],
+        ],
+
+        WRITE_DPU_BIN_VERSION_TO_BSI_SELWRE_SCRATCH_HS => [
+            INTERFACE_TAG  => 'dpuWriteDpuBilwersionToBsiSelwreScratchHS',    # 'HS' instead of 'Hs'
+            DESCRIPTION    => "Write ucode version to secure scratch register",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'void',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_REG_RD32,
+        ],
+
+        CHECK_CHAIN_OF_TRUST_HS => [
+            INTERFACE_TAG  => 'dpuCheckChainOfTrustHS',   # 'HS' instead of 'Hs'
+            DESCRIPTION    => "Check whether Bootstrap and FWSEC have run successfully to ensure Chain of Trust",
+            ARGUMENTS      => 'void',
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA102, ],
+        ],
+
+        UPDATE_RESET_PRIV_LEVEL_MASK_HS => [
+            INTERFACE_TAG  => 'dpuUpdateResetPrivLevelMaskHS',    # 'HS' instead of 'Hs'
+            DESCRIPTION    => "Raise Reset PLM to Level3 at HS entry and reduce it Level2 at exit",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwBool bIsRaise",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_REG_RD32,
+        ],
+
+        GET_OS_TICK_TIMER0_INTR_REG => [
+            DESCRIPTION    => "Return the Timer0 interrupt reg for the OS timer",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'void',
+            STUB_RETURNS   => ZERO,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _v02_05        => [ GM20X_thru_PASCAL, -DISPLAYLESS, ],
+            _STUB          => [ pre_GM20X, VOLTA_and_later, DISPLAYLESS, ],
+        ],
+
+        GET_OS_TICK_TIMER0_INTR_CLEAR_VALUE => [
+            DESCRIPTION    => "Return the Timer0 interrupt clear value for the OS timer",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'void',
+            STUB_RETURNS   => ZERO,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            LIKE_INTERFACE => GET_OS_TICK_TIMER0_INTR_REG,
+        ],
+
+        FORCE_START_SCP_RNG_HS => [
+            DESCRIPTION    => "Enable RNG before exiting HS",
+            INTERFACE_TAG  => 'dpuForceStartScpRNGHs',   # 'RNG' instead of 'Rng'
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'void',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libCommonHs", "__FUNC__")',
+
+            _GV10X         => [ VOLTA_and_later, ],
+            _STUB          => [ pre_VOLTA, ],
+        ],
+
+        MSCG_BLACKLISTED_REG_READ => [
+            DESCRIPTION    => "Read a Blacklisted register for MSCG wake-up",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 *pBlacklistedRegVal",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _TU10X         => [ TURING_and_later, ],
+            _STUB          => [ pre_TURING, ], #Volta does not support MSCG
+        ],
+
+        MSCG_ISSUE_FB_ACCESS => [
+            DESCRIPTION    => "Issue FB access when MSCG is engaged",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32, LwU32, LwU8",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => MSCG_BLACKLISTED_REG_READ,
+        ],
+
+        WAIT_MSCG_ENGAGED => [
+            DESCRIPTION    => "Check if MSCG is engaged else keep waiting",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => MSCG_BLACKLISTED_REG_READ,
+        ],
+
+        GET_RAND_NUMBER => [
+            DESCRIPTION    => "Get generated random number.",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 *pDest, LwS32 size",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GV10X         => [ VOLTA_and_later, ],
+            _STUB          => [ pre_VOLTA, ],
+        ],
+
+        HDCP_CMN_INIT => [
+            DESCRIPTION    => "Hdcp1x/Hdcp22 common initialization",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _v02_05        => [ GM20X, -DISPLAYLESS, ],
+            _v02_07        => [ PASCAL, -DISPLAYLESS, ],
+            _STUB          => [ pre_GM20X, GV10x_and_later, DISPLAYLESS, ],
+        ],
+
+        PROGRAM_IMB_DMB_FROM_COMMON_SCRATCH => [
+            DESCRIPTION    => "Program falcon's IMB/IMB1/DMB/DMB1 from value programmed in common scratch by Acrlib",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA102, ],
+        ],
+
+        DMA_HS_OVL_SIG_BLOB_FROM_WPR => [
+            DESCRIPTION    => "DMA HS Ovl Sig blob from gsp subwpr into gsp dmem",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            _GA10X          => [ GA102_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GA102, DISPLAYLESS, ],
+        ],
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $dpuHal;

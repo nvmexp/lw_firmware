@@ -1,0 +1,47 @@
+@startuml "Timer Callback State Diagram (simplified)"
+    skinparam backgroundColor #EEEBDC
+
+    START -> CREATED   : create
+    CREATED -> SCHEDULED : schedule
+    SCHEDULED -> QUEUED : if expired on OS timer tick
+    QUEUED -> EXELWTED : execute
+    EXELWTED -> CREATED : if (type == OS_TMR_CALLBACK_TYPE_ONE_SHOT)
+    EXELWTED -> SCHEDULED : if (type != OS_TMR_CALLBACK_TYPE_ONE_SHOT)
+@enduml
+
+@startuml "Timer Callback State Diagram (detailed)"
+    skinparam backgroundColor #EEEBDC
+
+    START -> CREATED   : create
+
+    CREATED -->> CREATED : update
+    CREATED -> SCHEDULED : schedule
+
+    SCHEDULED -->> SCHEDULED : update
+    SCHEDULED -->> CREATED : cancel
+    SCHEDULED -> QUEUED : if expired on OS timer tick
+
+    QUEUED -->> QUEUED : update
+    QUEUED -->> "QUEUED (cancelation pending)" : cancel
+    QUEUED -> EXELWTED : execute
+
+    "QUEUED (cancelation pending)" -->> "QUEUED (cancelation pending)" : update
+    "QUEUED (cancelation pending)" -->> QUEUED : schedule
+    "QUEUED (cancelation pending)" -->> CREATED : execute
+
+    EXELWTED -->> EXELWTED : update
+    EXELWTED -->> "EXELWTED (cancelation pending)" : cancel
+    EXELWTED -> CREATED : if (type == OS_TMR_CALLBACK_TYPE_ONE_SHOT)
+    EXELWTED -> SCHEDULED : if (type != OS_TMR_CALLBACK_TYPE_ONE_SHOT)
+
+    "EXELWTED (cancelation pending)" -->> "EXELWTED (cancelation pending)" : update
+    "EXELWTED (cancelation pending)" -->> EXELWTED : schedule
+    "EXELWTED (cancelation pending)" -->> CREATED : if no other action performed
+
+    START -->> ERROR : any invalid operations
+    CREATED -->> ERROR : any invalid operations
+    SCHEDULED -->> ERROR : any invalid operations
+    QUEUED -->> ERROR : any invalid operations
+    EXELWTED -->> ERROR : any invalid operations
+
+@enduml

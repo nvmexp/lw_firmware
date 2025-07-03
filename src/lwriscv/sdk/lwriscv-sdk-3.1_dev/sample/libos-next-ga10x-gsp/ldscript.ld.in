@@ -1,0 +1,141 @@
+#include "libos-config.h"
+#include "peregrine-headers.h"
+#include "manifest_defines.h"
+
+OUTPUT_ARCH( "riscv" )
+
+MEMORY
+{
+  imem      (rx)  : ORIGIN = LIBOS_CONFIG_IMEM_FIRST, LENGTH = LIBOS_CONFIG_IMEM_SIZE
+  dmem      (rw)  : ORIGIN = LIBOS_CONFIG_DMEM_FIRST, LENGTH = LIBOS_CONFIG_DMEM_SIZE
+  manifest  (rx)  : ORIGIN = 0xFFFFFFFF00000000, LENGTH = 0x100000000
+  blackhole (r)   : ORIGIN = 0xFFFFFFFE00000000, LENGTH = 0x100000000
+}
+
+PHDRS
+{
+  phdr_text     PT_LOAD;
+  phdr_data     PT_LOAD;
+  phdr_manifest 0x1000;
+}
+
+SECTIONS
+{
+  /* Define the manifest sections (e.g. task/port declarations)
+     These are placed in phdr_manifest and may be dropped from the final image
+    after running the manifest compiler. */
+#include "libos-manifest.ld"
+
+  . = 0x40000;
+
+  .text.shared : ALIGN(4096) {
+    shared_text = . ;
+    KEEP(*liblwriscv.a:(.text*))
+    KEEP(*liblwriscv.a:(.rodata* .srodata*))
+    KEEP(*libCCC.a:(.text*))
+    KEEP(*libCCC.a:(.rodata* .srodata*))
+    . += 0x2000;
+    . = ALIGN(1024);
+    shared_text_size = ABSOLUTE(. - shared_text);
+  } >imem :phdr_text
+
+  .text.boot : ALIGN(4096) {
+    KEEP(*libboot.a:(.text.partition_boot_startup))
+    KEEP(*libboot.a:(.text*))
+    KEEP(*libboot.a:(.rodata* .srodata*))
+  } >imem :phdr_text
+
+  .text.mgmt : ALIGN(4096) {
+    /* Kernel mapping include code for init task */
+    taskall_code = . ;
+    KEEP(*libmgmt.a:(.kernel.startup))
+    KEEP(*libmgmt.a:(.kernel.hot.text*))
+    KEEP(*libmgmt.a:(.kernel.cold.text*))
+    KEEP(*libmgmt.a:(.rodata* .srodata*))
+
+    /* User code */
+    KEEP(*libmgmt.a:(.text*))
+    KEEP(*libtasks.a:(.text*))
+    KEEP(*libtasks.a:(.rodata* .srodata*))
+    KEEP(*libmgmt.a:(.user.text))
+    . = ALIGN(1024);
+    taskall_code_size = ABSOLUTE(. - taskall_code);
+  } >imem :phdr_text
+
+  .data.shared : ALIGN(4096) {
+    shared_data = . ;
+    KEEP(*liblwriscv.a:(.data* .sdata*))
+    KEEP(*liblwriscv.a:(.bss* .sbss*))
+    KEEP(*libCCC.a:(.data* .sdata*))
+    KEEP(*libCCC.a:(.bss* .sbss*))
+  } >dmem :phdr_data
+
+  /*
+   * This is the part where we define the shared buffer OVERLAY. We put the
+   * loadaddr to blackhole (AT>blackhole) because if we don't do that, the 2
+   * sections will be laid out sequentially in the ELF, causing the virtual
+   * address to be different from the load address for all the symbols after the
+   * OVERLAY. Since the .bss is the uninitialized data section, it's safe to
+   * just redirect it to a blackhole.
+   *
+   * Note that in .data.boot section (the next section), there is a dot after
+   * the section name. This is necessary so that the section directly after the
+   * OVERLAY is placed to the correct address.
+   *
+   * See https://ftp.gnu.org/old-gnu/Manuals/ld-2.9.1/html_node/ld_22.html for
+   * more details about how OVERLAY works.
+   */
+  OVERLAY : {
+    .bss.shared.boot {
+      KEEP(*libboot.a:(.bss.shared))
+    }
+    .bss.shared.mgmt {
+      KEEP(*libmgmt.a:(.bss.shared))
+    }
+  } >dmem AT>blackhole :phdr_data
+
+  . = ALIGN(1024);
+  shared_data_size = ABSOLUTE(. - shared_data);
+
+  .data.boot . : ALIGN(4096) {
+    KEEP(*libboot.a:(.data* .sdata*))
+    KEEP(*libboot.a:(.bss* .sbss*))
+    . = ALIGN(8);
+    _partition_boot_stack_bottom = . ;
+    . += 512 ;
+    _partition_boot_stack_top = . ;
+  } >dmem :phdr_data
+
+  . = ALIGN(4096);
+
+  /* 
+    Reserve spaces for the compiled manifest (e.g. resource hash tables) 
+    @note declares taskinit_and_kernel_data  
+  */
+#include "libos-compiled-manifest.ld"
+
+  .data.mgmt : {
+    /* Declare kernel data */
+#include "libos-data.ld"
+    KEEP(*libmgmt.a:(.kernel.hot.data*))
+    KEEP(*libmgmt.a:(.kernel.cold.data*))
+    KEEP(*libmgmt.a:(.init.data*))
+    . =  ALIGN(1024);
+    taskinit_and_kernel_data_size = ABSOLUTE(. - taskinit_and_kernel_data);    
+    
+    /* Worker task */
+    taskworker_data = . ;
+    KEEP(*libmgmt.a:(.worker.data*))
+    KEEP(*libmgmt.a:(.user.data*))
+    . = ALIGN(1024);
+    taskworker_data_size = ABSOLUTE(. - taskworker_data);
+
+    /* Catch-all to ensure all variables were tagged */
+    must_be_empty = . ;
+    KEEP(*libmgmt.a:(.data .sdata))
+    KEEP(*libmgmt.a:(.bss .sbss))
+    KEEP(*libtasks.a:(.data .sdata))
+    KEEP(*libtasks.a:(.bss .sbss))
+    ASSERT(ABSOLUTE(.) == ABSOLUTE(must_be_empty), "One or more variables or functions were not assigned a __attribute__((section(...)))" );
+  } >dmem :phdr_data
+}

@@ -1,0 +1,1264 @@
+:icons: font
+:toc: left
+:docinfo1:
+:source-highlighter: highlight.js
+
+= LIBOS: Tiny Profile
+
+:toc:
+
+== Overview
+
+The tiny profile of LIBOS provides basic scheduling, memory isolation, full IPC, and
+basic drivers in just ~4kb of code.  This makes it ideal for firmware with limited
+access to external memory.
+
+Features Includes::
+ - Microkernel architecture
+ - Preemptive scheduler
+ - Interrupt support
+ - Full synchronous/asynchronous IPC
+ - Flexible memory isolation
+ - User trap handlers
+ - Basic drivers [e.g DMA]
+ - Rich libraries including compliant printf() and malloc()
+
+=== Static Resource Management
+
+The tiny profile of LIBOS is designed to run with a static set of resources
+(e.g ports/tasks/ports) at runtime.  These resources are declared with
+macros and are initialized at compile time.
+
+No code for the creation of shuttles, ports, or tasks exists at runtime.
+
+=== Memory Management
+
+Memory is directly managed by the user-written init task.
+The user makes calls to LibosBootstrapMmap to program MPU entries.
+
+Each task is statically assigned a set of MPU entries at compile time
+that will be enabled while that task is running.  The same MPU entries
+may be valid in multiple tasks simultaneously.
+
+Demand faulting of MPU entries is not supported on LIBOS Tiny Profile
+(see LIBOS_FEATURE_PAGING)
+
+@note: The full profile includes a paging task that is responsible
+       for memory management.  This environment includes provisions
+       for allocation and mapping of arbitrary virtual memory allocations.
+       This includes emulating a hashed page table through the MPU.
+
+=== Boot flow
+
+@note Under construction.
+
+The kernel entry point is kernel/bootstrap.c (@see KernelBootstrap).
+
+This function assumes that the phdr_text section of the ELF has been
+placed at offset IMEM_FIRST in IMEM, and the phdr_data section has been
+placed at DMEM_FIRST.
+
+Once the MPU has been configured the kernel starts exelwtion at
+KernelInit and quickly tranfers control to the user written init task.
+
+The init task runs in user-mode but has priveleged access to a number of
+APIs for MPU and task management.  This task is responsible for waking up
+the other tasks and handling crashing remote tasks.
+
+Tasks are generally declared as waiting on a specific port for a message.
+Sending a message from the init task to the designated port will start
+exelwtion of the task.  Only the init task may be running at init.
+
+When a task takes a fault, it will be reported to the init task as a messages
+to the trap port.  The message contents includes the register state for the
+task.  The init task may reply with a new register state to continue exelwtion.
+This is intended for use by debuggers.
+
+Task reset is not lwrrently supported in the Libos tiny profile.
+
+=== Security
+
+Tasks/Shuttles/Ports locked at runtime::
+The task, shuttle, and port objects are initialized at compile time.
+The manifest compiler is responsible for statically constructing the
+resource hash tables.
+
+Full task isolation::
+Tasks have no access to kernel data structures nor to other tasks.
+
+Minimal kernel interface::
+The kernel supports port messaging, and critical drivers such as DMA.
+All APIs are validated to ensure the caller cannot escalate priveleges.
+
+=== Ports & Shuttles
+
+Ports are the ultimate target of all send/receives.
+Shuttles track the status of the individual send or receive call.  They can be used to wait for the completion or cancel and outstanding transaction.
+The buffer is copied directly between tasks on completion of the messaging call.  There is no limit to the number of messages, or size of the messages pending on a port.
+
+image::rpc1.png[rpc1.png]
+
+Ports:: Target of send/receive
+Shuttle:: Tracks status pending send/receive
+Buffer:: Copied once both the receiver and sender are ready.
+
+All operations complete or fail atomically.
+
+=== Directory Structure
+
+libos/kernel::
+  The core micro-kernel sources. This code should not require modification.
+  bootstrap.c contains the entry point for the kernel.
+
+libos/libs::
+  User-space libraries for time, ports, dma, printf, rbtree and malloc.
+
+libos/manifest-compiler::
+  Processes manifest and produces the final task, port, and shuttle
+  tables. This allows the elimination of complex and large initialization code.
+
+libos/profiles::
+  Each configuration includes header locations, enabled kernel
+  features, SK partition config [MPU and TCM available], and so on
+
+libos/simulator::
+libos/tests::
+  Standalone verification tests for kernel.
+
+== Configuration
+
+The build scripts expected PEREGRINE_PROFILE to be set to the subdirectory in libos/profiles
+containing config.mk. This file is included directly in the makefile fragments as well as
+preprocessed into libos-config.h for consumption by the libraries, kernel, and user code.
+
+.Kernel configuration
+|===
+| Name |  Description
+
+| LIBOS_FEATURE_EXTERNAL_INTERRUPT |  Enables external interrupt and triggers portInterrupt.
+This port is expected to be assigned to a user-authored service.
+
+| LIBOS_FEATURE_PAGING
+|  Supports pagetable and IMEM/DMEM paging to FB. Works with Peregrine MPU.
+
+| LIBOS_CONFIG_MPU_INDEX_FIRST | First MPU index available for use in the partition.
+| LIBOS_CONFIG_MPU_INDEX_COUNT | Total number of MPU entries available for use.
+| LIBOS_CONFIG_MPU_PAGESIZE    | Minimum supported page-size in the MPU
+
+| LIBOS_CONFIG_KERNEL_STACK_SIZE
+| Custom configurations required either static analysis of the kernel, or verification with the test suite.
+
+| LIBOS_CONFIG_MAX_TABLE_DISPLACEMENT
+| Maximum search displacement allowed in port/shuttle handle lookups.
+  This value is enforced by the manifest compiler.
+
+| LIBOS_CONFIG_ID_SIZE
+| This effects the size of LibosPortHandle, LibosTaskId, and LibosShuttleHandle.
+  Recommend 1 on tiny profile and 4 on full profile.
+|===
+
+.Library configuration
+|===
+| Name |  Description
+| LIBOS_CONFIG_PRINTF_TINY_DEBUG
+| LIBOS uses MUSLC's printf() routines.  This profile removes padding, positional arguments and half-integer types. Size is < 512 bytes.
+|===
+
+
+.Core configuration
+|===
+| Name |  Description
+
+| LIBOS_CONFIG_RISCV_COMPRESSED
+| Enables RISC-V compressed ISA.  This reduces code footprint by ~20%.
+
+| LIBOS_CONFIG_RISCV_S_MODE
+| Enables support for Peregrine 2.0.  Configures LIBOS to run in S-mode.
+
+| LIBOS_CONFIG_IMEM_FIRST | Start of IMEM region assigned to partition.
+| LIBOS_CONFIG_IMEM_SIZE  | Size of  IMEM region.
+| LIBOS_CONFIG_DMEM_FIRST | Start of DMEM region assigned to partition.
+| LIBOS_CONFIG_DMEM_SIZE  | Size of  DMEM region.
+
+| LIBOS_CONFIG_TIME_TO_NS(time) | Encodes the relationship between mtime and time in ns. Older cores were scaled.
+| LIBOS_CONFIG_FLOAT | Availability of IEEE754 floating point on the core.
+|===
+
+=== Port Manifest
+
+Ports are declared at compile time by placing manifest declarations in any C file compiled into the project.
+Ports may also be created at runtime with the “large” profile of LIBOS.
+
+LIBOS tracks ports and shuttles through a per task hash-table.
+
+
+[source,C]
+----
+LibosTaskNameExtern(taskWorker)
+LibosTaskNameExtern(taskInit)
+LibosPortNameExtern(taskWorkerPort);
+
+LibosManifestPort(taskWorkerPort)
+LibosManifestGrantWait(taskWorkerPort, taskWorker)
+LibosManifestGrantSend(taskWorkerPort, taskInit)
+----
+
+Each task automatically has two shuttles pre-declared:
+
+[source,C]
+----
+LibosShuttleNameExtern(shuttleSyncSend)
+LibosShuttleNameExtern(shuttleSyncRecv)
+----
+
+=== Task Manifest
+
+The kernel transfers control to the user-authored taskInit after bootstrap.
+This task is responsible for setting up additional MPU mappings and waking
+up the remaining user tasks.
+
+.Init task
+[source,C]
+----
+LibosTaskNameDecl taskInit;
+
+LibosManifestTask(taskInit, init_entry, init_stack, { MPU_INDEX_PRIV });
+----
+
+Service tasks may be declared with LibosManifestTaskWaiting in any C file
+within the project.  These tasks must be declared as waiting on a
+specific port.  The init task will send a message to awaken the task.
+
+.Service tasks
+[source,C]
+----
+LibosTaskNameDecl taskWorker;
+
+LibosManifestTaskWaiting(taskWorker, taskWorkerPort, worker_entry, worker_stack, { });
+----
+
+.Waking up the above service task
+[source,C]
+----
+LibosPortSyncSend(ID(taskWorkerPort), 0, 0, 0, 0);
+----
+
+=== Shuttle Manifest
+
+LIBOS creates two default shuttles for each task shuttleSyncSend and shuttleSyncRecv.
+The shuttles are declared with the same name in all tasks.
+
+Additional task local shuttles may be declared.
+
+.Declaring additional shuttles
+[source,C]
+----
+LibosShuttleNameExtern(taskInitCallbackShuttle);
+
+LibosManifestShuttle(taskInit, taskInitCallbackShuttle)
+----
+
+== Manifest
+
+High level macros are provided to colweniently declare resources at compile time.
+These macros handle the most common use cases.
+
+Resources are assigned numeric handles by the linker scripts.
+The address of these virtual symbols corresponds to the resource ID.
+The numeric ID is accessed through the ID macro.
+e.g. ID(libosPortXXX)
+
+=== LibosManifestTask
+
+Declares the init task.
+
+[source,C]
+----
+LibosTaskNameExtern(taskName);
+
+LibosManifestTask(taskName, entryPoint, stack, { MPU_INDEX_..., ... });
+----
+
+taskName::
+  The desired name for the task.  You should place a forward declaration
+  in a header file (LibosTaskNameExtern(taskName))
+
+int entryPoint()::
+  Entry point for the task.  Task terminates gracefully on return.
+
+stack::
+  Global array of LwU64s for use as the stack.
+
+{ MPU_INDEX_.. , ...}::
+  The list of MPU indices that should be enabled while this task is running.
+  The lowest user managed MPU index is defined by LIBOS as LIBOS_MPU_USER_INDEX.
+
+.Example
+[source,C]
+----
+// [Firmware wide enum]
+enum {
+    MPU_INDEX_PRIV = LIBOS_MPU_USER_INDEX,
+};
+
+int init_entry();
+__attribute__((used,section(".init.data"))) LwU64 init_stack[64];
+
+LibosManifestTask(taskInit, init_entry, init_stack, { MPU_INDEX_PRIV });
+----
+
+=== LibosManifestTaskWaiting
+
+Declares a task that is blocked waiting on a message from a port.
+
+[source,C]
+----
+LibosTaskNameExtern(taskName);
+
+LibosManifestTaskWaiting(taskName, taskPort, entryPoint, stack, { MPU_INDEX_... });
+----
+
+taskName::
+  The desired name for the task.  You should place a forward declaration
+  in a header file (LibosTaskNameExtern(taskName))
+
+taskPort::
+  The task will be blocked until a message arrives on this port.
+  This task does not need a WAIT_GRANT on this port.
+
+int entryPoint()::
+  Entry point for the task.  Task terminates gracefully on return.
+
+stack::
+  Global array of LwU64s for use as the stack.
+
+{ MPU_INDEX_...}::
+  The list of MPU indices that should be enabled while this task is running.
+  The lowest user managed MPU index is defined by LIBOS as LIBOS_MPU_USER_INDEX.
+
+.Example
+[source,C]
+----
+LibosManifestPort(taskWorkerPort)
+LibosManifestGrantWait(taskWorkerPort, taskWorker)
+LibosManifestGrantSend(taskWorkerPort, taskInit)
+
+__attribute__((used,section(".init.data"))) LwU64 worker_stack[64];
+int worker();
+LibosManifestTaskWaiting(taskWorker, taskWorkerPort, worker_entry, worker_stack, { });
+----
+
+=== LibosManifestPort
+
+Creates a port. Use LibosManifestGrantSend and LibosManifestGrantWait to make the port
+available to tasks.
+
+[source,C]
+----
+LibosPortNameExtern(portName);
+
+LibosManifestPort(portName)
+----
+
+portName::
+  The name to assign this port.
+
+=== LibosManifestGrantWait
+
+Grants a task access to receive messages on this port.
+@note: LIBOS lwrrently only allows a single waiter for ports.
+
+[source,C]
+----
+LibosManifestGrantWait(portName, taskName)
+----
+
+portName::
+  Port to grant access to.
+
+taskName::
+  Task received grant.
+
+
+=== LibosManifestGrantSend
+
+Grants a task access to send messages to this port.
+LIBOS allows an unlimited number of queued senders against a port.
+
+[source,C]
+----
+LibosManifestGrantSend(portName, taskName)
+----
+
+portName::
+  Port to grant access to.
+
+taskName::
+  Task received grant.
+
+== Synchronous Messaging API
+
+=== LibosPortSyncSendRecv
+
+This call is used to issue a synchronous RPC to a remote server.
+The remote task will be granted a temporary one-time access to the
+receieve port and will be expected to reply with libosPortSyncReply.
+
+This operation blocks until completed.
+
+[source,C]
+----
+LibosStatus LibosPortSyncSendRecv(
+    LibosPortHandle    sendPort,
+    void          *sendPayload,
+    LwU64          sendPayloadSize,
+    LibosPortHandle    recvPort,
+    void          *recvPayload,
+    LwU64          recvPayloadCapacity,
+    LwU64         *completedSize,
+    LwU64          timeout);
+----
+
+sendShuttle::
+  Tracks the outgoing send.
+  Generally you will use the default shuttle 'shuttleSyncSend'
+
+recvShuttle::
+  Tracks the incoming reply.
+  Generally you will use the default shuttle 'shuttleSyncRecv'
+
+sendPort::
+  Port on remote task to send the message to.
+  LibosManifestGrantSend must exist for this task/port combination.
+
+recvPort::
+  Port on the sending task to receive the reply on.
+  The remote task will be issued a one-time grant on this port
+  for the duration of the receive operation.  This grant can also
+  be revoked by canceling the receive by LibosShuttleReset(recvShuttle).
+
+sendPayload/sendPayloadSize::
+  Outgoing message payload. Copy guaranteed to occur before call returns.
+
+recvPayload/recvPayloadCapacity::
+  Incoming message payload. Copy guaranteed to occur before call returns.
+
+completedSize::
+  Receives size of returned message.
+
+timeout::
+  Timeout in nanoseconds or LibosTimeoutInfinite.
+  Cancels transaction on timeout.
+
+.Return Values
+|===
+| Value | Description
+| LibosErrorIncomplete
+| This oclwrs when the outgoing message is larger than the receiver's buffer.
+  Both sending and receiving shuttles will return this.
+  @note This marks the completion of the shuttle.
+| LibosErrorAccess
+a| This oclwrs when any of:
+
+1. Caller does not own sendShuttle or recvShuttle.
+2. Caller does not have GRANT_SEND on sendPort.
+3. Caller does not have GRANT_WAIT on recvPort.
+4. We're in a scheduler critical section.
+| LibosErrorArgument
+| This oclwrs when one of the two shuttles is lwrrently tracking a pending operation.
+| LibosErrorTimeout
+| Timeout has elapsed before the receive was completed.
+| LibosOk
+| Successful completion of shuttle.
+|===
+
+=== LibosPortSyncRecv
+
+Waits for a message from a remote server on a specific port.
+If you wish to wait on multiple ports simultaneously, please
+use the asynchronous port API.
+
+[source,C]
+----
+LibosStatus LibosPortSyncRecv(
+    LibosShuttleHandle recvShuttle,
+    LibosPortHandle    recvPort,
+    void          *recvPayload,
+    LwU64          recvPayloadCapacity,
+    LwU64         *completedSize,
+    LwU64          timeout);
+----
+
+shuttle::
+  This shuttle should be used to track the incoming RPC.
+  Call libosPortSyncReply with this shuttle to reply.
+  Do not use shuttleSyncRecv if you plan on issuing RPCs
+  to other servers while handling this request as this
+  will reset the shuttle.
+
+recvPort::
+  The port to wait for a message on.
+
+recvPayload/recvPayloadCapacity::
+  Outgoing message.
+
+completedSize::
+  Receives size of returned message.
+
+timeout::
+  Timeout in nanoseconds or LibosTimeoutInfinite.
+  Cancels transaction on timeout.
+
+.Return Values
+|===
+| Value | Description
+| LibosErrorIncomplete
+| This oclwrs when the outgoing message is larger than the receiver's buffer.
+  Both sending and receiving shuttles will return this.
+  @note This marks the completion of the shuttle.
+| LibosErrorAccess
+a| This oclwrs when any of:
+
+1. Caller does not own sendShuttle or recvShuttle.
+2. Caller does not have GRANT_SEND on sendPort.
+3. Caller does not have GRANT_WAIT on recvPort.
+4. We're in a scheduler critical section.
+| LibosErrorArgument
+| This oclwrs when one of the two shuttles is lwrrently tracking a pending operation.
+| LibosErrorTimeout
+| Timeout has elapsed before the receive was completed.
+| LibosOk
+| Successful completion of shuttle.
+|===
+
+=== libosPortSyncReply
+
+Replies to a previously received message using the reply state in the
+specified shuttle.  When a caller sends a message using a send/recv call,
+the receiver is granted a one-time grant to send a reply to the specified
+recv port.  This grant is revoked when the caller's wait is canceled or when
+the receiver resets the shuttle the message was received on.
+
+This operation is atomic and does not enter a wait state.
+
+[source,C]
+----
+LibosStatus libosPortSyncReply(
+    LibosShuttleHandle shuttle,
+    void          *sendPayload,
+    LwU64          sendPayloadSize);
+----
+
+shuttle::
+  Shuttle used to track recv in prior call to LibosPortSyncRecv or LibosPortSyncSendRecv.
+
+sendPayload/sendPayloadSize::
+  Outgoing message.
+
+.Return Values
+|===
+| Value | Description
+| LibosErrorIncomplete
+| This oclwrs when the outgoing message is larger than the receiver's buffer.
+  Both sending and receiving shuttles will return this.
+  @note This marks the completion of the shuttle.
+| LibosErrorArgument
+| This oclwrs when one of the two shuttles is lwrrently tracking a pending operation.
+| LibosOk
+| Successful completion of shuttle.
+|===
+
+=== LibosPortSyncSend
+
+Sends a synchronous message to a remote server on a specific port.
+
+[source,C]
+----
+LibosStatus LibosPortSyncSend(
+    LibosShuttleHandle sendShuttle,
+    LibosPortHandle    sendPort,
+    void          *sendPayload,
+    LwU64          sendPayloadSize,
+    LwU64          timeout);
+----
+
+shuttle::
+  This shuttle should be used to track the outgoing RPC.
+
+sendPort::
+  The port to transmit the message to.
+
+sendPayload/sendPayloadSize::
+  Outgoing message.
+
+timeout::
+  Timeout in nanoseconds or LibosTimeoutInfinite.
+  Cancels transaction on timeout.
+
+.Return Values
+|===
+| Value | Description
+| LibosErrorIncomplete
+| This oclwrs when the outgoing message is larger than the receiver's buffer.
+  Both sending and receiving shuttles will return this.
+  @note This marks the completion of the shuttle.
+| LibosErrorAccess
+a| This oclwrs when any of:
+
+1. Caller does not own sendShuttle or recvShuttle.
+2. Caller does not have GRANT_SEND on sendPort.
+3. Caller does not have GRANT_WAIT on recvPort.
+4. We're in a scheduler critical section.
+| LibosErrorArgument
+| This oclwrs when one of the two shuttles is lwrrently tracking a pending operation.
+| LibosErrorTimeout
+| Timeout has elapsed before the receive was completed.
+| LibosOk
+| Successful completion of shuttle.
+|===
+
+
+== Asynchronous Messaging API
+
+=== LibosPortAsyncSend
+
+Sends an synchronous message to a remote server on a specific port.
+
+The operation returns immediately after queuing to the remote task.
+The caller should use LibosPortWait to wait for the shuttle to complete,
+or libosPortReset to cancel the transaction.
+
+[source,C]
+----
+LibosStatus LibosPortAsyncSend(
+    LibosShuttleHandle sendShuttle,
+    LibosPortHandle    sendPort,
+    void          *sendPayload,
+    LwU64          sendPayloadSize);
+----
+
+sendShuttle::
+  This shuttle should be used to track the outgoing RPC.
+
+sendPort::
+  The port to transmit the message to.
+
+sendPayload/sendPayloadSize::
+  Outgoing message.
+
+.Return Values
+|===
+| Value | Description
+| LibosErrorAccess
+a| This oclwrs when any of:
+
+1. Caller does not own sendShuttle or recvShuttle.
+2. Caller does not have GRANT_SEND on sendPort.
+3. Caller does not have GRANT_WAIT on recvPort.
+| LibosErrorArgument
+| This oclwrs when one of the two shuttles is lwrrently tracking a pending operation.
+| LibosOk
+| Successful completion of shuttle.
+|===
+
+=== LibosPortAsyncRecv
+
+Issues a recv on the specified port and returns immediately.
+
+The operation returns immediately after queuing to the port.
+The caller should use LibosPortWait to wait for the shuttle to complete,
+or libosPortReset to cancel the transaction.
+
+[source,C]
+----
+LibosStatus LibosPortAsyncRecv(
+    LibosShuttleHandle recvShuttle,
+    LibosPortHandle    recvPort,
+    void          *recvPayload,
+    LwU64          recvPayloadCapacity
+);
+----
+
+shuttle::
+  This shuttle should be used to track the incoming RPC.
+  Call libosPortSyncReply with this shuttle to reply.
+
+recvPort::
+  The port to wait for a message on.
+
+recvPayload/recvPayloadCapacity::
+  Outgoing message.
+
+.Return Values
+|===
+| Value | Description
+| LibosErrorAccess
+a| This oclwrs when any of:
+
+1. Caller does not own sendShuttle or recvShuttle.
+2. Caller does not have GRANT_SEND on sendPort.
+3. Caller does not have GRANT_WAIT on recvPort.
+| LibosErrorArgument
+| This oclwrs when one of the two shuttles is lwrrently tracking a pending operation.
+| LibosOk
+| Successful completion of shuttle.
+|===
+
+
+=== LibosPortAsyncSendRecv
+
+This call is used to issue an asynchronous RPC to a remote server.
+The remote task will be granted a temporary one-time access to the
+receive port and will be expected to reply with libosPortSyncReply.
+
+This operation returns immediately once both the send and receive
+have been queued.
+
+[source,C]
+----
+LibosStatus LibosPortAsyncSendRecv(
+    LibosShuttleHandle sendShuttle,
+    LibosPortHandle    sendPort,
+    void          *sendPayload,
+    LwU64          sendPayloadSize,
+    LibosShuttleHandle recvShuttle,
+    LibosPortHandle    recvPort,
+    void          *recvPayload,
+    LwU64          recvPayloadCapacity);
+----
+
+sendShuttle::
+  Tracks the outgoing send.
+
+recvShuttle::
+  Tracks the incoming reply.
+
+sendPort::
+  Port on remote task to send the message to.
+
+recvPort::
+  Port on the sending task to receive the reply on.
+  The remote task will be issued a one-time grant on this port
+  for the duration of the receive operation.  This grant can also
+  be revoked by canceling the receive by LibosShuttleReset(recvShuttle).
+
+sendPayload/sendPayloadSize::
+  Outgoing message payload. Copy guaranteed to occur before call returns.
+
+recvPayload/recvPayloadCapacity::
+  Incoming message payload. Copy guaranteed to occur before call returns.
+
+completedSize::
+  Receives size of returned message.
+
+.Return Values
+|===
+| Value | Description
+| LibosErrorAccess
+a| This oclwrs when any of:
+
+1. Caller does not own sendShuttle or recvShuttle.
+2. Caller does not have GRANT_SEND on sendPort.
+3. Caller does not have GRANT_WAIT on recvPort.
+| LibosErrorArgument
+| This oclwrs when one of the two shuttles is lwrrently tracking a pending operation.
+| LibosOk
+| Successful completion of shuttle.
+|===
+
+=== LibosPortWait
+
+Waits for one or more shuttles to complete.
+
+The return status code corresponds to the success code for the asynchronous
+transaction.
+
+
+[source,C]
+----
+LibosStatus LibosPortWait(
+    LibosShuttleHandle  waitShuttle,
+    LibosShuttleHandle *completedShuttle,
+    LwU64          *completedSize,
+    LwU64           timeoutNs
+);
+----
+
+waitShuttle::
+  An optional shuttle to wait for completion of.
+  Passing 0 will wait for any pending shuttle on this task.
+
+completedShuttle::
+  The name of the completed shuttle.
+
+completedSize::
+  The size transferred to the shuttle.
+  This is guaranteed to match original recv size unless LibosErrorIncomplete
+  is returned.
+
+timeoutNs::
+  Timeout in nanoseconds or the value LibosTimeoutInfinite.
+
+.Return Values
+|===
+| Value | Description
+| LibosErrorAccess
+|   1. Caller does not own sendShuttle or recvShuttle
+|   2. We're in a scheduler critical section
+| LibosErrorIncomplete
+| This oclwrs when the outgoing message is larger than the receiver's buffer.
+  Both sending and receiving shuttles will return this.
+  @note This marks the completion of the shuttle.
+| LibosErrorArgument
+| This oclwrs when one of the two shuttles is lwrrently tracking a pending operation.
+| LibosErrorTimeout
+| Timeout has elapsed before the receive was completed.
+| LibosOk
+| Successful completion of shuttle.
+|===
+
+=== LibosShuttleReset
+
+Cancels the pending transaction issued on the specified shuttle.
+
+If the shuttle was last used for a receive operation and has completed,
+this call revokes any temporary grants assigned to the shuttle.
+
+[source,C]
+----
+LibosStatus LibosShuttleReset(LibosShuttleHandle shuttleIndex);
+----
+
+shuttleIndex::
+  Shuttle to reset
+
+.Return Values
+|===
+| Value | Description
+| LibosErrorArgument
+| This oclwrs when one of the two shuttles is lwrrently tracking a pending operation.
+| LibosOk
+| Successful completion of shuttle.
+|===
+
+== Timer API
+
+TODO: Document the manifest entries, and an example of use.
+
+=== LibosTimerSet
+
+Sets the wake time to the timestamp value.
+This call will override any pending timer wake.
+
+[source,C]
+----
+  LibosStatus LibosTimerSet(LibosPortHandle timer, LwU64 timestamp)
+----
+
+timer::
+  Time object to set wakeup.
+
+timestamp::
+  Time in nanoseconds of wakeup. @see LibosTimeNs
+
+.Return Values
+|===
+| Value | Description
+| LibosErrorAccess
+| The timer object doesn't exist or we lack permissions to set/reset the timer.
+| LibosOk
+| Timer is pending wakeup.
+|===
+
+=== LibosTimerClear
+
+Clears the wake time to the timestamp value.
+The timer will never fire.
+
+[source,C]
+----
+  LibosStatus LibosTimerSet(LibosPortHandle timer, LwU64 timestamp)
+----
+
+timer::
+  Time object to set wakeup.
+
+timestamp::
+  Time in nanoseconds of wakeup. @see LibosTimeNs
+
+.Return Values
+|===
+| Value | Description
+| LibosErrorAccess
+| The timer object doesn't exist or we lack permissions to set/reset the timer.
+| LibosOk
+| Timer is pending wakeup.
+|===
+
+== Scheduler API
+
+=== LibosTaskExit
+
+Gracefully exits the task.  This has the same
+effect as exiting by returning from main.
+
+[source,C]
+----
+void LibosTaskExit(LwU64 exitCode)
+----
+
+exitCode::
+  Task exit code to be reported to the init task.
+
+=== LibosTaskYield
+
+Yields the current tasks remaining timeslice.
+
+[source,C]
+----
+void LibosTaskYield(void);
+----
+
+=== LibosCriticalSectionEnter
+
+Enters a scheduler critical section.
+
+No port wait calls are allowed until exiting the critical section.
+Asynchronous send and receive calls are allowed.
+
+Once in a scheduler critical section the kernel will not context switch
+to another task on end of timeslice.  The kernel interrupt ISR is still 
+ enabled but all user-space interrupt servicing is disabled.
+ 
+If the task crashes while in the critical section, the user may choose
+between kernel panic or simply releasing the critical section.
+
+[source,C]
+----
+typedef enum {
+    LibosCriticalSectionPanicOnTrap = 1,
+    LibosCriticalSectionReleaseOnTrap = 2
+} LibosCriticalSectionBehavior;
+
+void LibosCriticalSectionEnter(LibosCriticalSectionBehavior);
+----
+
+=== LibosCriticalSectionLeave
+
+Leaves a scheduler critical section.
+
+[source,C]
+----
+void LibosCriticalSectionLeave(void);
+----
+
+== Task Trap Reporting
+
+Enabled through LIBOS_FEATURE_USERSPACE_TRAPS.
+If disabled, the kernel will panic on task trap.
+
+When a task crashes, the kernel will halt the task and report the trap
+to the init task on the taskTrap port.
+
+The message payload is defined as LibosTaskState.
+
+[source,C]
+----
+typedef struct
+{
+    LwU64 registers[32];
+    LwU64 xepc;
+    LwU64 xcause;
+    LwU64 xbadaddr;
+} LibosTaskState;
+----
+
+The init task may replay the fault by replying with a new task state
+structure.
+
+== Security API
+
+=== libosSelwreRandom
+
+Returns a 64-bit secure random number.
+
+[source,C]
+----
+LwU64 libosSelwreRandom();
+----
+
+=== LibosPanic
+
+Report a fatal error condition such as SSP stack smashing,
+or validation failure.
+
+[source,C]
+----
+void LibosPanic()
+----
+
+== DMA API
+
+=== LibosDmaCopy
+
+Queues the requested DMA to the hardware.
+May block if the Q becomes full.
+
+Wait for completion by issuing a libosDmaWait()
+
+[source,C]
+----
+LibosStatus LibosDmaCopy(
+  LwU64   destinatiolwa,
+  LwU64   sourceVa,
+  LwU64   size
+);
+----
+
+destinatiolwa::
+  The target address of the copy.
+  No special alignment requirements.
+
+sourceVa::
+  The source address of the copy
+
+size::
+  Length in bytes of the transfer
+
+.Return Values
+|===
+| Value | Description
+| LibosErrorArgument
+| One of more of the addresses isn't completely covered by an MPU entry.
+| LibosOk
+| Successful completion of shuttle.
+|===
+
+=== libosDmaWait
+
+Waits for all previously committed DMA operations to complete.
+
+Does not issue a memory barrier to ensure writes to FB/SYSCOH have
+reached a point of coherence.
+
+[source, C]
+----
+void libosDmaWait(void);
+----
+
+== Balanced Tree API
+
+LIBOS contains a well tested routines for re-balancing of red-black binary trees.
+You may construct a simple red-black tree by copying the template below.
+
+=== Example
+
+[source,C]
+----
+
+typedef LibosTreeHeader IntegerMap; 
+
+typedef struct {
+    LibosTreeHeader header;
+    LwU64           key;
+    LwU64           value;
+} IntegerMapNode;
+
+void IntegerMapConstruct(IntegerMap * integerMap) 
+{
+    LibosTreeConstruct(integerMap);
+}
+
+void IntegerMapInsert(IntegerMap * integerMap, IntegerMapNode * node)
+{
+    LibosTreeHeader * * slot = &integerMap->parent;
+    node->header.parent = node->header.left = node->header.right = integerMap;
+    
+    while (!(*slot)->isNil)
+    {
+        node->header.parent = *slot;
+        if (CONTAINER_OF(node, IntegerMapNode, header)->key < 
+              CONTAINER_OF(*slot, IntegerMapNode, header)->key)
+            slot = &(*slot)->left;
+        else
+            slot = &(*slot)->right;
+    }
+    *slot = &node->header;
+
+    LibosTreeInsertFixup(&node->header, 0);
+}
+
+void IntegerMapUnlink(IntegerMapNode * node)
+{
+    LibosTreeUnlink(&node->header, 0);
+}
+
+IntegerMapNode * IntegerMapFind(IntegerMap * integerMap, LwU64 key)
+{
+    LibosTreeHeader * i = integerMap->parent;
+
+    while (!i->isNil)
+        if (key < CONTAINER_OF(i, IntegerMapNode, header)->key)
+            i = i->left;
+        else if (key > CONTAINER_OF(i, IntegerMapNode, header)->key)
+            i = i->right;
+        else
+            return CONTAINER_OF(i, IntegerMapNode, header);
+
+    return 0;
+}
+
+----
+
+=== Theory
+
+The header node acts like a link node in a cirlwlar link list.
+It simplifies traveral, and enables removing nodes without having an explicit root
+pointer.  
+
+header->parent:: Points to the root of the binary tree.
+header->left:: Points to the left child, or the header node if there is no left child.
+header->right:: Points to the right child, or the header node if there is no left child.
+
+The header node is the only node with 'isNil' set to true.
+
+=== LibosTreeConstruct
+
+Initializes the header node of a red-black tree.  
+This node acts like the header-link in a double linked list.
+
+[source,C]
+----
+void LibosTreeConstruct(LibosTreeHeader *header);
+----
+
+=== LibosTreeInsertFixup
+
+Performs the red-black tree rebalance after inserting
+a new node into a tree. 
+
+Requirements::
+  - x->left and x->right must be set to the header node
+  - x->parent must properly set to the parent
+
+[source,C]
+----
+void LibosTreeInsertFixup(LibosTreeHeader *x);
+----
+
+=== LibosTreeUnlink
+
+Removes a node from a red-black tree and Performs
+any required unbalancing.
+
+[source,C]
+----
+void LibosTreeUnlink(LibosTreeHeader *);
+----
+
+== libriscv: RISC-V instruction decoder
+
+General purposes library for decompiling RISC-V instructions.
+This is used internally by the simulator and task level debugging.
+
+=== libosRiscvDecode
+
+Decodes a single RISC-V instruction. 
+
+Callers must provide a full 32-bit opcode value starting at the IP address.
+This may not be aligned due to compressed ISA. The routine will return the
+address of the next instruction.
+
+[source,C]
+----
+typedef struct {
+  LibosRiscvOpcode    opcode;
+  LibosRiscvRegister  rs1, rs2, rd;
+  LwU64               imm;
+  LwU64               csr;
+} LibosRiscvInstruction;
+
+LwU64 libosRiscvDecode(LwU32 opcode, LwU64 programCounter, LibosRiscvInstruction * instr);
+----
+
+=== libosRiscvPrint
+
+[source,C]
+----
+void libosRiscvPrint(LwU64 pc, LibosRiscvInstruction * i)
+----
+
+== Example
+=== Makefile
+
+[source,Make]
+----
+# Select a default profile
+PEREGRINE_PROFILE ?= fsp-gh100-mpu
+BUILD_CFG ?= debug
+
+RISCV_OUT_DIR = $(BUILD_CFG)-riscv-$(PEREGRINE_PROFILE)
+RISCV_SOURCES =  \
+  init_main.c \
+  libport.c   \
+  libtime.c   \
+  libinit.c   \
+  libdma.c
+
+-include $(LIBOS_SOURCE)/kernel/Makefile.inc
+
+## Final Link
+$(RISCV_OUT_DIR)/firmware.pre.elf: $(RISCV_OBJECTS)
+$(RISCV_OUT_DIR)/firmware.pre.elf: $(RISCV_OUT_DIR)/layout.ld
+  @printf  " [ %-28s ] $(COLOR_RED_BRIGHT)$(COLOR_BOLD)%-14s$(COLOR_DEFAULT)$(COLOR_RESET)  %s\n" "$(PREFIX)" " LD" "firmware.pre.elf"
+  $(RISCV_CC) -flto -w $(RISCV_CFLAGS) $(RISCV_OBJECTS) -o $@ -Wl,--script=$(RISCV_OUT_DIR)/layout.ld -Wl,--gc-sections
+
+## Post link manifest injection
+$(RISCV_OUT_DIR)/firmware.elf: $(RISCV_OUT_DIR)/firmware.pre.elf $(SIMULATION_OUT_DIR)/libosmc
+  @$(SIMULATION_OUT_DIR)/libosmc $(RISCV_OUT_DIR)/firmware.pre.elf -o $(RISCV_OUT_DIR)/firmware.elf
+----
+
+=== Config.mk
+
+.Example config.mk
+[config.mk,Makefile]
+----
+# Kernel configuration
+LIBOS_FEATURE_USERSPACE_TRAPS=1
+LIBOS_CONFIG_KERNEL_STACK_SIZE=512
+LIBOS_CONFIG_MAX_TABLE_DISPLACEMENT=2
+LIBOS_CONFIG_ID_SIZE=1
+
+# Core configuration
+LIBOS_LWRISCV=200
+LIBOS_CONFIG_RISCV_S_MODE=1
+LIBOS_CONFIG_MPU_INDEX_FIRST=0
+LIBOS_CONFIG_MPU_INDEX_COUNT=128
+LIBOS_CONFIG_MPU_PAGESIZE=1024
+LIBOS_CONFIG_RISCV_COMPRESSED=1
+LIBOS_CONFIG_TIME_TO_NS(time)=time
+
+# DMEM/IMEM configuration must match SK manifest
+LIBOS_CONFIG_IMEM_FIRST=4096
+LIBOS_CONFIG_IMEM_SIZE=(160 * 1024 - 4096)
+LIBOS_CONFIG_DMEM_FIRST=4096
+LIBOS_CONFIG_DMEM_SIZE=(224 * 1024 - 4096)
+
+# Library configuration
+LIBOS_CONFIG_PRINTF_TINY_DEBUG=1
+----
+
+.Example peregrine-headers.h
+[config.mk,C]
+----
+#include "hopper/gh100/dev_fsp_riscv_csr_64.h"
+#include "hopper/gh100/lw_fsp_riscv_address_map.h"
+#include "hopper/gh100/dev_fsp_pri.h"
+
+#define SPLAT(x,y) x##y
+#define CHIP(x) SPLAT(LW_PFSP,x)
+
+#define FALCON_BASE     LW_FALCON2_FSP_BASE /* There are no falcon registers on this core */
+#define PEREGRINE_BASE  LW_FALCON2_FSP_BASE
+#define FBIF_BASE       (CHIP(_FBIF_TRANSCFG)(0) + LW_PFALCON_FBIF_TRANSCFG(0))
+----

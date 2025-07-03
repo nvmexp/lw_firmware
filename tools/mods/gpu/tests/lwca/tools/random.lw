@@ -1,0 +1,257 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2012-2012 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#pragma once
+#include "tools.h"
+extern "C" __device__ void InitRandomState(UINT32 Seed,
+                                           UINT32 * pState);
+extern "C" __device__ UINT32 GetRandom(UINT32 * pState);
+extern "C" __device__ UINT32 GetRandomRange(UINT32 * pState,
+                                              UINT32   Min,
+                                              UINT32   Max);
+extern "C" __device__ float GetRandomFloat(UINT32 * pState,
+                                           double     Min,
+                                           double     Max);
+extern "C" __device__ double GetRandomDouble(UINT32 * pState,
+                                             double     Min,
+                                             double     Max);
+extern "C" __device__ float GetRandomFloatMeanSD(UINT32 * pState,
+                                                 float    mean,
+                                                 float    stdDeviation,
+                                                 float    *oldRandomValue,
+                                                 bool     *useOldValue);
+extern "C" __device__ double GetRandomDoubleMeanSD(UINT32 * pState,
+                                                   double    mean,
+                                                   double    stdDeviation,
+                                                   double    *oldRandomValue,
+                                                   bool      *useOldValue);
+extern "C" __device__ float GetRandomFloatExp(UINT32 * pState,
+                                              int        minPow2,
+                                              int        maxPow2);
+extern "C" __device__ double GetRandomDoubleExp(UINT32 * pState,
+                                                int        minPow2,
+                                                int        maxPow2);
+
+__constant__ double TwoExp32         = 4294967296.0;      // 0x100000000 (won't fit in UINT32)
+__constant__ double TwoExp32Less1    = 4294967295.0;      //  0xffffffff
+#define TwoExp32Ilw           (1.0/TwoExp32)
+#define TwoExp32Less1Ilw      (1.0/TwoExp32Less1)
+
+extern "C" __device__ void InitRandomState(UINT32  Seed, 
+                                           UINT32 *pState)
+{
+    UINT32 i;
+    *pState = Seed;
+    GetRandom(pState);
+    // randomize a random number of times between 0 - 31
+    for (i = 0; i< (*pState & 0x1F); i++) 
+        GetRandom(pState);
+}
+
+//------------------------------------------------------------------------------
+// Get random UINT32 between 0 and 0xFFFFFFFF, inclusive.  Very fast.
+//------------------------------------------------------------------------------
+extern "C" __device__ UINT32 GetRandom(UINT32 *pState)
+{
+    *pState = (UINT32)(1664525UL * (UINT64)*pState + 1013904223UL);
+    return *pState;
+}
+
+//------------------------------------------------------------------------------
+// Get random UINT32 between Min and Max, inclusive.  Slower.
+//------------------------------------------------------------------------------
+extern "C" __device__ UINT32 GetRandomRange(UINT32 * pState,
+                                            UINT32   Min, 
+                                            UINT32   Max)
+{
+    UINT32 Val = GetRandom(pState);
+    return Min + (UINT32)(Val * (double(Max - Min) + 1.0) * TwoExp32Ilw);
+}
+
+
+//------------------------------------------------------------------------------
+// Get random single-precision float between Min and Max, inclusive.
+// Returns one of 2*32 float values evenly spaced across the range.
+// About as fast as GetRandom(RandomState*,UINT32,UINT32).
+//------------------------------------------------------------------------------
+extern "C" __device__ float GetRandomFloat(UINT32 * pState,  
+                                           double     Min, 
+                                           double     Max)
+{
+    double binsize = (Max - Min) * TwoExp32Less1Ilw;
+    return static_cast<float>(Min + binsize * GetRandom(pState));
+}
+
+
+//------------------------------------------------------------------------------
+// Get random double between Min and Max, inclusive.
+// Returns one of 2*64 double values evenly spaced across the range.
+// Twice as slow as GetRandomFloat().
+//------------------------------------------------------------------------------
+extern "C" __device__ double GetRandomDouble(UINT32 * pState,
+                                             double     Min, 
+                                             double     Max)
+{
+    double binsize = (Max - Min) * TwoExp32Ilw;
+    double coarse = binsize * GetRandom(pState);
+    return Min + coarse + (GetRandom(pState) * binsize * TwoExp32Less1Ilw);
+}
+
+//------------------------------------------------------------------------------
+// Get random single-precision float with a Mean and Standard Deviation
+//------------------------------------------------------------------------------
+extern "C" __device__ float GetRandomFloatMeanSD(UINT32 * pState, 
+                                                 float    mean, 
+                                                 float    stdDeviation,
+                                                 float    *oldRandomValue,
+                                                 bool     *useOldValue)
+{
+    float rand1, rand2, s, z;
+
+    if (*useOldValue)   // Use value from previous call
+    {
+        z = *oldRandomValue;
+        *useOldValue = false;
+    }
+    else
+    {
+        //s must be 0 < s < 1 
+        do {
+            rand1 = GetRandomFloat(pState, -1.0, 1.0);
+            rand2 = GetRandomFloat(pState, -1.0, 1.0);
+            s = rand1 * rand1 + rand2 * rand2;
+        } while ( s == 0 || s >= 1.0 );
+
+        s = sqrt( (-2.0 * log( s ) ) / s );
+        z = rand1 * s;
+        *oldRandomValue = rand2 * s;
+        *useOldValue = true;
+    }
+
+    return( mean + z * stdDeviation );
+}
+
+
+//------------------------------------------------------------------------------
+// Get random double with a Mean and Standard Deviation
+//------------------------------------------------------------------------------
+extern "C" __device__ double GetRandomDoubleMeanSD(UINT32* pState,
+                                                   double    mean, 
+                                                   double    stdDeviation,
+                                                   double    *oldRandomValue,
+                                                   bool      *useOldValue)
+{
+    double rand1, rand2, s, z;
+
+    if (*useOldValue)   // Use value from previous call
+    {
+        z = *oldRandomValue;
+        *useOldValue = false;
+    }
+    else
+    {
+        //s must be 0 < s < 1 
+        do {
+            rand1 = GetRandomDouble(pState, -1.0, 1.0);
+            rand2 = GetRandomDouble(pState, -1.0, 1.0);
+            s = rand1 * rand1 + rand2 * rand2;
+        } while ( s == 0 || s >= 1.0 );
+
+        s = sqrt( (-2.0 * log( s ) ) / s );
+        z = rand1 * s;
+        *oldRandomValue = rand2 * s;
+        *useOldValue = true;
+    }
+
+    return( mean + z * stdDeviation );
+}
+
+//------------------------------------------------------------------------------
+// Get float with a random mantissa and sign, with the binary exponent 
+// clamped to a range.  Useful to prevent overflow/underflow.
+// If maxPow2 is 128 or greater, NAN and INF values may be returned.
+//------------------------------------------------------------------------------
+extern "C" __device__ float GetRandomFloatExp(UINT32 * pState, 
+                                              int        minPow2, 
+                                              int        maxPow2)
+{
+    const int float32ExpBits  = 8;
+    const int float32ExpMask  = ((1<<float32ExpBits)-1);
+    const int float32ExpBias  = 127;
+    const int float32MantBits = 23;
+    const int float32MantMask = ((1<<float32MantBits)-1);
+    
+    const int exp = 
+            float32ExpMask & 
+            (minPow2 + float32ExpBias +
+             static_cast<int>(GetRandomRange(
+                    pState,
+                    0,
+                    static_cast<UINT32>(maxPow2 - minPow2))));
+    
+    const int mant = static_cast<int>(GetRandom(pState)) >> (32-float32MantBits);
+
+    int fAsI = 
+            (mant & 0x80000000U) |     // sign
+            (exp << float32MantBits) | // exponent-127 in base-2 
+            (mant & float32MantMask);  // mantissa
+    
+    union 
+    {
+        float f;
+        int i;
+    }
+    tmp;
+    tmp.i = fAsI;
+    return tmp.f;
+}
+
+//------------------------------------------------------------------------------
+// Get double with a random mantissa and sign, with the binary exponent 
+// clamped to a range.  Useful to prevent overflow/underflow.
+// If maxPow2 is 1024 or greater, NAN and INF values may be returned.
+//------------------------------------------------------------------------------
+extern "C" __device__ double GetRandomDoubleExp(UINT32 * pState,
+                                                int        minPow2, 
+                                                int        maxPow2)
+{
+    const INT64 float64ExpBits  = 11;
+    const INT64 float64ExpMask  = ((1<<float64ExpBits)-1);
+    const INT64 float64ExpBias  = 1023;
+    const INT64 float64MantBits = 52;
+    const INT64 float64MantMask = ((1LL<<float64MantBits)-1);
+    
+    const INT64 exp = 
+            float64ExpMask & 
+            (minPow2 + float64ExpBias +
+             static_cast<int>(GetRandomRange(
+                    pState,
+                    0,
+                    static_cast<UINT32>(maxPow2 - minPow2))));
+    
+    const INT64 mant = 
+            static_cast<INT64>(GetRandom(pState)) |
+            (static_cast<INT64>(GetRandom(pState)) << 32);
+
+    INT64 dAsI = 
+            (mant & 0x8000000000000000LL) |     // sign
+            (exp << float64MantBits) |          // exponent-1023 in base-2 
+            (mant & float64MantMask);           // mantissa
+
+    union
+    {
+        double d;
+        INT64  i;
+    }
+    tmp;
+    tmp.i = dAsI;
+    return tmp.d;
+}

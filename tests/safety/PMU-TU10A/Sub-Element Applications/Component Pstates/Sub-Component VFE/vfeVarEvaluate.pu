@@ -1,0 +1,14 @@
+@startuml
+title vfeVarEvaluate
+activate VFE
+    VFE -> VFE : getContext()
+    activate VFE
+        VFE -> OS : getTaskId
+        activate OS
+            return getTaskId
+        return vfeContext
+    VFE -> VFE_VAR : evalByIdx(vfeContext)
+    activate VFE_VAR
+        return status, result
+deactivate VFE
+@enduml

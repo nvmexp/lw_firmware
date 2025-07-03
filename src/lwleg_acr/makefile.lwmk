@@ -1,0 +1,194 @@
+#
+# Copyright 2013-2022 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+
+#
+# The primary usage of this makefile is as a sub-makefile for a larger falcon
+# build (such as the PMU/DPU/SEC2 builds). It relies on the user (or top-level
+# makefile) to establish the following make-vars before it is ilwoked:
+#     * LW_TARGET_ARCH
+#     * LW_PROJ
+#     * MANUAL_PATHS
+#
+# If building directly, it is highly recommended that you explicitly state (on
+# the build command-line) which falcon architecture and chip project you're
+# targeting. If unspecified, falcon5 and gm20x is assumed. The target
+# architecture may be specified by setting LW_TARGET_ARCH on the command-line.
+#
+# LW_PROJ is only used to uniquely name the output directory where the built libraries
+# will be located. This facilitates parallel building of falcon ucode for multiple
+# projects.
+#
+# Examples:
+#
+# % make LW_TARGET_ARCH=falcon5 LW_PROJ=gm20x
+#
+# Additionally, based on the target arch, you need to also specify where the
+# falcon manuals are for the architecture.  This is specified using
+# MANUAL_PATHS.
+#
+# Examples:
+#
+# % make LW_TARGET_ARCH=falcon4 MANUAL_PATHS=$LW_SOURCE/drivers/common/inc/hwref/fermi/gf119
+# % make LW_TARGET_ARCH=falcon3 MANUAL_PATHS=$LW_SOURCE/drivers/common/inc/hwref/gt218
+#
+
+PROFILE:=
+ENG:=
+
+ifdef PMUCFG_PROFILE
+    PROFILE := $(PMUCFG_PROFILE)
+    ENG := pmu
+endif
+
+# if not specified, assume we're building for gm20x-falcon5
+LW_TARGET_ARCH ?= falcon5
+LW_PROJ        ?= gm20x
+RESMAN_ROOT    ?= ../../drivers/resman
+MANUAL_PATHS   ?= "$(LW_SOURCE)/drivers/common/inc/swref/maxwell/gm200 $(LW_SOURCE)/drivers/common/inc/hwref/maxwell/gm200 $(RESMAN_ROOT)/kernel/inc/maxwell/gm200"
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+build: all
+
+# Default variable values
+ACR_PRI_SOURCE_ISOLATION_ENABLED = false
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+ifdef PMUCFG_PROFILE
+    include $(LW_SOURCE)/uproc/build/common/lwRtosVersion.lwmk
+
+    RTOS_SRC     = $(LW_RTOS_SRC)
+    LIBS         = $(LW_RTOS_LIB)
+
+    LW_INCLUDES += $(LW_SOURCE)/pmu_sw/inc
+    LW_INCLUDES += $(LW_RTOS_INCLUDES)
+endif
+
+LW_INCLUDES += ./inc
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/swref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/hwref
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/lwos/$(LWOS_VERSION)/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(OUTPUTDIR)
+
+ifeq ($(LW_TARGET_OS),falcon)
+    LW_INCLUDES += $(FALCON_TOOLS)/include
+else ifeq ($(LW_TARGET_OS),riscv)
+    LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/inc
+    LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/shlib/inc
+    ifdef LWRISCV_SDK
+        LW_INCLUDES += $(LWRISCV_SDK)/inc
+        LW_INCLUDES += $(LWRISCV_SDK_PROFILE)/inc
+    endif
+endif
+
+ifneq (,$(findstring gv11b,  $(PROFILE)))
+    SOURCES        += src/acrlib/maxwell/acruclibgm200.c
+    SOURCES        += src/falcon/maxwell/acr_falct210.c
+    SOURCES        += src/dma/maxwell/acr_dmagm200.c
+    SOURCES        += src/dma/volta/acr_dmagv11b.c
+    LW_INCLUDES    += $(LW_SOURCE)/drivers/common/inc/swref/volta/gv11b
+    LW_INCLUDES    += $(LW_SOURCE)/drivers/common/inc/hwref/volta/gv11b
+    LW_INCLUDES    += $(LW_SOURCE)/uproc/tegra_acr/halgen/$(ENG)/t194
+    LW_TARGET_ARCH ?= falcon6
+endif
+
+ifneq (,$(findstring ga10b,  $(PROFILE)))
+    SOURCES        += src/acrlib/maxwell/acruclibgm200.c
+    SOURCES        += src/falcon/maxwell/acr_falct210.c
+    SOURCES        += src/dma/maxwell/acr_dmagm200.c
+    SOURCES        += src/dma/volta/acr_dmagv11b.c
+    LW_INCLUDES    += $(LW_SOURCE)/drivers/common/inc/swref/ampere/ga10b
+    LW_INCLUDES    += $(LW_SOURCE)/drivers/common/inc/hwref/ampere/ga10b
+    LW_INCLUDES    += $(LW_SOURCE)/uproc/tegra_acr/halgen/$(ENG)/t234
+    LW_TARGET_ARCH ?= falcon6
+
+    ifdef PMUCFG_PROFILE
+        ACR_PRI_SOURCE_ISOLATION_ENABLED = true
+    endif
+endif
+
+ifneq (,$(findstring ga10f,  $(PROFILE)))
+    SOURCES        += src/acrlib/maxwell/acruclibgm200.c
+    SOURCES        += src/falcon/maxwell/acr_falct210.c
+    SOURCES        += src/dma/maxwell/acr_dmagm200.c
+    SOURCES        += src/dma/volta/acr_dmagv11b.c
+    LW_INCLUDES    += $(LW_SOURCE)/drivers/common/inc/swref/ampere/ga10f
+    LW_INCLUDES    += $(LW_SOURCE)/drivers/common/inc/hwref/ampere/ga10f
+    LW_INCLUDES    += $(LW_SOURCE)/uproc/tegra_acr/halgen/$(ENG)/t234
+    LW_TARGET_ARCH ?= falcon6
+
+    ifdef PMUCFG_PROFILE
+        ACR_PRI_SOURCE_ISOLATION_ENABLED = true
+    endif
+endif
+
+ifneq (,$(findstring ga11b,  $(PROFILE)))
+    SOURCES        += src/acrlib/maxwell/acruclibgm200.c
+    SOURCES        += src/falcon/maxwell/acr_falct210.c
+    SOURCES        += src/dma/maxwell/acr_dmagm200.c
+    SOURCES        += src/dma/volta/acr_dmagv11b.c
+    LW_INCLUDES    += $(LW_SOURCE)/drivers/common/inc/swref/ampere/ga11b
+    LW_INCLUDES    += $(LW_SOURCE)/drivers/common/inc/hwref/ampere/ga11b
+    LW_INCLUDES    += $(LW_SOURCE)/uproc/tegra_acr/halgen/$(ENG)/t234
+    LW_TARGET_ARCH ?= falcon6
+
+    ifdef PMUCFG_PROFILE
+        ACR_PRI_SOURCE_ISOLATION_ENABLED = true
+    endif
+endif
+
+ifeq ($(LW_TARGET_OS),riscv)
+    LW_INCLUDES += $(MEMMAP_PATH)
+endif
+
+ifdef PMUCFG_PROFILE
+    CFLAGS += -DPMU_RTOS
+    CFLAGS += -DACR_FALCON_PMU
+    CFLAGS += -DDMEM_APERT_ENABLED
+    CFLAGS += -DLW_MISRA_COMPLIANCE_REQUIRED
+
+    ifdef SUBMAKE_CFLAGS
+        CFLAGS += $(SUBMAKE_CFLAGS)
+    endif
+endif
+
+ifeq ($(ACR_PRI_SOURCE_ISOLATION_ENABLED), true)
+    CFLAGS += -DACR_PRI_SOURCE_ISOLATION_ENABLED
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+    CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+    CFLAGS += -DUPROC_RISCV
+endif
+
+CFLAGS += -fno-jump-tables
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[acr-cmn-$(LW_PROJ)-$(LW_TARGET_ARCH)]"
+
+TGT = $(OUTPUTDIR)/libAcrCmn.a
+all: $(TGT)
+$(TGT): $(OBJECTS)
+	$(MKDIR) ${dir $@}
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(AR) -r -c $(TGT) $(OBJECTS)
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+

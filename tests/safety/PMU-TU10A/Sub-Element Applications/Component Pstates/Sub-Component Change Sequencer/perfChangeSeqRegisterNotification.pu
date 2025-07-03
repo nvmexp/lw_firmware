@@ -1,0 +1,17 @@
+@startuml
+title Register for Notification
+activate PERF
+    PERF -> OS : attachOverlays()
+    activate OS
+    deactivate OS
+
+    PERF -> ChangeSeq : register()
+    activate ChangeSeq
+        ChangeSeq -> ChangeSeq : verifyNotRegistered()
+        ChangeSeq -> ChangeSeq : addToRegistrationList()
+        return status
+
+    PERF -> OS : detachOverlays()
+    activate OS
+    deactivate OS
+@enduml

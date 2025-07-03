@@ -1,0 +1,176 @@
+#define row 0x3FFF
+#define col 0x3E //always even address decrements by 2
+#define bank_pc0 0x4
+#define bank_pc1 0x14
+
+#define tRCDWR 0x5 //spec is 10tCK. Actual (xx+1)*2 + 3
+#define tRCDRD 0x7  //spec is 14tCK. Actual (xx+1)*2 +3)
+#define tWR 0xB //Spec is 16tCK. Actual (xx+1)*2 - 5 
+#define tWRlong 0x96 //spec 300ns. xx*2
+#define tRP 0x4 //spec 14tCK. Actual xx+2 + any other nops after
+
+//patram offset for 0 and 1
+LOAD R3 all_zeros;
+LOAD R4 all_ones;
+
+//ACT for PC0 & PC1
+LOAD R0 bank_pc0;
+LOAD R1 bank_pc1;
+
+//coulmn register
+LDI R2 col -2;
+//Row register
+LDI R5 row -1;
+
+//part 1: write "1" from (0,0) to (#3FFF,#3F)
+part1_activate:
+P0 CNOP
+P1 ACT R0 R5
+P2 CNOP
+P3 RNOP;
+
+P0 CNOP
+P1 ACT R1 R5
+P2 CNOP
+P3 RNOP;
+
+//RCDWR=14
+HOLD tRCDWR;
+
+//WR BANK=0,1 COL=2 and PATRAM=4
+P0 WR R0 R2 R4
+P1 RNOP
+P2 WR R1 R2 R4
+P3 RNOP;
+
+//tWR=13.5ns? Spec is 16tCK (11*2 - 5 =17 is actual). 
+HOLD tWR;
+
+//precharge
+P0 CNOP
+P1 PRE R0
+P2 CNOP
+P3 PRE R1;
+
+//tRP=16
+HOLD tRP;
+
+//row branch
+BNZ R5 part1_activate;
+INCR R5;
+
+//column branch
+BNZ R2 part1_activate
+LDI R5 row -1;
+INCR R2;
+
+// part 2: write '0' from (0,0) to (0x1fff,0)
+LDI R2 col -2;
+LDI R5 row -1;
+
+part2_activate:
+P0 CNOP
+P1 ACT R0 R5
+P2 CNOP
+P3 RNOP;
+
+P0 CNOP
+P1 ACT R1 R5
+P2 CNOP
+P3 RNOP;
+
+//RCDWR=10
+HOLD tRCDWR;
+
+//WR BANK=0,1 COL=2 and PATRAM=3
+P0 WR R0 R2 R3
+P1 RNOP
+P2 WR R1 R2 R3
+P3 RNOP;
+
+//tWR=13.5ns? Spec is 16tCK (11*2 - 5 =17 is actual). 
+HOLD tWR;
+
+//precharge
+P0 CNOP
+P1 PRE R0
+P2 CNOP
+P3 PRE R1;
+
+//tRP=4
+HOLD tRP;
+BNZ R5 part2_activate;
+INCR R5;
+
+// part 3: read "0" modify write "1" from (0,0 to (0x1fff,0)
+LDI R5 row -1;
+
+part3_activate:
+P0 CNOP
+P1 ACT R0 R5
+P2 CNOP
+P3 RNOP;
+
+P0 CNOP
+P1 ACT R1 R5
+P2 CNOP
+P3 RNOP;
+
+//RCDRD=16 (total 17 actual).
+HOLD tRCDRD;
+
+//RD BANK=0,1 COL=2 and PATRAM=3
+P0 RD R0 R2 R3
+P1 RNOP
+P2 RD R1 R2 R3
+P3 RNOP;
+
+//tR2W
+HOLD 0x3;
+
+//WR BANK=0,1 COL=2 and PATRAM=4
+P0 WR R0 R2 R4
+P1 RNOP
+P2 WR R1 R2 R4
+P3 RNOP;
+
+// tWR=300ns (0x96 = 300tCK) long
+HOLD tWRlong;
+
+//precharge
+P0 CNOP
+P1 PRE R0
+P2 CNOP
+P3 PRE R1;
+
+//tRP=16
+HOLD tRP;
+
+BNZ R5 part3_activate;
+INCR R5;
+
+// part 4-7: loop column go back to part 2
+BNZ R2 part2_activate
+LDI R5 row -1;
+INCR R2;
+
+
+all_zeros:
+PATRAM 0x00000000 0 0
+PATRAM 0x00000000 0 0
+PATRAM 0x00000000 0 0
+PATRAM 0x00000000 0 0
+PATRAM 0x00000000 0 0
+PATRAM 0x00000000 0 0
+PATRAM 0x00000000 0 0
+PATRAM 0x00000000 0 0;
+
+all_ones:
+PATRAM 0xFFFFFFFF 0xF 0xF
+PATRAM 0xFFFFFFFF 0xF 0xF
+PATRAM 0xFFFFFFFF 0xF 0xF
+PATRAM 0xFFFFFFFF 0xF 0xF
+PATRAM 0xFFFFFFFF 0xF 0xF
+PATRAM 0xFFFFFFFF 0xF 0xF
+PATRAM 0xFFFFFFFF 0xF 0xF
+PATRAM 0xFFFFFFFF 0xF 0xF;

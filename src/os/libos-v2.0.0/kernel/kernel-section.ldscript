@@ -1,0 +1,57 @@
+/* _LWRM_COPYRIGHT_BEGIN_
+ *
+ * Copyright 2018-2019 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * _LWRM_COPYRIGHT_END_
+ */
+
+OUTPUT_ARCH( "riscv" )
+ENTRY(kernel_bootstrap)
+
+SECTIONS
+{
+  .boot : {
+    *(.kernel_bootstrap)
+  } 
+
+  .text : {
+    *(.text.startup)
+    *(.text.cold)
+  } 
+
+  .paged_data ALIGN(4096): {
+    data_paged_begin = . ;
+    *(.tcm.data*)
+    . = ALIGN(4096);
+    data_paged_end = . ;
+  } 
+
+  .paged_text : {
+    code_paged_begin = ADDR(.paged_text);
+    *(.tcm.text)
+  } 
+
+  /* Linker relaxation may change final size. 
+     Hence the final link is responsible for ensuring 4kb size alignment */
+  .paged_text_endstone : {
+    code_paged_end = . ;
+  }
+
+  .data : {
+    *(.data)
+    *(.data*)
+    *(.sdata*)
+    *(.bss*)
+    *(.sbss*)
+    *(.rodata*)
+    *(.srodata*)
+  } 
+
+  .text.untagged : {
+    *(.text)
+    ASSERT(SIZEOF(.text.untagged) == 0, "Each method should be designated as LIBOS_SECTION_TEXT_COLD or LIBOS_SECTION_IMEM_PINNED");
+  } 
+}

@@ -1,0 +1,375 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2021-2022 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "gxbar.h"
+#include "cgautils.h"
+#include "../tools/newrandom.h"
+#include "../tools/lwda_atomic.h"
+#include <cooperative_groups.h>
+
+#define NUM_CHUNKS 2
+#define POLLING_INTERVAL_NS 512
+
+#define MBARRIERS_OFFSET 0
+#define MBARRIERS_BYTES 0
+#define NONSURFACE_BYTES (MBARRIERS_BYTES)
+#define SURFACE_OFFSET (NONSURFACE_BYTES)
+extern __shared__ UINT08 smem_array[];
+
+__device__ __forceinline__ void pulseControl(const GXbarParams& params)
+{
+    if (params.usePulse)
+    {
+        UINT64 lwrTimeNs = 0;
+        asm volatile ("mov.u64 %0, %%globaltimer;" : "=l"(lwrTimeNs) :: "memory");
+        lwrTimeNs = __shfl_sync(0xffffffff, lwrTimeNs, 0);
+        if ((lwrTimeNs % params.periodNs) >= params.pulseNs)
+        {
+            __nanosleep(params.periodNs - params.pulseNs);
+        }
+    }
+}
+
+__device__ void ReportError
+(
+    const GXbarParams& params,
+    const GXbarError& error
+)
+{
+    // Increment the error counter
+    //
+    // We are using a host memory pointer for this counter so the atomic add imparts a slow
+    // round-trip via PCIe, but this is acceptable as this is only called when errors occur.
+    UINT64 errorIdx = IncrementErrCount(params.errorCountPtr);
+
+    // Dump the failure if there is room in the error buffer
+    if (errorIdx < params.errorLogLen)
+    {
+        GXbarError* pErrorLog = GetPtr<GXbarError*>(params.errorLogPtr);
+        pErrorLog[errorIdx] = error;
+    }
+}
+
+__device__ void InitLocalData(const GXbarParams& params)
+{
+    dim3 clusterCta = CgaUtils::ctaid_in_cga();
+
+    // Each SM has a test surface in shared memory
+    DataType* pSurface = reinterpret_cast<UINT32*>(&smem_array[SURFACE_OFFSET]);
+    const UINT32 surfaceLen = (params.bytesPerCta - NONSURFACE_BYTES) / sizeof(*pSurface);
+
+    DataType* pPattern = GetPtr<DataType*>(params.patternsPtr);
+    // Fill memory with user-defined data
+    for (UINT32 i = threadIdx.x; i < surfaceLen; i += blockDim.x)
+    {
+        pSurface[i] = static_cast<DataType>(pPattern[threadIdx.x % params.numPatterns]);
+    }
+}
+
+__device__ void InitLocalDataRandom(const GXbarParams& params)
+{
+    dim3 clusterCta = CgaUtils::ctaid_in_cga();
+
+    // Each SM has a test surface in shared memory
+    DataType* pSurface = reinterpret_cast<UINT32*>(&smem_array[SURFACE_OFFSET]);
+    const UINT32 surfaceLen = (params.bytesPerCta - NONSURFACE_BYTES) / sizeof(*pSurface);
+
+    // Init RNG, a different setting for each thread in the cluster
+    UINT64 localState[1];
+    InitRand<1>(localState, 1 + params.randSeed + threadIdx.x + clusterCta.x * blockDim.x);
+
+    // Fill memory with random data
+    for (UINT32 i = threadIdx.x; i < surfaceLen; i += blockDim.x)
+    {
+        pSurface[i] = static_cast<DataType>(localState[0]);
+    }
+}
+
+extern "C" __global__ void GXbarTestReadOnly(const GXbarParams params)
+{
+    cooperative_groups::grid_group grid = cooperative_groups::this_grid();
+    dim3 clusterCta = CgaUtils::ctaid_in_cga();
+    dim3 clusterDim = CgaUtils::cga_shape();
+
+    // Signal that the kernel has launched and is resident on the GPC
+    auto launchCount = GetAtomicRef<UINT32, lwca::thread_scope_system>(params.launchCountPtr);
+    if (threadIdx.x == 0 && clusterCta.x == 0)
+    {
+        launchCount.fetch_add(1);
+    }
+
+    // Get SMID and thread info
+    UINT32 smid;
+    UINT32 warpid;
+    UINT32 laneid;
+    asm volatile ("mov.u32 %0, %%smid;"   : "=r"(smid));
+    asm volatile ("mov.u32 %0, %%warpid;" : "=r"(warpid));
+    asm volatile ("mov.u32 %0, %%laneid;" : "=r"(laneid));
+
+    // Inialize Shared Memory
+    if (params.useRandomData)
+    {
+        InitLocalDataRandom(params);
+    }
+    else
+    {
+        InitLocalData(params);
+    }
+
+    // Get mapping
+    const UINT32* pRouting =
+        GetPtr<const UINT32*>(params.routingPtr) + params.clusterIdx * params.maxClusterSize;
+    const UINT32 remoteCtaIdx = pRouting[clusterCta.x];
+
+    // Block threads until the other LWCA kernels have launched on the other GPCs
+    // Have one thread per kernel poll sysmem
+    if (threadIdx.x == 0 && clusterCta.x == 0)
+    {
+        while (launchCount.load(lwca::memory_order_relaxed) < params.numClusters)
+        {
+            __nanosleep(POLLING_INTERVAL_NS);
+        }
+    }
+    // Cluster-wide barrier to synchronize workload start
+    CgaUtils::cga_sync();
+
+    // Get the test surface of the remote SM
+    DataType readVal = 0;
+    DataType accVal = 0;
+    const UINT64 remotePtr =
+        CgaUtils::get_dsmem_ptr(&smem_array[SURFACE_OFFSET], remoteCtaIdx);
+    const UINT32 surfaceLen = (params.bytesPerCta - NONSURFACE_BYTES) / sizeof(readVal);
+
+    // Init RNG used by the remote SM during initialization
+    UINT64 remoteState[1];
+    InitRand<1>(remoteState, 1 + params.randSeed + threadIdx.x + remoteCtaIdx * blockDim.x);
+
+    // user-defined pattern pointer
+    DataType* pPattern = GetPtr<DataType*>(params.patternsPtr);
+
+    // Run the test for the specified iterations
+    for (UINT64 iter = 0; iter < params.iterations; iter++)
+    {
+        // Have each thread always use the same random number to reduce
+        // the overhead of random number generation
+        const DataType expectedVal = params.useRandomData ?
+                                     static_cast<DataType>(remoteState[0]) :
+                                     static_cast<DataType>(pPattern[threadIdx.x % params.numPatterns]);
+
+        pulseControl(params);
+        // Read from the remote SM
+        for (UINT32 i = threadIdx.x; i < surfaceLen; i += blockDim.x)
+        {
+            // DSMEM is accessed via the generic LD instruction
+            const UINT64 addr = remotePtr + i * sizeof(readVal);
+            asm volatile("ld.u32 %0, [%1];\n" : "=r"(readVal): "l"(addr));
+            accVal += readVal;
+
+            // Check result if requested
+            if (params.verifyResults && readVal != expectedVal)
+            {
+                const GXbarError err =
+                {
+                    readVal, expectedVal,
+                    iter, i / blockDim.x,
+                    smid, warpid, laneid
+                };
+                ReportError(params, err);
+            }
+        }
+    }
+
+    // Write out the aclwmulated read value
+    // (to prevent compiler optimizations, also could be used for golden values)
+    accVal = __reduce_add_sync(~0x0u, accVal);
+    auto accValAtom = GetAtomicRef<DataType, lwca::thread_scope_device>(params.accValPtr);
+    if (laneid == 0)
+    {
+        accValAtom.fetch_add(accVal, lwca::memory_order_relaxed);
+    }
+
+    // Cluster-wide barrier to ensure completion of work
+    // (Otherwise a CTA might try to read from a CTA that exited)
+    CgaUtils::cga_sync();
+}
+
+extern "C" __global__ void GXbarTestWriteOnly(const GXbarParams params)
+{
+    cooperative_groups::grid_group grid = cooperative_groups::this_grid();
+    dim3 clusterCta = CgaUtils::ctaid_in_cga();
+    dim3 clusterDim = CgaUtils::cga_shape();
+
+    // Get the test surface and chunk sizes
+    const UINT32 surfaceLen = (params.bytesPerCta - NONSURFACE_BYTES) / sizeof(DataType);
+    const UINT32 chunkLen = surfaceLen / NUM_CHUNKS;
+
+    // Get SMID and thread info
+    const UINT32 laneIdx = threadIdx.x % warpSize;
+    const UINT32 warpIdx = threadIdx.x / warpSize;
+    const UINT32 warpCount = blockDim.x / warpSize;
+
+    // If verifying the results, only have half the warps write to the remote CTA
+    const UINT32 writeWarpCount = (params.verifyResults) ? warpCount / 2 : warpCount;
+    const UINT32 readWarpCount  = warpCount - writeWarpCount;
+
+    auto launchCount = GetAtomicRef<UINT32, lwca::thread_scope_system>(params.launchCountPtr);
+    if (threadIdx.x == 0 && clusterCta.x == 0)
+    {
+        // Signal that the kernel has launched and is resident on the GPC
+        launchCount.fetch_add(1);
+
+        // Block threads until the other LWCA kernels have launched on the other GPCs
+        // Have one thread per kernel poll sysmem
+        while (launchCount.load(lwca::memory_order_relaxed) < params.numClusters)
+        {
+            __nanosleep(POLLING_INTERVAL_NS);
+        }
+    }
+
+    // Cluster-wide barrier to synchronize workload start
+    CgaUtils::cga_sync();
+
+    // user-defined pattern pointer
+    DataType* pPattern = GetPtr<DataType*>(params.patternsPtr);
+
+    // The lower half of the warps write to the remote SM
+    // (Unless if we are skipping verification in which case all warps write)
+    if (warpIdx < writeWarpCount)
+    {
+        const UINT32 offsetThreadId = threadIdx.x;
+
+        // Get mapping
+        const UINT32* pRouting =
+            GetPtr<const UINT32*>(params.routingPtr) + params.clusterIdx * params.maxClusterSize;
+        // Get remote CTA from mapping
+        const UINT32 remoteCtaIdx =
+            pRouting[clusterCta.x];
+        // Get generic pointer to remote CTA
+        const UINT64 remotePtr =
+            CgaUtils::get_dsmem_ptr(&smem_array[SURFACE_OFFSET], remoteCtaIdx);
+
+        // Init RNG used to write the remote SM during initialization
+        UINT64 remoteState[2];
+        InitRand<2>(remoteState, 1 + params.randSeed + offsetThreadId + remoteCtaIdx * blockDim.x);
+
+        // Run the test for the specified iterations
+        for (UINT64 iter = 0; iter < params.iterations; iter++)
+        {
+            // Write new data each iteration by either picking random or selecting from user-defined
+            const DataType writeVal = params.useRandomData ?
+                                      static_cast<DataType>(FastRand(remoteState)) :
+                                      static_cast<DataType>(pPattern[offsetThreadId % params.numPatterns]);
+
+            if (iter)
+            {
+                CgaUtils::cga_sync();
+            }
+            pulseControl(params);
+            // Write one chunk at a time
+            //
+            // While one chunk is being written to the other half of the warps check the results
+            // of the previously written chunk
+            for (UINT32 chunk = 0; chunk < NUM_CHUNKS; chunk++)
+            {
+                // Write to the remote SM
+                for (UINT32 i = offsetThreadId;
+                     i < chunkLen;
+                     i += writeWarpCount * warpSize)
+                {
+                    // DSMEM is accessed via the generic LD instruction
+                    const UINT64 addr = remotePtr + (chunk * chunkLen + i) * sizeof(writeVal);
+                    asm volatile("st.u32 [%0], %1;\n" :: "l"(addr), "r"(writeVal));
+                }
+
+            }
+
+            // Wait for _all_ read warps in the CGA to finish before writing the next chunk
+            // This is stronger than just waiting for the remote CTA to finish reading
+            CgaUtils::cga_sync();
+        }
+        CgaUtils::cga_sync();
+    }
+    // If verifying results the upper half of the warps check results on the local SM
+    else if (warpIdx >= writeWarpCount)
+    {
+        const UINT32 offsetThreadId = threadIdx.x - writeWarpCount * warpSize;
+        DataType* pSurface = reinterpret_cast<DataType*>(&smem_array[SURFACE_OFFSET]);
+        DataType accVal = 0;
+
+        // Init RNG used to check the local SM
+        UINT64 localState[2];
+        InitRand<2>(localState, 1 + params.randSeed + offsetThreadId + clusterCta.x * blockDim.x);
+
+        // Run the test for the specified iterations
+        for (UINT64 iter = 0; iter < params.iterations; iter++)
+        {
+            // Have each thread always use the same random number to reduce
+            // the overhead of random number generation
+            // or select from user-defind patterns 
+            const DataType expectedVal = params.useRandomData ?
+                                         static_cast<DataType>(FastRand(localState)) :
+                                         static_cast<DataType>(pPattern[offsetThreadId % params.numPatterns]);
+
+            CgaUtils::cga_sync();
+            pulseControl(params);
+            
+            // Read one chunk at a time
+            //
+            // While we are reading from this chunk the other half of the warps are
+            // writing to the next chunk
+            for (UINT32 chunk = 0; chunk < NUM_CHUNKS; chunk++)
+            {
+                // Read from the local SM
+                for (UINT32 i = offsetThreadId;
+                     i < chunkLen;
+                     i += readWarpCount * warpSize)
+                {
+                    const DataType readVal = pSurface[i + chunk * chunkLen];
+                    accVal += readVal;
+
+                    // Check result if requested
+                    if (readVal != expectedVal)
+                    {
+                        UINT32 smid;
+                        UINT32 warpid;
+                        UINT32 laneid;
+                        asm volatile ("mov.u32 %0, %%smid;"   : "=r"(smid));
+                        asm volatile ("mov.u32 %0, %%warpid;" : "=r"(warpid));
+                        asm volatile ("mov.u32 %0, %%laneid;" : "=r"(laneid));
+                        // For now just report the info of the SM where the error was read from
+                        const GXbarError err =
+                        {
+                            readVal, expectedVal,
+                            iter, i / (readWarpCount * warpSize),
+                            smid, warpid, laneid
+                        };
+                        ReportError(params, err);
+                    }
+                }
+            }
+            CgaUtils::cga_sync();
+        }
+
+        // Write out the aclwmulated read value
+        // (to prevent compiler optimizations, also could be used for golden values)
+        accVal = __reduce_add_sync(~0x0u, accVal);
+        if (laneIdx == 0)
+        {
+            auto accValAtom = GetAtomicRef<DataType, lwca::thread_scope_device>(params.accValPtr);
+            accValAtom.fetch_add(accVal, lwca::memory_order_relaxed);
+        }
+    }
+
+    // Cluster-wide barrier to ensure completion of work
+    // (Otherwise a CTA might try to read from a CTA that exited)
+    CgaUtils::cga_sync();
+}
+

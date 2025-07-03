@@ -1,0 +1,36 @@
+{
+    "node0" :
+    {
+        "type" : "node",
+        "ip"   : "ipaddr"   
+    },
+    "gpu0" :
+    {
+        "type"             : "gpu",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "fabric_base"      : 1708,
+        "fabric_16G_ranges": 4,
+        "requester_base"   : 0,
+        "max_ports"        : 6
+    },
+    "switch0" :
+    {
+        "type"             : "switch",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "max_ports"        : 18,
+        "ports"            : 
+            [
+                { "port"        : 16,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 0,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "policy" : 0, "output_ports" : [ 16 ] }
+                      ]
+                }
+            ]
+    }
+}
+

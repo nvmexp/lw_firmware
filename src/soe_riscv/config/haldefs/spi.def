@@ -1,0 +1,184 @@
+# -*- mode: perl; -*-
+
+# SPI SOE Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $spiHal = [
+
+    # defaults for spi for all interfaces below
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PRE_INIT => [
+            DESCRIPTION    => "Initialization",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        SERVICE => [
+            DESCRIPTION    => "Service",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        WRITE_CTRL  => [
+            DESCRIPTION    => "Configure HW-SPI Control register",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "PSPI_HW_CTRL pCtrl, LwU32 timeout",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        READ_DATA  => [
+            DESCRIPTION    => "Read from SPI device into DATA_ARRAY",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 *pData, LwU16 size, LwU8 dataArrayIdx",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        WRITE_DATA  => [
+            DESCRIPTION    => "Write from DATA_ARRAY to SPI device",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 *pData, LwU16 size",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        HW_WAIT_FOR_IDLE  => [
+            DESCRIPTION    => "Wait for HW-SPI Controller to Idle",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 timeoutUs",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        ROM_INIT_INFOROM_REGION_FROM_SCRATCH => [
+            DESCRIPTION   => "Initialize accessible InfoROM region from scratch registers",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "PSPI_DEVICE_ROM",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        BUS_CONFIGURE => [
+            DESCRIPTION    => "Configure SPI Bus before any transaction",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "PSPI_DEVICE",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        ROM_LOOKUP => [
+            DESCRIPTION     => "Lookup SPI EEPROM in supported EEPROM table",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "PSPI_DEVICE_ROM pSpiRom, LwU32 jedecId",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        BUFFER_TRANSFER => [
+            DESCRIPTION    => "Transfer data between SPI Controller and SPI Device",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "PSPI_DEVICE pSpiDev, PSPI_HW_CTRL pSpiCtrl, LwU8 *pRxBuffer, LwU8 *pTxBuffer",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        ROM_GET_STATUS => [
+            DESCRIPTION     => "Extract ROM Status register value",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 data, LwU8 *pRomStatus",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        ROM_SERIAL_BYPASS_ENABLE => [
+            DESCRIPTION    => "Toggle ROM serial bypass mode",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "PSPI_DEVICE_ROM pSpiRom, LwBool bEnable, LwBool *pbBypassToggled",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        ROM_READ_DIRECT => [
+            DESCRIPTION    => "Read ROM contents directly using SPI HW read-only controller",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "PSPI_DEVICE_ROM pSpiRom, LwU32 address, LwU16 size, LwU8 *pBuf",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        SET_FREQUENCY  => [
+            DESCRIPTION    => "Set SPI Controller frequency",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "PSPI_DEVICE pSpiDev",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        ROM_INIT_LEDGER_REGION_FROM_SCRATCH => [
+            DESCRIPTION   => "Initialize erase ledger region from scratch registers",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "PSPI_DEVICE_ROM",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        ROM_INIT_ERASE_LEDGER => [
+            DESCRIPTION   => "Initialize Erase Ledger Structures from EEPROM",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "PSPI_DEVICE_ROM pSpiRom",
+            FLAGS          => ":NO_STUB",
+
+            _LS10        => [ ALL, ],
+        ],
+
+        ROM_IS_ERASE_LIMIT_REACHED => [
+            DESCRIPTION   => "Check whether ROM erase limit has been reached",
+            RETURN_TYPE   => LwBool,
+            ARGUMENTS     => "PSPI_DEVICE_ROM pSpiRom, LwU32 eraseAddress",
+            FLAGS          => ":NO_STUB",
+
+            _LS10        => [ ALL, ],
+        ],
+
+        ROM_ERASE_TALLY => [
+            DESCRIPTION   => "Tally erase for tracked data sector",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "PSPI_DEVICE_ROM pSpiRom, LwU32 eraseAddress",
+            FLAGS          => ":NO_STUB",
+
+            _LS10        => [ ALL, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $spiHal;

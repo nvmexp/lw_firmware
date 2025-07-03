@@ -1,0 +1,576 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Engines.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    SEC2SRC_CORE => [
+
+        FLAGS => ':CORE',             # following are all part of core (non-hal)
+
+        'start.S'                       ,
+        'main.c'                        ,
+        'ic/lw/sec2_objic.c'            ,
+        'os/lw/sec2_os.c'               ,
+        ONLY_IF => '!SEC2_AUTO_PROFILE',
+            'sec2/lw/sec2_common_hs.c'   ,
+            'main_hs.c'                  ,
+        ONLY_IF => 'SEC2_USE_MUTEX',
+            'mutex/lw/lib_mutexinterface.c' ,
+
+    ],  # SEC2SRC_CORE
+
+    SEC2SRC_ENGINES => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        IC =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'ic/maxwell/sec2_icgm20x.c'      ,
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, ],
+                'ic/pascal/sec2_icgp10x.c'       ,
+
+            CHIPS_SUPPORTED => [ AMPERE, AD10X, ],
+                'ic/ampere/sec2_icga100.c'         ,
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, -GA100, ],
+                'ic/ampere/sec2_icga10x.c'         ,
+
+            CHIPS_SUPPORTED => [ GH100_and_later, ],
+                'ic/hopper/sec2_icgh100.c'         ,
+        ],
+
+        LSF =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'lsf/lw/sec2_objlsf.c'           ,
+                'lsf/maxwell/sec2_lsfgm20x.c'    ,
+                'lsf/pascal/sec2_lsfgp10x.c'     ,
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                'lsf/turing/lsftu10x.c'            ,
+        ],
+
+        LSR => 
+        [
+            CHIPS_SUPPORTED => [ GA100, ],
+                'lsr/ampere/lsrga100.c',
+
+            CHIPS_SUPPORTED => [ GA102_and_later, ],
+                'lsr/ampere/lsrga102.c',
+
+            CHIPS_SUPPORTED => [ HOPPER_and_later, ],
+                'lsr/hopper/lsrgh100.c',
+        ],
+
+        SEC2 =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'sec2/lw/sec2_objsec2.c'           ,
+                'sec2/maxwell/sec2_sec2gm20x.c'    ,
+
+            CHIPS_SUPPORTED => [ PASCAL, VOLTA, ],
+                 'sec2/pascal/sec2_sec2gp10xgvxxx.c' ,
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, ],
+                'sec2/pascal/sec2_sec2gp10x.c'       ,
+                'sec2/pascal/sec2_queuegp10x.c'      ,
+                'sec2/pascal/sec2_prierrgp10x.c'     ,
+                ONLY_IF => 'SEC2_USE_MUTEX',
+                    'sec2/pascal/sec2_mutexgp10x.c'      ,
+
+            CHIPS_SUPPORTED => [ PASCAL_thru_ADA, ],
+                 'sec2/pascal/sec2_sec2gp10xga10x.c' ,
+
+            CHIPS_SUPPORTED => [ GV10X_and_later, ] ,
+                ONLY_IF => 'TRUE',
+                    'sec2/volta/sec2gv10x.c'            ,
+                ONLY_IF => 'SEC2_USE_MUTEX',
+                    'sec2/volta/sec2_mutexgv10x.c'      ,
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                ONLY_IF => 'TRUE',
+                    'sec2/turing/sec2tu10x.c'           ,
+                ONLY_IF => '!SEC2_AUTO_PROFILE',
+                    'sec2/turing/sec2tu116.c'       ,
+
+            CHIPS_SUPPORTED => [ TU10X, ],
+                ONLY_IF => '!SEC2_AUTO_PROFILE',
+                    'sec2/turing/sec2tu10xonly.c',
+
+            CHIPS_SUPPORTED => [ TURING_thru_ADA, ],
+                    'sec2/turing/sec2tu10xga10x.c',
+
+            CHIPS_SUPPORTED => [ GA100, ],
+            [
+                ONLY_IF => 'SEC2TASK_APM',
+                    'sec2/ampere/sec2ga100only.c',
+            ],
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, ],
+                'sec2/ampere/sec2ga100.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, -GA100, -GA10B, ],
+                'sec2/ampere/sec2ga10x.c',
+
+            CHIPS_SUPPORTED => [ AD10X, ],
+                'sec2/ada/sec2ad10x.c',
+
+            CHIPS_SUPPORTED => [ HOPPER_and_later, ],
+                'sec2/hopper/sec2gh100.c',
+        ],
+
+        RTTIMER =>
+        [
+            CHIPS_SUPPORTED => [ GP10X_and_later, ],
+                'rttimer/lw/sec2_objrttimer.c'      ,
+                'rttimer/pascal/sec2_rttimergp10x.c',
+        ],
+
+        HDCPMC =>
+        [
+            CHIPS_SUPPORTED => [ ],
+                'hdcpmc/lw/hdcpmc_crypt.c',
+                'hdcpmc/lw/hdcpmc_data.c',
+                'hdcpmc/lw/hdcpmc_mem.c',
+                'hdcpmc/lw/hdcpmc_mthds.c',
+                'hdcpmc/lw/hdcpmc_pvtbus.c',
+                'hdcpmc/lw/hdcpmc_rsa.c',
+                'hdcpmc/lw/hdcpmc_scp.c',
+                'hdcpmc/lw/hdcpmc_session.c',
+                'hdcpmc/lw/hdcpmc_srm.c',
+        ],
+
+        GFE =>
+        [
+            CHIPS_SUPPORTED => [ GP10X_and_later, ],
+                'gfe/lw/gfe_ecid.c',
+                'gfe/lw/gfe_bigint.c',
+                'gfe/lw/gfe_sha2.c',
+                'gfe/lw/gfe_hs.c',
+
+            CHIPS_SUPPORTED => [ GP10X_thru_ADA, ],
+                'gfe/pascal/sec2_gfegp10xga10x.c' ,
+
+            CHIPS_SUPPORTED => [ HOPPER_and_later, ],
+                'gfe/hopper/sec2_gfegh100.c' ,
+        ],
+
+        HWV =>
+        [
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                'hwv/lw/hwv_perf.c',
+        ],
+
+        LWSR =>
+        [
+            CHIPS_SUPPORTED => [ GP10X_and_later, ],
+                'lwsr/lw/lwsr_mutex.c',
+                'lwsr/lw/lwsr_hs.c',
+        ],
+
+        PR =>
+        [
+            CHIPS_SUPPORTED => [ PASCAL, VOLTA ],
+                ONLY_IF => 'TRUE',
+                    'pr/pascal/sec2_prgp10xgv10x.c',
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, ],
+                ONLY_IF => 'TRUE',
+                    'pr/lw/sec2_objpr.c',
+                    'pr/lw/pr_lassahs.c',
+                    'pr/lw/pr_lassahs_hs.c',
+                    'pr/pascal/sec2_prgp10x.c',
+                    'pr/pascal/sec2_prmpkandcertgp10x.c',
+                ONLY_IF => '!SEC2_USE_PR44',
+                    'pr/v0300/constants/drmconstants.c',
+                    'pr/v0300/constants/drmversionconstants.c',
+                    'pr/v0300/modules/bcertformat/common/drmbcertformatcommon.c',
+                    'pr/v0300/modules/bcertformat/builder/drmbcertformatbuilder.c',
+                    'pr/v0300/modules/bcertformat/parser/drmbcertformatparser.c',
+                    'pr/v0300/modules/crt/real/crtimplreal.c',
+                    'pr/v0300/modules/hashcache/drmhashcache.c',
+                    'pr/v0300/modules/mathsafe/real/drmmathsafe.c',
+                    'pr/v0300/modules/nonceverify/real/drmnonceverify.c',
+                    'pr/v0300/modules/stkalloc/real/drmstkallocimplreal.c',
+                    'pr/v0300/modules/utf/real/drmutf.c',
+                    'pr/v0300/modules/utilities/id/drmutilitiesid.c',
+                    'pr/v0300/modules/xbinary/real/drmxb.c',
+                    'pr/v0300/modules/xbinary/real/drmxbbuilder.c',
+                    'pr/v0300/modules/xbinary/real/drmxbparser.c',
+                    'pr/v0300/modules/xmrformat/common/drmxmrformat.c',
+                    'pr/v0300/modules/xmrformat/parser/drmxmrformatparser.c',
+                    'pr/v0300/oem/common/AES/oemaes.c',
+                    'pr/v0300/oem/common/AES/aes128.c',
+                    'pr/v0300/oem/common/AES/aesbox.c',
+                    'pr/v0300/oem/common/aeskeywrap/oemaeskeywrap.c',
+                    'pr/v0300/oem/common/aesmulti/oemaesmulti.c',
+                    'pr/v0300/oem/common/bignum/bignum.c',
+                    'pr/v0300/oem/common/bignum/bignumnoinline.c',
+                    'pr/v0300/oem/common/bignum/divide.c',
+                    'pr/v0300/oem/common/bignum/ecex2001.c',
+                    'pr/v0300/oem/common/bignum/ecppq.c',
+                    'pr/v0300/oem/common/bignum/elwrve.c',
+                    'pr/v0300/oem/common/bignum/field.c',
+                    'pr/v0300/oem/common/bignum/kinitpr.c',
+                    'pr/v0300/oem/common/bignum/kilwert.c',
+                    'pr/v0300/oem/common/bignum/kmuladd.c',
+                    'pr/v0300/oem/common/bignum/ksqrtpr.c',
+                    'pr/v0300/oem/common/bignum/modexp.c',
+                    'pr/v0300/oem/common/bignum/modmulch1.c',
+                    'pr/v0300/oem/common/bignum/modsqrt.c',
+                    'pr/v0300/oem/common/bignum/modular.c',
+                    'pr/v0300/oem/common/bignum/mpaddsubcmp.c',
+                    'pr/v0300/oem/common/bignum/mpalloc.c',
+                    'pr/v0300/oem/common/bignum/mpgcdex.c',
+                    'pr/v0300/oem/common/bignum/mpmul22.c',
+                    'pr/v0300/oem/common/bignum/mprand.c',
+                    'pr/v0300/oem/common/ecc/base/oemeccp256.c',
+                    'pr/v0300/oem/common/ecc/base/oemeccp256verify.c',
+                    'pr/v0300/oem/common/ecc/baseimpl/oemeccinitimpl.c',
+                    'pr/v0300/oem/common/ecc/baseimpl/oemeccp256impl.c',
+                    'pr/v0300/oem/common/ecc/baseimpl/oemeccp256verifyimpl.c',
+                    'pr/v0300/oem/common/parsers/oemparsers_bcrl.c',
+                    'pr/v0300/oem/common/parsers/oemparsers_revinfo.c',
+                    'pr/v0300/oem/common/sha/sha256/oemsha256.c',
+                    'pr/v0300/oem/common/trustedexec/oembroker.c',
+                    'pr/v0300/oem/common/trustedexec/oembrokeraes.c',
+                    'pr/v0300/oem/common/trustedexec/oembrokertype.c',
+                    'pr/v0300/oem/common/trustedexec/oemcommonmem_lw.c',
+                    'pr/v0300/oem/common/trustedexec/oemcommonlw.c',
+                    'pr/v0300/oem/common/trustedexec/oemtee.c',
+                    'pr/v0300/oem/common/trustedexec/oemteeaes128ctr.c',
+                    'pr/v0300/oem/common/trustedexec/oemteeaes128ctrpolicy.c',
+                    'pr/v0300/oem/common/trustedexec/oemteeclock.c',
+                    'pr/v0300/oem/common/trustedexec/oemteecritsec.c',
+                    'pr/v0300/oem/common/trustedexec/oemteecrypto.c',
+                    'pr/v0300/oem/common/trustedexec/oemteecryptoaes128block.c',
+                    'pr/v0300/oem/common/trustedexec/oemteecryptoaes128keywrap.c',
+                    'pr/v0300/oem/common/trustedexec/oemteecryptoaes128multi.c',
+                    'pr/v0300/oem/common/trustedexec/oemteecryptoecc256.c',
+                    'pr/v0300/oem/common/trustedexec/oemteecryptorand.c',
+                    'pr/v0300/oem/common/trustedexec/oemteecryptosha256.c',
+                    'pr/v0300/oem/common/trustedexec/oemteedom.c',
+                    'pr/v0300/oem/common/trustedexec/oemteekeywrap.c',
+                    'pr/v0300/oem/common/trustedexec/oemteelprov.c',
+                    'pr/v0300/oem/common/trustedexec/oembrokerlprov.c',
+                    'pr/v0300/oem/common/trustedexec/oemteelprovcert.c',
+                    'pr/v0300/oem/common/trustedexec/oemteelprovcerttemplate.c',
+                    'pr/v0300/oem/common/trustedexec/oemteeversion.c',
+                    'pr/v0300/oem/linux/oemimplrand.c',
+                    'pr/v0300/oem/linux/oemmodel.c',
+                    'pr/v0300/oem/linux/oemtime.c',
+                    'pr/v0300/trustedexec/aes128ctr/drmteeaes128ctr.c',
+                    'pr/v0300/trustedexec/base/drmteebase.c',
+                    'pr/v0300/trustedexec/base/drmteekbcryptodata.c',
+                    'pr/v0300/trustedexec/base/drmteexb.c',
+                    'pr/v0300/trustedexec/debug/drmteedebug.c',
+                    'pr/v0300/trustedexec/dom/drmteedom.c',
+                    'pr/v0300/trustedexec/h264/drmteeh264.c',
+                    'pr/v0300/trustedexec/lprov/drmteelprov.c',
+                    'pr/v0300/trustedexec/lprovcerttemplate/drmteelprovcerttemplate.c',
+                    'pr/v0300/trustedexec/licprep/drmteelicprep.c',
+                    'pr/v0300/trustedexec/revocation/drmteerevocation.c',
+                    'pr/v0300/trustedexec/sampleprot/drmteesampleprot.c',
+                    'pr/v0300/trustedexec/sign/drmteesign.c',
+                    'pr/v0300/trustedexec/teeproxystub/common/drmteeproxystubcommon.c',
+                    'pr/v0300/trustedexec/teeproxystub/stub/common/drmteecache.c',
+                    'pr/v0300/trustedexec/teeproxystub/stub/common/drmteestubcommon_generated.c',
+                    'pr/v0300/trustedexec/teeproxystub/stub/common/drmteestubcommon.c',
+                    'pr/v0300/trustedexec/teeproxystub/stub/licgen/stub/drmteestublicgenunsupported.c',
+                    'pr/v0300/trustedexec/teeproxystub/stub/prndrx/stub/drmteeprndrxunsupported.c',
+                    'pr/v0300/trustedexec/teeproxystub/stub/prndtx/stub/drmteeprndtxunsupported.c',
+                    'pr/v0300/trustedexec/teeproxystub/stub/rprov/stub/drmteerprovunsupported.c',
+                    'pr/v0300/trustedexec/teeproxystub/stub/selwrestop/stub/drmteeselwrestopunsupported.c',
+
+            CHIPS_SUPPORTED => [ GV10X_and_later, ],
+                ONLY_IF => 'TRUE',
+                    'pr/volta/sec2_prgv10x.c',
+                    'pr/volta/sec2_prmpkandcertgv10x.c',
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                ONLY_IF => 'TRUE',
+                    'pr/turing/sec2_prtu10x.c',
+                    'pr/turing/sec2_prmpkandcerttu10x.c',
+
+            CHIPS_SUPPORTED => [ TU116, TU117, ],
+                ONLY_IF => 'TRUE',
+                    'pr/turing/sec2_prmpkandcerttu116.c',
+
+            CHIPS_SUPPORTED => [ GA10X, -GA100, AD10X, ],
+                ONLY_IF => 'TRUE',
+                    'pr/ampere/sec2_prmpkandcertga10x.c',
+                    'pr/ampere/sec2_prga10x.c',
+
+            CHIPS_SUPPORTED => [ AD10X, ],
+                ONLY_IF => 'TRUE',
+                    'pr/ada/sec2_prmpkandcertad10x.c',
+                    'pr/ada/sec2_prad10x.c',
+
+            CHIPS_SUPPORTED => [ GA10X_and_later,  ],
+                ONLY_IF => 'SEC2_USE_PR44',
+                    'pr/v0404/constants/drmconstants.c',
+                    'pr/v0404/constants/drmversionconstants.c',
+                    'pr/v0404/modules/base64/real/drmbase64implreal.c',
+                    'pr/v0404/modules/bcertformat/common/drmbcertformatcommon.c',
+                    'pr/v0404/modules/bcertformat/parser/drmbcertformatparser.c',
+                    'pr/v0404/modules/crt/real/crtimplreal.c',
+                    'pr/v0404/modules/hashcache/drmhashcache.c',
+                    'pr/v0404/modules/mathsafe/real/drmmathsafe.c',
+                    'pr/v0404/modules/nonceverify/real/drmnonceverify.c',
+                    'pr/v0404/modules/rivcrlparser/real/drmcrlparser.c',
+                    'pr/v0404/modules/rivcrlparser/real/drmrivparser.c',
+                    'pr/v0404/modules/stkalloc/real/drmstkalloc.c',
+                    'pr/v0404/modules/strsafe/real/drmstrsafeimplreal.c',
+                    'pr/v0404/modules/utf/real/drmutf.c',
+                    'pr/v0404/modules/utilities/id/drmutilitiesid.c',
+                    'pr/v0404/modules/xbinary/real/drmxb.c',
+                    'pr/v0404/modules/xbinary/real/drmxbbuilder.c',
+                    'pr/v0404/modules/xbinary/real/drmxbparser.c',
+                    'pr/v0404/modules/xmrformat/common/drmxmrformat.c',
+                    'pr/v0404/modules/xmrformat/parser/drmxmrformatparser.c',
+                    'pr/v0404/oem/common/broker/oembrokeraes.c',
+                    'pr/v0404/oem/common/broker/oembrokerbase.c',
+                    'pr/v0404/oem/common/broker/oembrokersha.c',
+                    'pr/v0404/oem/common/broker/oembrokertype.c',
+                    'pr/v0404/oem/common/broker/pkImpl/oembrokereccverify_pk.c',
+                    'pr/v0404/oem/common/crypto/aes/aes128.c',
+                    'pr/v0404/oem/common/crypto/aes/aesbox.c',
+                    'pr/v0404/oem/common/crypto/aes/oemaes.c',
+                    'pr/v0404/oem/common/crypto/aeskeywrap/oemaeskeywrap.c',
+                    'pr/v0404/oem/common/crypto/aesmulti/oemaesecb.c',
+                    'pr/v0404/oem/common/crypto/aesmulti/oemaeskdf.c',
+                    'pr/v0404/oem/common/crypto/aesmulti/oemaesomac1.c',
+                    'pr/v0404/oem/common/crypto/bignum/bignum.c',
+                    'pr/v0404/oem/common/crypto/bignum/bignumnoinline.c',
+                    'pr/v0404/oem/common/crypto/bignum/divide.c',
+                    'pr/v0404/oem/common/crypto/bignum/ecex2001.c',
+                    'pr/v0404/oem/common/crypto/bignum/ecppq.c',
+                    'pr/v0404/oem/common/crypto/bignum/elwrve.c',
+                    'pr/v0404/oem/common/crypto/bignum/field.c',
+                    'pr/v0404/oem/common/crypto/bignum/kinitpr.c',
+                    'pr/v0404/oem/common/crypto/bignum/kilwert.c',
+                    'pr/v0404/oem/common/crypto/bignum/kmuladd.c',
+                    'pr/v0404/oem/common/crypto/bignum/ksqrtpr.c',
+                    'pr/v0404/oem/common/crypto/bignum/modexp.c',
+                    'pr/v0404/oem/common/crypto/bignum/modmulch1.c',
+                    'pr/v0404/oem/common/crypto/bignum/modsqrt.c',
+                    'pr/v0404/oem/common/crypto/bignum/modular.c',
+                    'pr/v0404/oem/common/crypto/bignum/mpaddsubcmp.c',
+                    'pr/v0404/oem/common/crypto/bignum/mpalloc.c',
+                    'pr/v0404/oem/common/crypto/bignum/mpgcdex.c',
+                    'pr/v0404/oem/common/crypto/bignum/mpmul22.c',
+                    'pr/v0404/oem/common/crypto/bignum/mprand.c',
+                    'pr/v0404/oem/common/crypto/ecc/base/oemeccp256.c',
+                    'pr/v0404/oem/common/crypto/ecc/base/oemeccp256verify.c',
+                    'pr/v0404/oem/common/crypto/ecc/baseimpl/oemeccinitimpl.c',
+                    'pr/v0404/oem/common/crypto/ecc/baseimpl/oemeccp256impl.c',
+                    'pr/v0404/oem/common/crypto/ecc/baseimpl/oemeccp256verifyimpl.c',
+                    'pr/v0404/oem/common/crypto/sha/sha256/oemsha256.c',
+                    'pr/v0404/oem/common/trustedexec/oemtee.c',
+                    'pr/v0404/oem/common/trustedexec/oemteeaes128cbc.c',
+                    'pr/v0404/oem/common/trustedexec/oemteeclock.c',
+                    'pr/v0404/oem/common/trustedexec/oemcommonmem_lw.c',
+                    'pr/v0404/oem/common/trustedexec/oemcommonlw.c',
+                    'pr/v0404/oem/common/trustedexec/oemteecritsec.c',
+                    'pr/v0404/oem/common/trustedexec/oemteecrypto.c',
+                    'pr/v0404/oem/common/trustedexec/oemteecryptoaes128block.c',
+                    'pr/v0404/oem/common/trustedexec/oemteecryptoaes128ecb.c',
+                    'pr/v0404/oem/common/trustedexec/oemteecryptoaes128kdf.c',
+                    'pr/v0404/oem/common/trustedexec/oemteecryptoaes128keywrap.c',
+                    'pr/v0404/oem/common/trustedexec/oemteecryptoaes128omac1.c',
+                    'pr/v0404/oem/common/trustedexec/oemteecryptoecc256.c',
+                    'pr/v0404/oem/common/trustedexec/oemteecryptorand.c',
+                    'pr/v0404/oem/common/trustedexec/oemteecryptosha256.c',
+                    'pr/v0404/oem/common/trustedexec/oemteedecrypt.c',
+                    'pr/v0404/oem/common/trustedexec/oemteedecryptpolicy.c',
+                    'pr/v0404/oem/common/trustedexec/oemteedom.c',
+                    'pr/v0404/oem/common/trustedexec/oemteekeywrap.c',
+                    'pr/v0404/oem/common/trustedexec/oemteelprovcert.c',
+                    'pr/v0404/oem/common/trustedexec/oemteelprovcerttemplate.c',
+                    'pr/v0404/oem/common/trustedexec/oemteemem.c',
+                    'pr/v0404/oem/common/trustedexec/oemteememhandle.c',
+                    'pr/v0404/oem/common/trustedexec/oemteeversion.c',
+                    'pr/v0404/trustedexec/aes128cbc/drmteeaes128cbc.c',
+                    'pr/v0404/trustedexec/aes128ctr/drmteeaes128ctr.c',
+                    'pr/v0404/trustedexec/base/drmteebase.c',
+                    'pr/v0404/trustedexec/base/drmteebasemem.c',
+                    'pr/v0404/trustedexec/base/drmteekbcryptodata.c',
+                    'pr/v0404/trustedexec/base/drmteexb.c',
+                    'pr/v0404/trustedexec/debug/drmteedebug.c',
+                    'pr/v0404/trustedexec/decrypt/drmteedecrypt.c',
+                    'pr/v0404/trustedexec/dom/drmteedom.c',
+                    'pr/v0404/trustedexec/h264/drmteeh264.c',
+                    'pr/v0404/trustedexec/licprep/drmteelicprep.c',
+                    'pr/v0404/trustedexec/lprovcerttemplate/drmteelprovcerttemplate.c',
+                    'pr/v0404/trustedexec/revocation/drmteerevocation.c',
+                    'pr/v0404/trustedexec/sampleprot/drmteesampleprot.c',
+                    'pr/v0404/trustedexec/sign/drmteesign.c',
+                    'pr/v0404/trustedexec/teeproxystub/common/drmteeproxystubcommon.c',
+                    'pr/v0404/trustedexec/teeproxystub/stub/common/drmteecache.c',
+                    'pr/v0404/trustedexec/teeproxystub/stub/common/drmteestubcommon.c',
+                    'pr/v0404/trustedexec/teeproxystub/stub/common/drmteestubcommon_generated.c',
+                    'pr/v0404/trustedexec/teeproxystub/stub/licgen/stub/drmteestublicgenunsupported.c',
+                    'pr/v0404/trustedexec/teeproxystub/stub/rprov/stub/drmteerprovunsupported.c',
+                    'pr/v0404/trustedexec/teeproxystub/stub/selwrestop/stub/drmteeselwrestopunsupported.c',
+                    'pr/v0404/trustedexec/teeproxystub/stub/selwrestop2/stub/drmteeselwrestop2unsupported.c',
+                    'pr/v0404/trustedexec/teeproxystub/stub/selwretime/stub/drmteeselwretimeunsupported.c',
+        ],
+
+        VPR =>
+        [
+            CHIPS_SUPPORTED => [ GP10X_and_later, ],
+                'vpr/lw/vpr_mthds.c',
+                'vpr/pascal/sec2_vprgp10x.c',
+                'vpr/pascal/sec2_vprgp107.c',
+
+            CHIPS_SUPPORTED => [ GP10X, ],
+                'vpr/pascal/sec2_vprgp10xonly.c',
+                'sec2/pascal/sec2_vprpoliciesgp10x.c',
+
+            CHIPS_SUPPORTED => [ GP10X_thru_VOLTA, ],
+                'vpr/pascal/sec2_vprgp10xgv10xonly.c',
+
+            CHIPS_SUPPORTED => [ GV100, ],
+                'vpr/volta/sec2_vprgv100only.c',
+
+            CHIPS_SUPPORTED => [ GV10X, ],
+                'sec2/volta/sec2_vprpoliciesgv10xonly.c',
+
+            CHIPS_SUPPORTED => [ GV100_and_later, -GA100, ],
+                'vpr/volta/sec2_vprgv100.c',
+                'sec2/volta/sec2_vprpoliciesgv10x.c',
+
+            CHIPS_SUPPORTED => [ TU10X, ],
+                'vpr/turing/sec2_vprtu10xonly.c',
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                'vpr/turing/sec2_vprtu10x.c',
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, -GA100, ],
+                'sec2/turing/sec2_vprpoliciestu10x.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, ],
+                'vpr/ampere/sec2_vprga100.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, -GA100, ],
+                'vpr/ampere/sec2_vprga10x.c',
+
+            CHIPS_SUPPORTED => [ AD10X, ],
+                'vpr/ada/sec2_vprad10x.c',
+
+            CHIPS_SUPPORTED => [ GH20X_and_later, ],
+                'vpr/hopper/sec2_vprgh20x.c',
+        ],
+
+        ACR =>
+        [
+            CHIPS_SUPPORTED => [ GP102_thru_VOLTA, ],
+                'acr/pascal/sec2_acrgp10xgv100only.c',
+
+            CHIPS_SUPPORTED => [ GP102_and_later, ],
+                'acr/pascal/sec2_acrgp10x.c',
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                'acr/turing/sec2_acrtu10x.c',
+
+            CHIPS_SUPPORTED => [ PASCAL, VOLTA ],
+                'acr/pascal/sec2_acrgp10xgvxxx.c',
+
+            CHIPS_SUPPORTED => [ GA100, ],
+                'acr/ampere/sec2_acrga100.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, -GA100, -GA10B, -GH100, ],
+                'acr/ampere/sec2_acrga10x.c',
+
+            CHIPS_SUPPORTED => [ GH100_and_later, ],
+                'acr/hopper/sec2_acrgh100.c',
+ 
+        ],
+    
+        APM =>
+        [
+            CHIPS_SUPPORTED => [ GA100, GA10X, ],
+                'apm/lw/apm_keys.c',
+                'apm/lw/sec2_apmencryptdma.c',
+                'apm/lw/sec2_apmscpcrypt.c',
+
+            CHIPS_SUPPORTED => [ GA100 ],
+                'apm/ampere/sec2_apmga100.c',
+                'apm/lw/apm_rts.c',
+                'apm/lw/sec2_apmrtm.c',
+                'apm/ampere/sec2_apmrtmga100.c'
+        ],
+
+        SPDM =>
+        [
+            CHIPS_SUPPORTED => [ GA100, ],
+                'signcert/lw/sign_cert.c',
+                'spdm/ampere/sec2_spdmga100.c',
+        ],
+
+    ],  # SEC2SRC_ENGINES
+
+    SEC2SRC_TASKS => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        CHIPS_SUPPORTED => [ ALL, ],
+            'task_cmdmgmt.c',
+            'task_chnmgmt.c',
+            'task_wkrthd.c' ,
+
+        CHIPS_SUPPORTED => [ GP10X_and_later, ],
+            'task_gfe.c' ,
+            'task_hwv.c' ,
+            'task_lwsr.c',
+            'task_pr.c'  ,
+            'task_vpr.c' ,
+            'task_acr.c' ,
+
+        CHIPS_SUPPORTED => [ GA100, GA10X, ],
+            'task_apm.c' ,
+            'task_spdm.c',
+
+        CHIPS_SUPPORTED => [ AMPERE_and_later, -GA100, -GA10B, -GH100, ],
+            'sec2/ampere/sec2_posted_write_ga10x.c',
+
+    ],  # SEC2SRC_TASKS
+
+    SEC2SRC_JOBS => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        'job_hs_switch.c'     ,
+        'job_fakeidle_test.c' ,
+        'job_rttimer_test.c'  ,
+    ],
+
+];   # filesRef
+
+
+my $platformsRef = [
+
+    # the SEC2 platform
+    PLATFORM_SEC2  => [
+        SEC2SRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

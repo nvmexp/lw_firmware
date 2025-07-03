@@ -1,0 +1,85 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2014-2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+#
+# Top-level PMU makefile. This makefile is responsible for building the PMU
+# binary including projects it depends on (RTOS, bootloader, etc ...) across
+# all PMU config-profiles.
+#
+
+all: build
+
+###############################################################################
+# Use the flag to serialize per-profile builds (this does not prevent parallel
+# building within each profile). The flag decreases the speed a bit but avoid
+# the mess output of inter-profiles building. When an error is found, it makes
+# the build stop immediately.
+###############################################################################
+
+SERIALIZE_PROFILES ?= "true"
+
+ifneq ("$(SERIALIZE_PROFILES)","false")
+  .NOTPARALLEL:
+endif
+
+###############################################################################
+# Set PMUCFG_PROFILES to the list of PMUCFG profiles to build. The value is set
+# in one of three ways depending on defaults and user-overrides (if any).
+#
+# 1. Sourcing pmu-profiles.mk to get the full list of profiles (default)
+# 2. If PMUCFG_PROFILE is set on the command-line or as an elwvar, build that
+#    profile only.
+#
+# Setting PMUCFG_PROFILES in the shell or on the command-line will override the
+# profile(s) returned by the first two options above. PMUCFG_PROFILE trumps
+# everything.
+###############################################################################
+
+PMUCFG_PROFILES ?=
+
+ifndef PMUCFG_PROFILE
+  ifeq ("$(strip $(PMUCFG_PROFILES))", "")
+    include $(LW_SOURCE)/pmu_sw/config/pmu-profiles.mk
+    override PMUCFG_PROFILES = $(PMUCFG_PROFILES_ALL)
+  endif
+else
+  PMUCFG_PROFILES = $(PMUCFG_PROFILE)
+endif
+
+# Pass PMUCFG_PROFILES list to submake
+export PMUCFG_PROFILES
+
+###############################################################################
+# Create submake build/clobber targets for profiles being built.
+###############################################################################
+
+PROFILES.build   = $(PMUCFG_PROFILES:=.build)
+PROFILES.clobber = $(PMUCFG_PROFILES:=.clobber)
+
+###############################################################################
+# Targets/Rules
+###############################################################################
+
+.PHONY: PROFILES.build   build
+.PHONY: PROFILES.clobber clobber
+
+# PMU does not support clean, since clean is designed for a flat dir structure.
+# It exists as a target here to avoid breaking build scripts. Building pmu
+# with clean will automatically clobber.
+build:   $(PROFILES.build)
+clean:   $(PROFILES.clobber)
+clobber: $(PROFILES.clobber)
+
+$(PROFILES.build):
+	$(MAKE) -f make-profile.lwmk PMUCFG_PROFILE=$(basename $@) build
+
+$(PROFILES.clobber):
+	$(MAKE) -f make-profile.lwmk PMUCFG_PROFILE=$(basename $@) clobber

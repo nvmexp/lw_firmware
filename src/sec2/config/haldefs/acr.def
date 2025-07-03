@@ -1,0 +1,147 @@
+# -*- mode: perl; -*-
+
+# Access Control Region Details.
+
+my $apHal = [
+
+    DEFAULTS => [
+
+        FLAGS       => ":DIRECT_HAL_CALLS",
+
+    ],
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        GET_REGION_DETAILS => [
+            DESCRIPTION    => "Returns WPR region details for given region ID",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERROR,
+            ARGUMENTS      => "LwU32 regionId, LwU64 *pStartAddr, LwU64 *pEndAddr, LwU16 *pRdMask, LwU16 *pWrMask",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GP10X         => [ GP102_thru_VOLTA, ],
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ pre_GP10X, GP100 ],
+        ],
+
+        PRIV_LOAD_TARGET_FALCON => [
+            DESCRIPTION    => "Use PRIV access to load target falcon memory",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERROR,
+            ARGUMENTS      => "LwU32 dstOff, LwU32 fbOff, LwU32 sizeInBytes, LwU32 regionID, LwU8 bIsDstImem, PACR_FLCN_CONFIG pFlcnCfg",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GP10X         => [ GP102_thru_TURING, GA100, GH100, GH20X, G00x ],
+            _GA10X         => [ AMPERE_and_later, -GA100, -GA10B, -GH100, -GH20X, -G00x ],
+            _STUB          => [ ALL, -GP102_thru_TURING, -AMPERE_and_later, GA10B, ],
+        ],
+
+        GET_GPU_GC6_EXIT_STATUS => [
+            DESCRIPTION     => "Get the SCI Interrupt status, to see if GPU is in GC6 exit state",
+            RETURN_TYPE     => LwBool,
+            STUB_RETURNS    => LW_FALSE,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_acrLs", "__FUNC__")',
+
+            _GP10X         => [ GP102_and_later, ],
+            _STUB          => [ pre_GP10X, GP100 ],
+        ],
+
+        TRIGGER_NEXT_SCI_PHASE => [
+            DESCRIPTION     => "Trigger the next SCI phase.",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            STUB_RETURNS    => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_acrLs", "__FUNC__")',
+            INTERFACE_TAG   => "acrTriggerNextSCIPhase", # "SCI" instead of "Sci"
+
+            _GP10X         => [ GP102_and_later, ],
+            _STUB          => [ pre_GP10X, GP100 ],
+        ],
+
+        CHECK_SUPPORT_AND_EXIT_GC6_BY_ACR_TASK => [
+            DESCRIPTION     => "Check if ACR task need to support and exit GC6 phase",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "FLCN_STATUS *",
+            STUB_RETURNS    => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_acrLs", "__FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, -GA100 ],
+            _STUB          => [ ALL, -TU10X_and_later, GA100 ],
+        ],
+
+        IS_BSI_RAM_VALID => [
+            DESCRIPTION     => "Check if BSIRAM is valid",
+            RETURN_TYPE     => LwBool,
+            STUB_RETURNS    => LW_TRUE,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_acrLs", "__FUNC__")',
+
+            _GA10X         => [ AMPERE_and_later, -GA100, -GA10B, -GH100, ],
+            _STUB          => [ pre_AMPERE, GA100, GA10B, GH100, ],
+        ],
+
+        GPC_RG_GPCCS_BS_STATE_UPDATE_STARTED => [
+            DESCRIPTION     => "Update GPCCS Bootstrap (for GPC-RG) state to STARTED",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            STUB_RETURNS    => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_acrLs", "__FUNC__")',
+
+            _GA10X         => [ AMPERE_and_later, -GA100, -GA10B, -GH100, ],
+            _STUB          => [ ALL, -AMPERE_and_later, GA100, GA10B, GH100, ],
+        ],
+
+        GPC_RG_GPCCS_BS_STATE_UPDATE_DONE => [
+            DESCRIPTION     => "Update GPCCS Bootstrap (for GPC-RG) state to STARTED",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            STUB_RETURNS    => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_acrLs", "__FUNC__")',
+
+            LIKE_INTERFACE => GPC_RG_GPCCS_BS_STATE_UPDATE_STARTED,
+        ],
+
+        GPC_RG_GPCCS_BS_ERROR_CODE_UPDATE => [
+            DESCRIPTION     => "Update GPCCS Bootstrap (for GPC-RG) status with the error code",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 status",
+            STUB_RETURNS    => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_acrLs", "__FUNC__")',
+
+            LIKE_INTERFACE => GPC_RG_GPCCS_BS_STATE_UPDATE_STARTED,
+        ],
+
+        SETUP_CTXSW_REGISTERS => [
+            DESCRIPTION     => "Setup few registers required by CTXSW",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_OK,
+            ARGUMENTS       => "PACR_FLCN_CONFIG",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GH100         => [ GH100_and_later, ],
+            _STUB          => [ ALL, -GH100_and_later, ],
+        ],
+
+        IS_SMC_ACTIVE_HS    => [
+            DESCRIPTION     => "Check if SMC is active or not",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_OK,
+            ARGUMENTS       => "LwBool *",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GA100          => [ GA100, ],
+            _STUB           => [ ALL, -GA100, ],
+        ],
+
+
+
+    ],  # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $apHal;
+

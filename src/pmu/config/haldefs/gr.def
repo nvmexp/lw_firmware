@@ -1,0 +1,678 @@
+# -*- mode: perl; -*-
+
+# Gr Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $grHal = [
+
+    DEFAULTS => [
+
+        FLAGS       => ":DIRECT_HAL_CALLS",
+
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    # GR is disabled on GM10X and GM20X. All HAL would get stub on GM10X and GM20X.
+
+    HAL_INTERFACES => [
+
+        INIT_SET_IDLE_MASKS => [
+            DESCRIPTION    => "initializes the idle mask for GR",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GMXXX         => [ GV11B, MAXWELL, ],
+            _GPXXX         => [ PASCAL, VOLTA, -GV11B, ],
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ AMPERE_and_later, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B         => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _STUB          => [ G00X, ],
+        ],
+
+        RG_INIT_SET_IDLE_MASKS => [
+            DESCRIPTION    => "initializes the idle mask for GR-RG",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ AMPERE_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -G00X, ],
+            _STUB          => [ pre_AMPERE, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        PASSIVE_IDLE_MASKS_INIT => [
+            DESCRIPTION    => "initializes the idle mask for GR-Passive",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ AMPERE_and_later, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ MAXWELL_thru_VOLTA, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        INIT_SET_HOLDOFF_MASK => [
+            DESCRIPTION    => "Initializes the holdoff mask for GR",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GMXXX         => [ GV11B, MAXWELL, ],
+            _GP10X         => [ PASCAL, VOLTA, -GV11B, ],
+            _TU10X         => [ TURING_and_later, ],
+        ],
+
+        RG_INIT_SET_HOLDOFF_MASK => [
+            DESCRIPTION    => "Initializes the holdoff mask for GR-RG",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ AMPERE_and_later, ],
+            _STUB          => [ ALL, -AMPERE_and_later, ],
+        ],
+
+        RG_ENTRY_CONDITION_CONFIG => [
+            DESCRIPTION    => "Configure entry conditions for GR-RG",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ pre_dAMPERE, GA100, GH100, GB100, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        WAKEUP_INTR_ENABLE => [
+            DESCRIPTION    => "Enable GR Specific wakeup interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, ],
+            _STUB          => [ pre_dAMPERE, GA100, GH100, GB100, G00X, ],
+        ],
+
+        PROCESS_WAKEUP_INTERRUPTS => [
+            DESCRIPTION    => "Process the GR Specific Wakeup interrupts",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "DISPATCH_LPWR *, PG_LOGIC_STATE *",
+            STUB_RETURNS   => FLCN_OK,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwr", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, ],
+            _STUB          => [ pre_dAMPERE, GA100, GH100, GB100, G00X, ],
+        ],
+
+        ACTIVATE_HOLDOFF_INTR_WAR => [
+            DESCRIPTION    => "Activate holdoff interrupt WAR for bug 1793923",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => LwBool,
+
+            _GMXXX         => [ MAXWELL_and_later, ],
+        ],
+
+        RESET_BLXG_WAR => [
+            DESCRIPTION    => "Reset BLxG controller, WAR for bug 754593",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+
+            _GMXXX         => [ MAXWELL, ],
+            _STUB          => [ dPASCAL_and_later, ]
+        ],
+
+        IS_INTR_PENDING => [
+            DESCRIPTION    => "Checks for graphics interrupts",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => LW_FALSE,
+
+            _GM10X         => [ GV11B, MAXWELL, ],
+            _GPXXX         => [ PASCAL_and_later, -TURING_and_later, -GV11B, ],
+            _TU10X         => [ TURING, ],
+            _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        IS_MMU_PRI_FIFO_EMPTY => [
+            DESCRIPTION    => "Checks for MMU pri fifo state",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => LW_TRUE,
+
+            _TU10X         => [ dTURING_and_later, ],
+            _STUB          => [ pre_TURING, ],
+        ],
+
+        # RPPG HALs
+        RPPG_ENTRY => [
+            DESCRIPTION    => "Entry sequence for GR coupled RPPG.",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _GP10X         => [ dPASCAL_and_later, ],
+            _STUB          => [ ALL, -dPASCAL_and_later, ]
+        ],
+
+        RPPG_EXIT => [
+            DESCRIPTION    => "Exit sequence for GR coupled RPPG.",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_ERROR,
+
+            LIKE_INTERFACE => RPPG_ENTRY,
+        ],
+
+        # GR_RG HALs
+        GR_RG_ENTRY => [
+            DESCRIPTION    => "Entry sequence for GPC_RG.",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _GA10X         => [ dAMPERE_and_later, ],
+            _STUB          => [ ALL, -dAMPERE_and_later, ]
+        ],
+
+        GR_RG_ENTRY_PRE_VOLT_GATE_LPWR => [
+            DESCRIPTION    => "Execute LPWR steps before gating voltage rail.",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_ERROR,
+
+            LIKE_INTERFACE => GR_RG_ENTRY,
+        ],
+
+        GR_RG_EXIT => [
+            DESCRIPTION    => "Exit sequence for GPC_RG.",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_ERROR,
+
+            LIKE_INTERFACE => GR_RG_ENTRY,
+        ],
+
+        GR_RG_EXIT_PRE_VOLT_UNGATE_LPWR => [
+            DESCRIPTION    => "Execute LPWR steps before ungating voltage rail.",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_ERROR,
+
+            LIKE_INTERFACE => GR_RG_ENTRY,
+        ],
+
+        GR_RG_EXIT_POST_VOLT_UNGATE_LPWR => [
+            DESCRIPTION    => "Execute LPWR steps after ungating voltage rail.",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_ERROR,
+
+            LIKE_INTERFACE => GR_RG_ENTRY,
+        ],
+
+        RG_RAIL_GATE => [
+            DESCRIPTION    => "Execute LWVDD Rail gating steps.",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwBool bGate",
+            STUB_RETURNS   => FLCN_OK,
+
+            _GA10X         => [ GA10X_and_later, -GA100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ ALL, -GA10X_and_later, G00X, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        # PG HALs
+        PG_RESTORE => [
+            DESCRIPTION    => "restore gr state",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _GMXXX         => [ MAXWELL_thru_VOLTA, ],
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B         => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _STUB          => [ GA100, GH100, GB100, G00X, ],
+       ],
+
+        PG_L1_SCRUB => [
+            DESCRIPTION    => "Scrub GR L1 before ELPG restore",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => void,
+
+            _GMXXX         => [ pre_VOLTA, ],
+            _STUB          => [ VOLTA_and_later, ],
+        ],
+
+        PG_SAVE => [
+            DESCRIPTION    => "save pg state",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _GMXXX         => [ MAXWELL_thru_VOLTA, ],
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B         => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _STUB          => [ GA100, GH100, GB100, G00X, ],
+        ],
+
+        PG_RESET => [
+            DESCRIPTION    => "reset gr",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _GMXXX         => [ GV11B, MAXWELL_thru_VOLTA, ],
+            _STUB          => [ dTURING_and_later, ],
+        ],
+
+        HW_PG_ENGAGE => [
+            DESCRIPTION   => "Power gate Graphics Engine",
+            RETURN_TYPE   => "void",
+            ARGUMENTS     => "void",
+
+            _GV11B        => [ GV11B, ],
+            _TU10X        => [ TURING,  ],
+            _GA10X        => [ GA10X_and_later, -GA100, -GH100, -GB100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B        => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _STUB         => [ pre_TU10X, GA100, GH100, GB100, -GV11B, ],
+        ],
+
+        HW_PG_DISENGAGE => [
+            DESCRIPTION   => "Power ungating for Graphics Engine",
+            RETURN_TYPE   => "void",
+            ARGUMENTS     => "void",
+
+            LIKE_INTERFACE => HW_PG_ENGAGE
+        ],
+
+        CLEAR_IDLE_FLIP => [
+            DESCRIPTION      => "Clear idle flip corresponding to GR_FE and GR_PRIV",
+            RETURN_TYPE      => "void",
+            ARGUMENTS        => "LwU8 ctrlId",
+
+            _TU10X           => [ TURING, ],
+            _GA10X           => [ dAMPERE_and_later, ],
+            _STUB            => [ ALL, -dTURING_and_later, ],
+        ],
+
+        # Other engine operations
+        PG_PRIV_ERR_HANDLING_INIT => [
+            DESCRIPTION    => "initializes masks for priv protection",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GM10X         => [ GM10X, ],
+            _GM20X         => [ GV11B, GM20X_thru_VOLTA, ],
+            _STUB          => [ TURING_and_later, ]
+        ],
+
+        PG_PRIV_ERR_HANDLING_SUPPORT_OVERRIDE => [
+            DESCRIPTION    => "Overrid the support mask for priv protection",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ ALL, -dAMPERE_and_later, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ]
+        ],
+
+        RG_PRIV_ERR_HANDLING_SUPPORT_OVERRIDE => [
+            DESCRIPTION    => "Overrid the support mask for priv protection",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ ALL, -dAMPERE_and_later, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ]
+        ],
+
+        PG_PRIV_ERR_HANDLING_ACTIVATE => [
+            DESCRIPTION    => "Activate/Deactivate PRI error mechanism for GR access",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool",
+
+            _GM10X         => [ GM10X, ],
+            _GM20X         => [ GM20X_thru_VOLTA, ],
+            _GA10X         => [ AMPERE_and_later, -GA100, -GH100, -GB100, -G00X, ],
+            _STUB          => [ TURING, GA100, GH100, GB100, G00X, ],
+        ],
+
+        ASSERT_GPC_RESET => [
+            DESCRIPTION    => "Reset GPC unit",
+            RETURN_TYPE    => void,
+            INTERFACE_TAG  => 'grAssertGPCReset', # 'GPC' instead of 'Gpc'
+            ARGUMENTS      => "LwBool",
+
+            _GMXXX         => [ pre_AMPERE, ],
+            _GA10X         => [ AMPERE_and_later, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B         => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _STUB          => [ G00X, ],
+        ],
+
+        ASSERT_FECS_RESET => [
+            DESCRIPTION    => "Reset FECS unit",
+            RETURN_TYPE    => void,
+            INTERFACE_TAG  => 'grAssertFECSReset', # 'FECS' instead of 'Fecs'
+            ARGUMENTS      => "LwBool",
+
+            _GMXXX         => [ pre_AMPERE, ],
+            _GA10X         => [ AMPERE_and_later, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B         => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _STUB          => [ G00X, ],
+        ],
+
+        ASSERT_BECS_RESET => [
+            DESCRIPTION    => "Reset BECS unit",
+            RETURN_TYPE    => void,
+            INTERFACE_TAG  => 'grAssertBECSReset', # 'BECS' instead of 'Becs'
+            ARGUMENTS      => "LwBool",
+
+            _GMXXX         => [ pre_AMPERE, ],
+            _GA100         => [ GA100, ],
+            _STUB          => [ AMPERE_and_later, -GA100, ],
+        ],
+
+        UNBIND => [
+            DESCRIPTION    => "Unbind Gr Engine",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 ctrlId, LwBool bUnbind",
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _GMXXX         => [ MAXWELL_thru_VOLTA, ],
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, ]
+        ],
+
+        SUBMIT_METHOD => [
+            DESCRIPTION   => "Submit a FECS method",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "LwU32 method, LwU32 methodData, LwU32 pollValue",
+            STUB_RETURNS  => FLCN_ERROR,
+
+            _GMXXX        => [ dMAXWELL_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _GA10B        => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _GV11B        => [ GV11B, ],
+        ],
+
+        PERFMON_WAR_STATE_INIT => [
+            DESCRIPTION    => "Initalize the data structure to manage PERFMON CG state",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => FLCN_OK,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _TU10X         => [ TURING, ],
+            _STUB          => [ ALL, -TURING, ],
+        ],
+
+        PERFMON_WAR_STATE_SAVE => [
+            DESCRIPTION    => "Save the Block Activity registers state",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => PERFMON_WAR_STATE_INIT,
+        ],
+
+        PERFMON_WAR_STATE_RESTORE => [
+            DESCRIPTION    => "Restore the Block activity registers state",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => PERFMON_WAR_STATE_INIT,
+        ],
+
+        PERFMON_WAR_RESET => [
+            DESCRIPTION    => "Reset Perfmon unit",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => PERFMON_WAR_STATE_INIT,
+        ],
+
+        # TODO-aranjan : Enable it on Turing
+        GLOBAL_STATE_INIT_PMU => [
+            DESCRIPTION    => "Initialize the data structure to GR Global state",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => FLCN_OK,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GH100, -GB100, ],
+            _STUB          => [ pre_dAMPERE, GH100, GB100, ],
+        ],
+
+        # TODO-aranjan : Enable it on Turing
+        GLOBAL_STATE_SAVE_PMU => [
+            DESCRIPTION    => "Save the GR Global state",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            _GA10X         => [ dAMPERE_and_later, ],
+            _STUB          => [ pre_dAMPERE, ],
+        ],
+
+        GLOBAL_STATE_RESTORE_PMU => [
+            DESCRIPTION    => "Restore the GR Global state",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => GLOBAL_STATE_SAVE_PMU,
+        ],
+
+        BA_STATE_INIT => [
+            DESCRIPTION    => "Initialize the data structure to manage BA state",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => FLCN_OK,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _TU10X         => [ TURING, ],
+            _STUB          => [ ALL, -TURING, ],
+        ],
+
+        BA_STATE_SAVE => [
+            DESCRIPTION    => "Save the Block Activity registers state",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            LIKE_INTERFACE => BA_STATE_INIT,
+        ],
+
+        BA_STATE_RESTORE => [
+            DESCRIPTION    => "Restore the Block activity registers state",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => BA_STATE_INIT,
+        ],
+
+        SM_ROUTING_MODE_SET => [
+            DESCRIPTION   => "Set the SM Routing register",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "LwU32 gpcCounter, LwU32 tpcCounter, LwBool bIsBroadcast, GR_TPC_SM_ROUTING_MODE routingSel",
+            STUB_RETURNS   => FLCN_OK,
+
+            _GA10X        => [ AMPERE_and_later, ],
+            _STUB         => [ ALL, -AMPERE_and_later, ],
+        ],
+
+        ISSUE_SRAM_ECC_SCRUB => [
+            DESCRIPTION    => "SCRUB various SRAM ECC",
+            RETURN_TYPE    => "FLCN_STATUS",
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => "FLCN_OK",
+
+            _TUXXX         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GH100, -GB100, ],
+            _STUB          => [ pre_TURING, GA100, GH100, GB100, ],
+        ],
+
+        GLOBAL_STATE_SAVE => [
+            DESCRIPTION    => "Save Global state via FECS",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 ctrlId",
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _GMXXX         => [ pre_AMPERE, ],
+            _GA10X         => [ dAMPERE_and_later, ],
+        ],
+
+        GLOBAL_STATE_RESTORE => [
+            DESCRIPTION    => "Restore the global non-ctxsw state",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "LwU8 ctrlId",
+
+            _GMXXX         => [ MAXWELL_thru_VOLTA, ],
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, ],
+        ],
+
+        IS_IDLE => [
+            DESCRIPTION    => "Check Idleness of GR engine",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "LwU32 *pAbortReason, LwU8 ctrlId",
+            STUB_RETURNS   => LW_FALSE,
+
+            _GMXXX         => [ dMAXWELL_and_later, ],
+        ],
+
+        WAIT_FOR_SUBUNITS_IDLE => [
+            DESCRIPTION    => " Wait till graphics subunits are idle",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => LW_FALSE,
+
+            _GMXXX         => [ dMAXWELL_and_later, ],
+        ],
+
+        SMCARB_TIMESTAMP_DISABLE => [
+            DESCRIPTION    => "Enable/disable SMCARB free-running timestamp",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "LwBool bDisable",
+
+            _GA10X         => [ dAMPERE_and_later, ],
+            _STUB          => [ pre_dAMPERE, ],
+        ],
+
+        UTILS_CG_DISABLE => [
+            DESCRIPTION    => "Ungate/gate Utils clock",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "LwBool bUngate",
+
+            _GA10X         => [ dAMPERE_and_later, ],
+            _STUB          => [ pre_dAMPERE, ],
+        ],
+
+        IS_CTX_ILWALID => [
+            DESCRIPTION    => "Returns if context is invalid",
+            RETURN_TYPE    => "LwBool",
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => LW_TRUE,
+
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B         => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _STUB          => [ pre_TURING, G00X, ],
+        ],
+
+        RG_EXT_RESET_BLOCK => [
+            DESCRIPTION    => "Block/unblock the propagation of reset for external units",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "LwBool bBlock",
+
+            _GA10X         => [ dAMPERE_and_later, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ pre_dAMPERE, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        RG_ENGINE_RESET_ASSERT => [
+            DESCRIPTION    => "Assert/de-assert Engine reset for GPC, FECS and BECS",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "LwBool bAssert",
+
+            _GA10X         => [ dAMPERE_and_later, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ pre_dAMPERE,  G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        RG_GPC_RESET_ASSERT => [
+            DESCRIPTION    => "Assert/de-assert reset for whole GPC unit",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "LwBool bAssert",
+
+            _GA10X         => [ dAMPERE_and_later, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ pre_dAMPERE, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        RG_GPC_RESET_CONTROL => [
+            DESCRIPTION    => "GPC reset control according to new SMC scheme",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "void",
+
+            _GA10X         => [ dAMPERE_and_later, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ pre_dAMPERE, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        RG_CLAMP_ASSERT => [
+            DESCRIPTION    => "Assert/de-assert rail-gating clamp",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "LwBool bAssert",
+
+            _GA10X         => [ dAMPERE_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -G00X, ],
+            _STUB          => [ pre_dAMPERE, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, G00X, ],
+        ],
+
+        RG_GPCCS_BOOTSTRAP => [
+            DESCRIPTION    => "Bootstrap GPCCS falcon",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "void",
+
+            _GA10X         => [ dAMPERE_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -G00X, ],
+            _STUB          => [ pre_dAMPERE, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, G00X, ],
+        ],
+
+        RG_PRI_ERR_HANDLING_ACTIVATE => [
+            DESCRIPTION    => "Activate/Deactivate PRI error mechanism for GPC access",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "LwBool bActivate",
+
+            _GA10X         => [ dAMPERE_and_later, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ pre_dAMPERE, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        RAM_REPAIR_COMPLETION_POLL => [
+            DESCRIPTION    => "Poll for completion of RAM repair for GPC-RG",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "void",
+
+            _GA10X         => [ dAMPERE_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ pre_dAMPERE, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        PG_SMC_CONFIG_READ => [
+            DESCRIPTION    => "Check if the GPU booted in SMC mode",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => FLCN_OK,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10B         => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _STUB          => [ ALL, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+        ],
+
+        DEBUG_INFO_CAPTURE => [
+            DESCRIPTION    => "Interface to capture GR debug info before PMU halt",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "void",
+
+            _TU10X         => [ TURING, ],
+            _STUB          => [ ALL, -TURING, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $grHal;

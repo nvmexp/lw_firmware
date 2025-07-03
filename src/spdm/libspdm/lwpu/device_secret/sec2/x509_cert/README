@@ -1,0 +1,63 @@
+# 
+# File: README 
+#
+# Brief:
+# The purpose of the files in this directory are to generate a template certificate for APM, which is used by 
+# SEC2 code to create real AK cert by patching fields and signing with a real EK. This certificate is used in 
+# APM for device attestation. We create a chain from a template EK, which will eventually be replaced by real
+# EK certificate which we receive from RM. In order to create a valid chain, we must ensure AK template’s 
+# Authority Key Identifier matches Subject Key Identifier and Issuer common name in EK cert.
+#
+# This file, and all keys, and python script were copied from:
+#      /hw/gpu_ip/unit/falcon/6.0_ghlit1/stand_sim/msdec/cc_tests/riscv/brom/PKCBOOT/manifest_auth/tool/x509_c_version
+# For GA100 SEC2 they have been copied here (sw/dev/gpu_drv/chips_a/uproc/spdm/libspdm/lwpu/device_secret/sec2/x509_cert)
+# 
+
+
+# Gen ecc384 key
+/home/utils/openssl-1.0.2o/bin/openssl ecparam -genkey -name secp384r1 -noout -out ec384-key-pair.pem
+
+# Cmd to generate x509 certificate template:
+/home/utils/Python-3.6.1/bin/python3 gen_cert.py
+
+# Cmd to parse DER file: 
+/home/utils/openssl-1.0.2o/bin/openssl asn1parse -inform DER -in certificate4.der > der4.txt
+
+# Cmd to read DER file:
+/home/utils/openssl-1.0.2o/bin/openssl x509 -text -in certificate4.der -inform DER > der4.text
+
+# Cmd to hexdump DER file 
+hexdump -C certificate4.der > der4.hex
+
+# Cert Verify
+/home/utils/openssl-1.0.2o/bin/openssl verify -CAfile FSP_IK_CERT_CA.der FSP_IK_CERT_CA.der
+/home/utils/openssl-1.0.2o/bin/openssl verify -CAfile FSP_IK_CERT_CA.der FSP_AK_CERT_CA.der
+/home/utils/openssl-1.0.2o/bin/openssl verify -CAfile pCA_CERT.pem -untrusted FSP_IK_CA_CERT.pem FSP_AK_CA_CERT.pem
+
+
+# Pem/der colwersion 
+openssl x509 -in AK_Cert_LF_dkumar.v2.PEM -outform der -out AK_Cert_LF_dkumar.v2.der
+
+# Read Pvt key file
+/home/utils/openssl-1.0.2o/bin/openssl ec -in FSP_AK_NONCA_PVT.pem -text -noout
+
+# Read Pub key file 
+/home/utils/openssl-1.1.0g/bin/openssl ec -pubin -in src/Attestation/Ak_Pub_Nonca.pem -text -noout
+
+
+# Genereate certs:
+`depth`/defs/rv_brom/spark/tools/x509_cert_to_ada.py --sign_key PROVISIONER_CA_PVT.pem --key PROVISIONER_CA_PVT.pem --issuer_cn 'Provisioner CA' --issuer_sn 1234 --subject_cn 'Provisioner CA' --subject_sn 1234 --CA --dump_pem PROVISIONER_CA_CERT.pem --real_sign
+
+`depth`/defs/rv_brom/spark/tools/x509_cert_to_ada.py --sign_key PROVISIONER_CA_PVT.pem --key IK_CA_PVT.pem --issuer_cn 'Provisioner CA' --issuer_sn 1234 --subject_cn 'XXXXXXXXXXXXXXXXXX' --subject_sn 4059D4D0D493A0F706 --CA --dump_pem IK_CA_CERT.pem --real_sign
+
+`depth`/defs/rv_brom/spark/tools/x509_cert_to_ada.py --sign_key IK_CA_PVT.pem --key AK_CA_PVT.pem --issuer_cn 'XXXXXXXXXXXXXXXXXX' --issuer_sn 4059D4D0D493A0F706 --subject_cn 'XXXXXXXXXXXXXXXXXXXX' --subject_sn 2df5c6f689829f9fd176eb1b3f427102df7fee97 --CA --TCG_DICE_FWID --dump_pem AK_CA_CERT.pem --real_sign
+
+`depth`/defs/rv_brom/spark/tools/x509_cert_to_ada.py --sign_key IK_CA_PVT.pem --key AK_NONCA_PVT.pem --issuer_cn 'XXXXXXXXXXXXXXXXXX' --issuer_sn 4059D4D0D493A0F706 --subject_cn 'XXXXXXXXXXXXXXXXXXXX' --subject_sn 2df5c6f689829f9fd176eb1b3f427102df7fee97 --TCG_DICE_FWID --dump_pem AK_NONCA_CERT.pem --real_sign
+
+# Verify certs
+/home/utils/openssl-1.0.2o/bin/openssl verify -CAfile PROVISIONER_CA_CERT.pem IK_CA_CERT.pem
+/home/utils/openssl-1.0.2o/bin/openssl verify -CAfile PROVISIONER_CA_CERT.pem -untrusted IK_CA_CERT.pem AK_CA_CERT.pem
+/home/utils/openssl-1.0.2o/bin/openssl verify -CAfile PROVISIONER_CA_CERT.pem -untrusted IK_CA_CERT.pem AK_NONCA_CERT.pem
+# for GA100 AK Certificate:
+/home/utils/openssl-1.0.2o/bin/openssl verify -CAfile ek.cert.pem AK_NONCA_CERT.pem
+

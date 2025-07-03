@@ -1,0 +1,301 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2007-2021 by LWPU Corporation.  All rights
+ * reserved.  All information contained herein is proprietary and confidential
+ * to LWPU Corporation.  Any use, reproduction, or disclosure without the
+ * written permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+/*
+ * This is a MATS (Modified Algorithmic Test Sequence) memory test
+ * based on LWCA.
+ */
+
+#include "lwdamats.h"
+
+// Obtains a pointer to device memory from a host-opaque type
+__device__ void* GetPtr(device_ptr ptr)
+{
+    return reinterpret_cast<void*>(static_cast<size_t>(ptr));
+}
+
+// Colwerts pointer to a host-compatible value
+__device__ device_ptr MakeHostPtr(void* ptr)
+{
+    return reinterpret_cast<size_t>(ptr);
+}
+
+// This function is for testing purposes only
+#if INJECT_ERRORS == 1
+template<typename MemAccessType>
+__device__ MemAccessType MakeError(MemAccessType* ptr, void* basePtr)
+{
+    const UINT64 offset =
+        reinterpret_cast<UINT64>(ptr) - reinterpret_cast<UINT64>(basePtr);
+    MemAccessType value = 0;
+    if (offset == 0xe89f9e00)
+    {
+        value = static_cast<MemAccessType>(0x0000000180000000);
+    }
+    return value;
+}
+#else
+#define MakeError(ptr, basePtr) 0
+#endif
+
+// Returns overall number of running threads
+__device__ UINT32 GetNumThreads()
+{
+    return blockDim.x * gridDim.x;
+}
+
+// Returns global index of the calling thread
+__device__ UINT32 GetThreadIdx()
+{
+    return blockIdx.x * blockDim.x + threadIdx.x;
+}
+
+__shared__ UINT64 s_InitialClock;
+
+// Builds error description
+template<typename MemAccessType>
+__device__ void SetError(volatile MemAccessType* ptr, MemAccessType actualValue, MemAccessType expectedValue, BadValue* badValue)
+{
+    badValue->address = MakeHostPtr(const_cast<MemAccessType*>(ptr));
+    badValue->actual = actualValue;
+    badValue->expected = expectedValue;
+    badValue->reread1 = *ptr;
+#if INJECT_ERRORS != 1
+    badValue->reread2 = *ptr;
+#else
+    // If errors are injected, report thread and block
+    badValue->reread2 = threadIdx.x | static_cast<UINT32>(blockIdx.x) << 16;
+#endif
+    badValue->timestamp = clock64() - s_InitialClock;
+}
+
+__shared__ UINT32 s_NumErrors;
+__shared__ UINT64 s_LwmulatedBadBits;
+const UINT32 s_MaxLocalErrors = 16000 / sizeof(BadValue);
+__shared__ BadValue s_Errors[s_MaxLocalErrors];
+
+// Reports an error
+template<typename MemAccessType>
+__device__ void ReportError(const LwdaMatsInput& input, volatile MemAccessType* ptr, MemAccessType actualValue, MemAccessType expectedValue)
+{
+    const UINT32 errorIndex = atomicAdd(&s_NumErrors, 1);
+    if (errorIndex < s_MaxLocalErrors)
+    {
+        BadValue& badValue = s_Errors[errorIndex];
+        SetError(ptr, actualValue, expectedValue, &badValue);
+    }
+    atomicOr(&s_LwmulatedBadBits, actualValue ^ expectedValue);
+}
+
+// Init local error table
+__device__ void InitErrors(const LwdaMatsInput& input)
+{
+    if (threadIdx.x == 0)
+    {
+        s_NumErrors = 0;
+        s_LwmulatedBadBits = 0;
+    }
+    if (threadIdx.x == 0)
+    {
+        s_InitialClock = clock64();
+    }
+    __syncthreads();
+}
+
+// Store local errors in output table
+__device__ void StoreErrors(const LwdaMatsInput& input)
+{
+    if (threadIdx.x == 0)
+    {
+        void* const ptr = GetPtr(input.results);
+        RangeErrors& errors = *static_cast<RangeErrors*>(ptr);
+
+        atomicAdd(&errors.numErrors, s_NumErrors);
+        atomicOr(&errors.badBits, s_LwmulatedBadBits);
+
+        // Copy reported error values
+        UINT32 numErrors = s_MaxLocalErrors;
+        if (s_NumErrors < s_MaxLocalErrors)
+        {
+            numErrors = s_NumErrors;
+        }
+        const UINT32 maxErrors =
+            (input.resultsSize - sizeof(RangeErrors) + sizeof(BadValue)) / sizeof(BadValue);
+        for (UINT32 i=0; i < numErrors; i++)
+        {
+            const UINT32 idx = atomicAdd(&errors.numReportedErrors, 1);
+            if (idx >= maxErrors)
+            {
+                atomicSub(&errors.numReportedErrors, 1);
+                break;
+            }
+            errors.reportedValues[idx] = s_Errors[i];
+        }
+    }
+}
+
+// Initializes memory with the first pattern
+extern "C" __global__ void InitLwdaMats(const LwdaMatsInput input)
+{
+    // Set memory values for this thread to the first pattern
+    UINT32* ptr = static_cast<UINT32*>(GetPtr(input.mem));
+    UINT32* const endPtr = static_cast<UINT32*>(GetPtr(input.memEnd));
+    UINT32 offsetForIlwersion = GetThreadIdx();
+    ptr += offsetForIlwersion;
+    const UINT32 quantum = GetNumThreads();
+    for ( ; ptr < endPtr; ptr += quantum)
+    {
+        if ((input.ilwstep != 0) && ((offsetForIlwersion/input.ilwstep)&1))
+        {
+            *ptr = ~input.pattern1;
+        }
+        else
+        {
+            *ptr = input.pattern1;
+        }
+        offsetForIlwersion += quantum;
+    }
+
+    // Clear error numbers
+    if ((threadIdx.x != 0) && (blockIdx.x != 0))
+    {
+        return;
+    }
+    RangeErrors& threadErrors = *static_cast<RangeErrors*>(GetPtr(input.results));
+
+    threadErrors.numErrors = 0;
+    threadErrors.numReportedErrors = 0;
+    threadErrors.badBits = 0;
+}
+
+// For each memory location checks if the previous value was written correctly and writes a new value
+template<bool forward>
+__device__ void ReadWritePattern(const LwdaMatsInput& input, UINT32 oldPattern, UINT32 newPattern)
+{
+    volatile UINT32* ptr = static_cast<UINT32*>(GetPtr(
+        forward ? input.mem : input.memEnd));
+    UINT32* const endPtr = static_cast<UINT32*>(GetPtr(
+        forward ? input.memEnd : input.mem));
+    ptr += GetThreadIdx();
+    if (!forward)
+        ptr -= GetNumThreads();
+    const int delta = forward ? GetNumThreads() : -GetNumThreads();
+    for ( ; forward ? (ptr < endPtr) : (ptr >= endPtr); ptr += delta)
+    {
+        const UINT32 value = *ptr ^ MakeError(ptr, GetPtr(input.mem));
+        if (value != oldPattern)
+        {
+            ReportError(input, ptr, value, oldPattern);
+        }
+        *ptr = newPattern;
+    }
+    __syncthreads();
+}
+
+// LWCA MATS test routine
+extern "C" __global__ void LwdaMats(const LwdaMatsInput input)
+{
+    // Initialize variables for subsequent kernel exelwtion
+    InitErrors(input);
+    UINT32 pattern1 = input.pattern1;
+    UINT32 pattern2 = input.pattern2;
+
+    // Note: numIterations must be even if the kernel is ilwoked more than once,
+    // because the first iteration expects pattern1 to be in memory
+    // and every odd iteration writes pattern2.
+    for (UINT32 i=0; i < input.numIterations; i++)
+    {
+        // Check previously written value and write new one
+        if (input.direction != 0)
+            ReadWritePattern<false>(input, pattern1, pattern2);
+        else
+            ReadWritePattern<true>(input, pattern1, pattern2);
+
+        // Swap patterns
+        {
+            const UINT32 tmp = pattern1;
+            pattern1 = pattern2;
+            pattern2 = tmp;
+        }
+    }
+
+    // Store results in memory
+    StoreErrors(input);
+}
+
+template<typename MemAccessType>
+__device__ void DoLwdaColumns(const LwdaMatsInput &input, MemAccessType pattern1, MemAccessType pattern2)
+{
+    volatile MemAccessType* ptr = static_cast<MemAccessType*>(GetPtr(input.mem));
+    MemAccessType* const endPtr = static_cast<MemAccessType*>(GetPtr(input.memEnd));
+
+    UINT64 offsetForIlwersion = input.step*GetThreadIdx() + input.offset;
+    ptr += offsetForIlwersion;
+    
+    const UINT64 delta = input.step*GetNumThreads();
+    
+    for ( ; ptr < endPtr; ptr += delta)
+    {
+        const MemAccessType value = *ptr ^ MakeError(ptr, GetPtr(input.mem));
+
+        if ((input.ilwstep != 0) && ((offsetForIlwersion/input.ilwstep)&1))
+        {
+            if (value != ~pattern1)
+            {
+                ReportError(input, ptr, value, ~pattern1);
+            }
+            *ptr = ~pattern2;
+        }
+        else
+        {
+            if (value != pattern1)
+            {
+                ReportError(input, ptr, value, pattern1);
+            }
+            *ptr = pattern2;
+        }
+        offsetForIlwersion += delta;
+    }
+}
+
+// LWCA COLUMNS test routine
+extern "C" __global__ void LwdaColumns(const LwdaMatsInput input)
+{
+    // Initialize variables for subsequent kernel exelwtion
+    InitErrors(input);
+
+    switch(input.memAccessSize)
+    {
+        case 32:
+            DoLwdaColumns(input, input.pattern1, input.pattern2);
+            break;
+
+        case 64:
+        {
+            const UINT64 pattern1 = ((UINT64)input.pattern1 << 32) | (UINT64)input.pattern1;
+            const UINT64 pattern2 = ((UINT64)input.pattern2 << 32) | (UINT64)input.pattern2;
+            DoLwdaColumns(input, pattern1, pattern2);
+        }
+            break;
+
+        default:
+            // The application calling this kernel should take care to validate
+            // memAccessSize is correct, however in case not, create fake error
+            volatile UINT32* ptr = static_cast<volatile UINT32*>(GetPtr(input.mem));
+            ReportError(input, ptr, 0x0U, 0xbadaclw);
+    }
+    __syncthreads(); // For error reporting
+
+    // Store results in memory
+    StoreErrors(input);
+}
+
+// vim:ft=cpp

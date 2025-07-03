@@ -1,0 +1,32 @@
+#include <liblwriscv/g_lwriscv_config.h>
+
+OUTPUT_ARCH( "riscv" )
+ENTRY(startup)
+MEMORY {
+    dtcm (rw) : ORIGIN = 0x0000000000180000, LENGTH = LWRISCV_APP_DMEM_LIMIT
+    itcm (rx) : ORIGIN = 0x0000000000100000, LENGTH = LWRISCV_APP_IMEM_LIMIT
+}
+SECTIONS
+{
+  .code :
+  {
+      KEEP(*(.text.startup))
+      *(.text.exceptionEntry)
+      *.a(.text .text.*)
+      *.a(.rodata .rodata.* .srodata .srodata.*)
+      *(.text .text.*)
+      *(.rodata .rodata.* .srodata .srodata.*)
+      . = ALIGN(256);
+  } > itcm
+  .data :
+  {
+    *.a(.data .data.* .sdata*)
+    *.a(.bss .bss.* .sbss*)
+    *(.data .data.* .sdata*)
+    *(.bss .bss.* .sbss*)
+    . = ALIGN(256);
+    _liblwriscv_stack_top = . ;
+    . += 16384 ;
+    _liblwriscv_stack_bottom = . ;
+  } > dtcm
+}

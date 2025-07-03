@@ -1,0 +1,501 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2013-2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD ?= false
+NO_RELEASE     ?= false
+INCLUDE_DT     ?= false
+FALCON_ARCH    ?= falcon6
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+LWUPROC           := $(LW_SOURCE)/uproc
+GSPHSSW           := $(LWUPROC)/gsp/src/hs
+RESMAN_ROOT        = $(LW_SOURCE)/drivers/resman
+LIB_UPROC_CMN_SRC  = $(LWUPROC)/libs/cmn
+SE_SRC             = $(LWUPROC)/libs/se/src
+HDCP_SRC           = $(LWUPROC)/libs/hdcp/hdcp1x/src
+HDCP22WIRED_SRC    = $(LWUPROC)/libs/hdcp/hdcp22wired/src
+LIB_UPROC_LWOS_SRC = $(LWUPROC)/libs/lwos/$(LWOS_VERSION)
+SCP_SRC            = $(LWUPROC)/libs/scp
+BIGINT_SRC         = $(LWUPROC)/libs/crypto/bigint
+SHA_SRC            = $(LWUPROC)/libs/crypto/sha
+I2C_SRC            = $(LWUPROC)/libs/i2c/src
+DPAUX_SRC          = $(LWUPROC)/libs/dpaux/src
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+GSPHSCFG_PROFILE ?= gsphs-tu10x
+GSPHSCFG_PROFILE  = $(GSPHSCFG_PROFILE)
+include $(GSPHSSW)/config/gsphs-profiles.mk
+
+###############################################################################
+# Load common falcon make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LWUPROC)/build/common/lwFalconArch.lwmk
+
+override LW_TARGET_ARCH = $(FALCON_TOOLS_BUILD)
+override LW_TARGET_OS   = falcon
+override LW_PROJ        = $(PROJ)
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+GSPLITE_RTOS = 1
+GSP_RTOS = 1
+GSPLITE_CSB_ACCESS = 1
+GSPLITE_BUILDING_SE = 1
+
+CFLAGS += -DGSPLITE_RTOS
+CFLAGS += -DGSP_RTOS
+CFLAGS += -DUPROC_FALCON
+
+ifeq ("$(HDCP22_USE_SCP_ENCRYPT_SECRET)","true")
+  CFLAGS += -DHDCP22_USE_SCP_ENCRYPT_SECRET
+endif
+
+ifeq ("$(HDCP22_CHECK_STATE_INTEGRITY)","true")
+  CFLAGS += -DHDCP22_CHECK_STATE_INTEGRITY
+endif
+
+ifeq ("$(HDCP22_USE_SCP_GEN_DKEY)","true")
+  CFLAGS += -DHDCP22_USE_SCP_GEN_DKEY
+endif
+
+###############################################################################
+# Define the output directory paths for the HKD build and all sub-make builds.
+###############################################################################
+
+CHIPNAME  := $(subst gsphs-,,$(GSPHSCFG_PROFILE))
+OUTPUTDIR := _out/$(CHIPNAME)
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+export LW_TARGET_ARCH
+export LW_TARGET_OS
+export LW_PROJ
+export MANUAL_PATHS
+export RTOS_VERSION
+export FALCON_ARCH
+export UPROC_ARCH
+export GSPLITE_RTOS
+export GSP_RTOS
+export GSPLITE_CSB_ACCESS
+export GSPLITE_BUILDING_SE
+export SECFG_PROFILE
+export HDCPCFG_PROFILE
+export HDCP22WIREDCFG_PROFILE
+export HDCP22_USE_SCP_ENCRYPT_SECRET
+export HDCP22_CHECK_STATE_INTEGRITY
+export HDCP22_USE_SCP_GEN_DKEY
+export LWOS_VERSION
+export IS_SSP_ENABLED
+export IMEM_ON_DEMAND_PAGING
+export HS_OVERLAYS_ENABLED
+export SELWRITY_ENGINE
+export DMEM_VA_SUPPORTED
+export MRU_OVERLAYS
+
+###############################################################################
+# Submake Configuration
+#
+# This makefile builds libraries and tools that are shared with other projects.
+# Many of these builds may be lwstomized based on the needs of the project
+# building it. It is therefore necessary to ensure isolation between the
+# projects. Isolation is also required to allow for parallelization of project
+# builds.
+#
+# Isolation is achieved by ensuring that all build output is kept separate
+# between the projects. Ideally, output could all be redirected to a path
+# defined within the HKD's/project's output directory. However, the common
+# lwmake rules require that each submake target's output directory be contained
+# within that target's source directory. As a result, the only way to ensure
+# isolation is by establishing proper namespacing within each submake target's
+# local output directory.
+###############################################################################
+
+SUBMAKE_NAMESPACE := gsphs
+SUBMAKE_OUTPUTDIR := \
+  _out/$(SUBMAKE_NAMESPACE)/$(FALCON_ARCH)_$(LW_BUILD_TYPE)
+
+include $(LWUPROC)/build/common/lwRtosVersion.lwmk
+
+###############################################################################
+# Uproc Common Library
+###############################################################################
+
+LIB_UPROC_CMN := $(LIB_UPROC_CMN_SRC)/$(SUBMAKE_OUTPUTDIR)/libUprocCmn.a
+
+SUBMAKE_TARGETS += LIB_UPROC_CMN
+$(LIB_UPROC_CMN): submake.LIB_UPROC_CMN
+
+###############################################################################
+# Uproc LWOS Library
+###############################################################################
+
+LIB_UPROC_LWOS := $(LIB_UPROC_LWOS_SRC)/$(SUBMAKE_OUTPUTDIR)/libUprocLwos.a
+
+SUBMAKE_TARGETS += LIB_UPROC_LWOS
+$(LIB_UPROC_LWOS): submake.LIB_UPROC_LWOS
+
+###############################################################################
+# SE Library
+###############################################################################
+
+ifeq ($(SELWRITY_ENGINE), true)
+  LIB_SE := $(SE_SRC)/$(SUBMAKE_OUTPUTDIR)/libSE.a
+
+  SUBMAKE_TARGETS += SE
+  $(LIB_SE): submake.SE
+endif
+
+###############################################################################
+# SCP Library addtion for HS support
+###############################################################################
+LIB_SCP := $(SCP_SRC)/$(SUBMAKE_OUTPUTDIR)/libSCP.a
+
+SUBMAKE_TARGETS += SCP
+$(LIB_SCP): submake.SCP
+
+###############################################################################
+# hdcp1x Library
+###############################################################################
+ifdef HDCPCFG_PROFILE
+  LIB_HDCP1X := $(HDCP_SRC)/$(SUBMAKE_OUTPUTDIR)/libHDCP.a
+
+  SUBMAKE_TARGETS += HDCP
+  $(LIB_HDCP1X): submake.HDCP
+endif
+
+###############################################################################
+# hdcp22wired Library
+###############################################################################
+ifdef HDCP22WIREDCFG_PROFILE
+  LIB_HDCP22WIRED := $(HDCP22WIRED_SRC)/$(SUBMAKE_OUTPUTDIR)/libHDCP22WIRED.a
+
+  SUBMAKE_TARGETS += HDCP22WIRED
+  $(LIB_HDCP22WIRED): submake.HDCP22WIRED
+endif
+
+###############################################################################
+# sha library
+###############################################################################
+
+LIB_SHA := $(SHA_SRC)/$(SUBMAKE_OUTPUTDIR)/libSHA.a
+
+SUBMAKE_TARGETS += SHA
+$(LIB_SHA): submake.SHA
+
+###############################################################################
+# BigInt library
+###############################################################################
+
+LIB_BIGINT := $(BIGINT_SRC)/$(SUBMAKE_OUTPUTDIR)/libBigInt.a
+
+SUBMAKE_TARGETS += BIGINT
+$(LIB_BIGINT): submake.BIGINT
+
+###############################################################################
+# Additional libraries to link against
+###############################################################################
+
+LIBDIRS += $(LIB_UPROC_CMN_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(SE_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(HDCP_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(HDCP22WIRED_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(LIB_UPROC_LWOS_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(SCP_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(SHA_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(BIGINT_SRC)/$(SUBMAKE_OUTPUTDIR)
+
+LIBS += HDCP HDCP22WIRED SE SCP SHA BigInt UprocLwos UprocCmn
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(GSPHSSW)/inc
+LW_INCLUDES += $(GSPHSSW)/../../inc
+LW_INCLUDES += $(LWUPROC)/libs/cmn/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(FALCON_TOOLS)/include
+LW_INCLUDES += $(LW_RTOS_INCLUDES)
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+LW_INCLUDES += $(SE_SRC)/../inc
+LW_INCLUDES += $(SCP_SRC)/inc
+LW_INCLUDES += $(HDCP_SRC)/../../inc
+LW_INCLUDES += $(HDCP_SRC)/../inc
+LW_INCLUDES += $(HDCP22WIRED_SRC)/../inc
+LW_INCLUDES += $(LIB_UPROC_LWOS_SRC)/inc
+LW_INCLUDES += $(BIGINT_SRC)/inc
+LW_INCLUDES += $(I2C_SRC)/../inc
+LW_INCLUDES += $(DPAUX_SRC)/../inc
+LW_INCLUDES += $(SHA_SRC)/inc
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+
+IMG_TARGET  := $(OUTPUTDIR)/g_gsphs_$(CHIPNAME)
+IMG_ELF     := $(IMG_TARGET).out
+IMG_ELF_DBG := $(IMG_TARGET)_dbg.out
+IMG_READELF := $(IMG_TARGET).readelf
+IMG_SECTIONS:= $(IMG_TARGET).sections
+IMG_H       := $(IMG_TARGET).h
+IMG_BIN     := $(IMG_TARGET).bin
+IMG_OBJDUMP := $(IMG_TARGET).objdump
+IMG_NM      := $(IMG_TARGET).nm
+IMG_MAP     := $(IMG_TARGET).map
+IMG_DT      := $(IMG_TARGET).dt
+IMG_DBGLINE := $(IMG_TARGET).dbgline
+
+RELEASE_FILES            = $(IMG_H) $(IMG_NM) $(IMG_OBJDUMP) $(IMG_READELF)
+RESTRICTED_RELEASE_FILES =
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+LDFLAGS += -T $(GSPHSSW)/config/$(LDSCRIPT)
+LDFLAGS += $(addprefix -L,$(LIBDIRS))
+LDFLAGS += $(addprefix -l,$(LIBS))
+
+CFLAGS += -DUPROC_FALCON
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(.)); delete $$ELW{PWD}; \
+		  print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(GSPHSCFG_PROFILE)]"
+
+###############################################################################
+# Parse the source files
+###############################################################################
+PERL_PARSER := $(GSPHSSW)/utilities/parse_files.pl
+ADD_OBJECTS = mulsi.o
+FILE_PARSER = $(shell $(PERL) $(PERL_PARSER) --suffix "p" $(GSPHSSRC_ALL))
+SOURCES     = $(FILE_PARSER)
+
+###############################################################################
+# Rules for buildig the ELF image and binary files
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+all: $(IMG_ELF) sign release
+	$(ECHO) "Cleaning files... $(shell $(PERL) $(PERL_PARSER) --clean $(SOURCES))"
+
+###############################################################################
+# Sign the binary. Uses pre-build signing tool (linux only for now)
+###############################################################################
+SIG_GEN        = $(LWUPROC)/acr/utilities/siggen/siggen
+SIG_GEN_CFG    = $(GSPHSSW)/config/gsphs_siggen.cfg
+GEN_CLASS_PL   = $(GSPHSSW)/utilities/gen_class_os.pl
+GEN_CLASS_OUT  = $(IMG_TARGET).h
+SIGN_SCRIPT    = "tmpsign.sh"
+
+SIG_SCRIPT_EXP = $(foreach CHIP,$(SIGGEN_CHIPS), \
+	 "$(SIG_GEN) $(SIG_GEN_CFG) $(IMG_TARGET) $(IMG_TARGET) -app $(OUTPUTDIR)/g_gsphs_$(CHIPNAME)_$(CHIP)_sig.h -sig $(OUTPUTDIR)/g_gsphs_$(CHIPNAME)_$(CHIP)_sig.h  -chip $(CHIP) -encryptUcode;")
+
+RELEASE_FILES += $(foreach CHIP,$(SIGGEN_CHIPS),"$(OUTPUTDIR)/g_gsphs_$(CHIPNAME)_$(CHIP)_sig.h")
+
+
+sign:
+	$(RM) -f $(SIGN_SCRIPT)
+	$(ECHO) "#!/usr/bin/sh" >> $(SIGN_SCRIPT)
+	$(ECHO) $(SIG_SCRIPT_EXP) >> $(SIGN_SCRIPT)
+	$(ECHO) $(PERL) $(GEN_CLASS_PL) -dump $(OUTPUTDIR)/app_os_images -hdr $(GEN_CLASS_OUT) -bin $(IMG_ELF_DBG) -chip $(CHIPNAME) >> $(SIGN_SCRIPT)
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(LW_SOURCE)/uproc/build/scripts/release-imgs-if-changed.pl
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_ARGS += --output-prefix $(BUILD_PROJECT_NAME)
+# We don't generate bin file in GSP HS-Falcon build and the exelwtable code is
+# generated in the .h file, so we can just compare the .h file to determine
+# if we need to release new binaries to RM
+RELEASE_IMG_ARGS += --image         $(IMG_H)
+RELEASE_IMG_ARGS += --p4            $(P4)
+
+RELEASE_PATH = $(LW_SOURCE)/drivers/resman/kernel/inc/gsp/bin
+
+RELEASE_IMG_ARGS += --release-path $(RELEASE_PATH)
+
+RELEASE_IMG_ARGS += --release-files            \
+  $(subst $(SPACE),$(COMMA),$(RELEASE_FILES))
+
+# unless disabled, make sure the environment is fresh before installing
+ifneq ("$(NO_CHECK_BUILD)","true")
+  .PHONY: checkbuild
+  install: checkbuild
+endif
+
+release: $(IMG_ELF)
+	$(ECHO) $(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS) >> $(SIGN_SCRIPT)
+
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files is the prerequisite
+# for this rule.
+###############################################################################
+$(IMG_ELF): $(OBJECTS) $(GSPHSSW)/config/$(LDSCRIPT)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(CFLAGS) --save-temps $(OBJECTS) $(ADD_OBJECTS) -o $(IMG_ELF) $(LDFLAGS)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_READELF)
+	$(OBJDUMP) -d    $(IMG_ELF) >> $(IMG_OBJDUMP)
+	$(OBJDUMP) -S -d $(IMG_ELF) >> $(IMG_OBJDUMP).source
+	$(DUMPEXEC) -img $(IMG_ELF) -b $(IMG_ELF)
+	$(NM)      -S -n $(IMG_ELF) >> $(IMG_NM)
+	$(ECHO) $(NM)      $(IMG_ELF)       > $(IMG_MAP)
+	$(NM)      $(IMG_ELF)       >> $(IMG_MAP)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_READELF))
+	$(READELF) --all $(IMG_ELF) >> $(IMG_READELF)
+	$(READELF) -S $(IMG_ELF) >> $(IMG_SECTIONS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(IMG_ELF) >> $(IMG_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(IMG_ELF)
+
+###############################################################################
+# Additional dependencies of the ELF image
+###############################################################################
+
+$(IMG_ELF): $(LIB_UPROC_CMN)
+$(IMG_ELF): $(LIB_SE)
+$(IMG_ELF): $(LIB_HDCP1X)
+$(IMG_ELF): $(LIB_HDCP22WIRED)
+$(IMG_ELF): $(LIB_UPROC_LWOS)
+$(IMG_ELF): $(LIB_SCP)
+$(IMG_ELF): $(LIB_SHA)
+$(IMG_ELF): $(LIB_BIGINT)
+
+###############################################################################
+# Rule for generating .dt/symdump file
+###############################################################################
+
+SYMDUMP_SCRIPT = $(LW_SOURCE)/pmu_sw/build/symdump/symdump.pl
+
+SYMDUMP_ARGS  += $(IMG_ELF) $(IMG_DT)
+SYMDUMP_ARGS  += --falcon-tools $(FALCON_TOOLS)
+SYMDUMP_ARGS  += --acl          $(APP_P4_CL)
+
+$(IMG_DT):
+	-$(PERL) $(SYMDUMP_SCRIPT) $(SYMDUMP_ARGS)
+
+ifeq ("$(INCLUDE_DT)","true")
+  all: $(IMG_DT)
+endif
+
+###############################################################################
+# Define a utility macro for ilwoking make (submake) on any external libraries
+# or utilities that this build depends upon. The macro will establish the
+# targets and dependencies between the builds, override the output directory
+# of the submake build, and pass any other (optional) make arguments to the
+# submake build.
+#
+# Arguments:
+#     $(1) - name of the submake build
+#
+# The name supplied is used to define the the name of target for the build.
+# This macro will also use the name to construct the name of make-var
+# containing the path to the submake build's source directory. The caller is
+# responsible for defining this make-var. For an example, if $(1) is set to
+# 'FOO', this macro requires that the make-var 'FOO_SRC' be defined and that it
+# points to the source directory where the makefile for the project is located.
+# It may sometimes be desired to pass additional arguments/overrides on the
+# submake build command-line. In such cases, the caller may define a similarly
+# named make-var suffixed with _MAKE_ARGS and assign to it the list of
+# arguments that should be passed to the build. This is optional, if the make-
+# var is not defined, no additional arguments will be supplied.
+###############################################################################
+
+define SUBMAKE_DEFINITION
+  .PHONY: submake.$(1)
+
+  build: submake.$(1)
+  clean: submake.$(1)
+  clobber: submake.$(1)
+
+  $(1)_MAKE_ARGS ?=
+
+  submake.$(1):
+	  @$$(MAKE) -C $$($(1)_SRC) -f makefile.lwmk \
+        OUTPUTDIR=$$(SUBMAKE_OUTPUTDIR)          \
+        LW_TARGET_ARCH=$$(LW_TARGET_ARCH)        \
+        $$($(1)_MAKE_ARGS)                       \
+        $$(MAKECMDGOALS)
+endef
+
+###############################################################################
+# Create the target/rule definitions for each submake target
+###############################################################################
+
+$(foreach target, $(SUBMAKE_TARGETS), \
+  $(eval $(call SUBMAKE_DEFINITION,$(strip $(target)))))
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clean_ucode
+clean: clean_ucode

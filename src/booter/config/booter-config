@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# booter-config
+# just run rmconfig using our config file
+
+# bail on any error
+set -e
+
+[ -f booter-config.cfg ]  ||  cd ../config
+[ -f booter-config.cfg ]  ||  { echo Cannot find booter-config.cfg >&2; exit 1; }
+
+cd ../src
+
+# NOTE: '--mode booter-config' must be the first argument to rmconfig
+exec ${PERL:-perl} ../../../drivers/common/chip-config/chip-config.pl \
+                   --mode booter-config \
+                   --config ../config/booter-config.cfg \
+                   --source-root ../src \
+                   "$@"

@@ -1,0 +1,105 @@
+# Scheduler Lock
+
+- The scheduler code always runs on the KernelSchedulerStack
+  (no exceptions)
+- The scheduler runs with interrupts disabled
+
+# Nested scheduling
+
+Partition scheduler uses fair scheduling algorithm:
+- TaskGroup visible to Partition scheduler
+
+
+# Introduction to Fair Scheduling
+
+Fair scheduling tracks the total exelwtion time for each task.  
+The idea is to select the task with the lowest total exelwtion
+time to run time.
+
+The runtime is clamped to ensure that the maximum difference between any two
+tasks runtime is at most as long as the EffectiveTimeslice.
+    Task.Runtime = Max(Task.Runtime, LongestRunningTask.Runtime - EffectiveTimeslice)
+
+The scheduler will set the timer interrupt to the precise time when the next 
+task would be eligible for scheduling.  A minimum timeslice is applied to minimize
+thrashing.
+    Max(NextScheduledTask.Runtime - Task.Runtime, MinimumTimeslice)
+
+In the event that no other task is schedulable, the timer interrupt will not be set.
+Tiemr interrupts are reprogrammed on any task wait/sleep event as well as 
+well as the end of the timeslice.
+
+## Scheduler Trees
+
+The scheduler works off of an augmented binary tree.
+
+This tree summarizes the next runnable task.  The current running task is always
+masked from the tree to allow access to the NextScheduledTask.  This is needed to
+properly handle pre-emption.
+
+Each node in the binary tree has:
+    - Weight (1.0 means the task splits).  
+      The task is allotted weight/sum(for all tasks: task.weight) of the CPU time
+    - Real time priority 
+      The task with the lowest runnable priority always runs.
+    - Exelwtion time    
+    - Augmented: Next task to run in subtree
+
+During red-black tree rotations the augmented properties are updated.
+Red-black tree rotations only happen during task create and task destroy.
+
+Scheduler will update the running node and propagate the values to the root of the tree.
+
+The root of the tree always stores the best task to run next.
+
+## Extension: Weights
+
+The goal is for task is allotted weight/sum(for all tasks: task.weight) of the CPU time.
+
+The scheduler simply divides by the task weight before adding the CPU time to the
+tasks runtime.
+
+## Extension: Real-time Priorities
+
+A real-time priority field is added for each task.
+
+As per industry standard, the task with the highest real-time priority is
+always selected to run.  The effective runtime is only used as a tie breaker
+when multiple tasks share the same real-time priority.
+
+## Side-Tree: Timers
+
+Timers and timeouts are tracked in a separate binary tree.
+This tree is sorted by real-time priority.
+
+Each node contains:
+    - Wakeup time
+    - Real-time priority.
+    Augmented: Lowest wakeup time in subtree
+
+An O(lg N) search routine may be constructed to find the next elapsed
+timer whose real-time priority matches or exceeds that of the lwrrently
+running task. 
+
+# SMP
+
+The scheduler tree is ideally a fully populated binary tree.
+This is ideal both for the partition scheduler as well as the LIBOS_TINY scheduler.
+
+The scheduler tree must be locked for task creation and destruction,
+however augnmented data may be updated through atomics.  This simplifies work
+stealing.
+
+In fact, a single global scheduler tree can be used as long as the augmented data
+is "per core".
+
+## Fully populated implicit trees
+
+A fully populated implict tree may be used as a front-end cache
+to the full scheduler tree.  Frequently updated nodes are stored
+here, and the "best" from the main-tree and the cache-tree is picked
+for the next run.
+
+This is ideal for LIBOS since LIBOS_TINY would simply compile out
+the main tree.
+

@@ -1,0 +1,172 @@
+project Hs_Libs is
+
+------------------ INIT DIR NAMES -------------------------------
+
+   Libs_Falc_Specific_Arch_Specific                      := "";
+   Libs_Falc_Nonspecific_Arch_Nonspecific                := "";
+   Ucode_Falc_Specific_Arch_Specific                     := "";
+   Coverage_Specific_Dir := "";
+   VCAST_Specific_Dir := "";
+
+------------------ DEFINE SCENARIOS ------------------------------
+
+   GNAT_WARN_ENABLE := "-gnatwae";
+
+   -- Platform Type - AUTO/DGPU
+   type PLATFORM_Type is
+      ("auto", "dgpu");
+   PLATFORM : PLATFORM_Type := external ("PLATFORM", "auto");
+
+   -- Falcon Type - SEC2/PMU
+   type FALCON_Type is
+      ("sec2");
+   FALCON : FALCON_Type := external ("FALCON", "sec2");
+
+   -- Architecture Type - Tu10x
+   type Architecture_Type is
+      ("tu10x");
+   ARCHITECTURE : Architecture_Type := external ("ARCHITECTURE", "tu10x");
+
+   -- Ucode Specific - PUB/FUB
+   type Build_Ucode_Type is
+     ("pub", "fub");
+   BUILD_UCODE : Build_Ucode_Type := external("BUILD_UCODE", "pub");
+
+   -- Ucode Specific - PUB/FUB
+   type Target_Type is
+     ("c");
+   TARGET : Target_Type := external("TARGET", "c");
+
+ --------------- POPULATE SOURCE/DIR NAMES ----------------------------------------------------------------------
+
+   Libs_Falc_Specific_Arch_Specific                         := "/" & FALCON & "/" & ARCHITECTURE;
+   Libs_Falc_Specific_Arch_Specific_Platform_Specific       := Libs_Falc_Specific_Arch_Specific & "/" & PLATFORM;
+   Libs_Falc_Nonspecific_Arch_Nonspecific                   := "/common/lw/";
+   Libs_Falc_Nonspecific_Arch_Nonspecific_Platform_Specific := Libs_Falc_Nonspecific_Arch_Nonspecific & PLATFORM;
+   Ucode_Specific                                           := "../../../ucode/" & BUILD_UCODE;
+   Spark_Code                                               := "../../src/";
+
+
+   -- VCAST_ENABLE
+   type VCAST_ENABLE_Type is
+      ("FALSE", "TRUE");
+   VCAST_ENABLE : VCAST_ENABLE_Type := external ("VCAST_ENABLE", "TRUE");
+
+   case VCAST_ENABLE is
+      when "TRUE" =>
+        Coverage_Specific_Dir := Ucode_Specific & "/spark_code/utilities/vcast";
+         VCAST_Specific_Dir := "../../../utilities/vcast/spark_code";
+         GNAT_WARN_ENABLE := "";
+      when others =>
+         Coverage_Specific_Dir := Spark_Code & "coverage";
+         VCAST_Specific_Dir := "";
+         GNAT_WARN_ENABLE := "-gnatwae";
+   end case;
+
+
+   for Source_Dirs use (Spark_Code & "hsinit" & Libs_Falc_Specific_Arch_Specific,
+                        Spark_Code & "hsinit" & Libs_Falc_Specific_Arch_Specific_Platform_Specific,
+                        "../../../hwref/" & ARCHITECTURE,
+                        "../../../types",
+                        Spark_Code & "register_access" & Libs_Falc_Specific_Arch_Specific,
+                        Spark_Code & "hsinit" & Libs_Falc_Nonspecific_Arch_Nonspecific,
+                        Spark_Code & "hsinit" & Libs_Falc_Nonspecific_Arch_Nonspecific_Platform_Specific,
+                        Spark_Code & "hsinit/common/" & ARCHITECTURE,
+                        Spark_Code & "hsinit/common/" & ARCHITECTURE & "/" & PLATFORM,
+                        Spark_Code & "se" & Libs_Falc_Specific_Arch_Specific,
+                        Spark_Code & "se/common/" & ARCHITECTURE,
+                        Spark_Code & "scp" & Libs_Falc_Specific_Arch_Specific,
+                        Spark_Code & "scp" & Libs_Falc_Nonspecific_Arch_Nonspecific,
+                        Ucode_Specific & "/spark_code/src/shared_src",
+                        Coverage_Specific_Dir,
+                        VCAST_Specific_Dir
+                        );
+
+--------------- DEFINE OBJECT DIRS -----------------------------------------------------------------------------
+
+   for Target use external("TARGET", "c");
+
+   Obj_Dir := "";
+   case Target is
+      when "c" =>
+         Obj_Dir := "../../../ucode/" & BUILD_UCODE & "/c_code/gen_c_src"; --"CCG";
+      when others =>
+         null;
+   end case;
+   for Object_Dir use Obj_Dir;
+--------------- DEFINE DOCUMENTATION PACKAGE -----------------------------------------------------------------------------------------
+
+   package Documentation is
+      for Dolwmentation_Dir use "../../../ucode/" & BUILD_UCODE & "spark_code/documentation/html";
+   end Documentation;
+
+--------------- DEFINE COMPILER PACKAGE -----------------------------------------------------------------------------------------
+
+   package Compiler is
+      -- gnaty switches can be found at the link below
+      -- https://docs.adacore.com/gnat_ugn-docs/html/gnat_ugn/gnat_ugn/building_exelwtable_programs_with_gnat.html#style-checking
+      -- gnatyb: Blanks not allowed at statement end
+      -- gnatyB: Check boolean operators to force short circuit given the C background everyone has
+      -- gnatyM120: 120 columns permitted.
+      -- gnatye: Ensure that end/exit have labels
+      -- gnatyf: No form feeds or vertical tabs
+      -- gnatyh: No horizontal tabs
+      -- gnatyi: Enforce standardization on if-then layout
+      -- gnatyI: Do not use "in" mode KW
+      -- gnatyk: All keywords must be in lower case
+      -- gnatyl: Check layout
+      -- gnatyL6: Max 6 level deep nesting. Ideal is 5 but there is at least 1 violation as of today
+      -- gnatyn: Check casing of entities in Standard
+      -- gnatyO: Check that overriding subprograms are explicitly marked as such
+      -- gnatyp: Check pragma casing
+      -- gnatyr: All identifier references must be cased in the same way as the corresponding declaration
+      -- gnatyS: Check no statements after then/else
+      -- gnatyx: Avoid unnecessary parentheses
+      --
+      -- The following are desired but not used due to violations
+      -- 1. -gnaty0: Indentation
+      -- 2. -gnatyD: Declared identifiers must be in mixed case, as in This_Is_An_Identifier. While this is desirable
+      --             for parts, it is not desirable in 100% of the places (ex: constants as all upper case is better
+      --             from perspective of easily identifying them)
+      -- gnateS: Synonym of -fdump-scos, kept for backwards compatibility. Generates SCO (Source Coverage Obligation) information
+      --          in the ALI file. This information is used by advanced coverage tools. See unit SCOs in the compiler sources for
+      --          details in files scos.ads and scos.adb.
+      -- gnatwae: Activate all warnings as errors.
+      -- gnato: This switch controls the mode used for computing intermediate arithmetic integer operations, and also enables
+      --        overflow checking. For a full description of overflow mode and checking control, see the ‘Overflow Check
+      --        Handling in GNAT's appendix in this User's Guide.
+      -- gnat12: Allow full Ada 2012 features.
+      -- gnatn[??]: Activate inlining across units for subprograms for which pragma Inline is specified. This inlining is performed
+      --        by the GCC back-end. An optional digit sets the inlining level: 1 for moderate inlining across units or 2 for full
+      --        inlining across units. If no inlining level is specified, the compiler will pick it based on the optimization level.
+
+
+      for Switches ("ada") use ("-gnatyb", "-gnatyB", "-gnatye", "-gnatyf", "-gnatyh", "-gnatyi",
+                                "-gnatyI", "-gnatyk", "-gnatyl", "-gnatyL6", "-gnatyn", "-gnatyO", "-gnatyp",
+                                "-gnatyr", "-gnatyS", "-gnatyx",
+                                "-gnateS",
+                                GNAT_WARN_ENABLE,
+                                "-Os", "-ffunction-sections", "-fdata-sections", "-flto",
+                                "-gnato", "-gnat12", "-gnatn"
+                               );
+      for Local_Configuration_Pragmas use "../local_config_pragmas.adc";
+   end Compiler;
+
+---------------- DEFINE BUILDER PACKAGE ------------------------------------------------------------------------
+
+   package Builder is
+
+      for Global_Configuration_Pragmas use "../global_config_pragmas.adc";
+      for Global_Compilation_Switches ("Ada") use ("-gnateT=" & Hs_Libs'Project_Dir & "../target32.atp");
+
+   end Builder;
+
+--------------- DEFINE PROOFS PACKAGE ---------------------------------------------------------------------------
+
+   package Prove is
+      for Proof_Dir use "../../../ucode/" & BUILD_UCODE & "/spark_code/proofs/";
+      for Proof_Switches ("Ada") use ( "--assumptions", "--proof-warnings");
+   end Prove;
+
+end Hs_Libs;
+

@@ -1,0 +1,95 @@
+#include <liblwriscv/g_lwriscv_config.h>
+
+OUTPUT_ARCH( "riscv" )
+ENTRY(rtos_startup)
+MEMORY {
+    dtcm (rw) : ORIGIN = 0x0000000000181000, LENGTH = LWRISCV_APP_DMEM_LIMIT
+    itcm (rx) : ORIGIN = 0x0000000000101000, LENGTH = LWRISCV_APP_IMEM_LIMIT
+}
+SECTIONS
+{
+  .partition_shared_code 0x101000 :
+  {
+      *liblwriscv.a:(.text.* .rodata*)
+      . = ALIGN(0x1000);
+  } > itcm
+  ASSERT(SIZEOF(.partition_shared_code) <= 0x1000, ".partition_shared_code size too large")
+
+  .partition_hs_code 0x102000 :
+  {
+      KEEP(*(.text.selwreaction_startup))
+      . = ALIGN(4);
+      KEEP(*(.text.selwreaction_trap_handler))
+      *selwreaction_main.o(.text.* .rodata.* .srodata*)
+      // TODO: remove imem_libHdcp22wired, imem_hdcp22SelwreAction after not using v0205 read/write confiditial secrets and secure memory handlers.
+      *hdcp22wired_*.o(.imem_libHdcp22wired.* .imem_hdcp22SelwreAction.* .imem_selwreActionHs.* .imem_hdcp22StartSession.* .imem_hdcp22GenerateKmkd.* .imem_hdcp22HprimeValidation.* .imem_hdcp22LprimeValidation.* .imem_hdcp22VprimeValidation.* .imem_hdcp22MprimeValidation.* .imem_hdcp22GenerateSessionkey.* .imem_hdcp22ControlEncryption.* .imem_hdcp22EndSession.* .imem_hdcp22WriteDpEcf.* .imem_libHdcp22wiredRsa.* .imem_libHdcp22wiredAes.* .imem_libHdcp22wiredCertrxSrm.* .imem_hdcp22ValidateCertrxSrm.* .imem_hdcp22SrmRevocation.* .imem_hdcp22RsaSignature.* .imem_hdcp22DsaSignature.*)
+      *libSHA.a:(.imem_libSha.* .imem_libSha1.*)
+      *libBigInt.a:(.imem_libBigInt.*)
+      . = ALIGN(0x1000);
+  } > itcm
+  ASSERT(SIZEOF(.partition_hs_code) <= 0x4000, ".partition_hs_code size too large")
+
+  .partition_rtos_code 0x106000:
+  {
+      KEEP(*(.text.rtos_startup))
+      . = ALIGN(4);
+      KEEP(*(.text.rtos_trap_handler))
+      *rtos_main.o(.text.*)
+      *rtos_main.o(.rodata.* .srodata*)
+      . = ALIGN(0x1000);
+  } > itcm
+  ASSERT(SIZEOF(.partition_rtos_code) <= 0x1000, ".partition_rtos_code size too large")
+  PROVIDE(__fmc_imem_size = . - ORIGIN(itcm));
+
+  // DATA
+  .partition_shared_data 0x181000:
+  {
+      . = ALIGN(0x1000);
+      *(.partition_shared_data._gHdcp22wiredHsArg)
+      . = ALIGN(0x100);
+      *(.partition_shared_data.measurements)
+      *liblwriscv.a:(.data* .data.*)
+      *liblwriscv.a:(.bss* .sbss*)
+      . = ALIGN(0x100);
+  } > dtcm
+  ASSERT(SIZEOF(.partition_shared_data) < 0x1000, ".partition_shared_data size too large")
+  PROVIDE(__partition_shared_data_start = ADDR(.partition_shared_data));
+
+  .partition_hs_data 0x182000:
+  {
+      . = ALIGN(0x1000);
+      *selwreaction_main.o(.data .data.* .bss .bss.* .sbss*)
+      // TODO: leave only .dmem_hdcp22wiredHs after not using v0205 read/write confiditial secrets and secure memory handlers, and integrate HW RSA.
+      *hdcp22wired_*.o(.dmem_libHdcp22wired.* .dmem_hdcp22wiredHs.* .data .rodata* .srodata*)
+      *sha256*.o(.data .data.* .bss .bss.* .sbss* .rodata* .srodata*)
+      *libBigInt.a:(.data .data.* .bss .bss.* .sbss* .rodata* .srodata*)
+      . = ALIGN(0x10); // stack alignment
+      _selwreaction_stack_bottom = . ;
+      . += 3328;
+      _selwreaction_stack_top = . ;
+      . = ALIGN(0x100);
+  } > dtcm
+  ASSERT(SIZEOF(.partition_hs_data) < 0x2000, ".partition_hs_data size too large")
+
+  .partition_rtos_data 0x184000:
+  {
+      . = ALIGN(0x1000);
+      *rtos_main.o(.data .data.*)
+      *rtos_main.o(.bss .bss.* .sbss*)
+      . = ALIGN(0x10); // stack alignment
+      _rtos_stack_bottom = . ;
+      . += 1024 ;
+      _rtos_stack_top = . ;
+      . = ALIGN(0x100);
+  } > dtcm
+
+  ASSERT(SIZEOF(.partition_rtos_data) < 0x1000, ".partition_rtos_data size too large")
+  PROVIDE(__fmc_dmem_size = . - ORIGIN(dtcm));
+
+  /DISCARD/ :
+  {
+      *(.comment .debug_*)
+      *(.rela.text.*)
+      *(.rela.*)
+  }
+}

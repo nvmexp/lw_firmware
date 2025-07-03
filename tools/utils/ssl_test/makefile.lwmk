@@ -1,0 +1,96 @@
+#
+# LWIDIA_COPYRIGHT_BEGIN
+#
+# Copyright 2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# LWIDIA_COPYRIGHT_END
+#
+
+LW_MODS_MODULE := ssl_test bin
+
+prebuilt_lwdiag_utils ?= 0
+
+# Prefer static stdlibc++ to avoid LD_LIBRARY_PATH craze
+LW_USE_STATIC_LIBSTDCXX := 1
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+LW_INCLUDES += $(LW_DIAG_SOURCE)/mods
+LW_INCLUDES += $(LW_SDK_SOURCE)
+LW_INCLUDES += $(LW_TOOLS)/mods/boost2
+
+SHARED_FILES_DIR  ?= $(LW_TOOLS)/../mods/shared_files
+
+CERT_FILES = $(SHARED_FILES_DIR)/HQLWCA121-CA.crt
+
+SOURCES += ssl_test.cpp
+
+ifeq ($(LW_TARGET_OS), Linux)
+    LDFLAGS += -ldl -lpthread
+endif
+
+ifeq ($(LW_TARGET_OS), QNX)
+    LDFLAGS += -lsocket
+endif
+
+ifeq ($(LW_TARGET_OS_FAMILY), Windows)
+    BIN_LDFLAGS += ws2_32.lib crypt32.lib selwr32.lib gdi32.lib user32.lib
+endif
+
+LW_WARNINGS_AS_ERRORS  := 1
+LW_AGGRESSIVE_WARNINGS := 1
+
+######################################################################
+# Make a private copy of lwdiag_utils to ensure that it was compiled
+# together with the preprocessor test.  We must avoid using the
+# checked-in version of liblwdiag_utils!!!
+ifneq ($(prebuilt_lwdiag_utils),1)
+LW_MODS_LIBS += ssltestlwdiag
+
+ifeq ($(LW_TARGET_OS_FAMILY), Windows)
+    BIN_LDFLAGS += -LIBPATH:$(OUTPUTDIR)
+else
+    BIN_LDFLAGS += -L$(OUTPUTDIR)
+endif
+
+ifeq ($(LW_OUTPUT_ROOT),)
+    LWDIAG_LOCATION = ../$(OUTPUTDIR)
+else
+    LWDIAG_LOCATION = $(OUTPUTDIR_ABSOLUTE)/..
+endif
+
+$(MODS_FULL_TARGET_PATH): $(OUTPUTDIR)/libssltestlwdiag$(LIBSUFFIX)
+
+$(OUTPUTDIR)/libssltestlwdiag$(LIBSUFFIX): $(LWDIAG_LOCATION)/liblwdiag_utils$(LIBSUFFIX)
+	$(COPY) $< $@
+
+$(LWDIAG_LOCATION)/liblwdiag_utils$(LIBSUFFIX):
+	$(MAKE) -C .. -f makefile.lwmk $*
+else
+    LW_MODS_LIBS += lwdiag_utils
+endif
+######################################################################
+
+test: $(MODS_FULL_TARGET_PATH)
+	@$(COPY) -f $(CERT_FILES) $(OUTPUTDIR_ABSOLUTE)/
+	@PATH=/bin:/usr/bin ./ssl_test.sh $(OUTPUTDIR_ABSOLUTE)/$(MODS_TARGET_FILE)
+
+FILES_DIR = $(OUTPUTDIR)/zipfiles
+zip: ssl_test.tgz
+ssl_test.tgz: $(MODS_FULL_TARGET_PATH) $(CERT_FILES) ssl_test.sh
+ifeq ($(LW_TARGET_OS_FAMILY), Unix)
+	@$(RMDIR) -r $(FILES_DIR)
+	@$(MKDIR) $(FILES_DIR)
+	@$(COPY) $^ $(FILES_DIR)
+	@$(TAR) czf $@ -C $(FILES_DIR) .
+	@$(RMDIR) -r $(FILES_DIR)
+else
+	@$(ECHO) "Not implemented"
+endif
+
+.PHONY: test zip
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk

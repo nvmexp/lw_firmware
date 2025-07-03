@@ -1,0 +1,152 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Engines.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    SOESRC_CORE => [
+
+        FLAGS => ':CORE',             # following are all part of core (non-hal)
+
+        TASKS => [
+            'syslib/ic/lw/soe_objic.c',
+            'tasks/msgmgmt/msgmgmt.c',
+            'tasks/cmdmgmt/cmdmgmt.c',
+            'tasks/therm/task_therm.c',
+            'tasks/core/task_core.c',
+            'tasks/spi/task_spi.c',
+            'tasks/bif/task_bif.c',
+#            'tasks/smbpbi/task_smbpbi.c',
+       ],
+
+
+         OS =>
+         [
+             CHIPS_SUPPORTED => [ ALL, ],
+                 'kernel/init.c',
+                 'kernel/start.S',
+
+                 'syslib/ostmrcallback.c',
+                 'syslib/rpc.c',
+         ],
+
+
+    ],  # SOESRC_CORE
+
+
+    SOESRC_ENGINES => [
+
+        IC =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'syslib/ic/lagunaseca/soe_icls10.c',
+        ],
+
+        LSF =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'syslib/lsf/lagunaseca/lsfls10.c',
+                'syslib/lsf/lw/soe_objlsf.c',
+        ],
+
+        SOE =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'syslib/soe/lw/soe_objsoe.c',
+                'syslib/soe/lagunaseca/soe_soels10.c',
+                'syslib/soe/lagunaseca/soe_discoveryls10.c',
+                'syslib/soe/lagunaseca/soe_positionls10.c',
+                'syslib/soe/lagunaseca/soe_privringls10.c',
+                'syslib/soe/lagunaseca/soe_dmals10.c',
+        ],
+
+        THERM =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'syslib/therm/lagunaseca/soe_thermls10.c',
+        ],
+
+        INTR =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'syslib/intr/lagunaseca/soe_intrls10.c',
+        ],
+
+        CORE =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'syslib/core/lagunaseca/soe_corels10.c',
+        ],
+
+        SPI =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'syslib/spi/lw/soe_spirom.c',
+                'syslib/spi/lagunaseca/soe_eraseledgerls10.c',
+                'syslib/spi/lagunaseca/soe_spils10.c',
+        ],
+
+       LWLINK =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'syslib/lwlink/lagunaseca/soe_lwlinkls10.c',
+        ],
+
+        SMBPBI =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'syslib/smbpbi/lw/soe_objsmbpbi.c'       ,
+                'syslib/smbpbi/lw/soe_smbpbi.c'          ,
+                'syslib/smbpbi/lw/soe_smbpbi_async.c'    ,
+                'syslib/smbpbi/lw/soe_smbpbi_bundle.c'   ,
+                'syslib/smbpbi/lw/soe_smbpbi_dem.c'      ,
+                'syslib/smbpbi/lw/soe_smbpbi_osfp.c'     ,
+                'syslib/smbpbi/lagunaseca/soe_smbpbils10.c',
+                'syslib/smbpbi/lagunaseca/soe_smbpbieccls10.c',
+                'syslib/smbpbi/lagunaseca/soe_smbpbilwlinkls10.c',
+        ],
+
+        BIF =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'syslib/bif/lagunaseca/soe_bifls10.c',
+        ],
+
+    ],  # SOESRC_ENGINES
+
+    SOESRC_TASKS => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        CHIPS_SUPPORTED => [ ALL, ],
+
+    ],  # SOESRC_TASKS
+
+    SOESRC_JOBS => [
+
+   ],
+
+];   # filesRef
+
+
+my $platformsRef = [
+
+    # the SOE platform
+    PLATFORM_SOE  => [
+        SOESRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

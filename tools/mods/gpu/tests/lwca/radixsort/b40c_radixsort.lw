@@ -1,0 +1,48 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2014-2014 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+ 
+#include <b40c/util/multi_buffer.lwh>
+#include <b40c/radix_sort/enactor.lwh>
+
+int main(int argc, char* argv[])
+{
+    b40c::util::DoubleBuffer<uint,uint>* double_buffer = new b40c::util::DoubleBuffer<uint,uint>();
+    b40c::radix_sort::Enactor* sort_enactor = new b40c::radix_sort::Enactor();
+    int N = 16000000;
+
+    // The key buffers are opaque.
+    lwdaMalloc((void**) &double_buffer->d_keys[0], sizeof(uint) * N);
+    uint* keys = new uint[N];
+    for(int i = 0; i < N; i++) keys[i] = rand();
+    lwdaMemcpy(double_buffer->d_keys[0],(void*)keys,sizeof(uint)*N,lwdaMemcpyHostToDevice);
+    lwdaMalloc((void**) &double_buffer->d_keys[1], sizeof(uint) * N);
+ 
+    // The current value buffer (double_buffer.d_values[double_buffer.selector])
+    // backs the desired permutation array.
+    lwdaMalloc((void**) &double_buffer->d_values[0], sizeof(uint) * N);
+    uint* values = new uint[N];
+    for(int i = 0; i < N; i++) values[i] = i;
+    lwdaMemcpy(double_buffer->d_values[0],(void*)values,sizeof(uint)*N,lwdaMemcpyHostToDevice); 
+    lwdaMalloc((void**) &double_buffer->d_values[1], sizeof(uint) * N);
+
+    sort_enactor->Sort<30,0>(*double_buffer,N);
+
+    lwdaDeviceSynchronize();
+    
+    lwdaFree((void*)&double_buffer->d_keys[0]);
+    lwdaFree((void*)&double_buffer->d_keys[1]);
+    lwdaFree((void*)&double_buffer->d_values[0]);
+    lwdaFree((void*)&double_buffer->d_values[1]);
+    delete[] keys;
+    delete[] values;
+    delete double_buffer;
+    delete sort_enactor;
+}

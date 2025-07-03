@@ -1,0 +1,263 @@
+# -*- mode: perl; -*-
+
+# ACRLIB Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $acrlibHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        IS_BOOTSTRAP_OWNER => [
+            DESCRIPTION    => "Check if given falconId equals current bootstrap owner",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => 'LwU32 falconId',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GM200         => [ MAXWELL_and_later, -GM10X, ],
+        ],
+
+        FIND_REG_MAPPING => [
+            DESCRIPTION    => "Find reg mapping using reg label",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg, ACR_FLCN_REG_LABEL acrLabel, PACR_REG_MAPPING pMap, PFLCN_REG_TGT pTgt',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        FLCN_REG_LABEL_WRITE => [
+            DESCRIPTION    => "Acr util function to write falcon registers using register label",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg, ACR_FLCN_REG_LABEL reglabel, LwU32 data',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        FLCN_REG_LABEL_READ => [
+            DESCRIPTION    => "Acr util function to read falcon registers using register label",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg, ACR_FLCN_REG_LABEL reglabel',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        FLCN_REG_READ => [
+            DESCRIPTION    => "Acr util function to read falcon registers",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg, FLCN_REG_TGT tgt, LwU32 regOff',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        FLCN_REG_WRITE => [
+            DESCRIPTION    => "Acr util function to write falcon registers",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg, FLCN_REG_TGT tgt, LwU32 regOff, LwU32 data',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        GET_FALCON_CONFIG => [
+            DESCRIPTION    => "Given falcon ID and instance ID, get the falcon
+                               specifications such as registerBase, pmcEnableMask etc",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 falconId, LwU32 falconInstance, PACR_FLCN_CONFIG pFlcnCfg',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GM200         => [ MAXWELL_thru_GP100, -GM10X, T186, GV11B, T194, G00X, T234, ],
+        ],
+
+        POLL_FOR_SCRUBBING => [
+            DESCRIPTION    => "Poll for IMEM and DMEM scrubbing to complete",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        IS_FALCON_HALTED => [
+            DESCRIPTION    => "Check if falcon is halted or not",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        SETUP_TARGET_REGISTERS => [
+            DESCRIPTION    => "Programs target registers to ensure the falcon goes into LS mode",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        GET_LWRRENT_TIME_NS => [
+            DESCRIPTION    => "Get current time in NS",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_TIMESTAMP pTime',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        GET_ELAPSED_TIME_NS => [
+            DESCRIPTION    => "Measure the time in nanoseconds elapsed since pTime",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "const PACR_TIMESTAMP pTime",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        CHECK_TIMEOUT => [
+            DESCRIPTION    => "Check if given timeout has elapsed or not",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 timeoutNs, ACR_TIMESTAMP startTimeNs, LwS32* pTimeoutLeftNs',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        SETUP_CTX_DMA => [
+            DESCRIPTION    => "Program FBIF to allow physical transactions,
+                               Incase of GR falcons, make appropriate writes",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg, LwU32 ctxDma, LwBool bIsPhysical',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GM200         => [ MAXWELL_and_later, -GM10X, -T194, -GV11B, -T234, ],
+            _GV11B         => [ T194, GV11B, T234, ],
+        ],
+
+        ISSUE_TARGET_FALCON_DMA => [
+            DESCRIPTION    => "Issue target falcon DMA",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 dstOff, LwU64 fbBase, LwU32 fbOff, LwU32 sizeInBytes, LwU32 regionID, LwBool bIsSync, LwBool bIsDstImem, PACR_FLCN_CONFIG pFlcnCfg',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        RESET_FALCON => [
+            DESCRIPTION    => "Resets a given falcon",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg, LwBool bForceFlcnOnlyReset',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GM200         => [ MAXWELL_and_later, -GM10X, ],
+        ],
+
+        SELWRE_RESET_FALCON => [
+            DESCRIPTION    => "Resets a given falcon using secure reset",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _STUB          => [ pre_PASCAL, GP100, CHEETAH, GV11B, ],
+        ],
+
+        LOCK_FALCON_REG_SPACE => [
+            DESCRIPTION    => "Use decode traps to lock falcon register space",
+            RETURN_TYPE    => ACR_STATUS,
+            STUB_RETURNS   => ACR_OK,
+            ARGUMENTS      => 'LwU32 sourceId, PACR_FLCN_CONFIG pTargetFlcnCfg, LwU32 *pTargetMaskPlmOldValue, LwU32 *pTargetMaskOldValue,LwBool setLock',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")', 
+
+            _STUB          => [ tMAXWELL_and_later, -T234, ],
+            _T234          => [ T234, ]
+        ],
+
+        FIND_FARTHEST_IMEM_BL => [
+            DESCRIPTION    => "Find the IMEM block from the end to load BL code",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg, LwU32 codeSizeInBytes',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        FIND_TOTAL_DMEM_BLOCKS => [
+            DESCRIPTION    => "Find the total number of DMEM blocks",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        CHECK_IF_UCODE_FITS_FALCON=> [
+            DESCRIPTION    => "Find if ucode fits with in falcon memory i.e. IMEM/DMEM",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg, LwU32 ucodeSize, LwBool bIsDstImem',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        PROGRAM_REGION_CFG => [
+            DESCRIPTION    => "Programs the region CFG in FBFI register",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg, LwBool bUseCsb, LwU32 ctxDma, LwU32 regionID',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        SETUP_BOOTVEC => [
+            DESCRIPTION    => "Programs the bootvector",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg, LwU32 bootvec',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        SETUP_DMA_CTL => [
+            DESCRIPTION    => "Setup DMACTL",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg, LwBool bIsCtxRequired',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_BOOTSTRAP_OWNER,
+        ],
+
+        PROGRAM_DMA_BASE => [
+            DESCRIPTION    => "Program DMA base register",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG pFlcnCfg, LwU64 fbBase',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GM200         => [ MAXWELL, -GM10X, CHEETAH, GV11B, ],
+        ],
+
+        INITIALIZE_STACK_CFG => [
+            DESCRIPTION    => "Initialize stack config",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG arg1, LwU32 arg2',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _STUB          => [ ALL, '-GP10X_and_later', GV11B, ],
+        ],
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $acrlibHal;
+

@@ -1,0 +1,31 @@
+# -*- mode: perl; -*-
+
+# Timer Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $timerHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        DUMMY  => [
+            DESCRIPTION => "dummy",
+            RETURN_TYPE => void,
+            ARGUMENTS   => "void",
+
+            _STUB       => [ ALL, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $timerHal;
+

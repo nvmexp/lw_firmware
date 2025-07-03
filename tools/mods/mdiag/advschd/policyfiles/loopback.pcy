@@ -1,0 +1,18 @@
+// LWIDIA_COPYRIGHT_BEGIN
+//
+// Copyright 2007-2007 by LWPU Corporation.  All rights reserved.  All
+// information contained herein is proprietary and confidential to LWPU
+// Corporation.  Any use, reproduction, or disclosure without the written
+// permission of LWPU Corporation is prohibited.
+//
+// LWIDIA_COPYRIGHT_END
+
+Policy.Version(2);
+
+#include "default.pcy"
+AddFileId(Out.PriNormal, "$Id:  $");
+
+Policy.SetLoopBack();
+Policy.Define(Trigger.Start(), Action.CreateSurface("TestSurface", 16, Gpu.Inst("0", "0")));
+Policy.Define(Trigger.OnMethodWrite(Channel.Name(".*"),[1, 0]), Action.HostSemaphoreRelease(Channel.Name(".*"), Surface.Name("TestSurface"), 0, 0xFF));
+Policy.Define(Trigger.OnMethodWrite(Channel.Name(".*"),[75, 0]), Action.HostSemaphoreAcquire(Channel.Name(".*"), Surface.Name("TestSurface"), 0, 0xFF));

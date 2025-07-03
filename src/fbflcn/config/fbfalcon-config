@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# fbfalcon-config
+# just run rmconfig using our config file
+
+# bail on any error
+set -e
+
+[ -f fbfalcon-config.cfg ]  ||  cd $LW_ROOT/uproc/fbflcn/config
+
+[ -f fbfalcon-config.cfg ]  ||  { echo Cannot find fbfalcon-config.cfg >&2; exit 1; }
+
+
+# NOTE: '--mode fbfalcon-config' must be the first argument to rmconfig
+exec ${PERL:-perl} ../../../drivers/common/chip-config/chip-config.pl \
+                   --mode fbfalcon-config \
+                   --config fbfalcon-config.cfg \
+                   --source-root $LW_ROOT/uproc/fbflcn/src \
+                   "$@"

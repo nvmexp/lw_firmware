@@ -1,0 +1,53 @@
+# -*- mode: perl; -*-
+
+# Core function SOE Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $coreHal = [
+
+    # defaults for Core interfaces below
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        READ_BIOS_SIZE => [
+            DESCRIPTION    => "Read size of BIOS binary in bytes",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_FLCN_U64 dmaHandle",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_core", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _LR10         => [ ALL, ],
+        ],
+
+        READ_BIOS => [
+            DESCRIPTION    => "Read BIOS into Sysmem",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 offset, LwU32 size, RM_FLCN_U64 dmaHandle",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_core", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _LR10         => [ ALL, ],
+        ],
+
+        PRE_INIT => [
+            DESCRIPTION    => "Start polling to allow SOE reset, set up DMA, etc",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_core", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _LR10         => [ ALL, ],
+        ],
+
+        ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $coreHal;

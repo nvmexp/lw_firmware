@@ -1,0 +1,307 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2020-2021 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+override LW_TARGET_OS := riscv
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+include $(FW_ROOT)/config/profiles.mk
+
+LW_ENGINE_MANUALS := $(MANUAL_PATHS)
+
+#  MK Tmp haxx
+LWRISCVX_SDK_ROOT ?= $(LW_SOURCE)/uproc/lwriscv/sdk/$(LWRISCV_SDK_VERSION)
+LWRISCVX_SDK_PREBUILT :=$(LWRISCVX_SDK_ROOT)/prebuilt/$(LWRISCV_SDK_PROFILE)
+export LWRISCV_SDK_VERSION
+export LWRISCVX_SDK_ROOT
+export LWRISCVX_SDK_PREBUILT
+
+SIGGEN            := $(LWRISCVX_SDK_ROOT)/tools/siggen_manifest
+XXD               ?= /usr/bin/xxd
+FW_PROFILE_NAME   := $(ENGINE)_$(PROJ)
+
+# it must be built at this time
+BUILD_DIR := $(FW_ROOT)/_out/$(FW_PROFILE_NAME)
+INSTALL_DIR := $(BUILD_DIR)/staging
+
+BUILD_DIR_SK := $(BUILD_DIR)/sk
+INSTALL_DIR_SK   := $(INSTALL_DIR)
+
+BUILD_DIR_PART := $(BUILD_DIR)/partitions
+INSTALL_DIR_PART := $(INSTALL_DIR)
+
+RELEASE_DIR      := $(FW_ROOT)/bin
+BUILD_SCRIPTS    := $(LW_SOURCE)/uproc/build/scripts
+
+export BUILD_DIR_PART
+export INSTALL_DIR_PART
+
+# LIBLWRISCV/libCCC configuration
+LWRISCVX_PREBUILT_INC_DIR :=$(LWRISCVX_SDK_PREBUILT)/inc
+LWRISCVX_PREBUILT_LIB_DIR :=$(LWRISCVX_SDK_PREBUILT)/lib
+LIBLWRISCV_CONFIG_H     :=$(LWRISCVX_PREBUILT_INC_DIR)/liblwriscv/g_lwriscv_config.h
+LIBLWRISCV_CONFIG_MK    :=$(LWRISCVX_SDK_PREBUILT)/g_lwriscv_config.mk
+MANIFEST_SRC := $(FW_ROOT)/manifests/manifest_$(ENGINE)_$(PROJ).c
+
+TARGET_PARTITIONS_PREFIX := $(INSTALL_DIR)/g_partitions_$(ENGINE)_$(PROJ)_riscv
+# Target file names
+TARGET_SK_PREFIX := $(INSTALL_DIR)/g_sepkern_$(FW_PROFILE_NAME)_riscv
+TARGET_MANIFEST_PREFIX := $(INSTALL_DIR)/g_manifest_$(FW_PROFILE_NAME)_riscv
+
+TARGET_MANIFEST_BIN := $(TARGET_MANIFEST_PREFIX).bin
+TARGET_MANIFEST_HEX := $(TARGET_MANIFEST_PREFIX).hex
+TARGET_MANIFEST_OBJ := $(TARGET_MANIFEST_PREFIX).o
+
+TARGET_SK_ELF     := $(TARGET_SK_PREFIX).elf
+TARGET_SK_OBJDUMP := $(TARGET_SK_PREFIX).objdump
+TARGET_SK_READELF := $(TARGET_SK_PREFIX).readelf
+TARGET_SK_TEXT    := $(TARGET_SK_PREFIX)_image.text
+TARGET_SK_DATA    := $(TARGET_SK_PREFIX)_image.data
+
+TARGET_PARTITIONS_ELF     := $(TARGET_PARTITIONS_PREFIX).elf
+TARGET_PARTITIONS_OBJDUMP := $(TARGET_PARTITIONS_PREFIX).objdump
+TARGET_PARTITIONS_READELF := $(TARGET_PARTITIONS_PREFIX).readelf
+TARGET_PARTITIONS_TEXT    := $(TARGET_PARTITIONS_PREFIX).text
+TARGET_PARTITIONS_DATA    := $(TARGET_PARTITIONS_PREFIX).data
+
+TARGET_FINAL_PREFIX      := g_fmc_$(FW_PROFILE_NAME)
+TARGET_FINAL_PREFIX_PATH := $(INSTALL_DIR)/$(TARGET_FINAL_PREFIX)
+TARGET_FINAL_TEXT        := $(TARGET_FINAL_PREFIX_PATH).text
+TARGET_FINAL_DATA        := $(TARGET_FINAL_PREFIX_PATH).data
+TARGET_FINAL_MANIFEST    := $(TARGET_FINAL_PREFIX_PATH).manifest
+
+# MK TODO: rename the way siggen does it
+TARGET_ENC_TEXT     := $(TARGET_FINAL_TEXT).encrypt.bin
+TARGET_ENC_DATA     := $(TARGET_FINAL_DATA).encrypt.bin
+TARGET_ENC_MANIFEST := $(TARGET_FINAL_MANIFEST).encrypt.bin.out.bin
+
+TARGET_IMAGE := $(TARGET_FINAL_PREFIX_PATH)_image.bin
+TARGET_DESC  := $(TARGET_FINAL_PREFIX_PATH)_desc.bin
+
+TARGET_IMAGES := $(TARGET_SK_ELF) $(TARGET_SK_OBJDUMP) $(TARGET_SK_READELF)
+TARGET_IMAGES += $(TARGET_PARTITIONS_ELF) $(TARGET_PARTITIONS_OBJDUMP) $(TARGET_PARTITIONS_READELF)
+TARGET_IMAGES += $(TARGET_MANIFEST_HEX)
+TARGET_IMAGES += $(TARGET_ENC_TEXT) $(TARGET_ENC_DATA) $(TARGET_ENC_MANIFEST) $(TARGET_IMAGE) $(TARGET_DESC)
+
+export PROJ
+export ARCH
+export FW_ROOT
+export LWRISCVX_SDK_ROOT
+export LWRISCVX_PREBUILT_INC_DIR
+export LWRISCVX_PREBUILT_LIB_DIR
+export LIBLWRISCV_CONFIG_H
+export LIBLWRISCV_CONFIG_MK
+
+export LW_ENGINE_MANUALS
+export LW_MANUALS_ROOT
+
+# some unneeded rules to satisfy lwCommon.lwmk
+show_config: 
+
+default: release
+.PHONY: default release build clean clobber
+
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(BUILD_SCRIPTS)/release-imgs-if-changed.pl
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_ARGS += --output-prefix $(TARGET_FINAL_PREFIX)
+RELEASE_IMG_ARGS += --image         $(TARGET_ENC_TEXT)
+RELEASE_IMG_ARGS += --p4            $(P4)
+# Force installation always
+RELEASE_IMG_ARGS += --force
+
+RELEASE_PATH = bin
+
+RELEASE_IMG_ARGS += --release-path $(RELEASE_PATH)
+
+RELEASE_IMG_ARGS += --release-files            \
+  $(subst $(SPACE),$(COMMA),$(TARGET_IMAGES))
+
+release: $(TARGET_IMAGES)
+	$(ECHO) $(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)
+	$(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)
+
+clobber:
+	$(RM) -r $(BUILD_DIR)
+
+RVMKIMG_PARAMS := \
+    --monitorCode       $(TARGET_ENC_TEXT)           \
+    --monitorData       $(TARGET_ENC_DATA)           \
+    --manifest          $(TARGET_ENC_MANIFEST)       \
+    --loaderFile        $(INSTALL_DIR)/.keep         \
+    --elfFile           $(INSTALL_DIR)/.keep         \
+    --readelf           $(TARGET_PARTITIONS_READELF) \
+    --outFilePrefix     $(TARGET_FINAL_PREFIX)       \
+    --outDir            $(INSTALL_DIR)               \
+    --useMonitor
+
+RVMKIMG_DEPS := $(TARGET_ENC_TEXT) $(TARGET_ENC_DATA) $(TARGET_ENC_MANIFEST) 
+RVMKIMG_DEPS += $(TARGET_PARTITIONS_READELF)
+
+$(TARGET_IMAGE) $(TARGET_DESC) &: $(RVMKIMG_DEPS)
+	$(ECHO) generating $(notdir $(TARGET_IMAGE))
+	$(TOUCH) $(INSTALL_DIR)/.keep
+	$(PERL) $(BUILD_SCRIPTS)/mkimage/rvmkimg.pl  $(RVMKIMG_PARAMS)
+
+# Rules to create partitions
+define add-part =
+$(info adding partition rule: $(1))
+build.partitions: build.part_$(1)
+install.partitions: install.part_$(1)
+clear.partitions: clear.part_$(1)
+build.part_$(1): $(INSTALL_DIR)
+	$$(MAKE) -f make-partition.lwmk PART_DIR=$(1) build
+install.part_$(1): build.part_$(1)
+	$$(MAKE) -f make-partition.lwmk PART_DIR=$(1) install
+clear.part_$(1): 
+	$$(MAKE) -f make-partition.lwmk PART_DIR=$(1) clean
+.PHONY:  build.part_$(1) install.part_$(1) clean.part_$(1)
+endef
+$(foreach c,$(sort $(PARTITIONS)),$(eval $(call add-part,$(c))))
+.PHONY: build.partitions install.partitions clean.partitions
+
+### SK - Spark SK + policies
+SEPKERN_ROOT:=$(LWRISCVX_SDK_ROOT)/monitor/sepkern
+SEPKERN_INSTALL_DIR:=$(INSTALL_DIR_SK)
+SEPKERN_POLICY_PATH:=$(FW_ROOT)/policies
+
+$(TARGET_SK_OBJDUMP) $(TARGET_SK_READELF) $(TARGET_SK_TEXT) $(TARGET_SK_DATA): $(TARGET_SK_ELF)
+
+$(TARGET_SK_ELF) : install.sk
+
+install.sk: build.sk
+
+SK_BUILD_ARGS=POLICY_PATH=$(SEPKERN_POLICY_PATH) 
+SK_BUILD_ARGS+=POLICY_FILE_NAME=policy_$(FW_PROFILE_NAME).ads PARTITION_COUNT=$(SK_PARTITION_COUNT)
+SK_BUILD_ARGS+=TARGET_NAME=g_sepkern_$(FW_PROFILE_NAME)_riscv
+
+build.sk: $(BUILD_DIR_SK) $(INSTALL_DIR_SK)
+	$(ECHO) Building SK...
+	$(MAKE) -C $(SEPKERN_ROOT) ENGINE=$(ENGINE) CHIP=$(PROJ) INSTALL_PATH=$(INSTALL_DIR_SK) BUILD_PATH=$(BUILD_DIR_SK) OUTPUT_PATH=$(BUILD_DIR_SK) $(SK_BUILD_ARGS) install
+.PHONY: build.sk install.sk
+
+# Rules to create directories
+DIRS_TO_CREATE:= $(filter INSTALL_DIR_%,$(.VARIABLES)) $(filter BUILD_DIR_%,$(.VARIABLES)) RELEASE_DIR
+define add-dir =
+$(info adding dir rule: $(1))
+$(1):
+	$(MKDIR) -p $(1)
+endef
+$(foreach c,$(sort $(DIRS_TO_CREATE)),$(eval $(call add-dir,$($(c)))))
+
+##################### Signing and final image generation
+$(TARGET_FINAL_TEXT): $(TARGET_SK_TEXT) $(TARGET_PARTITIONS_TEXT) $(INSTALL_DIR)
+	$(CAT) $(TARGET_SK_TEXT) $(TARGET_PARTITIONS_TEXT) > $@
+
+$(TARGET_FINAL_DATA): $(TARGET_SK_DATA) $(TARGET_PARTITIONS_DATA) $(INSTALL_DIR)
+	$(CAT) $(TARGET_SK_DATA) $(TARGET_PARTITIONS_DATA) > $@
+
+$(TARGET_FINAL_MANIFEST): $(TARGET_MANIFEST_BIN) $(INSTALL_DIR)
+	$(CAT) $(TARGET_MANIFEST_BIN) > $@
+
+$(TARGET_ENC_TEXT) $(TARGET_ENC_DATA) $(TARGET_ENC_MANIFEST) &: $(TARGET_FINAL_TEXT) $(TARGET_FINAL_DATA) $(TARGET_FINAL_MANIFEST)
+	# MK TODO: signing for gh100
+	$(SIGGEN) -manifest $(TARGET_FINAL_MANIFEST) -code $(TARGET_FINAL_TEXT) -data $(TARGET_FINAL_DATA) -chip $(SIGGEN_CHIP) -mode 0
+
+#####################  Manifest
+
+manifest: $(TARGET_MANIFEST_BIN) $(TARGET_MANIFEST_HEX)
+.PHONY: manifest
+
+$(TARGET_MANIFEST_BIN) $(TARGET_MANIFEST_HEX) &: $(MANIFEST_SRC) $(BUILD_DIR)
+	# Limits are for SK image *only* (not partitions)
+	$(CC) $(CFLAGS) $(MANIFEST_SRC) $(INCLUDES) $(DEFINES) -Wno-sign-colwersion -DSEPKERN_IMEM_LIMIT=0x1000 -DSEPKERN_DMEM_LIMIT=0x1000 -include $(LIBLWRISCV_CONFIG_H) -c -o $(TARGET_MANIFEST_OBJ)
+	$(OBJCOPY) -O binary -j .rodata.manifest $(TARGET_MANIFEST_OBJ) $(TARGET_MANIFEST_BIN)
+	$(XXD) $(TARGET_MANIFEST_BIN) $(TARGET_MANIFEST_HEX)
+
+##################### final linking
+LIBS := -L$(LWRISCVX_PREBUILT_LIB_DIR) -L$(INSTALL_DIR_PART) 
+# MK TODO: add externally build libraries
+# add partition libraries
+LIBS += $(addprefix -lpart_,$(PARTITIONS))
+# Add risc-v sdk
+LIBS +=  -llwriscv
+
+ifeq ($(USE_LIBCCC),true)
+LIBS += -lCCC
+endif
+
+LDSCRIPT_IN := $(FW_ROOT)/build/ldscript.ld.in
+LDSCRIPT    := $(INSTALL_DIR)/ldscript.ld
+
+### Those flags and includes are for manifest processing only
+
+# Add liblwriscv to include path
+INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)
+# Add LWRISCV SDK to include path
+INCLUDES += $(LWRISCVX_SDK_ROOT)/inc
+# Add chip cheaders to include path
+INCLUDES += $(LW_ENGINE_MANUALS)
+# INCLUDES += $(LWRISCVX_SDK_ROOT)/inc/lwpu-sdk
+INCLUDES := $(addprefix -I,$(INCLUDES))
+
+# MK TODO: unify that with other riscv cflags (From lw settings and from submodule.. maybe pass it from profile?)
+CFLAGS += -Og -g -std=c11
+CFLAGS += -Werror -Wall -Wstrict-prototypes -ffunction-sections -fdata-sections
+CFLAGS += -pipe -Wtype-limits -Wcolwersion -Wsign-colwersion  -Wsign-compare -Wint-in-bool-context
+CFLAGS += -fdiagnostics-color=always
+CFLAGS += -fomit-frame-pointer -fno-strict-aliasing -mcmodel=medany
+CFLAGS += -nostartfiles -nostdlib -ffreestanding
+CFLAGS += $(INCLUDES)
+# WARNING : this is imporant, it includes liblwriscv configuration file in every compiled file (that way we don't need to explicitly include it)
+CFLAGS += -include $(LIBLWRISCV_CONFIG_H)
+# MK TODO: unhack abi/arch 
+CFLAGS += -mabi=lp64f -march=rv64imfc
+# Don't put uninitialized global variables in common place, keep them in partition's bss
+CFLAGS += -fno-common 
+CFLAGS += $(EXTRA_CFLAGS)
+
+LDFLAGS += -Wl,-melf64lriscv
+LDFLAGS += -Wl,--gc-sections
+LDFLAGS += -Wl,--print-gc-sections
+LDFLAGS += -Wl,--print-memory-usage
+LDFLAGS += -Wl,-Map=$(INSTALL_DIR)/link.log
+LDFLAGS += -Wl,--sort-common=descending
+LDFLAGS += -Wl,--sort-section=alignment
+LDFLAGS += -Wl,--start-group $(LIBS) -Wl,--end-group
+LDFLAGS += -nostdlib -nostartfiles -T$(LDSCRIPT)
+LDFLAGS += $(EXTRA_LDFLAGS)
+LD_INCLUDES += $(INCLUDES)
+
+$(LDSCRIPT): $(LDSCRIPT_IN) $(INSTALL_DIR)
+	$(CPP) -x c -P -o $@ $(DEFINES) $(INCLUDES) -include $(LIBLWRISCV_CONFIG_H) $(LDSCRIPT_IN)
+
+$(TARGET_PARTITIONS_ELF): install.partitions $(LDSCRIPT)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $(TARGET_PARTITIONS_ELF)
+
+link.partitions: $(TARGET_PARTITIONS_ELF)
+.PHONY: link.partitions
+
+$(TARGET_PARTITIONS_TEXT) : $(TARGET_PARTITIONS_ELF)
+	$(OBJCOPY) -O binary -j '.partition_*_code' $^ $@
+
+$(TARGET_PARTITIONS_DATA) : $(TARGET_PARTITIONS_ELF)
+	$(OBJCOPY) -O binary -j '.partition_*_data' $^ $@
+
+# Generic objdump etc rules
+%.readelf: %.elf
+	$(READELF) --all $^ > $@
+
+%.objdump: %.elf
+	$(OBJDUMP) -S $^ > $@
+

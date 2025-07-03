@@ -1,0 +1,165 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Modules.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    # These paths are relative to uproc/lwriscv/drivers/src/
+    DRIVERS_SRC => [
+
+        ONLY_IF => RISCV_DRIVERS,
+
+        # TODO : enable this later if this fits RISCV LIB src code structure
+        # include these files only if they show up in a SRCFILES list in Modules.pm
+        # FLAGS => ':MUST_BE_REQUIRED',
+
+        [
+            ONLY_IF => 'LWRISCV_CORE_DUMP',
+            'debug/core_dump.c',
+        ],
+
+        [
+            ONLY_IF => 'LWRISCV_DEBUG_PRINT',
+            'debug/debug.c',
+        ],
+        'debug/trace.c',
+        'dma/dma.c',
+        'irq/irq.c',
+        'memory/mem.c',
+        'memory/tls.c',
+        'memory/vm.c',
+        'mpu/mpu.c',
+        'syscall/syscall.c',
+        'sbilib/sbilib.c',
+        'timer/poll.c',
+
+        [
+            ONLY_IF => 'LWRISCV_PARTITION_SWITCH',
+            'syscall/partswitch.S',
+        ],
+
+        [
+            ONLY_IF => 'ON_DEMAND_PAGING',
+            'memory/odp.c',
+        ],
+
+        [
+            ONLY_IF => 'LWRISCV_SYMBOL_RESOLVER',
+            'debug/symbols.c',
+        ],
+
+        [
+            ONLY_IF => '! PMU_BUILD',
+            'queue/cmdq.c',
+        ],
+
+        [
+            ONLY_IF => 'GSP_BUILD',
+
+            'irq/irq_gsp.c',
+
+            [
+                ONLY_IF => 'SCHEDULER_ENABLED',
+                'notify/notify.c',
+            ]
+
+        ],
+        [
+            ONLY_IF => 'SEC2_BUILD',
+            'irq/irq_sec2.c',
+        ],
+        [
+            ONLY_IF => 'SOE_BUILD',
+            'irq/irq_soe.c',
+        ],
+    ],  # DRIVERS_SRC
+
+    # These paths are relative to uproc/lwriscv/syslib/src/
+    SYSLIB_SRC => [
+
+        ONLY_IF => RISCV_SYSLIB,
+
+        # TODO : enable this later if this fits RISCV LIB src code structure
+        # include these files only if they show up in a SRCFILES list in Modules.pm
+        # FLAGS => ':MUST_BE_REQUIRED',
+
+        'syslib/falcon_intrinsics_sim.c',
+        'syslib/syslib.c',
+        [
+            ONLY_IF => 'LWRISCV_DEBUG_PRINT',
+            'syslib/syslib_print.c',
+        ],
+        'idle/idle.c',
+    ],  # SYSLIB_SRC
+
+    # These paths are relative to uproc/lwriscv/shlib/src/
+    SHLIB_SRC => [
+
+        ONLY_IF => RISCV_SHLIB,
+
+        # TODO : enable this later if this fits RISCV LIB src code structure
+        # include these files only if they show up in a SRCFILES list in Modules.pm
+        # FLAGS => ':MUST_BE_REQUIRED',
+
+        'shlib/shlib.c',
+        [
+            ONLY_IF => 'LWRISCV_DEBUG_PRINT',
+            'shlib/print.c',
+            'shlib/lw_vprintfmt.c'
+        ],
+        'shlib/string.c',
+        'ssp/ssp.c',
+    ],  # SHLIB_SRC
+
+    SEPKERN_SRC => [
+
+        ONLY_IF => RISCV_SEPKERN,
+
+        'start/startup.S',
+        'start/boot.c',
+
+        [
+            ONLY_IF => 'PMU_BUILD',
+            'start/config_pmu.c',
+        ],
+
+        [
+            ONLY_IF => 'GSP_BUILD',
+            'start/config_gsp.c',
+        ],
+
+        [
+            ONLY_IF => 'SEC2_BUILD',
+            'start/config_sec.c',
+        ],
+
+        'sbi/dispatch.c',
+
+        'sbi/shutdown.c',
+
+        'security/config_ls.c',
+
+        'trap/trap_vector.S',
+
+    ],  # SEPKERN_SRC
+];   # filesRef
+
+my $platformsRef = [
+
+    # the RISCVLIB platform
+    PLATFORM_DEFAULT => [
+        RISCVLIB_ALL => [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

@@ -1,0 +1,375 @@
+# -*- mode: perl; -*-
+
+# SE Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $seHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        SELWRE_BUS_SEND_REQUEST => [
+            DESCRIPTION    => "Sends read or write request through the secure bus",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwBool bRead, LwU32 addr, LwU32 val",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        SELWRE_BUS_GET_DATA => [
+            DESCRIPTION    => "Fetches the read data after the request is sent through secure bus",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32 addr, LwU32 *pData",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        EC_POINT_MULT => [
+            DESCRIPTION    => "Elliptic lwrve point multiplication over a prime modulus (Q = kP)",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32 [], LwU32 [], LwU32 [], LwU32 [], LwU32 [], LwU32 [], LwU32 [], PSE_PKA_REG",
+            INTERFACE_TAG  => "seECPointMult",                       # "EC" instead of "Ec"
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        EC_POINT_ADD => [
+            DESCRIPTION    => "Elliptic lwrve point addition over a prime modulus (R = P + Q)",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32 [], LwU32 [], LwU32 [], LwU32 [], LwU32 [], LwU32 [], LwU32 [], PSE_PKA_REG",
+            INTERFACE_TAG  => "seECPointAdd",                       # "EC" instead of "Ec"
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        EC_POINT_VERIFICATION => [
+            DESCRIPTION    => "Elliptic lwrve point verification over a prime modulus (y^2 = x^3 + ax + b mod p))",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32 [], LwU32 [], LwU32 [], LwU32 [], LwU32 [], PSE_PKA_REG",
+            INTERFACE_TAG  => "seECPointVerification",                       # "EC" instead of "Ec"
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        MODULAR_REDUCTION => [
+            DESCRIPTION    => "Modular reduction (x mod m)",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32 [], LwU32 [], LwU32 [], PSE_PKA_REG",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        MODULAR_ILWERSION => [
+            DESCRIPTION    => "Modular ilwersion (1/x mod m)",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32 [], LwU32 [], LwU32 [], PSE_PKA_REG",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        MODULAR_MULT => [
+            DESCRIPTION    => "Modular multiplication (xy mod m)",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32 [], LwU32 [], LwU32 [], LwU32 [], PSE_PKA_REG",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        MODULAR_ADD => [
+            DESCRIPTION    => "Modular addition (x+y mod m)",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32 [], LwU32 [], LwU32 [], LwU32 [], PSE_PKA_REG",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        MUTEX_ACQUIRE => [
+            DESCRIPTION    => "Acquire the SE Global Mutex",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_thru_dVOLTA, ],
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        MUTEX_ACQUIRE_HS => [
+            DESCRIPTION    => "Acquire the SE Global Mutex in HS",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSEHs", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        MUTEX_RELEASE => [
+            DESCRIPTION    => "Release the SE Global Mutex",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        MUTEX_RELEASE_HS => [
+            DESCRIPTION    => "Release the SE Global Mutex in HS Mode",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSEHs", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        INIT => [
+            DESCRIPTION    => "Initialize Security Engine HW",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "SE_KEY_SIZE, PSE_PKA_REG",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        INIT_HS => [
+            DESCRIPTION    => "Initialize Security Engine HW in HS Mode",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "SE_KEY_SIZE, PSE_PKA_REG",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSEHs", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        MUTEX_SET_TIMEOUT_VALUE => [
+            DESCRIPTION    => "Sets the timeout value for SE mutex ",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        MUTEX_SET_TIMEOUT_VALUE_HS => [
+            DESCRIPTION    => "Sets the timeout value for SE mutex in Hs Mode",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSEHs", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        START_PKA_OPERATION_AND_POLL => [
+            DESCRIPTION    => "Triggers the PKA operation",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32, LwU32",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        START_PKA_OPERATION_AND_POLL_HS => [
+            DESCRIPTION    => "Triggers the PKA operation in HS Mode",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32, LwU32",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSEHs", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        PKA_SET_RADIX => [
+            DESCRIPTION    => "Determines the radix mask to be used in  LW_SSE_SE_PKA_CONTROL register",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "SE_KEY_SIZE, PSE_PKA_REG",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        PKA_SET_RADIX_HS => [
+            DESCRIPTION    => "Determines the radix mask to be used in  LW_SSE_SE_PKA_CONTROL register in HS Mode",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "SE_KEY_SIZE, PSE_PKA_REG",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSEHs", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        GET_PKA_OPERAND_BANK_ADDRESS => [
+            DESCRIPTION    => "Determines starting address of the bank register in the PKA operand memory",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "SE_PKA_BANK, LwU32 *, LwU32, LwU32",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        GET_PKA_OPERAND_BANK_ADDRESS_HS => [
+            DESCRIPTION    => "Determines starting address of the bank register in the PKA operand memory in HS Mode",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "SE_PKA_BANK, LwU32 *, LwU32, LwU32",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSEHs", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        GET_PKA_OPERAND_BANK_ADDRESS_OFFSET => [
+            DESCRIPTION    => "Returns the main bank address offset for operand memory",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        GET_PKA_OPERAND_BANK_ADDRESS_OFFSET_HS => [
+            DESCRIPTION    => "Returns the main bank address offset for operand memory in HS Mode",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSEHs", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        GET_SPECIFIC_PKA_OPERAND_BANK_ADDRESS_OFFSET => [
+            DESCRIPTION    => "Returns specific bank address offset based on input",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "SE_PKA_BANK, LwU32 *",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        GET_SPECIFIC_PKA_OPERAND_BANK_ADDRESS_OFFSET_HS => [
+            DESCRIPTION    => "Returns specific bank address offset based on input in HS Mode",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "SE_PKA_BANK, LwU32 *",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSEHs", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        SELWRE_BUS_SEND_REQUEST_HS => [
+            DESCRIPTION    => "Sends read or write request through the secure bus",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwBool bRead, LwU32 addr, LwU32 val",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSEHs", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ ALL, ],
+        ],
+
+        SELWRE_BUS_GET_DATA_HS => [
+            DESCRIPTION    => "Sends read or write request through the secure bus",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32 addr, LwU32 *pData",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSEHs", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ ALL, ],
+        ],
+
+        TRUE_RANDOM_ENABLE => [
+            DESCRIPTION    => "Enable true random number generator",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        TRUE_RANDOM_ENABLE_HS => [
+            DESCRIPTION    => "Enable true random number generator in HS Mode",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSEHs", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        IS_TRUE_RANDOM_ENABLED => [
+            DESCRIPTION    => "Is true random number generator enabled?",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        IS_TRUE_RANDOM_ENABLED_HS => [
+            DESCRIPTION    => "Is true random number generator enabled in HS Mode?",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSEHs", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        TRUE_RANDOM_GET_NUMBER => [
+            DESCRIPTION    => "Gets a random number from true random number generator",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32 *pRandNum, LwU32",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSE", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        TRUE_RANDOM_GET_NUMBER_HS => [
+            DESCRIPTION    => "Gets a random number from true random number generator in HS Mode",
+            RETURN_TYPE    => SE_STATUS,
+            ARGUMENTS      => "LwU32 *pRandNum, LwU32",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libSEHs", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $seHal;
+

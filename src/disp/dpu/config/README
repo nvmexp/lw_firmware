@@ -1,0 +1,38 @@
+uproc/disp/dpu/config
+
+pmu-config is based on rmconfig from BRANCH/drivers/resman/config.
+Files here take precedence over the corresponding rmconfig files.
+For example, we have our own Engines.pm here since our list of
+engine/objects is not the same as rmconfig's.
+
+
+    dpu-config.cfg                   -- the config file, ala rmconfig.cfg
+    
+    Engines.pm                       -- engines known to pmu app software, eg: DISP, TIMER, BIF, etc.
+
+    haldefs/...                      -- hal interface directory for pmu-config
+        bif.def                      -- BIF hal interface definitions
+        fb.def                       -- FB            ""
+        ic.def                       -- IC            ""
+        uart.def                     -- UART          ""
+        Gpuhal.def                   -- global defaults for hal's
+        Haldefs.mk                   -- makefile fragment to list all haldefs
+                                        for make(1) dependency checks
+
+    templates/...                    -- *partial* template set for pmu-config
+                                        other needed templates come from
+                                        $RESMAN_ROOT/config/templates/...
+
+        gt_pmu-config_private.h      -- template for g_pmu-config_private.h
+                                        
+
+    Makefile  -- for testing only
+        $ make test                  -- quick & easy test
+        $ make check-pmu-config      -- another test, suitable for use by DVS
+                                        as part of 'Check RM' target, if desired.
+
+
+    makefile.mk                      -- prototype of makefile that knows how
+                                        to regenerate pmu-config.mk and pmu-config.h
+                                        including all dependencies        
+

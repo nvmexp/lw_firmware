@@ -1,0 +1,263 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2019-2021 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD            ?= false
+NO_RELEASE                ?= false
+INCLUDE_DT                ?= false
+SAVE_TEMPS                ?= false
+FREEABLE_HEAP             ?= false
+DMA_SUSPENSION            ?= false
+LWRISCV_MPU_FBHUB_SUSPEND ?= false
+DMA_NACK_SUPPORTED        ?= false
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+LWUPROC         := $(LW_SOURCE)/uproc
+LWRISCV         := $(LWUPROC)/lwriscv
+DRIVERS_SW      := $(LWRISCV)/drivers
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+RISCVLIBCFG_PROFILE ?= drivers-$(LW_PROJ)
+ifdef DRIVERSCFG_PROFILE
+  RISCVLIBCFG_PROFILE := $(DRIVERSCFG_PROFILE)
+endif
+include $(DRIVERS_SW)/config/drivers-profiles.mk
+
+###############################################################################
+# Load common falcon make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Define the output directory paths for the build and all sub-make builds.
+###############################################################################
+
+OUTPUTDIR     := _out/$(subst drivers-,,$(RISCVLIBCFG_PROFILE))
+
+###############################################################################
+# Setup se-config make vars and ilwoke se-config. Use se-config's
+# makefile.mk to do all the work. The makefile will generate se-config.mk in
+# the output directory and then include it.
+###############################################################################
+
+RISCVLIBSRC_ALL           :=
+RISCVLIBCFG_OPTIONS       := --h_file drivers-config.h --mk_file drivers-config.mk
+DRIVERSCFG_OUTPUTDIR      ?= $(OUTPUTDIR)/config
+RISCVLIBCFG_OUTPUTDIR     := $(DRIVERSCFG_OUTPUTDIR)
+RISCVLIBCFG_HEADER        := $(RISCVLIBCFG_OUTPUTDIR)/drivers-config.h
+RISCVLIBCFG_MAKEFRAGMENT  := $(RISCVLIBCFG_OUTPUTDIR)/drivers-config.mk
+RISCVLIBCFG_CONFIGFILE    := $(DRIVERS_SW)/config/drivers-config.cfg
+RISCVLIBCFG_SRC_ROOT      := $(DRIVERS_SW)/src
+include $(LWRISCV)/config/makefile.mk
+
+# include the generated list of source files
+ifdef RISCVLIBCFG_INITIALIZED
+  include $(RISCVLIBCFG_OUTPUTDIR)/g_sources.mk
+endif
+
+###############################################################################
+# Include profile-specific make settings to account for profile-specific build
+# options/requirements.
+###############################################################################
+
+-include $(LWRISCV)/config/$(RISCVLIBCFG_PROFILE).mk
+
+###############################################################################
+# Additional files to remove for 'clean' and 'clobber' targets.
+###############################################################################
+
+###############################################################################
+# RTOS Configuration
+###############################################################################
+
+include $(LWUPROC)/build/common/lwRtosVersion.lwmk
+
+RTOS_SRC  = $(LW_RTOS_SRC)
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+ifdef GSP_RTOS
+LW_INCLUDES += $(LWUPROC)/disp/dpu/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/gsp/src/$(GSP_OUTPUTDIR)
+LW_INCLUDES += $(LWUPROC)/libs/lwos/$(LWOS_VERSION)/inc
+endif
+ifdef PMU_RTOS
+LW_INCLUDES += $(LW_SOURCE)/pmu_sw/inc
+LW_INCLUDES += $(LW_SOURCE)/pmu_sw/prod_app/$(PMU_OUTPUTDIR)
+LW_INCLUDES += $(LWUPROC)/libs/lwos/$(LWOS_VERSION)/inc
+endif
+ifdef SOE_RTOS
+LW_INCLUDES += $(LWUPROC)/soe_riscv/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/soe_riscv/src/$(SOE_OUTPUTDIR)
+LW_INCLUDES += $(LWUPROC)/libs/lwos/$(LWOS_VERSION)/inc
+endif
+ifdef SEC2_RTOS
+LW_INCLUDES += $(LWUPROC)/sec2_riscv/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/sec2_riscv/src/$(SEC2_OUTPUTDIR)
+LW_INCLUDES += $(LWUPROC)/libs/lwos/$(LWOS_VERSION)/inc
+endif
+
+LW_INCLUDES += $(LW_RTOS_INCLUDES)
+
+LW_INCLUDES += $(DRIVERS_SW)/inc
+LW_INCLUDES += $(LWRISCV)/shlib/inc
+
+LW_INCLUDES += $(LWUPROC)/libs/cmn/inc
+LW_INCLUDES += $(LWUPROC)/lwriscv/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc
+
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(BAR0_DEFS_PATH)
+LW_INCLUDES += $(MEMMAP_PATH)
+LW_INCLUDES += $(OUTPUTDIR)
+ifdef LWRISCV_SDK
+  LW_INCLUDES += $(LWRISCV_SDK)/inc
+  LW_INCLUDES += $(LWRISCV_SDK_PROFILE)/inc
+endif
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+CFLAGS += -DUPROC_RISCV -pipe
+CFLAGS += $(SUBMAKE_CFLAGS)
+#CFLAGS += $(EXTRA_CFLAGS)
+
+ifeq ($(FREEABLE_HEAP),true)
+    CFLAGS += -DFREEABLE_HEAP
+endif
+
+ifeq ($(EMEM_SUPPORTED),true)
+    CFLAGS += -DEMEM_SUPPORTED
+endif
+
+ifeq ($(TASK_RESTART), true)
+    CFLAGS += -DTASK_RESTART
+endif
+
+ifdef SEC2_RTOS
+    CFLAGS += -DSEC2_RTOS
+endif
+
+ifeq ("$(ODP_ENABLED)","true")
+    CFLAGS += -DODP_ENABLED
+endif
+
+ifeq ($(DMA_SUSPENSION),true)
+    CFLAGS += -DDMA_SUSPENSION
+endif
+
+ifeq ($(LWRISCV_MPU_FBHUB_SUSPEND),true)
+    CFLAGS += -DLWRISCV_MPU_FBHUB_SUSPEND
+endif
+
+ifeq ($(DMA_NACK_SUPPORTED),true)
+    CFLAGS += -DDMA_NACK_SUPPORTED
+endif
+
+ifeq ($(ELF_IN_PLACE), true)
+    CFLAGS += -DELF_IN_PLACE=1
+else
+    CFLAGS += -DELF_IN_PLACE=0
+endif
+
+ifeq ($(ELF_IN_PLACE_FULL_IF_NOWPR), true)
+    CFLAGS += -DELF_IN_PLACE_FULL_IF_NOWPR=1
+else
+    CFLAGS += -DELF_IN_PLACE_FULL_IF_NOWPR=0
+endif
+
+# This library includes only kernel-level drivers
+CFLAGS += -DKERNEL_SOURCE_FILE
+CFLAGS += -fno-jump-tables
+
+ASMFLAGS += $(addprefix -I,$(LW_INCLUDES))
+ASMFLAGS += $(SUBMAKE_ASMFLAGS)
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+
+ifdef RISCVLIBCFG_INITIALIZED
+  SOURCES := $(RISCVLIB_ALL)
+else
+  SOURCES :=
+endif
+
+TGT       = $(OUTPUTDIR)/libDrivers.a
+
+###############################################################################
+# Vectorcast support
+###############################################################################
+
+ifdef VCAST_INSTRUMENT_LIB
+  VCAST_SRC_DIR := $(DRIVERS_SW)/src/
+  VCAST_EXCLUDE_FILES := debug/debug.c debug/symbols.c
+  CFLAGS += -DSAFE_RTOS_BUILD
+  include $(LW_SOURCE)/uproc/vcast/vcast.mk
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(RISCVLIBCFG_PROFILE)]"
+
+build: all
+
+###############################################################################
+# Rule for running a script that checks select files and directories in the
+# environment and checks w/perforce that they are up-to-date (ie. TOT).
+###############################################################################
+
+CHECK_ELW_SCRIPT = $(BUILD_SCRIPTS)/check-build-elw.pl
+
+# files/directories added to this list will be checked
+CHECK_ELW_FILES += $(DRIVERS_SW)
+CHECK_ELW_FILES += $(LW_SOURCE)/uproc/build
+CHECK_ELW_FILES += $(RTOS_SRC)
+
+CHECK_ELW_ARGS  += --check-list $(subst $(SPACE),$(COMMA),$(CHECK_ELW_FILES))
+CHECK_ELW_ARGS  += --p4 $(P4)
+
+checkbuild:
+	-$(PERL) $(CHECK_ELW_SCRIPT) $(CHECK_ELW_ARGS)
+
+all: $(TGT)
+$(TGT): $(OBJECTS)
+	$(MKDIR) ${dir $@}
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(AR) -r -c $(TGT) $(OBJECTS)
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk

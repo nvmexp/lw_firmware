@@ -1,0 +1,147 @@
+#!/bin/bash
+# LWIDIA_COPYRIGHT_BEGIN
+#
+# Copyright 2019-2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# LWIDIA_COPYRIGHT_END
+
+# Increase robustness by checking for command failures
+set -euo pipefail
+
+# Script must be in same directory as mods binary, but can be called from elsewhere
+MODS_RUN_DIR=$(cd "$(dirname "$0")" && pwd)
+RUN_LD_PATH=${LD_LIBRARY_PATH}:${MODS_RUN_DIR}
+
+# TODO add support to work with MFG mods (use tokens)
+
+YMLNAME="sriov_config.yml"
+
+# Store the SMC Engine Index to be used by each VF
+# Each VF runs on one partition
+PARSED=()
+for ARG in "$@"; do
+    PARTITIONS=$(echo $ARG | grep -oP "part:(?:eighth|quarter|half|full):(?:[sS]*[01248AXax]-{0,1})+" || true)
+
+    PARTIDX=0
+    for PART in ${PARTITIONS[@]}; do
+        ((++PARTIDX))
+        ENGINES=$(echo $PART | grep -oP ":(?:[sS]*[01248AXax]-{0,1})+" | grep -oP "[sS]*[01248AXax]" || true)
+        ENGIDX=0
+        EXPLICITIDX=
+        FIRSTIDX=
+        for ENGINE in ${ENGINES[@]}; do
+            # The user can explicitly run the VF on a specific SMC engine
+            # by prefixing the gpc count with "S"
+            if echo $ENGINE | grep -oqP "[sS]"; then
+                if [ -z $EXPLICITIDX ]; then
+                    EXPLICITIDX=$ENGIDX
+                fi
+            fi
+            # If no engine is explicitly specified we launch the VF on the first engine
+            if echo $ENGINE | grep -oqP "[1248Aa]"; then
+                if [ -z $FIRSTIDX ]; then
+                    FIRSTIDX=$ENGIDX
+                fi
+            fi
+            ((++ENGIDX))
+        done
+        if [ ! -z $EXPLICITIDX ]; then
+            PARSED+=( "$EXPLICITIDX" )
+        elif [ ! -z $FIRSTIDX ]; then
+            PARSED+=( "$FIRSTIDX" )
+        else
+            echo "Each partition needs assigned GPCs"
+            exit 1
+        fi
+    done
+done
+NUM_VF=${#PARSED[@]}
+echo "Creating $NUM_VF SR-IOV virtual function(s)"
+
+# Parse the command line into separate commands for the PF and each VF
+PF_ARGS=()
+declare -A VFX_ARGS
+while (( "$#" )); do
+    # Args for PF
+    if [[ "$1" == "-pf" ]]; then
+        shift 1
+        PF_ARGS+=( "$1" )
+    # Args for specific VF
+    elif echo "$1" | grep -oqP "(-vf[0-9]+)"; then
+        VFIDX=$(echo "$1" | grep -oP "(-vf[0-9]+)" | grep -oP "[0-9]+")
+        shift 1
+        VFX_ARGS[$VFIDX]+="$1 "
+    # Args for all VFs
+    elif [[ "$1" == "-vf" ]]; then
+        shift 1
+        for VFIDX in $(seq 0 $((NUM_VF - 1))); do
+            VFX_ARGS[$VFIDX]+="$1 ";
+        done
+    # Args for both PF and VFs
+    else
+        PF_ARGS+=( "$1" )
+        for VFIDX in $(seq 0 $((NUM_VF - 1))); do
+            VFX_ARGS[$VFIDX]+="$1 ";
+        done
+    fi
+    shift 1
+done
+
+# Finalize and print arguments used by PF/VFs
+echo
+PF_ARGS+=( "-sriov_config_file $YMLNAME " )
+echo "PF    : ${PF_ARGS[@]}"
+for VFIDX in $(seq 0 $((NUM_VF - 1))); do
+    VFX_ARGS[$VFIDX]+="-smc_engine_idx ${PARSED[$VFIDX]} "
+    echo "VF$VFIDX   : ${VFX_ARGS[$VFIDX]}"
+done
+echo
+
+if ACCESS_TOKEN_CMD="$("${MODS_RUN_DIR}/mods" -acquire_access_token 2>&1)"; then
+    ACCESS_TOKEN="$(echo "$ACCESS_TOKEN_CMD" | sed -n 's/Access Token : //p')"
+else
+    ACCESS_TOKEN_RC=$?
+    echo "$ACCESS_TOKEN_CMD"
+    return $ACCESS_TOKEN_RC
+fi
+
+release_access_token()
+{
+    "${MODS_RUN_DIR}/mods" -release_access_token -access_token $ACCESS_TOKEN >/dev/null
+}
+
+trap release_access_token EXIT
+
+# Create SR-IOV subtest folders and config files
+echo '---' > "$YMLNAME"
+for VFIDX in $(seq 0 $(( $NUM_VF - 1))); do
+    # Create subdirectories
+    SUBTEST_DIR="subtest_vf${VFIDX}"
+    mkdir -p "$SUBTEST_DIR"
+
+    # Copy vgpu library to subdirectory
+    cp ${MODS_RUN_DIR}/liblwidia-vgpu.so "$SUBTEST_DIR/liblwidia-vgpu.so"
+
+    # Copy golden files to subdriectory
+    GOLDENFILES=$(ls ${MODS_RUN_DIR}/gld*.bin 2> /dev/null || true)
+    for GLDFILE in $GOLDENFILES; do
+        if [[ ! -f "$SUBTEST_DIR/$GLDFILE" ]]; then
+            cp "$GLDFILE" "$SUBTEST_DIR/"
+        fi
+    done
+
+    SUBTEST_SCRIPT="$SUBTEST_DIR/run.sh"
+    echo "- test_exelwtable: $SUBTEST_SCRIPT" >> "$YMLNAME"
+    echo "#!/bin/bash"               > "$SUBTEST_SCRIPT"
+    echo 'cd "$(dirname "$0")"'     >> "$SUBTEST_SCRIPT"
+    # Uncomment this for xterm gdb VF debugging (make sure you `ssh -Y` into the system)
+    #echo "xterm -e gdb --args ${MODS_RUN_DIR}/mods -access_token ${ACCESS_TOKEN} ${VFX_ARGS[$VFIDX]}" >> "$SUBTEST_SCRIPT"
+    echo "${MODS_RUN_DIR}/mods -access_token ${ACCESS_TOKEN} ${VFX_ARGS[$VFIDX]} > /dev/null" >> "$SUBTEST_SCRIPT"
+    chmod +x "$SUBTEST_SCRIPT"
+done
+
+# RUN
+LD_LIBRARY_PATH=$RUN_LD_PATH ${MODS_RUN_DIR}/mods -access_token "$ACCESS_TOKEN" ${PF_ARGS[@]}

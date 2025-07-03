@@ -1,0 +1,150 @@
+# -*- mode: perl; -*-
+
+# Bus Interface(BIF) SOE Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $bifHal = [
+
+    # defaults for BIF for all interfaces below
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        SET_EOM_PARAMETERS => [
+            DESCRIPTION    => "Set the EOM Phy register",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 eomMode, LwU8 eomNblks, LwU8 eomNerrs, LwU8 eomBerEyeSel",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        GET_UPHY_DLN_CFG_SPACE => [
+            DESCRIPTION    => "Get PEX UPHY DLN register values",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 regAddress, LwU32 laneSelectMask",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE  => SET_EOM_PARAMETERS,
+        ],
+
+        SET_PCIE_LINK_SPEED => [
+            DESCRIPTION    => "Set PCIE link speed",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 linkSpeed",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE  => SET_EOM_PARAMETERS,
+
+        ],
+
+        GET_PCIE_SPEED_WIDTH => [
+            DESCRIPTION    => "Get PCIE link speed and width",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 *pSpeed, LwU32 *pWidth",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+ 
+            _STUB         => [ ALL, ],
+        ],
+
+        GET_PCIE_FATAL_NON_FATAL_UNSUPP_REQ_COUNT => [
+            DESCRIPTION     => "Get PCIe link fatal, non-fatal and unsupported req count",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pFatalCount, LwU32 *pNonFatalCount, LwU32 *pUnsuppReqCount",
+
+            LIKE_INTERFACE  => GET_PCIE_SPEED_WIDTH,
+        ],
+
+        GET_PCIE_CORRECTABLE_ERROR_COUNT  => [
+            DESCRIPTION     => "Get PCIe link correctable error count",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pCorrErrCount",
+
+            LIKE_INTERFACE  => GET_PCIE_SPEED_WIDTH,
+        ],
+
+        GET_PCIE_L0_TO_RECOVERY_COUNT  => [
+            DESCRIPTION     => "Get PCIe link L0 to recovery count",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pL0ToRecCount",
+
+            LIKE_INTERFACE  => GET_PCIE_SPEED_WIDTH,
+        ],
+
+        GET_PCIE_REPLAY_COUNT  => [
+            DESCRIPTION     => "Get PCIe link replay count",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pReplayCount",
+
+            LIKE_INTERFACE  => GET_PCIE_SPEED_WIDTH,
+        ],
+
+        GET_PCIE_REPLAY_ROLLOVER_COUNT  => [
+            DESCRIPTION     => "Get PCIe link replay rollover count",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pReplayRolloverCount",
+
+            LIKE_INTERFACE  => GET_PCIE_SPEED_WIDTH,
+        ],
+
+        GET_PCIE_NAKS_RCVD_COUNT  => [
+            DESCRIPTION     => "Get PCIe link NAKS received count",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pNaksRcvdCount",
+
+            LIKE_INTERFACE  => GET_PCIE_SPEED_WIDTH,
+        ],
+
+        GET_PCIE_NAKS_SENT_COUNT  => [
+            DESCRIPTION     => "Get PCIe link NAKS sent count",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pNaksSentCount",
+
+            LIKE_INTERFACE  => GET_PCIE_SPEED_WIDTH,
+        ],
+
+        GET_PCIE_CONFIG_SPACE_IDS  => [
+            DESCRIPTION     => "Get PCIe config space Ids",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU16 *pVendorId, LwU16 *pDevId, LwU16 *pSubVendorId, LwU16 *pSubId",
+
+            _STUB         => [ ALL, ],
+        ],
+
+        GET_EOM_STATUS => [
+            DESCRIPTION      => "Run EOM sequence and fill the output buffer with EOM status",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 eomMode, LwU8 eomNblks, LwU8 eomNerrs, LwU8 eomBerEyeSel, LwU32 laneMask, RM_FLCN_U64 dmaHandle",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE  => SET_EOM_PARAMETERS,
+        ],
+
+        DO_LANE_SELECT => [
+            DESCRIPTION      => "Select requested PEX lanes",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 laneMask",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE   => SET_EOM_PARAMETERS,
+        ],
+
+        POLL_EOM_DONE_STATUS => [
+            DESCRIPTION      => "Poll EOM done status for requested lanes",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 numRequestedLanes, LwU8 firstLaneFromLsb, LwBool bEomDoneStatus, LwU32 timeoutNs",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE   => SET_EOM_PARAMETERS,
+        ],
+
+        ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $bifHal;

@@ -1,0 +1,14 @@
+@startuml
+title vfeVarEvalByIdxFromCache
+[-> VFE_VAR : evalByIdx(idx)
+activate VFE_VAR
+    VFE_VAR -> VFE_VAR : validateIndex()
+    activate VFE_VAR
+    deactivate VFE_VAR
+
+    VFE_VAR -> VFE_VAR : isCached()
+    activate VFE_VAR
+    deactivate VFE_VAR
+
+[<- VFE_VAR : status, cachedValue
+@enduml

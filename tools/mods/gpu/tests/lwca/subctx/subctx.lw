@@ -1,0 +1,77 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2017-2021 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "../tools/tools.h" 
+
+//-----------------------------------------------------------------------------
+// This kernel generates a simple workload(counter), used to verify simultaneous exelwtion
+//-----------------------------------------------------------------------------          
+extern "C" __global__ void subctxtest
+(
+    device_ptr inputBuf,
+    device_ptr outputBuf
+)
+{
+    const int globalIdx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    __shared__ unsigned counter;
+
+    unsigned * startVal = GetPtr<unsigned*>(inputBuf) + 0;
+    unsigned * endVal = GetPtr<unsigned*>(inputBuf) + 1;
+    unsigned * loopCount = GetPtr<unsigned*>(inputBuf) + 2;
+    const unsigned maxCounter = *endVal;
+    unsigned * outputVal = GetPtr<unsigned*>(outputBuf) + globalIdx;
+    
+    if (globalIdx == 0)
+    {
+        unsigned temp;
+        asm("mov.u32 %0, %%globaltimer_lo;" : "=r"(temp));
+        outputVal[2] = temp;
+        asm("mov.u32 %0, %%globaltimer_hi;" : "=r"(temp));
+        outputVal[1] = temp;
+        long long int lltemp = clock64();
+        outputVal[6] = (unsigned int)(lltemp & 0xffffffff);
+        outputVal[5] = (unsigned int)(lltemp >> 32);
+        for (unsigned loop = 0; loop < *loopCount; loop++)
+        {
+            counter = *startVal;
+            double garbageBin = 10;
+            while (counter < maxCounter)
+            {
+                garbageBin = acos(garbageBin);
+                garbageBin = sin(garbageBin);
+                garbageBin = cos(garbageBin);
+                garbageBin = tan(garbageBin);
+                counter++;
+            }                
+        }
+        
+        outputVal[0] = counter; 
+        asm("mov.u32 %0, %%globaltimer_lo;" : "=r"(temp));
+        outputVal[4] = temp;
+        asm("mov.u32 %0, %%globaltimer_hi;" : "=r"(temp));
+        outputVal[3] = temp;
+        lltemp = clock64();
+        outputVal[8] = (unsigned int)(lltemp & 0xffffffff);
+        outputVal[7] = (unsigned int)(lltemp >> 32);
+
+        unsigned sm;
+        asm("mov.u32 %0, %%smid;" : "=r"(sm));
+        outputVal[9] = sm;
+
+    }
+    else
+    {
+        *outputVal = ~0;
+    }
+    __syncthreads();
+    
+}

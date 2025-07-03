@@ -1,0 +1,38 @@
+# -*- mode: perl; -*-
+
+# Timer Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $lsfHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        INIT_APERTURE_SETTINGS => [
+            DESCRIPTION    => "Initialize aperture settings",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+
+            _GH100         => [ GH100_and_later, ],
+            _STUB          => [ pre_GH100, ],
+        ],
+
+        SETUP_MTHDCTX => [
+            DESCRIPTION    => "Sets MTDH, CTX and enables PLM if SEC2 is in LS mode",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+
+            LIKE_INTERFACE => INIT_APERTURE_SETTINGS,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $lsfHal;

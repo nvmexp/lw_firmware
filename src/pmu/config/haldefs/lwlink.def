@@ -1,0 +1,37 @@
+# -*- mode: perl; -*-
+
+# Bus Interface Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $lwlinkHal = [
+
+    DEFAULTS => [
+
+        FLAGS  => ":DIRECT_HAL_CALLS",
+
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        HSHUB_UPDATE => [
+            DESCRIPTION     => "Update the HSHUB config registers",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 config0, LwU32 config1, LwU32 config2, LwU32 config6",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libLwlink", "__FUNC__")',
+
+            _GP100          => [ GP100, ],
+            _GV10X          => [ GV10X, ],
+            _STUB           => [ ALL, -GP100, -GV10X, ],
+        ],
+
+    ],   # HAL_INTERFACES
+
+];
+
+# return a reference to the Hal definition
+return $lwlinkHal;

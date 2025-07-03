@@ -1,0 +1,438 @@
+# -*- mode: perl; -*-
+
+# SMBPBI Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $smbpbiHal = [
+
+    DEFAULTS => [
+
+        FLAGS       => ":DIRECT_HAL_CALLS",
+
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        _GROUP => [
+            DESCRIPTION     => "All SMBPBI HAL interfaces share same template",
+            _GMXXX          => [ dMAXWELL_and_later, ],
+            _STUB           => [ tMAXWELL_and_later, ],
+        ],
+
+        INIT_INTERRUPT => [
+            DESCRIPTION     => "Initialize SMBPBI interrupt",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+        SERVICE => [
+            DESCRIPTION     => "Service SMBPBI interrupt",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+        ENABLE_INTERRUPT => [
+            DESCRIPTION     => "Enable SMBPBI interrupt",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwBool bEnable",
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+        EXECUTE => [
+            DESCRIPTION     => "Execute SMBPBI action",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 *pCmd, LwU32 *pData, LwU32 *pExtData, LwU8 action",
+            STUB_RETURNS    => ERROR,
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+        ECC_V3_QUERY => [
+            DESCRIPTION     => "Exelwtes SMBPBI queries for InfoROM ECC V3 structures.",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU32 cmd, LwU32 *pData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+
+            _GMXXX          => [ MAXWELL, ],
+            _STUB           => [ ALL, -MAXWELL, ],
+        ],
+
+        ECC_V4_QUERY => [
+            DESCRIPTION     => "Exelwtes SMBPBI queries for InfoROM ECC V4 structures.",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU32 cmd, LwU32 *pData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+
+            _GP10X          => [ PASCAL, ],
+            _STUB           => [ ALL, -PASCAL ],
+        ],
+
+        ECC_V5_QUERY => [
+            DESCRIPTION     => "Exelwtes SMBPBI queries for InfoROM ECC V5 structures.",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU32 cmd, LwU32 *pData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+
+            _GV10X          => [ VOLTA, TURING, ],
+            _STUB           => [ ALL, -VOLTA, -TURING, ],
+        ],
+
+        GET_LIMIT_SHUTDN => [
+            DESCRIPTION     => "Retrieve the thermal shutdown temperature limit",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwTemp *pLimit",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GP10X          => [ GP10X_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        GET_LIMIT_SLOWDN => [
+            DESCRIPTION     => "Retrieve the thermal slowdown temperature limit",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwTemp *pLimit",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            LIKE_INTERFACE  => GET_LIMIT_SHUTDN,
+        ],
+
+        SET_THERM_CAPS => [
+            DESCRIPTION     => "Adjust SMBPBI thermal capabilities",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pCap",
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            LIKE_INTERFACE  => GET_LIMIT_SHUTDN,
+        ],
+
+        GET_GPU_RESET_REQUIRED_FLAG => [
+            DESCRIPTION     => "Read the GPU reset required flag from the HW",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU32 *pData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_SUCCESS,
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GM10X          => [ GM10X_and_later, ],
+        ],
+
+        GET_GPU_DRAIN_AND_RESET_RECOMMENDED_FLAG => [
+            DESCRIPTION     => "Read the GPU drain and reset recommended flag from the HW",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU32 *pData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_SUCCESS,
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GA100          => [ GA100_and_later, ],
+            _STUB           => [ pre_GA100, ],
+        ],
+
+        GET_UTIL_COUNTER_OFFSET => [
+            DESCRIPTION    => "Get the Utilization counter scratch register offset",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 counter, LwU32 *pOffset",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libEngUtil", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            _GV10X         => [ VOLTA_and_later, ],
+            _STUB          => [ pre_VOLTA, ],
+        ],
+
+        GET_LWLINK_NUM_LINKS => [
+            DESCRIPTION     => "Return number of Lwlinks",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU32 *pData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM && PMU_SMBPBI_LWLINK_INFO',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_smbpbiLwlink", "__FUNC__")',
+
+            _GV10X          => [ VOLTA, ],
+            _TU10X          => [ TURING, ],
+            _GA100          => [ GA100, ],
+            _GA10X          => [ GA10X, -GA100, AD10X, ],
+            _STUB           => [ ALL, -dVOLTA_thru_AD10X, -T194, ],
+        ],
+
+        GET_LWLINK_STATE_V1 => [
+            DESCRIPTION     => "Return Lwlink state V1",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU8 arg1, LwU8 arg2, LwU32 *pData, LwU32 *pExtData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM && PMU_SMBPBI_LWLINK_INFO',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_smbpbiLwlink", "__FUNC__")',
+
+            _GV10X          => [ VOLTA, ],
+            _TU10X          => [ TURING, ],
+            _GA100          => [ dAMPERE, AD10X, ],
+            _STUB           => [ ALL, -dVOLTA_thru_AD10X, -T194, ],
+        ],
+
+        GET_LWLINK_BANDWIDTH => [
+            DESCRIPTION     => "Return Lwlink bandwidth in Mbps",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU8 arg1, LwU8 arg2, LwU32 *pData, LwU32 *pExtData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM && PMU_SMBPBI_LWLINK_INFO',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_smbpbiLwlink", "__FUNC__")',
+
+            LIKE_INTERFACE  => GET_LWLINK_STATE_V1,
+        ],
+
+        GET_LWLINK_ERROR_COUNT => [
+            DESCRIPTION     => "Return Lwlink error counts",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU8 arg1, LwU8 link, LwU32 *pData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM && PMU_SMBPBI_LWLINK_INFO',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_smbpbiLwlink", "__FUNC__")',
+
+            LIKE_INTERFACE  => GET_LWLINK_STATE_V1,
+        ],
+
+        GET_LWLINK_THROUGHPUT => [
+            DESCRIPTION     => "Return Lwlink throughput counts",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU8 arg1, LwU8 arg2, LwU32 *pCmd, LwU32 *pData, LwU32 *pExtData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM && PMU_SMBPBI_LWLINK_INFO',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_smbpbiLwlink", "__FUNC__")',
+
+            _GA100          => [ dAMPERE, AD10X, ],
+            _STUB           => [ ALL, -dAMPERE, -AD10X, ],
+        ],
+
+        GET_LWLINK_UNIT_REG_BASE_OFFSET => [
+            DESCRIPTION     => "Return the Lwlink unit register base offset",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => "LwU32 lwliptNum, LwU32 linkNum, LwU32 unitRegBase",
+            STUB_RETURNS    => ZERO,
+            ONLY_IF         => 'PMUTASK_THERM && PMU_SMBPBI_LWLINK_INFO',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_smbpbiLwlink", "__FUNC__")',
+
+            _GA100          => [ GA100, ],
+            _GA10X          => [ GA10X, -GA100, AD10X, ],
+            _STUB           => [ ALL, -dAMPERE, -AD10X, ],
+        ],
+
+        GET_LWLINK_NUM_LWLIPT => [
+            DESCRIPTION     => "Return number of Lwlink LWLIPT's",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU32 *pData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM && PMU_SMBPBI_LWLINK_INFO',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_smbpbiLwlink", "__FUNC__")',
+
+            LIKE_INTERFACE  => GET_LWLINK_UNIT_REG_BASE_OFFSET,
+        ],
+
+        GET_LWLINK_NUM_LINK_PER_LWLIPT => [
+            DESCRIPTION     => "Return number of links per LWLIPT",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU32 *pData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM && PMU_SMBPBI_LWLINK_INFO',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_smbpbiLwlink", "__FUNC__")',
+
+            _GA100          => [ dAMPERE, AD10X, ],
+            _STUB           => [ ALL, -dAMPERE, -AD10X, ],
+        ],
+
+        GET_LWLINK_MAX_SUBLINK_WIDTH => [
+            DESCRIPTION     => "Return the max sublink width",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU32 *pData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM && PMU_SMBPBI_LWLINK_INFO',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_smbpbiLwlink", "__FUNC__")',
+
+            LIKE_INTERFACE  => GET_LWLINK_NUM_LINK_PER_LWLIPT,
+        ],
+
+        GET_LWLINK_SUBLINK_LANE_WIDTH => [
+            DESCRIPTION     => "Return Lwlink sublink lane width",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU32 lwliptIdx, LwU32 localLinkIdx, LwU8 *pTxWidth, LwU8 *pRxWidth",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM && PMU_SMBPBI_LWLINK_INFO',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_smbpbiLwlink", "__FUNC__")',
+
+            LIKE_INTERFACE  => GET_LWLINK_NUM_LINK_PER_LWLIPT,
+        ],
+
+        GET_LWLINK_STATE_V2 => [
+            DESCRIPTION     => "Return current Lwlink state",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU8 arg1, LwU8 arg2, LwU32 *pData, LwU32 *pExtData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM && PMU_SMBPBI_LWLINK_INFO',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_smbpbiLwlink", "__FUNC__")',
+
+            LIKE_INTERFACE  => GET_LWLINK_NUM_LINK_PER_LWLIPT,
+        ],
+
+        GET_LWLINK_SUBLINK_WIDTH => [
+            DESCRIPTION     => "Return current Lwlink sublink width",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU8 arg1, LwU8 arg2, LwU32 *pData, LwU32 *pExtData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM && PMU_SMBPBI_LWLINK_INFO',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_smbpbiLwlink", "__FUNC__")',
+
+            LIKE_INTERFACE  => GET_LWLINK_NUM_LINK_PER_LWLIPT,
+        ],
+
+        GET_FW_WRITE_PROT_MODE => [
+            DESCRIPTION    => "Get firmware write protection enablement status",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool *pMode",
+
+            _GV10X         => [ VOLTA, ],
+            _TU10X         => [ TURING_and_later, ],
+            _STUB          => [ pre_VOLTA, ],
+        ],
+
+        GET_SMC_STATES  => [
+            DESCRIPTION    => "Get SMC current and pending states",
+            RETURN_TYPE    => LwU8,
+            ARGUMENTS      => "LwBool *pbSmcSupported, LwBool *pbSmcEnabled, LwBool *pbSmcPending",
+            STUB_RETURNS   => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+            ONLY_IF        => 'PMUTASK_THERM',
+
+            _GA100         => [ AMPERE_and_later, ],
+            _STUB          => [ pre_AMPERE, ],
+
+        ],
+
+        ECC_V6_QUERY => [
+            DESCRIPTION     => "Exelwtes SMBPBI queries for InfoROM ECC V6 structures.",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU32 cmd, LwU32 *pData, LwU32 *pExtData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+
+            _GA100          => [ dAMPERE_and_later, ],
+            _STUB           => [ ALL, -dAMPERE_and_later, ],
+        ],
+
+        IS_DRAIN_AND_RESET_SUPPORTED=> [
+            DESCRIPTION     => "Returns DRAIN_AND_RESET is supported for current arch",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => "void",
+            STUB_RETURNS    => LW_FALSE,
+
+            _GA100          => [ dAMPERE_and_later, ],
+            _STUB           => [ ALL, -dAMPERE_and_later, ],
+        ],
+
+        GET_REMAP_ROW_STATS => [
+            DESCRIPTION     => "Get row remap stats based on input request",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU32 *pCmd, LwU32 *pData, LwU32 *pExtData",
+            STUB_RETURNS    => LW_MSGBOX_CMD_STATUS_ERR_NOT_SUPPORTED,
+
+            _GA100          => [ dAMPERE_and_later, ],
+            _STUB           => [ ALL, -dAMPERE_and_later, ],
+        ],
+
+        GET_PCIE_SPEED_WIDTH  => [
+            DESCRIPTION     => "Get PCIe link speed and width",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pSpeed, LwU32 *pWidth",
+
+            _TU10X          => [ dTURING_thru_AD10X, ],
+            _GH100          => [ dHOPPER_and_later, ],
+            _STUB           => [ pre_TURING, ],
+        ],
+
+        GET_PCIE_TARGET_SPEED => [
+            DESCRIPTION     => "Get PCIe link target speed",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pSpeed",
+
+            _GA100          => [ dAMPERE, AD10X, ],
+            _GH100          => [ dHOPPER_and_later, ],
+            _STUB           => [ pre_dAmpere, ],
+        ],
+
+        GET_PCIE_FATAL_NON_FATAL_UNSUPP_REQ_COUNT => [
+            DESCRIPTION     => "Get PCIe link fatal, non-fatal and unsupported req count",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pFatalCount, LwU32 *pNonFatalCount, LwU32 *pUnsuppReqCount",
+
+            # TODO: hopper+ doesn't support XVE. Add a non-XVE impl.
+            _TU10X          => [ dTURING_thru_dADA, ],
+            _STUB           => [ pre_TURING, HOPPER_and_later, ],
+        ],
+
+        GET_PCIE_CORRECTABLE_ERROR_COUNT  => [
+            DESCRIPTION     => "Get PCIe link correctable error count",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pCorrErrCount",
+
+            # TODO: hopper+ doesn't support XVE. Add a non-XVE impl.
+            _TU10X          => [ dTURING_thru_dADA, ],
+            _STUB           => [ pre_TURING, HOPPER_and_later, ],
+        ],
+
+        GET_PCIE_L0_TO_RECOVERY_COUNT  => [
+            DESCRIPTION     => "Get PCIe link L0 to recovery count",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pL0ToRecCount",
+
+            LIKE_INTERFACE  => GET_PCIE_SPEED_WIDTH,
+        ],
+
+        GET_PCIE_REPLAY_COUNT  => [
+            DESCRIPTION     => "Get PCIe link replay count",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pReplayCount",
+
+            LIKE_INTERFACE  => GET_PCIE_SPEED_WIDTH,
+        ],
+
+        GET_PCIE_REPLAY_ROLLOVER_COUNT  => [
+            DESCRIPTION     => "Get PCIe link replay rollover count",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pReplayRolloverCount",
+
+            LIKE_INTERFACE  => GET_PCIE_SPEED_WIDTH,
+        ],
+
+        GET_PCIE_NAKS_RCVD_COUNT  => [
+            DESCRIPTION     => "Get PCIe link NAKS received count",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pNaksRcvdCount",
+
+            LIKE_INTERFACE  => GET_PCIE_SPEED_WIDTH,
+        ],
+
+        GET_PCIE_NAKS_SENT_COUNT  => [
+            DESCRIPTION     => "Get PCIe link NAKS sent count",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pNaksSentCount",
+
+            LIKE_INTERFACE  => GET_PCIE_SPEED_WIDTH,
+        ],
+        GET_LWLINK_LINK_ERR_COUNT => [
+             DESCRIPTION     => "Get the per link error count",
+             RETURN_TYPE     => void,
+             ARGUMENTS       => "LwU32 lwldlLinkBase, LwU8 errType, LwU32 *pErrCount",
+
+             _GA100          => [ dAMPERE, AD10X, ],
+             _GH100          => [ dHOPPER_and_later, ],
+             _STUB           => [ ALL, -dAMPERE_and_later,],
+        ],
+
+    ],   # HAL_INTERFACES
+
+];
+
+# return a reference to the Hal definition
+return $smbpbiHal;
+

@@ -1,0 +1,15 @@
+@startuml "High Level Module Locking Static Design"
+    node "PMU microcode" {
+        rectangle "Units in App Layer"  as app_units
+        node "Core Firmware Layer" {
+            node "Module Locking" {
+                rectangle "Unit Locks"  as lock_unit
+            }
+            node "Module LWRTOS" {
+                rectangle "Unit LWRTOS" as lwrtos_unit  
+            }
+        }
+        app_units --> lock_unit: <<uses>>
+        lock_unit --> lwrtos_unit: <<uses>>
+    }
+@enduml

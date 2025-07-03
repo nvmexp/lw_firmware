@@ -1,0 +1,298 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2016-2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD  ?= false
+NO_RELEASE      ?= false
+INCLUDE_DT      ?= false
+SAVE_TEMPS      ?= false
+SSP_ENABLED     ?= false
+HDCP_TEGRA_BUID ?= false
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+I2C_SW             = $(LW_SOURCE)/uproc/libs/i2c
+LWUPROC            = $(LW_SOURCE)/uproc
+FLCNLIBCFG         = $(LWUPROC)/libs/flcnlib_config
+RESMAN_ROOT        = $(LW_SOURCE)/drivers/resman
+LIB_UPROC_LWOS_SRC = $(LWUPROC)/libs/lwos/$(LWOS_VERSION)
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+FLCNLIBCFG_PROFILE ?= i2c-gm20x
+ifdef I2CCFG_PROFILE
+  FLCNLIBCFG_PROFILE := $(I2CCFG_PROFILE)
+endif
+include $(I2C_SW)/config/i2c-profiles.mk
+
+###############################################################################
+# Load common falcon make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Define the output directory paths for the I2C build and all sub-make builds.
+###############################################################################
+
+OUTPUTDIR := $(I2C_SW)/_out/$(subst i2c-,,$(FLCNLIBCFG_PROFILE))
+
+###############################################################################
+# Setup flcnlib-config make vars and ilwoke flcnlib-config. Use flcnlib-config's
+# makefile.mk to do all the work. The makefile will generate flcnlib-config.mk in
+# the output directory and then include it.
+###############################################################################
+
+FLCNLIBSRC_ALL          :=
+FLCNLIBCFG_OPTIONS      := --h_file i2c-config.h --mk_file i2c-config.mk
+I2CCFG_OUTPUTDIR        ?= $(OUTPUTDIR)/config
+FLCNLIBCFG_OUTPUTDIR    := $(I2CCFG_OUTPUTDIR)
+FLCNLIBCFG_RESMAN_ROOT  := $(RESMAN_ROOT)
+FLCNLIBCFG_HEADER       := $(FLCNLIBCFG_OUTPUTDIR)/i2c-config.h
+FLCNLIBCFG_MAKEFRAGMENT := $(FLCNLIBCFG_OUTPUTDIR)/i2c-config.mk
+FLCNLIBCFG_CONFIGFILE   := $(I2C_SW)/config/i2c-config.cfg
+FLCNLIBCFG_SRC_ROOT     := $(I2C_SW)/src
+
+include $(FLCNLIBCFG)/makefile.mk
+
+# include the generated list of source files
+ifdef FLCNLIBCFG_INITIALIZED
+  include $(FLCNLIBCFG_OUTPUTDIR)/g_sources.mk
+endif
+
+###############################################################################
+# Include profile-specific make settings to account for profile-specific build
+# options/requirements.
+###############################################################################
+
+-include $(I2C_SW)/config/$(FLCNLIBCFG_PROFILE).mk
+
+###############################################################################
+# Additional files to remove for 'clean' and 'clobber' targets.
+###############################################################################
+
+ifeq ("$(SAVE_TEMPS)","true")
+    OTHER_FILES_TO_REMOVE += $(LW_SOURCE)/uproc/libs/i2c/src/*.s
+    OTHER_FILES_TO_REMOVE += $(LW_SOURCE)/uproc/libs/i2c/src/*.i
+endif
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+export LW_TARGET_ARCH
+export MANUAL_PATHS
+
+###############################################################################
+# RTOS Configuration
+###############################################################################
+
+include $(LWUPROC)/build/common/lwRtosVersion.lwmk
+
+RTOS_SRC  = $(LW_RTOS_SRC)
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(LIB_UPROC_LWOS_SRC)/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/mutex/inc
+LW_INCLUDES += $(I2C_SW)/inc
+LW_INCLUDES += $(I2C_SW)/src/tegra_i2c
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/swref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/hwref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/displayport
+LW_INCLUDES += $(RESMAN_ROOT)/kernel/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(LW_RTOS_INCLUDES)
+ifeq ($(LW_TARGET_OS), riscv)
+  LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/inc
+  LW_INCLUDES += $(LWRISCV_TOOLS)/include/spike/
+  LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/syslib/inc
+  LW_INCLUDES += $(MEMMAP_PATH)
+else
+  LW_INCLUDES += $(FALCON_TOOLS)/include
+  ifdef GSPLITE_RTOS
+    LW_INCLUDES += $(LW_SOURCE)/uproc/disp/dpu/inc
+  endif
+endif
+
+ifdef GSP_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/uproc/gsp/inc
+endif
+
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+
+ifdef GSP_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/uproc/gsp/src/$(GSP_OUTPUTDIR)
+endif
+ifdef PMU_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/pmu_sw/prod_app/$(PMU_OUTPUTDIR)
+endif
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+ifeq ("$(SAVE_TEMPS)","true")
+  CFLAGS += -save-temps
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+  CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+  CFLAGS += -DUPROC_RISCV
+endif
+
+# Enabling secure stack protection
+ifeq ("$(SSP_ENABLED)","true")
+  CFLAGS += -DIS_SSP_ENABLED
+  CFLAGS += -fstack-protector-all
+  # It replaces __stack_chk_fail with halt.
+  # If SSP needs to be enabled in LS as well as HS enable this flag.
+  SSP_REPLACE_STACK_CHK_FAIL = TRUE
+endif
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+
+ifdef FLCNLIBCFG_INITIALIZED
+  SOURCES := $(FLCNLIB_ALL)
+endif
+
+TGT       = $(OUTPUTDIR)/libI2C.a
+
+###############################################################################
+# The falcon which is building I2C with it will set a variable. Based on that,
+# Register access bus will be decided.
+###############################################################################
+
+ifdef SEC2_RTOS
+  CFLAGS += -DSEC2_RTOS
+endif
+ifdef DPU_RTOS
+  CFLAGS += -DDPU_RTOS
+endif
+ifdef GSPLITE_RTOS
+  CFLAGS += -DGSPLITE_RTOS
+  CFLAGS += -DGSPLITE_CSB_ACCESS
+endif
+ifdef PMU_RTOS
+  CFLAGS += -DPMU_RTOS
+endif
+ifdef GSP_RTOS
+  CFLAGS += -DGSP_RTOS
+endif
+
+ifeq ("$(HDCP_TEGRA_BUILD)","true")
+  CFLAGS += -DHDCP_TEGRA_BUILD
+endif
+
+###############################################################################
+# The falcon which is building I2C with it will set a variable. Based on that,
+# swi2c code will be compiled.
+###############################################################################
+ifdef COMPILE_SWI2C
+  CFLAGS += -DCOMPILE_SWI2C
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(FLCNLIBCFG_PROFILE)]"
+
+#
+# When not building for DVS, the output image files need copied over to the RM
+# so that they get picked up by the driver/mods build. Trigger the process by
+# adding a phony prerequisite to 'all' called 'install'. The rule to rebuild
+# that target will perform the install process and will copy the files to the
+# RM if necessary.  Skip this process if the user has requested that files NOT
+# be installed via NO_INSTALL=true.
+#
+ifneq ($(LW_DVS_BLD),1)
+  ifneq ("$(NO_RELEASE)","true")
+    .PHONY: install
+    all: install
+  endif
+endif
+
+build: all
+
+###############################################################################
+# Rule for running a script that checks select files and directories in the
+# environment and checks w/perforce that they are up-to-date (ie. TOT).
+###############################################################################
+
+CHECK_ELW_SCRIPT = $(BUILD_SCRIPTS)/check-build-elw.pl
+
+# files/directories added to this list will be checked
+CHECK_ELW_FILES += $(LW_SOURCE)/uproc/libs/i2c
+CHECK_ELW_FILES += $(LW_SOURCE)/uproc/build
+CHECK_ELW_FILES += $(LIB_UPROC_LWOS_SRC)
+CHECK_ELW_FILES += $(RTOS_SRC)
+
+CHECK_ELW_ARGS  += --check-list $(subst $(SPACE),$(COMMA),$(CHECK_ELW_FILES))
+CHECK_ELW_ARGS  += --p4 $(P4)
+
+checkbuild:
+	-$(PERL) $(CHECK_ELW_SCRIPT) $(CHECK_ELW_ARGS)
+
+all: $(TGT)
+$(TGT): $(OBJECTS)
+	$(MKDIR) ${dir $@}
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(AR) -r -c $(TGT) $(OBJECTS)
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+#	-$(RM) -f $(GEN_TMP_I2C_DEF)
+
+.PHONY: clean_ucode
+clean: clean_ucode
+
+clobber_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+#	-$(RM) -f $(GEN_TMP_I2C_DEF)
+
+.PHONY: clobber_ucode
+clobber: clobber_ucode

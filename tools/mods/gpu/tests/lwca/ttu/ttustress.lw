@@ -1,0 +1,521 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2017-2021 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "ttustress.h"
+#include "../tools/random.lw"
+#include "../tools/lwda_atomic.h"
+
+static __device__ __forceinline__ bool IsMismatch(const Retval& ret0, const Retval& ret1)
+{
+    return ret0.data[0] != ret1.data[0] ||
+           ret0.data[1] != ret1.data[1] ||
+           ret0.data[2] != ret1.data[2] ||
+           ret0.data[3] != ret1.data[3];
+}
+
+static __device__ __forceinline__ bool IsError(const Retval& ret)
+{
+    return GetHitType(ret.data[3]) == HitType::Error;
+}
+
+//
+// https://wiki.lwpu.com/gpuhwvolta/index.php/TTU/Programming
+// Example of TTU query for triangle range intersection.
+//
+static __device__ __forceinline__ void queryTriRange
+(
+    const device_ptr& triRangePtr,
+    const UINT32& numLines,
+    const Point& ori,
+    const Direction& dir,
+    const float ts,
+    Retval* pRet
+)
+{
+    static_assert(sizeof(device_ptr) == sizeof(UINT64), "Type mismatch!");
+    UINT64 ray_data[6];
+    UINT64 stack_init[2];
+    UINT64 return_data[2];
+    /*
+        https://wiki.lwpu.com/gpuhwvolta/index.php/TTU/Programming
+        https://confluence.lwpu.com/display/SMATTU/uArch
+
+        ray flags, 2 x 32bit values :
+
+        O - order, traversal order, 0 - default
+        R - rayOP, 0000
+        A - np, 0
+        B - re, 0
+        C - st, 0
+        D - ip, 0
+        S - slim, 0
+        T - t, 0
+        F - ff, 0
+        C - lwll, 0
+        Y - type, 0
+
+        ________ OOO_RRRR ABCD_SSS TFCC_YYY => 0x00000000
+
+
+        A - in_f, 1
+        B - in_p, 1
+        C - ir_f, 1
+        D - ir_p, 1
+        E - tr_f, 1
+        F - tr_p, 1
+        G - ch_f, 1
+        H - ch_p, 1
+        I - at_f, 1
+        J - at_p, 1
+        K - ot_f, 1
+        L - ot_p, 1
+
+        ________ AABBCCDD EEFFGGHH IIJJKKLL => 0xFFFFFFFF
+
+        rayOpParam#: 2 x32bit values
+
+        rayOpParamB       rayOpParamA
+        00000000 00000000 00000000 00000000
+
+        Second one is just: 0x00000000
+    */
+
+    // ray flags
+    ray_data[0] = 0;
+
+    // ray ops
+    reinterpret_cast<UINT32*>(&ray_data[1])[0] = 0;
+
+    // Timestamp (supported on GA10X+, ignored if not in motion-blur mode)
+    reinterpret_cast<UINT32*>(&ray_data[1])[1] = reinterpret_cast<const UINT32*>(&ts)[0];
+
+    // ray ori.x, ori.y, ori.z, tmin
+    reinterpret_cast<float*>(&ray_data[2])[0] = ori.x;
+    reinterpret_cast<float*>(&ray_data[2])[1] = ori.y;
+    reinterpret_cast<float*>(&ray_data[3])[0] = ori.z;
+    reinterpret_cast<float*>(&ray_data[3])[1] = 0.0f; // tmin
+
+    // ray dir.x, dir.y, dir.z, tmax
+    reinterpret_cast<float*>(&ray_data[4])[0] = dir.x;
+    reinterpret_cast<float*>(&ray_data[4])[1] = dir.y;
+    reinterpret_cast<float*>(&ray_data[5])[0] = dir.z;
+    reinterpret_cast<float*>(&ray_data[5])[1] = 1000000000.0f; // tmax
+
+    /*
+        setup trirange
+        0x0210 - triPtrLo
+        0x0214 - lines (3), triEnd (4), triIdx (4), 4 zeroes, triPtrHi (17)
+            lines - number of cache lines touched minus one, except if triEnd=0 the last line is excluded
+            triEnd - exclusive end idx on the last cacheline, except if zero then the range extends to the end of previous cacheline
+            triIdx - inclusive start idx on the first cacheline
+
+            in case of 1 cache line and 3 triangles:
+            lines  = 0, 000
+            triEnd = 3, 0011
+            triIdx = 0, 0000
+            => 0x30
+
+        0x0218 - 0
+        0x021c - 0
+    */
+    const UINT32 line_addr_lo = static_cast<UINT32>(triRangePtr);
+    const UINT32 line_addr_hi = static_cast<UINT32>(triRangePtr >> 32);
+
+    reinterpret_cast<UINT32*>(&stack_init[0])[0] = line_addr_lo;
+    reinterpret_cast<UINT32*>(&stack_init[0])[1] = ((numLines << 29) | line_addr_hi); // lines=numLines, triEnd=0, triIdx=0
+    stack_init[1] = 0;
+
+    asm volatile
+    (
+        "_ttuopen;"                                // TTUOPEN
+        "_ttust.v2.b64 [0x000], { %2, %3 };"       // ray flags, ray ops
+        "_ttust.v2.b64 [0x040], { %4, %5 };"       // ray ori.x, ori.y, ori.z, tmin
+        "_ttust.v2.b64 [0x050], { %6, %7 };"       // ray dir.x, dir.y, dir.z, tmax
+        "_ttust.v2.b64 [0x210], { %8, %9 };"       // init stack
+        "_ttugo;"                                  // TTUGO
+        "_ttuld.close.v2.b64 { %0, %1 }, [0x300];" // load hit data and TTUCLOSE
+        :
+        "=l"(return_data[0]), "=l"(return_data[1])
+        :
+        "l"(ray_data[0]), "l"(ray_data[1]),
+        "l"(ray_data[2]), "l"(ray_data[3]),
+        "l"(ray_data[4]), "l"(ray_data[5]),
+        "l"(stack_init[0]), "l"(stack_init[1])
+    );
+    pRet->data[0] = reinterpret_cast<UINT32*>(&return_data[0])[0];
+    pRet->data[1] = reinterpret_cast<UINT32*>(&return_data[0])[1];
+    pRet->data[2] = reinterpret_cast<UINT32*>(&return_data[1])[0];
+    pRet->data[3] = reinterpret_cast<UINT32*>(&return_data[1])[1];
+}
+
+//
+// https://wiki.lwpu.com/gpuhwvolta/index.php/TTU/Programming
+// Example of TTU query for triangle range intersection.
+//
+static __device__ __forceinline__ void queryComplet
+(
+    const QueryType& queryType,
+    const device_ptr& completPtr,
+    const Point& ori,
+    const Direction& dir,
+    const float ts,
+    Retval* pRet
+)
+{
+    static_assert(sizeof(device_ptr) == sizeof(UINT64), "Type mismatch!");
+    UINT64 ray_data[6];
+    UINT64 stack_init[2];
+    UINT64 return_data[6];
+    /*
+        https://wiki.lwpu.com/gpuhwvolta/index.php/TTU/Programming
+        https://confluence.lwpu.com/display/SMATTU/uArch
+
+        ray flags, 2 x 32bit values :
+
+        O - order, traversal order, 0 - default
+        R - rayOP, 0000
+        A - np, 0
+        B - re, 0
+        C - st, 0
+        D - ip, 0
+        S - slim, 0
+        T - t, 0
+        F - ff, 0
+        C - lwll, 0
+        Y - type, 0
+
+        ________ OOO_RRRR ABCD_SSS TFCC_YYY => 0x00000000
+
+
+        A - in_f, 1
+        B - in_p, 1
+        C - ir_f, 1
+        D - ir_p, 1
+        E - tr_f, 1
+        F - tr_p, 1
+        G - ch_f, 1
+        H - ch_p, 1
+        I - at_f, 1
+        J - at_p, 1
+        K - ot_f, 1
+        L - ot_p, 1
+
+        ________ AABBCCDD EEFFGGHH IIJJKKLL => 0xFFFFFFFF
+
+        rayOpParam#: 2 x32bit values
+
+        rayOpParamB       rayOpParamA
+        00000000 00000000 00000000 00000000
+
+        Second one is just: 0x00000000
+    */
+    // ray flags
+    ray_data[0] = 0;
+    if (queryType == QueryType::Complet_TriRange)
+    {
+        ray_data[0] |= 0x1ull << 13;        // storeT = true
+        ray_data[0] |= 0x3ull << (12 + 32); // return to SM on TriRange hit
+    }
+
+    // ray op params
+    reinterpret_cast<UINT32*>(&ray_data[1])[0] = 0;
+
+    // Timestamp (supported on GA10X+, ignored if not in motion-blur mode)
+    reinterpret_cast<UINT32*>(&ray_data[1])[1] = reinterpret_cast<const UINT32*>(&ts)[0];
+
+    // ray ori.x, ori.y, ori.z, tmin
+    reinterpret_cast<float*>(&ray_data[2])[0] = ori.x;
+    reinterpret_cast<float*>(&ray_data[2])[1] = ori.y;
+    reinterpret_cast<float*>(&ray_data[3])[0] = ori.z;
+    reinterpret_cast<float*>(&ray_data[3])[1] = 0.0f; // tmin
+
+    // ray dir.x, dir.y, dir.z, tmax
+    reinterpret_cast<float*>(&ray_data[4])[0] = dir.x;
+    reinterpret_cast<float*>(&ray_data[4])[1] = dir.y;
+    reinterpret_cast<float*>(&ray_data[5])[0] = dir.z;
+    reinterpret_cast<float*>(&ray_data[5])[1] = 1000000000.0f; // tmax
+
+    /*
+        setup complet
+        0x0200 - cplPtrLo
+        0x0204 -
+               -- enter from complet root
+               V
+            00010000 00000000 00000000 00000000 = 0x10000000
+            cplPtrHi
+        0x0208 - 0
+        0x020C - 0
+    */
+    const UINT32 line_addr_lo = static_cast<UINT32>(completPtr);
+    const UINT32 line_addr_hi = static_cast<UINT32>(completPtr >> 32);
+    ((UINT32 *)&stack_init[0])[0] = line_addr_lo;
+    ((UINT32 *)&stack_init[0])[1] = ((0x10000000) | line_addr_hi); // enter from complet root
+    stack_init[1] = 0;
+
+    asm volatile
+    (
+        "_ttuopen;"                                // TTUOPEN
+        "_ttust.v2.b64 [0x000], { %6, %7 };"       // ray flags, ray ops
+        "_ttust.v2.b64 [0x040], { %8, %9 };"       // ray ori.x, ori.y, ori.z, tmin
+        "_ttust.v2.b64 [0x050], { %10, %11 };"     // ray dir.x, dir.y, dir.z, tmax
+        "_ttust.v2.b64 [0x200], { %12, %13 };"     // init stack
+        "_ttugo;"                                  // TTUGO
+        "_ttuld.v2.b64 { %0, %1 }, [0x300];"       // load hit data
+        "_ttuld.v2.b64 { %2, %3 }, [0x380];"       // load stack01
+        "_ttuld.close.v2.b64 { %4, %5 }, [0x390];" // load stack23 and TTUCLOSE
+        :
+        "=l"(return_data[0]), "=l"(return_data[1]),
+        "=l"(return_data[2]), "=l"(return_data[3]),
+        "=l"(return_data[4]), "=l"(return_data[5])
+        :
+        "l"(ray_data[0]), "l"(ray_data[1]),
+        "l"(ray_data[2]), "l"(ray_data[3]),
+        "l"(ray_data[4]), "l"(ray_data[5]),
+        "l"(stack_init[0]), "l"(stack_init[1])
+    );
+
+    // Init to miss
+    UINT32 closestHit[4];
+    closestHit[0] = 0xFFFFFFFF;
+    closestHit[1] = 0xFFFFFFFF;
+    closestHit[2] = 0xFFFFFFFF;
+    closestHit[3] = 0xFFFFFFFF;
+    for (UINT32 retry = 0; retry < PREEMPT_NUM_RETRIES; retry++)
+    {
+        UINT32 hit[4];
+        hit[0] = reinterpret_cast<UINT32*>(&return_data[0])[0];
+        hit[1] = reinterpret_cast<UINT32*>(&return_data[0])[1];
+        hit[2] = reinterpret_cast<UINT32*>(&return_data[1])[0];
+        hit[3] = reinterpret_cast<UINT32*>(&return_data[1])[1];
+        const UINT32 stack01Reg1 = reinterpret_cast<UINT32*>(&return_data[2])[1];
+
+        // If a triangle or TriRange hit, record it
+        const auto hitType = GetHitType(hit[3]);
+        if (hitType == HitType::Triangle || hitType == HitType::TriRange)
+        {
+            closestHit[0] = hit[0];
+            closestHit[1] = hit[1];
+            closestHit[2] = hit[2];
+            closestHit[3] = hit[3];
+
+            // Shorten the ray's tmax in case we need to relaunch.
+            // This ensures we always return the nearest hit, even if preempted.
+            if (hitType == HitType::Triangle)
+            {
+                // Triangle Hit
+                reinterpret_cast<UINT32*>(&ray_data[5])[1] = (hit[1] & 0x7FFFFFFF);
+            }
+            else if (hitType == HitType::TriRange)
+            {
+                // TriRange Hit
+                reinterpret_cast<UINT32*>(&ray_data[5])[1] = hit[2];
+            }
+        }
+
+        // If traversal is complete, exit
+        if (stack01Reg1 == 0x0)
+        {
+            break;
+        }
+        // Otherwise we were preempted. Continue with the query.
+        else
+        {
+            asm volatile
+            (
+                "_ttuopen;"                                // TTUOPEN
+                "_ttust.v2.b64 [0x000], { %6, %7 };"       // ray flags, ray ops
+                "_ttust.v2.b64 [0x040], { %8, %9 };"       // ray ori.x, ori.y, ori.z, tmin
+                "_ttust.v2.b64 [0x050], { %10, %11 };"     // ray dir.x, dir.y, dir.z, tmax
+                "_ttust.v2.b64 [0x100], { %2, %3 };"       // restore stack
+                "_ttust.v2.b64 [0x110], { %4, %5 };"       // restore stack
+                "_ttugo;"                                  // TTUGO
+                "_ttuld.v2.b64 { %0, %1 }, [0x300];"       // load hit data
+                "_ttuld.v2.b64 { %2, %3 }, [0x380];"       // load stack01
+                "_ttuld.close.v2.b64 { %4, %5 }, [0x390];" // load stack23 and TTUCLOSE
+                :
+                "=l"(return_data[0]), "=l"(return_data[1]),
+                "+l"(return_data[2]), "+l"(return_data[3]),
+                "+l"(return_data[4]), "+l"(return_data[5])
+                :
+                "l"(ray_data[0]), "l"(ray_data[1]),
+                "l"(ray_data[2]), "l"(ray_data[3]),
+                "l"(ray_data[4]), "l"(ray_data[5])
+            );
+        }
+    }
+
+    // Return hit/miss
+    pRet->data[0] = closestHit[0];
+    pRet->data[1] = closestHit[1];
+    pRet->data[2] = closestHit[2];
+    pRet->data[3] = closestHit[3];
+}
+
+static __device__ __forceinline__ void generateRay
+(
+    Point* pOri,
+    Direction* pDir,
+    UINT32* pThreadRandState,
+    const bool clusterByWarp
+)
+{
+    constexpr float jitter = 1.0f / 16.0f;
+
+    // For clusterByWarp, lane 0's rand state is shared across the warp and
+    // used to generate the ray origin.
+    UINT32 sharedRandState = __shfl_sync(0xFFFFFFFF, *pThreadRandState, 0);
+    UINT32* pOriginRandState = clusterByWarp ? &sharedRandState : pThreadRandState;
+
+    // Use the RNG to generate random spherical coordinates
+    // Randomly distribute the rays at distance between 2.0-3.0.
+    const float r     = GetRandomFloat(pOriginRandState,  2.0f, 3.0f);
+    const float theta = GetRandomFloat(pOriginRandState, -1.0f, 1.0f);
+    const float phi   = GetRandomFloat(pOriginRandState, -1.0f, 1.0f);
+
+    // Colwert the rays to cartesian coordinates
+    pOri->x = r * sinpif(theta) * cospif(phi);
+    pOri->y = r * sinpif(theta) * sinpif(phi);
+    pOri->z = r * cospif(theta);
+
+    if (clusterByWarp)
+    {
+        // Jitter ray origin so that rays are independent 
+        pOri->x += GetRandomFloat(pThreadRandState, -jitter, jitter);
+        pOri->y += GetRandomFloat(pThreadRandState, -jitter, jitter);
+        pOri->z += GetRandomFloat(pThreadRandState, -jitter, jitter);
+    }
+
+    // Colwert the rays to cartesian coordinates
+    pOri->x = r * sinpif(theta) * cospif(phi);
+    pOri->y = r * sinpif(theta) * sinpif(phi);
+    pOri->z = r * cospif(theta);
+
+    // Random ray destination near (0,0,0)
+    Point dest;
+    dest.x = GetRandomFloat(pThreadRandState, -jitter, jitter);
+    dest.y = GetRandomFloat(pThreadRandState, -jitter, jitter);
+    dest.z = GetRandomFloat(pThreadRandState, -jitter, jitter);
+
+    // Ray points from origin to destination
+    pDir->x = dest.x - pOri->x;
+    pDir->y = dest.y - pOri->y;
+    pDir->z = dest.z - pOri->z;
+}
+
+extern "C" __global__ void TTUStress(TTUStressParams params)
+{
+    const UINT32 threadId = threadIdx.x + blockIdx.x * blockDim.x;
+
+    Point ori;
+    Direction dir;
+    Retval ref;
+    Retval ret;
+
+    UINT32 randState;
+    InitRandomState(params.randSeed + threadId, &randState);
+    generateRay(&ori, &dir, &randState, static_cast<bool>(params.clusterRays));
+
+    // Generate Random timestamp
+    // This is only used in motion-blur mode on GA10X+ and is otherwise ignored
+#if (SM_VER >= 86)
+    const float ts = GetRandomFloat(&randState, 0.0f, 1.0f);
+#else
+    const float ts = 0.0;
+#endif
+
+    // Generate Reference results
+    // Even if we are unlucky and have a bad reference result,
+    // at least we will still fail with miscompares
+    if (params.queryType == QueryType::TriRange_Triangle)
+    {
+        queryTriRange(params.triRangePtr, params.numLines, ori, dir, ts, &ref);
+    }
+    else
+    {
+        queryComplet(params.queryType, params.completPtr, ori, dir, ts, &ref);
+    }
+
+    // If debugResultPtr is provided dump the full ray debug data
+    // (Useful for visualizing the result of the ray-trace)
+    if (params.debugResultPtr && params.raysToDump)
+    {
+        Retval* pResDebug =
+            GetPtr<Retval*>(params.debugResultPtr);
+        Point* pOriDebug =
+            GetPtr<Point*>(params.debugResultPtr + params.raysToDump * sizeof(Retval));
+        Direction* pDirDebug =
+            GetPtr<Direction*>(params.debugResultPtr + params.raysToDump * (sizeof(Retval) + sizeof(Point)));
+        if (threadId < params.raysToDump)
+        {
+            pResDebug[threadId] = ref;
+            pOriDebug[threadId] = ori;
+            pDirDebug[threadId] = dir;
+        }
+    }
+
+    // Run the ray-trace test
+    for (UINT64 i = 0; i < params.iterations; i++)
+    {
+        // Query the TTU
+        if (params.queryType == QueryType::TriRange_Triangle)
+        {
+            queryTriRange(params.triRangePtr, params.numLines, ori, dir, ts, &ret);
+        }
+        else
+        {
+            queryComplet(params.queryType, params.completPtr, ori, dir, ts, &ret);
+        }
+
+        // Check for Miscompares and Errors
+        if (IsMismatch(ret, ref) || IsError(ret) || IsError(ref))
+        {
+            // Increment the error counter
+            UINT64 errorIdx = IncrementErrCount(params.errorCountPtr);
+
+            // Dump the failure if there is room in the error buffer
+            if (errorIdx < params.errorLogLen)
+            {
+                TTUError* pErrorLog = GetPtr<TTUError*>(params.errorLogPtr);
+                UINT32 smid;
+                asm volatile ("mov.u32 %0, %%smid;" : "=r"(smid));
+
+                pErrorLog[errorIdx].iteration = i;
+                pErrorLog[errorIdx].queryType = params.queryType;
+                pErrorLog[errorIdx].smid  = smid;
+                pErrorLog[errorIdx].rayId = threadId;
+                pErrorLog[errorIdx].ret = ret;
+                pErrorLog[errorIdx].ref = ref;
+            }
+        }
+    }
+
+    return;
+}
+
+extern "C" __global__ void TTUSingleRay(TTUSingleRayParams params)
+{
+    // Only run on thread 0 since we're testing a single ray
+    const UINT32 threadId = threadIdx.x + blockIdx.x * blockDim.x;
+    if (threadId == 0)
+    {
+        Retval* pRetval = GetPtr<Retval*>(params.retvalPtr);
+        if (params.queryType == QueryType::TriRange_Triangle)
+        {
+            queryTriRange(params.dataPtr, params.numLines, params.rayOrigin, params.rayDir,
+                          params.timestamp, pRetval);
+        }
+        else
+        {
+            queryComplet(params.queryType, params.dataPtr, params.rayOrigin, params.rayDir,
+                         params.timestamp, pRetval);
+        }
+    }
+}

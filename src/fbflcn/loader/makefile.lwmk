@@ -1,0 +1,128 @@
+#
+# Copyright 2007-2015 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+
+#
+# The primary usage of this makefile is as a sub-makefile for a larger falcon
+# build (such as the PMU/DPU/SEC2 builds). It relies on the user (or top-level
+# makefile) to establish the following make-vars before it is ilwoked:
+#     * LW_TARGET_ARCH
+#     * LW_PROJ
+#
+# If building directly, it is highly recommended that you explicitly state (on
+# the build command-line) which falcon architecture and chip project you're
+# targeting. If unspecified, falcon4 and gf11x is assumed. The target
+# architecture may be specified by setting LW_TARGET_ARCH on the command-line.
+#
+# LW_PROJ is only used to uniquely name the output directory where the built libraries
+# will be located. This facilitates parallel building of falcon ucode for multiple
+# projects.
+#
+# Examples:
+#
+# % make LW_TARGET_ARCH=falcon4 LW_PROJ=gf11x
+# % make LW_TARGET_ARCH=falcon3 LW_PROJ=gf10x
+#
+
+override LW_TARGET_OS := falcon
+
+# if not specified, assume we're building for gf11x-falcon4
+LW_TARGET_ARCH      ?= falcon4
+LW_PROJ             ?= gf11x
+PA_47_BIT_SUPPORTED ?= false
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+build: all
+
+##############################################################################
+# Set default values for the starting IMEM and stack offsets. These values are
+# provided to the linker-script at link-time and can be overridden on the
+# command-line when this build is ilwoked. This is to allows different builds
+# (with differing requirements) to lwstomize the arrangement of the final
+# bootloader image while still using a single makefile and linker-script.
+#
+# IMEM_OFFS is starting IMEM address where the code is linked to. STACK_OFFS
+# is the initial location of the stack-pointer. 
+##############################################################################
+
+IMEM_OFFS  ?= 0x2800
+STACK_OFFS ?= 0x2000
+
+##############################################################################
+# Linker configuration/flags
+##############################################################################
+
+LDSCRIPT = ./loader_link_script
+LDFLAGS += -Wl,--defsym=__imem_offs=$(IMEM_OFFS)
+LDFLAGS += -Wl,--defsym=__stack=$(STACK_OFFS)
+LDFLAGS += -T $(LDSCRIPT)
+
+##############################################################################
+# Additional configuration flags for compiler
+##############################################################################
+
+ifeq ($(PA_47_BIT_SUPPORTED),true)
+CFLAGS += -DPA_47_BIT_SUPPORTED
+endif
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+
+SOURCES = loader.c
+
+###############################################################################
+# Define the name of the output ELF image.
+###############################################################################
+
+IMG_ELF = $(OUTPUTDIR)/loader.out
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[ldr-$(LW_PROJ)-$(LW_TARGET_ARCH)]"
+
+###############################################################################
+# Rules
+###############################################################################
+
+all: $(IMG_ELF)
+
+$(IMG_ELF): $(OBJECTS) $(LDSCRIPT)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(CFLAGS) $(OBJECTS) -o $@ $(LDFLAGS)
+	$(DUMPEXEC) -img $(OUTPUTDIR)/loader -b $@
+	$(COPY) $(OUTPUTDIR)/loader.0x00000000 $(OUTPUTDIR)/loader.0x00000000.bin
+	$(COPY) $(OUTPUTDIR)/loader.0x10000000 $(OUTPUTDIR)/loader.0x10000000.bin
+	$(OBJDUMP) -S    $(IMG_ELF) > $(OUTPUTDIR)/loader.objdump
+	$(NM)      -S -n $(IMG_ELF) > $(OUTPUTDIR)/loader.nm
+	$(READELF) --all $(IMG_ELF) > $(OUTPUTDIR)/loader.readelf
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clean_ucode
+clean: clean_ucode

@@ -1,0 +1,190 @@
+#
+# Copyright 2014-2021 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+
+#
+# The primary usage of this makefile is as a sub-makefile for a larger falcon
+# build (such as the PMU/DPU/SEC2 builds). It relies on the user (or top-level
+# makefile) to establish the following make-vars before it is ilwoked:
+#     * FALCON_ARCH
+#     * LW_PROJ
+#     * MANUAL_PATHS
+#
+# If building directly, it is highly recommended that you explicitly state (on
+# the build command-line) which falcon architecture and chip project you're
+# targeting. If unspecified, falcon4 and gf11x is assumed. The target
+# architecture may be specified by setting FALCON_ARCH on the command-line.
+#
+# LW_PROJ is only used to uniquely name the output directory where the built libraries
+# will be located. This facilitates parallel building of falcon ucode for multiple
+# projects.
+#
+# Example:
+#
+# % make FALCON_ARCH=falcon5 LW_PROJ=gm20x
+#
+# Additionally, based on the target arch, you need to also specify where the
+# falcon manuals are for the architecture.  This is specified using
+# MANUAL_PATHS.
+#
+# Additionally, based on the target arch, you need to also specify where the
+# falcon manuals are for the architecture.  This is specified using
+# MANUAL_PATHS.
+#
+# Examples:
+#
+# % make FALCON_ARCH=falcon5 MANUAL_PATHS=$LW_SOURCE/drivers/common/inc/hwref/maxwell/gm200
+
+
+# if not specified, assume we're building for falcon5
+FALCON_ARCH          ?= falcon5
+LW_PROJ              ?= gm20x
+MANUAL_PATHS         ?= "$(LW_SOURCE)/drivers/common/inc/swref/maxwell/gm200"
+MANUAL_PATHS         ?= "$(LW_SOURCE)/drivers/common/inc/hwref/maxwell/gm200"
+DMEM_VA_SUPPORTED    ?= false
+ON_DEMAND_PAGING_BLK ?= false
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+include $(LW_SOURCE)/uproc/build/common/lwRtosVersion.lwmk
+
+build: all
+
+###############################################################################
+# Additional configuration flags for compiler and assembler.
+###############################################################################
+ifdef SEC2_RTOS
+CONFIG_FLAGS += -DSEC2_RTOS
+CONFIG_FLAGS += -DSEC2_CSB_ACCESS=$(SEC2_RTOS)
+endif
+
+ifdef SOE_RTOS
+CONFIG_FLAGS += -DSOE_CSB_ACCESS=$(SOE_RTOS)
+endif
+
+ifdef GSPLITE_RTOS
+CONFIG_FLAGS += -DGSPLITE_CSB_ACCESS=$(GSPLITE_RTOS)
+endif
+
+ifdef PMU_RTOS
+CONFIG_FLAGS += -DPMU_RTOS
+ifeq ($(LW_TARGET_OS),riscv)
+CONFIG_FLAGS += -DPMU_PRIV_ACCESS=$(PMU_RTOS)
+else
+CONFIG_FLAGS += -DPMU_CSB_ACCESS=$(PMU_RTOS)
+endif
+endif
+
+ifdef GSP_RTOS
+CONFIG_FLAGS += -DGSP_RTOS
+CONFIG_FLAGS += -DGSP_PRIV_ACCESS=$(GSP_RTOS)
+endif
+
+ifdef BASEADDR_NEEDED_FOR_CSB_ACCESS
+CONFIG_FLAGS += -DBASEADDR_NEEDED=$(BASEADDR_NEEDED_FOR_CSB_ACCESS)
+endif
+
+ifeq ($(DMEM_VA_SUPPORTED),true)
+CFLAGS += -DDMEM_VA_SUPPORTED
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+CFLAGS += -DUPROC_RISCV
+endif
+
+CFLAGS += -fno-jump-tables
+
+ifdef SUBMAKE_CFLAGS
+CFLAGS += $(SUBMAKE_CFLAGS)
+endif
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += ./inc
+LW_INCLUDES += $(LW_SOURCE)/sdk/lwpu/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/lwos/$(LWOS_VERSION)/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES += $(LW_RTOS_INCLUDES)
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+ifeq ($(LW_TARGET_OS), riscv)
+LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/inc
+LW_INCLUDES += $(LWRISCV_TOOLS)/include/spike/
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/hwref
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc/
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/lwos/dev/inc/
+LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/syslib/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/shlib/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/drivers/inc
+ifdef LWRISCV_SDK
+  LW_INCLUDES += $(LWRISCV_SDK)/inc
+  LW_INCLUDES += $(LWRISCV_SDK_PROFILE)/inc
+endif
+
+endif
+
+ifdef GSPLITE_RTOS
+LW_INCLUDES += $(LW_SOURCE)/uproc/disp/dpu/inc
+endif
+
+ifdef GSP_RTOS
+LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc/gsp/
+LW_INCLUDES += $(LW_SOURCE)/uproc/gsp/src/$(GSP_OUTPUTDIR)
+endif
+
+ifdef PMU_RTOS
+  ifeq ($(LW_TARGET_OS),riscv)
+    LW_INCLUDES += $(BAR0_DEFS_PATH)
+    LW_INCLUDES += $(MEMMAP_PATH)
+    LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc/gsp/
+    LW_INCLUDES += $(LW_SOURCE)/pmu_sw/prod_app/$(PMU_OUTPUTDIR)
+  endif
+endif
+
+ifeq ($(ON_DEMAND_PAGING_BLK),true)
+    CFLAGS+= -DON_DEMAND_PAGING_BLK
+endif
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+SOURCES  += src/scp_common.c
+
+ifeq ($(LW_TARGET_OS),riscv)
+SOURCES  += src/riscv_scp_rand.c
+SOURCES  += src/riscv_scp_crypt.c
+else
+SOURCES  += src/scp_rand.c
+SOURCES  += src/scp_crypt.c
+endif
+
+CFLAGS   += $(CONFIG_FLAGS)
+ASMFLAGS += $(CONFIG_FLAGS)
+
+TGT       = $(OUTPUTDIR)/libSCP.a
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[scp-$(LW_PROJ)-$(FALCON_ARCH)]"
+
+all: $(TGT)
+$(TGT): $(OBJECTS)
+	$(MKDIR) ${dir $@}
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(AR) -r -c $(TGT) $(OBJECTS)
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+

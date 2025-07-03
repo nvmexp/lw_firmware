@@ -1,0 +1,241 @@
+#
+# Copyright 2008-2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+
+#
+# The primary usage of this makefile is as a sub-makefile for a larger falcon
+# build (such as the PMU/DPU/SEC2 builds). It relies on the user (or top-level
+# makefile) to establish the following make-vars before it is ilwoked:
+#     * FALCON_ARCH
+#     * LW_PROJ
+#     * MANUAL_PATHS
+#
+# If building directly, it is highly recommended that you explicitly state (on
+# the build command-line) which falcon architecture and chip project you're
+# targeting. If unspecified, falcon4 and gf11x is assumed. The target
+# architecture may be specified by setting FALCON_ARCH on the command-line.
+#
+# LW_PROJ is only used to uniquely name the output directory where the built libraries
+# will be located. This facilitates parallel building of falcon ucode for multiple
+# projects.
+#
+# Examples:
+#
+# % make FALCON_ARCH=falcon4 LW_PROJ=gf11x
+# % make FALCON_ARCH=falcon3 LW_PROJ=gf10x
+#
+# Additionally, based on the target arch, you need to also specify where the
+# falcon manuals are for the architecture.  This is specified using
+# MANUAL_PATHS.
+#
+# Examples:
+#
+# % make FALCON_ARCH=falcon4 MANUAL_PATHS=$LW_SOURCE/drivers/common/inc/hwref/fermi/gf119
+# % make FALCON_ARCH=falcon3 MANUAL_PATHS=$LW_SOURCE/drivers/common/inc/hwref/gt218
+#
+
+override LW_TARGET_OS := falcon
+
+# if some configurations are not specified, assume defaults
+FALCON_ARCH        ?= falcon4
+LW_PROJ            ?= gf11x
+RESMAN_ROOT        ?= ../../../../../../drivers/resman
+MANUAL_PATHS       ?= "$(LW_SOURCE)/drivers/common/inc/hwref/fermi/gf119 $(RESMAN_ROOT)/kernel/inc/fermi/gf119"
+DMA_SUSPENSION     ?= false
+LS_FALCON          ?= false
+FLCNDBG_ENABLED    ?= false
+OS_CALLBACKS       ?= false
+FREEABLE_HEAP      ?= false
+TASK_RESTART       ?= false
+FB_CMD_QUEUES      ?= false
+FB_MSG_QUEUES      ?= false
+QUEUE_HALT_ON_FULL ?= false
+SCHEDULER_2X       ?= false
+TASK_QUEUE_MAP     ?= false
+FAULT_RECOVERY     ?= false
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+build: all
+
+###############################################################################
+# Additional configuration flags for compiler and assembler.
+#
+# -DBASEADDR_NEEDED
+#
+#     This option will inherit the setting (i.e. BASEADDR_NEEDED_FOR_CSB_ACCESS)
+#     from different falcon so that the RTOS knows if the base address is needed
+#     for the CSB access on the specific falcon
+#
+# -DPMU_RTOS/DDPU_RTOS/DSEC2_RTOS
+#
+#     These options depend on a flag exported by Falcon makefiles, and decide
+#     which Falcon we're building for. For PMU and DPU, we only use it in .S
+#     files whose preprocessor doesn't understand include paths and hence can't
+#     include manuals very cleanly. We define the appropriate CSB register
+#     offsets to use in assembly files where manuals can't be directly included.
+#     SEC2, uses this option in other .c files as well since it uses different
+#     CSB offsets altogether that cannot be mathematically determined using a
+#     base address (unlike PMU and DPU). These flags should be sparingly used
+#     in all cases (only where absolutely necessary) to avoid forking RTOS code
+#     that is designed to be shared among all Falcons.
+#
+# -DHW_STACK_LIMIT_MONITORING
+#
+#     This option will enable HW stack limit monitoring (Falcon 6+). We use it
+#     to decide which RTOS code to compile (SW stack monitoring or HW stack
+#     monitoring)
+#
+###############################################################################
+
+CONFIG_FLAGS += -DOPEN_RTOS_BUILD
+
+ifdef BASEADDR_NEEDED_FOR_CSB_ACCESS
+CONFIG_FLAGS += -DBASEADDR_NEEDED=$(BASEADDR_NEEDED_FOR_CSB_ACCESS)
+endif
+
+ifdef PMU_RTOS
+CONFIG_FLAGS += -DPMU_CSB_ACCESS=$(PMU_RTOS)
+CFLAGS       += -DLW_MISRA_COMPLIANCE_REQUIRED
+endif
+
+ifdef DPU_RTOS
+CONFIG_FLAGS += -DDPU_CSB_ACCESS=$(DPU_RTOS) -DDPU_RTOS
+endif
+
+ifdef SEC2_RTOS
+CONFIG_FLAGS += -DSEC2_CSB_ACCESS=$(SEC2_RTOS)
+endif
+
+ifdef GSPLITE_RTOS
+CONFIG_FLAGS += -DGSPLITE_CSB_ACCESS=$(GSPLITE_RTOS) -DGSPLITE_RTOS
+endif
+
+ifeq ($(DMA_SUSPENSION),true)
+CONFIG_FLAGS += -DDMA_SUSPENSION
+endif
+
+ifeq ($(LS_FALCON),true)
+CONFIG_FLAGS += -DDYNAMIC_FLCN_PRIV_LEVEL
+endif
+
+ifeq ($(FLCNDBG_ENABLED),true)
+CONFIG_FLAGS += -DFLCNDBG_ENABLED
+endif
+
+ifeq ($(OS_CALLBACKS),true)
+CONFIG_FLAGS += -DOS_CALLBACKS
+endif
+
+ifeq ($(ON_DEMAND_PAGING_OVL_IMEM),true)
+CONFIG_FLAGS += -DON_DEMAND_PAGING_OVL_IMEM
+endif
+
+ifeq ($(TASK_RESTART),true)
+CONFIG_FLAGS += -DTASK_RESTART
+endif
+
+ifeq ($(FB_CMD_QUEUES), true)
+CONFIG_FLAGS += -DFB_CMD_QUEUES
+endif
+
+ifeq ($(FB_MSG_QUEUES), true)
+CONFIG_FLAGS += -DFB_MSG_QUEUES
+endif
+
+ifeq ($(QUEUE_HALT_ON_FULL),true)
+CONFIG_FLAGS += -DQUEUE_HALT_ON_FULL
+endif
+
+ifeq ($(SCHEDULER_2X),true)
+CONFIG_FLAGS += -DSCHEDULER_2X
+endif
+
+# Note that we will only enable HW stack limit monitoring for Falcon6 and later.
+# We compare the result of findstring with an empty string, so the ifeq check
+# below looks odd, but does what is it is intended to do.
+ifeq (,$(findstring $(FALCON_ARCH), "falcon4 or falcon5"))
+CONFIG_FLAGS += -DHW_STACK_LIMIT_MONITORING
+endif
+
+ifeq ($(FREEABLE_HEAP),true)
+CONFIG_FLAGS += -DFREEABLE_HEAP
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+    CONFIG_FLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+    CONFIG_FLAGS += -DUPROC_RISCV
+endif
+
+ifeq ($(TASK_QUEUE_MAP),true)
+CONFIG_FLAGS += -DTASK_QUEUE_MAP
+endif
+
+ifeq ($(FAULT_RECOVERY),true)
+CONFIG_FLAGS += -DFAULT_RECOVERY
+endif
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES  += ./include
+LW_INCLUDES  += ./portable/FALCON
+LW_INCLUDES  += $(MANUAL_PATHS)
+
+LW_INCLUDES  += $(LW_SOURCE)/sdk/lwpu/inc
+LW_INCLUDES  += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES  += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc
+LW_INCLUDES  += $(LW_SOURCE)/uproc/libs/lwos/$(LWOS_VERSION)/inc
+LW_INCLUDES  += $(LW_SOURCE)/uproc/libs/cmn/inc
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+
+SOURCES  += lwrtos.c
+SOURCES  += tasks.c
+SOURCES  += queue.c
+SOURCES  += list.c
+SOURCES  += semphr.c
+SOURCES  += portable/FALCON/port.c
+SOURCES  += portable/FALCON/portisr.c
+SOURCES  += portable/FALCON/heap_1.c
+ifeq ($(FREEABLE_HEAP),true)
+    SOURCES  += portable/FALCON/heap_4.c
+endif
+SOURCES  += portable/FALCON/stdlib.c
+
+ifneq (,$(findstring $(FALCON_ARCH), "falcon4"))
+  SOURCES += portable/FALCON/falcon4/portisr_asm.S
+else ifneq (,$(findstring $(FALCON_ARCH), "falcon5"))
+  SOURCES += portable/FALCON/falcon5/portisr_asm.S
+else
+  SOURCES += portable/FALCON/falcon6/portisr_asm.S
+endif
+
+CFLAGS   += $(CONFIG_FLAGS)
+ASMFLAGS += $(CONFIG_FLAGS)
+
+TGT       = $(OUTPUTDIR)/libOpenRTOS.a
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[rtos-$(LW_PROJ)-$(FALCON_ARCH)]"
+
+all: $(TGT)
+$(TGT): $(OBJECTS)
+	$(MKDIR) ${dir $@}
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(AR) -r -c $(TGT) $(OBJECTS)
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+

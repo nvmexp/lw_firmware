@@ -1,0 +1,897 @@
+# -*- mode: perl; -*-
+
+# Chip PG Interfaces
+# For a brief introduction to file format, see README in this directory.
+
+my $pgHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwr", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PROCESS_INTERRUPTS => [
+            DESCRIPTION      => "Colwert HW interrupts to SW PG events",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "DISPATCH_LPWR *, PG_LOGIC_STATE *",
+            STUB_RETURNS     => FLCN_ERR_QUEUE_TASK_ILWALID_EVENT_TYPE,
+
+            _GMXXX           => [ dMAXWELL_and_later, ],
+        ],
+
+        COLWERT_PG_INTERRUPTS => [
+            DESCRIPTION      => "Colwert HW interrupts to SW PG events",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "PG_LOGIC_STATE *, LwU32 intrStat",
+            STUB_RETURNS     => void,
+
+            _GMXXX           => [ MAXWELL, GP100, USED_BY_GP10X, ],
+            _GP10X           => [ dPASCAL_and_later, -GP100, ],
+        ],
+
+        ENABLE_HOLDOFF_INTR => [
+            DESCRIPTION      => "Enable/disable holdoff interrupts for the requested engines",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 holdoffEngMask, LwBool bEnable",
+
+            _TU10X           => [ GV11B, TURING_and_later, ],
+            _STUB            => [ pre_TURING, -GV11B, ],
+        ],
+
+        INIT_PRIV_BLOCKER_INTR => [
+            DESCRIPTION      => "Init and enable Priv Blocker interrupts",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 blockerInitMask",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _TU10X           => [ dTURING_and_later, ],
+            _STUB            => [ pre_TURING, ],
+        ],
+
+        PROCESS_PRIV_BLOCKER_INTR => [
+            DESCRIPTION      => "Colwert HW interrupts to SW PG events",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "DISPATCH_LPWR *, PG_LOGIC_STATE *",
+            STUB_RETURNS     => FLCN_ERR_QUEUE_TASK_ILWALID_EVENT_TYPE,
+
+            LIKE_INTERFACE   => INIT_PRIV_BLOCKER_INTR,
+        ],
+
+        # PG Controller Operation
+        CTRL_INIT => [
+            DESCRIPTION      => "PG_ENG/LPWR_ENG enable/disable",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GMXXX           => [ MAXWELL_thru_VOLTA, ],
+            _TU10X           => [ dTURING_and_later, ],
+        ],
+
+        CTRL_INTERRUPTS_INIT => [
+            DESCRIPTION      => "Initialize interrupts for PG_ENG/LPWR SM",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32",
+
+            _GP10X           => [ dPASCAL_and_later, -GP100, ],
+            _STUB            => [ MAXWELL, GP100, ],
+        ],
+
+        CTRL_SOFT_RESET => [
+            DESCRIPTION      => "PG_ENG/LPWR_ENG Soft Reset",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32",
+            STUB_RETURNS     => FLCN_ERROR,
+
+            LIKE_INTERFACE  => CTRL_INIT,
+        ],
+
+        CTRL_SET_CFG_RDY => [
+            DESCRIPTION      => "PG_ENG/LPWR_ENG set config ready bit",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32, LwBool",
+            STUB_RETURNS     => FLCN_ERROR,
+
+            LIKE_INTERFACE  => CTRL_INIT,
+        ],
+
+        CTRL_INTERRUPTS_ENABLE => [
+            DESCRIPTION      => "Enable Interrupts for PG_ENG/LPWR SM",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32, LwBool enable",
+            STUB_RETURNS     => FLCN_ERROR,
+
+            _GMXXX           => [ dMAXWELL_and_later, ],
+        ],
+
+        CTRL_INTERRUPT_CLEAR => [
+            DESCRIPTION      => "PG_ENG/LPWR_ENG Clear Interrupts",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32, LwU32 event",
+
+            LIKE_INTERFACE  => CTRL_INTERRUPTS_ENABLE,
+        ],
+
+        CTRL_SM_ACTION => [
+            DESCRIPTION      => "Manage SM Actions",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 pgId, LwU32 actionId",
+
+            LIKE_INTERFACE   => CTRL_INIT,
+        ],
+
+        CTRL_IS_POWERED_ON => [
+            DESCRIPTION      => "Get the power-on state of a pg controller",
+            RETURN_TYPE      => LwBool,
+            ARGUMENTS        => "LwU32",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            STUB_RETURNS     => LW_TRUE,
+
+            _GMXXX           => [ dMAXWELL_and_later, ],
+        ],
+
+        CTRL_IDLE_SNAP_REASON_MASK_GET => [
+            DESCRIPTION      => "Check the reason for idle snap interrupt",
+            RETURN_TYPE      => "LwU32",
+            ARGUMENTS        => "LwU32 pgCtrlId",
+            STUB_RETURNS     => ZERO,
+
+            _GP10X           => [ PASCAL, VOLTA, -GP100, ],
+            _TU10X           => [ dTURING_and_later, ],
+            _STUB            => [ MAXWELL, GP100, ],
+        ],
+
+        CTRL_IDLE_SNAP_PROCESS => [
+            DESCRIPTION      => "Process Idle snap interrupt",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32",
+
+            _GP10X           => [ dPASCAL_and_later, -GP100, ],
+            _STUB            => [ MAXWELL, GP100, ],
+        ],
+
+        CTRL_IDLE_THRESHOLDS_SET => [
+            DESCRIPTION      => "Set Idle and PPU thresholds",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32",
+
+            _GMXXX           => [ dMAXWELL_and_later, ],
+        ],
+
+        CTRL_MIN_MAX_IDLE_THRESHOLD_INIT => [
+            DESCRIPTION      => "Initialize the min/max Idle thresholds",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 ctrlId",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GMXXX           => [ pre_AMPERE, ],
+            _GA10X           => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, ],
+            _STUB            => [ GA100, GH100, GB100, G00X, ],
+        ],
+
+        CTRL_PG_DELAYS_DISABLE => [
+            DESCRIPTION      => "Set power gating delays to zero",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GMXXX           => [ MAXWELL_thru_VOLTA, ],
+            _STUB            => [ dTURING_and_later, ],
+        ],
+
+        # Move pgCtrlIdleFlipped_HAL to resident section if IDLE_FLIPPED_RESET WAR is enabled
+        CTRL_IDLE_FLIPPED => [
+            DESCRIPTION      => "Returns LW_TRUE if idle flip bit is set",
+            RETURN_TYPE      => LwBool,
+            ARGUMENTS        => "LwU32",
+            STUB_RETURNS     => LW_FALSE,
+
+            _GMXXX           => [ MAXWELL_thru_VOLTA, -GV11B, ],
+            _TU10X           => [ dTURING_and_later, ],
+            _STUB            => [ GV11B, ],
+        ],
+
+        CTRL_IS_SUBUNITS_IDLE => [
+            DESCRIPTION    => "Checks for graphics subunit idleness",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => LwU32,
+            STUB_RETURNS   => LW_FALSE,
+
+            _GMXXX         => [ MAXWELL_thru_VOLTA, ],
+            _TU10X         => [ TURING_and_later, ],
+        ],
+
+        CTRL_IDLE_MASK_SET => [
+            DESCRIPTION      => "Configure idle counter mask",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 ctrlId, LwU32 *pIdleMask",
+
+            LIKE_INTERFACE   => CTRL_INIT,
+        ],
+
+        CTRL_CONFIG_CNTR_MODE => [
+            DESCRIPTION      => "Configure idle counter mode",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32, LwU32",
+
+            LIKE_INTERFACE   => CTRL_INIT,
+        ],
+
+        CTRL_AUTO_WAKEUP_CONFIG => [
+            DESCRIPTION      => "Enable/Disable Auto-wakeup functionality",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, ],
+            _STUB          => [ pre_dAMPERE, GA100, ],
+        ],
+
+        CTRL_IS_AUTO_WAKEUP_ASSERTED => [
+            DESCRIPTION      => "Determine if Auto-wakeup is asserted or not",
+            RETURN_TYPE      => LwBool,
+            ARGUMENTS        => "LwU32",
+            STUB_RETURNS   => LW_FALSE,
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, ],
+            _STUB          => [ pre_dAMPERE, GA100, ],
+        ],
+
+        CTRL_HW_DISALLOW_HAL => [
+            DESCRIPTION      => "Disallow PgCtrl through HW mechanism",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32",
+
+            _TU10X           => [ dTURING_and_later, ],
+            _STUB            => [ pre_TURING, ],
+        ],
+
+        CTRL_HW_ALLOW_HAL => [
+            DESCRIPTION      => "Allow PgCtrl through HW mechanism",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32",
+
+            LIKE_INTERFACE   => CTRL_HW_DISALLOW_HAL,
+        ],
+
+        # PGISLAND HALs
+
+        ISLAND_BSI_RAM_COPY => [
+            DESCRIPTION     => "Copies data from FB/SYS MEM to BSI",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_ERROR,
+            ARGUMENTS       => "void *pDmaBuffer, LwU32 size, LwU32 bsiBootPhaseInfo",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libGC6", "__FUNC__")',
+
+            _GM10X          => [ dMAXWELL_thru_dAMPERE, ],
+            _STUB           => [ dADA_and_later, ],
+        ],
+
+        ISLAND_BSI_RAM_CONFIG => [
+            DESCRIPTION     => "Configures LW_PGC6_BSI_BOOTPHASES & LW_PGC6_BSI_CTRL",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 bsiBootPhaseInfo",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libGC6", "__FUNC__")',
+
+            _GM20X          => [ GM20X, ],
+            _GP10X          => [ PASCAL_thru_dAMPERE, ],
+            _STUB           => [ GM10X, dADA_and_later, ],
+        ],
+
+        ISLAND_BSI_RAM_DESC_GET => [
+            DESCRIPTION     => "To get BSI RAM descriptor info",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_ERROR,
+            ARGUMENTS       => "LwU32 phaseId, RM_PMU_PG_ISLAND_PHASE_DESCRIPTOR *pPhaseDesc",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libGC6", "__FUNC__")',
+
+            _GM20X          => [ GM20X_thru_dAMPERE, ],
+            _STUB           => [ GM10X, dADA_and_later, ],
+        ],
+
+        ISLAND_BSI_RAM_R_W => [
+            DESCRIPTION     => "Read / write content of BSI RAM from offset",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_ERROR,
+            ARGUMENTS       => "LwU32 *pBuf, LwU32 sizeDwords, LwU32 offset, LwBool bRead",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libGC6", "__FUNC__")',
+
+            _GM20X          => [ GM20X_and_later, ],
+            _STUB           => [ GM10X,],
+        ],
+
+        ISLAND_GET_BSI_RAM_SIZE => [
+            DESCRIPTION    => "Get BSI RAM size",
+            RETURN_TYPE    => LwU32,
+            STUB_RETURNS   => ZERO,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libGC6", "__FUNC__")',
+
+            _GM10X         => [ GM10X_and_later, ],
+        ],
+
+        ISLAND_BSI_RAM_COPY_CHECK => [
+            DESCRIPTION     => "Sanitize BSI RAM copy request",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_ERROR,
+            ARGUMENTS       => "void *pDmaBuffer, LwU32 size, LwU32 bsiBootPhaseInfo",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libGC6", "__FUNC__")',
+
+            _GM10X          => [ MAXWELL, ],
+            _GP10X          => [ PASCAL_thru_dAMPERE, ],
+            _STUB           => [ dADA_and_later, ],
+        ],
+
+        ISLAND_SANITIZE_BSI_RAM => [
+            DESCRIPTION     => "Sanitize BSI RAM contents",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_ERROR,
+            ARGUMENTS       => "LwU32 bsiBootPhaseInfo",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libGC6", "__FUNC__")',
+
+            _GP10X          => [ PASCAL, VOLTA, ],
+            _TU10X          => [ TURING_thru_dAMPERE, ],
+            _STUB           => [ MAXWELL, dADA_and_later, ],
+        ],
+
+        ISLAND_PATCH_FOR_BRSS => [
+            DESCRIPTION     => "Patch devinit script descriptor based on BRSS",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 bsiBootPhaseInfo",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libGC6", "__FUNC__")',
+
+            _GM20X          => [ GM20X, ],
+            _GP10X          => [ PASCAL_thru_dAMPERE, ],
+            _STUB           => [ GM10X, dADA_and_later, ],
+        ],
+
+        ISLAND_RESET_BSI_SETTINGS => [
+            DESCRIPTION     => "Reset pertinant BSI registers before filling up RAM",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libGC6", "__FUNC__")',
+
+            _GM20X          => [ GM20X_thru_dAMPERE, ],
+            _STUB           => [ GM10X, dADA_and_later, ],
+        ],
+
+        ISLAND_IS_ENABLED => [
+            DESCRIPTION     => "Check if island is enabled",
+            RETURN_TYPE     => LwBool,
+            STUB_RETURNS    => LW_FALSE,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE  => ISLAND_BSI_RAM_COPY,
+        ],
+
+        ISLAND_SCI_PMGR_GPIO_SYNC => [
+            DESCRIPTION     => "Synchronize SCI-PMGR GPIOs",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 gpioPinMask",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libSyncGpio", "__FUNC__")',
+
+            _GM10X          => [ pre_AMPERE, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _GA10X          => [ GA10X, -GA100, -TEGRA_DGPU_AMPERE, ],
+            _STUB           => [ ALL, -dMAXWELL_thru_GA10X, -TEGRA_DGPU_ADA, -T194, ],
+        ],
+
+        ISLAND_PROGRAM_SCI_WAKEUP_TIMER_SET => [
+            DESCRIPTION     => "Set wakeup timer for GC6, mostly for pre-silicon",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 wakeupTimeUs",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GM10X          => [ dMAXWELL_and_later, ],
+            _STUB           => [ ALL, -dMAXWELL_and_later, ],
+        ],
+
+        ISLAND_PRE_INIT => [
+            DESCRIPTION     => "Initializes PG islands (SCI and BSI)",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM10X          => [ dMAXWELL_and_later, ],
+            _STUB           => [ ALL, -dMAXWELL_and_later, ],
+        ],
+
+        ISLAND_UPDATE_SCI_I2C_STATE => [
+            DESCRIPTION     => "Initializes SCI I2C to replay I2C traffic during GC5",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            INTERFACE_TAG   => 'pgIslandUpdateSCII2CState', # 'SCI' instead of 'Sci'
+
+            _GM10X          => [ pre_AMPERE, ],
+            _STUB           => [ AMPERE_and_later, ],
+        ],
+
+        ISLAND_PWM_SOURCE_DESCRIPTOR_CONSTRUCT => [
+            DESCRIPTION     => "Constructs the PWM source descriptor for given PWM source in specified DMEM overlay",
+            RETURN_TYPE     => "PWM_SOURCE_DESCRIPTOR *",
+            STUB_RETURNS    => NULL,
+            ARGUMENTS       => "RM_PMU_PMGR_PWM_SOURCE pwmSource, LwU8 ovlIdxDmem",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libPwmConstruct", "__FUNC__")',
+
+            _GP10X          => [ PASCAL, -GP100, ],
+            _STUB           => [ ALL, -PASCAL, GP100, ],
+        ],
+
+        ISLAND_CLEAR_INTERRUPTS => [
+            DESCRIPTION     => "Clear GC6 island interrupts",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libGC6", "__FUNC__")',
+
+            _TU10X          => [ TU10X_and_later, ],
+            _STUB           => [ pre_TU10X, ],
+        ],
+
+        GC6_CFG_SPACE_RESTORE => [
+            DESCRIPTION     => "Restore CFG space and bypass L3 ones. Manually determine L3",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 regOffset, LwU32 regValue",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM10X          => [ pre_AMPERE, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _GA10X          => [ GA10X, -GA100, -TEGRA_DGPU_AMPERE, ],
+            _STUB           => [ ALL, -dMAXWELL_thru_GA10X, -TEGRA_DGPU_ADA, -T194, ],
+        ],
+
+        GC6_PRE_INIT_RTD3_ENTRY => [
+            DESCRIPTION     => "Configuration for RTD3 support, lwrrently disables auto resend of PMEToAck",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _TU10X          => [ TU10X_and_later, ],
+            _STUB           => [ pre_TU10X, ],
+        ],
+
+        GC6_ENTRY_CTRL_SANITY_CHECK => [
+            DESCRIPTION     => "Check and log incorrect mode been triggered, RTD3 is what was allowed in turing and later",
+            RETURN_TYPE     => GCX_GC6_ENTRY_STATUS,
+            STUB_RETURNS    => GCX_GC6_OK,
+            ARGUMENTS       => "LwBool isRTD3, LwBool isFGC6",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GA10X          => [ GA10X_and_later, ],
+            _STUB           => [ pre_GA10X, ],
+        ],
+
+        GC6_ENTRY_PLM_SANITY_CHECK => [
+            DESCRIPTION     => "Check and log SCI/BSI trigger PLM error",
+            RETURN_TYPE     => GCX_GC6_ENTRY_STATUS,
+            STUB_RETURNS    => GCX_GC6_OK,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _TU10X          => [ TU10X_and_later, ],
+            _STUB           => [ pre_TU10X, ],
+        ],
+
+        GC6_ISLAND_TRIGGER => [
+            DESCRIPTION     => "Set SCI phase(GC5, GC6, RTD3, FGC6) and trigger",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwBool isRTD3, LwBool isFGC6",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GM10X          => [ MAXWELL_thru_VOLTA, ],
+            _TU10X          => [ TU10X_and_later, ],
+        ],
+
+        GC6_POLL_FOR_I2C_IDLE => [
+            DESCRIPTION     => "Polling for I2C idle before entering GC6",
+            RETURN_TYPE     => GCX_GC6_ENTRY_STATUS,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GM10X          => [ dMAXWELL_and_later, ],
+            _STUB           => [ ALL, -dMAXWELL_and_later, ],
+        ],
+
+        GC6_INIT_ERROR_STATUS_LOGGER => [
+            DESCRIPTION     => "Init the error status logger",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GM10X          => [ pre_AMPERE, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _GA10X          => [ GA10X_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB           => [ ALL, -dMAXWELL_and_later, -T194, ],
+        ],
+
+        GC6_UPDATE_ERROR_STATUS_SCRATCH => [
+            DESCRIPTION     => "Actually update the value to scratch register",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            LIKE_INTERFACE  => GC6_INIT_ERROR_STATUS_LOGGER,
+        ],
+
+        FGC6_CLK_GATING => [
+            DESCRIPTION     => "register writes for FGC6 to gate/ungate required clocks",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwBool bGate",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _TU10X          => [ TURING, ],
+            _STUB           => [ ALL, -TURING, ],
+        ],
+
+        FGC6_PRE_ENTRY_SEQ => [
+            DESCRIPTION     => "Pre-entry sequence register writes for FGC6",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            LIKE_INTERFACE  => FGC6_CLK_GATING,
+        ],
+
+        FGC6_PRE_EXIT_SEQ => [
+            DESCRIPTION     => "Pre-exit sequence register writes for FGC6",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            LIKE_INTERFACE  => FGC6_CLK_GATING,
+        ],
+
+        GC6_EXIT_SEQ => [
+            DESCRIPTION     => "Programming registers in GC6 exit",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM10X          => [ pre_AMPERE, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _GA10X          => [ GA10X_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB           => [ ALL, -dMAXWELL_and_later, -T194, ],
+        ],
+
+        GC6_RTD3_VOLT_REMOVE_SCI_DELAY => [
+            DESCRIPTION     => "Remove 1ms delay from SCI delay table if AUX switch is not supported",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libGC6", "__FUNC__")',
+
+            _TU10X          => [ TURING, ],
+            _STUB           => [ ALL, -TURING, ],
+        ],
+
+        GC6_PMU_DETACH => [
+            DESCRIPTION     => "GC6 entry procedure",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "RM_PMU_GC6_DETACH_DATA *pGc6Detach",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GM10X          => [ dMAXWELL_and_later, ],
+        ],
+
+        GC6_DISABLE_HPD_INTERRUPT_WAR_1871547 => [
+            DESCRIPTION     => "disable edp HPD interrupt",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU8 internalPanelHPDPort",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+            INTERFACE_TAG   => 'pgGc6DisableHPDInterruptWAR1871547', # 'HPD' instead of 'Hpd', 'WAR' instead of 'War'
+
+            _GM10X          => [ dMAXWELL_thru_GA10X, ],
+            _STUB           => [ ALL, -dMAXWELL_thru_GA10X, ],
+        ],
+
+        GC6_RESTORE_BOOT_VOLTAGE => [
+            DESCRIPTION     => "To restore to boot voltage which is lower",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU8 pwmVidGpioPin",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            LIKE_INTERFACE  => GC6_DISABLE_HPD_INTERRUPT_WAR_1871547,
+        ],
+
+       GC6_I2C_STATE_UPDATE => [
+            DESCRIPTION     => "disable edp HPD interrupt",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU8 bIsFakeI2C",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+            INTERFACE_TAG   => 'pgGc6I2CStateUpdate', # 'I2C' instead of 'I2c'
+
+            _GM10X          => [ pre_AMPERE, ],
+            _STUB           => [ dAMPERE_and_later],
+        ],
+
+        GC6_CLK_REQ_EN_WAR_1279179 => [
+            DESCRIPTION     => "override CLKREQ value",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+            INTERFACE_TAG   => 'pgGc6ClkReqEnWAR1279179', # 'WAR' instead of 'War, see Features.pm for this feature'
+
+            LIKE_INTERFACE  => GC6_DISABLE_HPD_INTERRUPT_WAR_1871547,
+        ],
+
+        GC6_LTSSM_HOLD_OFF_ENABLE => [
+            DESCRIPTION     => "Enable LTSSM HOLDOFF to prevent from going into polling",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GM10X          => [ dMAXWELL_thru_TURING, ],
+            _STUB           => [ dAMPERE_and_later, ],
+        ],
+
+        GC6_BSI_STATE_SAVE => [
+            DESCRIPTION     => "Saves off BSI state registers before GC6 entry",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GM20X          => [ GM20X, ],
+            _STUB           => [ GM10X, dPASCAL_and_later, ],
+        ],
+
+        GC6_PATCH_FOR_OPTIMIZED_VOLTAGE => [
+            DESCRIPTION     => "Patch so we have the optimized voltage set for GC6 exit when devinit runs",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 phase",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libGC6", "__FUNC__")',
+
+            _GP10X          => [ PASCAL, VOLTA, ],
+            _TU10X          => [ dTURING_and_later, -G00X, ],
+            _STUB           => [ MAXWELL, G00X, ],
+        ],
+
+        GC6_IS_ON_FMODEL => [
+            DESCRIPTION     => "Check if the current platform is fmodel",
+            RETURN_TYPE     => LwBool,
+            STUB_RETURNS    => LW_FALSE,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _TU10X          => [ dTURING_and_later, -G00X, ],
+            _STUB           => [ pre_TURING, G00X, ],
+        ],
+
+        GC6_IS_ON_RTL => [
+            DESCRIPTION     => "Check if the current platform is RTL",
+            RETURN_TYPE     => LwBool,
+            STUB_RETURNS    => LW_FALSE,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            LIKE_INTERFACE  => GC6_IS_ON_FMODEL,
+        ],
+
+        ISLAND_SCI_DI_PSI_SEQ_UPDATE => [
+            DESCRIPTION     => "Update SCI sequencer for PSI",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 sciStepMask",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libPsi", "__FUNC__")',
+
+            _GP10X          => [ dPASCAL_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        GC6_BSI_STATE_RESTORE => [
+            DESCRIPTION     => "Restores BSI state registers on GC6 exit",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM20X          => [ GM20X, ],
+            _STUB           => [ GM10X, dPASCAL_and_later, ],
+        ],
+
+        GC6_IS_D3_HOT => [
+            DESCRIPTION     => "Check if MEM space access is enable/disable in PCIE COMMAND register",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+            STUB_RETURNS    => LW_FALSE,
+
+            _GP10X          => [ dPASCAL_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        GC6_WAIT_FOR_LINK_STATE => [
+            DESCRIPTION     => "Polls for the link state to be ready for GC6",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU16 gc6DetachMask",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GM10X          => [ MAXWELL, ],
+            _GP10X          => [ PASCAL, VOLTA, ],
+            _TU10X          => [ TURING, ],
+            _GA10X          => [ dAMPERE_and_later, ],
+        ],
+
+        GC6_PREPARE_FB_FOR_GC6 => [
+            DESCRIPTION     => "Sets FB state before power off",
+            RETURN_TYPE     => GCX_GC6_ENTRY_STATUS,
+            STUB_RETURNS    => GCX_GC6_OK,
+            ARGUMENTS       => "LwU8 ramType",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GM10X          => [ MAXWELL, ],
+            _GP10X          => [ PASCAL, VOLTA, ],
+            _TU10X          => [ dTURING_and_later, -GA100, -GH100, -GB100, -G00X, ],
+            _STUB           => [ GA100, GH100, GB100, G00X, ],
+        ],
+
+        GC6_DISABLE_ABORT_AND_CLEAR_INTERRUPT => [
+            DESCRIPTION     => " disable GC6 abort and clear SCI interrupt",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GM10X          => [ dMAXWELL_and_later, ],
+        ],
+
+        GC6_ISLAND_CONFIG => [
+            DESCRIPTION     => "Set up SCI for GC6 feature variant",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "RM_PMU_GC6_DETACH_DATA *pGc6Detach",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GM10X          => [ MAXWELL, ],
+            _GP10X          => [ PASCAL, VOLTA, ],
+            _TU10X          => [ dTURING_and_later, -G00X, ],
+            _STUB           => [ G00X, ],
+        ],
+
+        GC6_ISLAND_CONFIG_PWM => [
+            DESCRIPTION     => "Copy LWVDD/MSVDD PWM from THERM to SCI in RTD3 entry",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ pre_dAMPERE, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        GC6_LWLINK_L2_ENTRY => [
+            DESCRIPTION     => "Entry sequence to put LWLINK into L2",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _TU10X          => [ TURING, ],
+            _STUB           => [ ALL, -TURING, ],
+        ],
+
+        GC6_TURN_FAN_OFF => [
+            DESCRIPTION     => "HAL to turn dual fan off in RTD3 entry",
+            RETURN_TYPE     => GCX_GC6_ENTRY_STATUS,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwr", "__FUNC__")',
+            STUB_RETURNS    => GCX_GC6_OK,
+
+            _TU10X          => [ TURING, ],
+            _STUB           => [ ALL, -TURING, ],
+        ],
+
+        GC6_LWLINK_L2_EXIT => [
+            DESCRIPTION     => "Exit sequence to remove LWLINK from L2",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_OK,
+            ARGUMENTS       => "LwU32 lwlinkMask",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _TU10X          => [ TURING, ],
+            _STUB           => [ ALL, -TURING, ],
+        ],
+
+        GC6_ASSERT_WAKE_PIN => [
+            DESCRIPTION      => "AssertP PME WAKE# pin",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwBool bEnable",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ pre_dAMPERE, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        LWLINK_BSI_PATCH_EXIT_SEQ => [
+            DESCRIPTION     => "Patch in the LWLINK exit sequence PRIV writes to BSI phase 1",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 phase",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _TU10X          => [ TURING, ],
+            _STUB           => [ ALL, -TURING, ],
+        ],
+
+        CREATE_BSI_THERM_STATE => [
+            DESCRIPTION     => "Saves off therm state to the BSI",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 ramOffset, LwU32 nPrivs",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GMXXX          => [ MAXWELL, ],
+            _GP10X          => [ dPASCAL_and_later, ],
+        ],
+
+        ILWALIDATE_THERM_I2CS_STATE => [
+            DESCRIPTION     => "set therm I2CS state as invalid when state machine is not in the middle of reply",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GM10X          => [ dMAXWELL_and_later, ],
+        ],
+
+        ISLAND_SLEEP_VOLTAGE_UPDATE => [
+            DESCRIPTION     => "Update Sleep Voltage Device ",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfVfe", "__FUNC__")',
+
+            _GP10X          => [ dPASCAL_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        # Adaptive Power HALs
+
+        AP_DI_IDLE_MASK_INIT => [
+            DESCRIPTION     => "Initialize supplemental idle masks for Adaptive GC5",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+             _GM10X         => [ dMAXWELL_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+             _STUB          => [ ALL, -dMAXWELL_and_later, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        AP_DI_IDLE_THRESHOLD_US_GET => [
+            DESCRIPTION     => "Get DeepL1 Idle Thresholds in micro seconds for Adaptive GC5",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => "void",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libAp", "__FUNC__")',
+
+             _GM10X         => [ dMAXWELL_and_later, ],
+             _STUB          => [ ALL, -dMAXWELL_and_later, ],
+        ],
+
+        AP_DI_IDLE_THRESHOLD_US_SET => [
+            DESCRIPTION     => "Set DeepL1 Idle Thresholds in micro seconds for Adaptive GC5",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libAp", "__FUNC__")',
+
+            LIKE_INTERFACE  => AP_DI_IDLE_THRESHOLD_US_GET,
+        ],
+
+        AP_CONFIG_IDLE_MASK => [
+            DESCRIPTION      => "Configure idle counter mask",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32, LwU32*",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+             _GMXXX         => [ dMAXWELL_thru_VOLTA, ],
+             _TU10X         => [ dTURING_and_later, ],
+        ],
+
+        AP_CONFIG_CNTR_MODE => [
+            DESCRIPTION      => "Configure idle counter mode",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32, LwU32",
+
+            _GMXXX           => [ dMAXWELL_and_later, ],
+        ],
+
+        # End Adaptive Power HALs
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $pgHal;
+

@@ -1,0 +1,106 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Engines.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    SELWRESCRUBSRC_CORE => [
+
+        FLAGS => ':CORE',             # following are all part of core (non-hal)
+
+        'selwrescrub/lw/selwrescrub.c',
+        'hal/lw/selwrescrub_objhal.c' ,
+        'hal/lw/selwrescrub_halstub.c',
+        'selwrescrub/lw/selwrescrub_objselwrescrub.c',
+        'selwrescrub/lw/selwrescrubinit.c',
+
+        ONLY_IF => 'SELWRESCRUB_BOOT_FROM_HS',
+                '../../bootloader/src/hs_entry_checks.c',
+
+    ],  # SELWRESCRUBSRC_CORE
+
+    SELWRESCRUBSRC_ENGINES => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        HAL =>
+        [
+            # These are the files that install the hal support for a given gpu.
+            # The files may be shared across multiple gpus, but every gpu must
+            # be represented by exactly 1 file.
+
+            FLAGS => ':HAL_IMPLEMENTATION'    # mark these files as the hal implementation
+                   . ':HAL_SETUP'
+                   . '',
+
+            CHIPS_SUPPORTED => [ GP10X, ],
+                'hal/pascal/selwrescrub_halgp10x.c',
+
+            CHIPS_SUPPORTED => [ GV10X, ],
+                'hal/volta/selwrescrub_halgv10x.c',
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                'hal/turing/selwrescrub_haltu10x.c',
+
+        ],
+
+        SELWRESCRUB =>
+        [
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, ],
+                'selwrescrub/pascal/selwrescrubgp10x.c',
+                'selwrescrub/pascal/selwrescrubbsigp10x.c',
+                'selwrescrub/pascal/selwrescrubdispgp10x.c',
+
+            CHIPS_SUPPORTED => [ GP10X, ],
+                'selwrescrub/pascal/selwrescrubgp10xonly.c',
+
+            CHIPS_SUPPORTED => [ GP10X, GV10X, ],
+                'selwrescrub/pascal/selwrescrubgp10xgv10x.c',
+
+            CHIPS_SUPPORTED => [ GV10X, ],
+                'selwrescrub/volta/selwrescrubgv10xonly.c',
+
+            CHIPS_SUPPORTED => [ GV10X_and_later, ],
+                'selwrescrub/volta/selwrescrubdispgv10x.c',
+                'selwrescrub/volta/selwrescrubgv10x.c',
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                'selwrescrub/turing/selwrescrubtu10x.c',
+
+            CHIPS_SUPPORTED => [ TU102, TU104, TU106, ],
+                'selwrescrub/turing/selwrescrubtu102only.c',
+
+            CHIPS_SUPPORTED => [ TU116, TU117, AMPERE_and_later, ], 
+                'selwrescrub/turing/selwrescrubtu116.c',
+
+            CHIPS_SUPPORTED => [ GA10X, ], 
+                'selwrescrub/ampere/selwrescrubga10x.c',
+        ],
+
+    ],  # SELWRESCRUBSRC_ENGINES
+
+];   # filesRef
+
+
+my $platformsRef = [
+
+    # the SELWRESCRUB platform
+    PLATFORM_SELWRESCRUB  => [
+        SELWRESCRUBSRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

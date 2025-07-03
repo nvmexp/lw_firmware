@@ -1,0 +1,63 @@
+@startuml
+title vfeEquEvalList
+[-> VFE_EQU : evalList()
+activate VFE_EQU
+    VFE_EQU -> VFE_EQU : checkRelwrsionLevel()
+    activate VFE_EQU
+    deactivate VFE_EQU
+    loop vfeEquIdx != INVALID
+        VFE_EQU -> VFE_EQU : evaluationNode(vfeEquIdx) : nodeResult
+        VFE_EQU -> VFE_EQU_NODE : evalNode()
+        activate VFE_EQU_NODE
+            alt type = COMPARE
+                VFE_EQU_NODE -> VFE_VAR : evalIdxFromCache()
+                activate VFE_VAR
+                    return result
+                VFE_EQU_NODE -> VFE_EQU_NODE : doComparison()
+                VFE_EQU_NODE -> VFE_EQU : evalList
+                activate VFE_EQU
+                    return result
+
+            else type = MINMAX
+                VFE_EQU_NODE -> VFE_EQU : evalList
+                activate VFE_EQU
+                    return resultA
+                VFE_EQU_NODE -> VFE_EQU : evalList
+                activate VFE_EQU
+                    return resultB
+                alt comparison = max
+                    VFE_EQU_NODE -> VFE_EQU_NODE : result = MAX(resultA, resultB)
+                else
+                    VFE_EQU_NODE -> VFE_EQU_NODE : result = MIN(resultA, resultB)
+                end
+
+            else type = QUADRATIC
+                VFE_EQU_NODE -> VFE_VAR : evalIdxFromCache()
+                activate VFE_VAR
+                    return result
+                VFE_EQU_NODE -> VFE_EQU_NODE : callwlateResult()
+                activate VFE_EQU_NODE
+                    return result
+
+            ' Scalar can be removed due to it being part of RPPM.
+            ' RPPM is not enabled on TU10A.
+            else type = SCALAR
+                VFE_EQU_NODE -> VFE_VAR : evalIdxFromCache()
+                note left
+                This feature is not enabled on TU10A.
+                It is dependent on RPPM being enabled.
+                endnote
+                activate VFE_VAR
+                    return value
+                VFE_EQU_NODE -> VFE_EQU
+                activate VFE_EQU
+                    return result
+                VFE_EQU_NODE -> VFE_EQU_NODE : result = value * result
+            end
+            return result
+        VFE_EQU -> VFE_EQU : result += nodeResult
+        VFE_EQU -> VFE_EQU : vfeEquIdx = nextEquIdx
+    end
+    [<- VFE_EQU : result
+deactivate VFE_EQU
+@enduml

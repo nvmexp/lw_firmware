@@ -1,0 +1,14 @@
+@startuml "High Level Module Timer Static Design"
+    node "PMU microcode" {
+        [Units in App Layer] as app_units
+        node "Core Firmware Layer" {
+            node "Module Timer" {
+                rectangle "Unit Callbacks" as callback_unit
+                rectangle "Unit Timer" as timer_unit
+            }
+        }
+        app_units --> timer_unit: uses
+        app_units --> callback_unit: calls API
+        callback_unit --> app_units: timer callbacks
+    }
+@enduml

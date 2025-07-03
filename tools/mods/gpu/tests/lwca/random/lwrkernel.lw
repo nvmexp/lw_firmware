@@ -1,0 +1,3285 @@
+
+/* -*- mode: C -*- */
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2009-2022 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "lwda_runtime_api.h" // located in the LWCA toolkit
+#include "lwrkernel.h"
+#include "../../../js/lwr_comm.h"
+#include "../tools/random.lw"
+#include "../tools/tools.h"
+
+#if (SM_VER >= 73)
+#include <lwda_fp16.h> // __half & __half2 colwersions
+
+// Macros to allow half & half2 to be used by inline assembly
+//
+// NOTE: For .f16x2 instructions PTX requires register type to be .f16x2 or
+// .b32. .bXX are generic sized containers which can be usd in any appropriate
+// instruction; the size is matched, and the type isn't.
+//
+// Ref: Taken from //sw/gpgpu/lwca/tools/lwdart/lwda_fp16.hpp
+// - See file for examples of use.
+//
+#define __HALF_TO_US(var) *(reinterpret_cast<unsigned short *>(&(var)))
+#define __HALF_TO_LWS(var) *(reinterpret_cast<const unsigned short *>(&(var)))
+#define __HALF_TO_VUS(var) *(reinterpret_cast<volatile unsigned short *>(&(var)))
+#define __HALF_TO_CVUS(var) *(reinterpret_cast<const volatile unsigned short *>(&(var)))
+#define __HALF2_TO_UI(var) *(reinterpret_cast<unsigned int *>(&(var)))
+#define __HALF2_TO_LWI(var) *(reinterpret_cast<const unsigned int *>(&(var)))
+#endif // (SM_VER >= 73)
+
+#if (SM_VER >= 90)
+#include <lwda_bf16.h>
+
+// Ref: Taken from //sw/gpgpu/lwca/tools/lwdart/lwda_bf16.hpp
+
+#define __BFLOAT16_TO_US(var) *(reinterpret_cast<unsigned short *>(&(var)))
+#define __BFLOAT16_TO_LWS(var) *(reinterpret_cast<const unsigned short *>(&(var)))
+#define __BFLOAT16_TO_VUS(var) *(reinterpret_cast<volatile unsigned short *>(&(var)))
+#define __BFLOAT16_TO_CVUS(var) *(reinterpret_cast<const volatile unsigned short *>(&(var)))
+#define __BFLOAT162_TO_UI(var) *(reinterpret_cast<unsigned int *>(&(var)))
+#define __BFLOAT162_TO_LWI(var) *(reinterpret_cast<const unsigned int *>(&(var)))
+#endif // (SM_VER >= 90)
+
+#define MAX_THREADS_PER_BLOCK   512     // Compute Capability 1.0 spec
+
+// We use a pair of BLOCK_SIZExBLOCK_SIZE textures, with each texel a single float.
+// as input to SeqMatrixAritmeticTest.
+texture<float, 2, lwdaReadModeElementType> LwdaRandomTexInputA;
+texture<float, 2, lwdaReadModeElementType> LwdaRandomTexInputB;
+
+// Additional textures for use with TextureTest
+texture<float, lwdaTextureType1D, lwdaReadModeElementType> LwdaRandomTexInput1D;
+texture<float, lwdaTextureType3D, lwdaReadModeElementType> LwdaRandomTexInput3D;
+texture<float, lwdaTextureType1DLayered, lwdaReadModeElementType> LwdaRandomTexInput1DL;
+texture<float, lwdaTextureType2DLayered, lwdaReadModeElementType> LwdaRandomTexInput2DL;
+texture<float, lwdaTextureType2D, lwdaReadModeElementType> LwdaRandomTexInputNormClamp;
+texture<float, lwdaTextureType2D, lwdaReadModeElementType> LwdaRandomTexInputNormWrap;
+
+// Surfaces for use with SurfaceTest only. Use in other kernels may lead to
+// unexpected behaviour
+surface<void, 1> LwdaRandomSurfInput1DA;
+surface<void, 2> LwdaRandomSurfInput2DA;
+
+// Allocate some const read-only memory for the Command Sequence List
+__constant__ SeqKernelOp   Seq32KernelOps[Seq32OpsSize];
+__constant__ SeqKernelOp   Seq64KernelOps[Seq64OpsSize];
+__constant__ SeqKernelOp   SeqIntKernelOps[SeqIntOpsSize];
+__constant__ SeqKernelOp   TexKernelOps[TexOpsSize];
+__constant__ SeqKernelOp   SurfKernelOps[SurfOpsSize];
+__constant__ AtomKernelOp  AtomKernelOps[AtomOpsSize];
+__constant__ Union64       Seq64ConstValues[ConstValuesSize];
+
+__device__ int gmemIndex(int tilePitchInElements)
+{
+    // In LwdaRandom kernels, each launched grid gets its own
+    // rectangular region within the A/B/C surfaces, called a Tile.
+    //
+    // Most LwdaRandom kernels dedicate a single 4-byte or 8-byte
+    // element in each Tile to a particular thread.
+    //
+    // This function returns the offset of this thread's element
+    // from the start of the Tile, in elements (not bytes).
+
+    const int bx = blockIdx.x;    // This block's X offset in blocks
+    const int by = blockIdx.y;    // This block's Y offset in blocks
+    const int tx = threadIdx.x;   // This thread's X offset w/in block
+    const int ty = threadIdx.y;   // This thread's Y offset w/in block
+
+    return (((by * blockDim.y) + ty) * tilePitchInElements) +
+           (bx * blockDim.x) + tx;
+}
+
+__device__ void FillMatrix
+(
+    const Tile * A,
+    const int idx,
+    UINT32 * randomState,
+    const GPUFillParam gFP
+)
+{
+    switch(A->fillType)
+    {
+        default:
+        {
+            GetPtr<UINT32*>(A->elements)[idx] =
+                   GetRandomRange(randomState, A->min.u, A->max.u);
+            break;
+        }
+        case ft_uint16:
+        {
+            UINT16 val = static_cast<UINT16>(
+                                GetRandomRange(randomState, A->min.u, A->max.u));
+            UINT16 val2 = static_cast<UINT16>(
+                                GetRandomRange(randomState, A->min.u, A->max.u));
+            GetPtr<UINT32*>(A->elements)[idx] = ((val << 16) | val2);
+            break;
+        }
+        case ft_uint08:
+        {
+            UINT08 val = static_cast<UINT08>(
+                                GetRandomRange(randomState, A->min.u, A->max.u));
+            UINT08 val2 = static_cast<UINT08>(
+                                GetRandomRange(randomState, A->min.u, A->max.u));
+            UINT08 val3 = static_cast<UINT08>(
+                                GetRandomRange(randomState, A->min.u, A->max.u));
+            UINT08 val4 = static_cast<UINT08>(
+                                GetRandomRange(randomState, A->min.u, A->max.u));
+
+            GetPtr<UINT32*>(A->elements)[idx] =
+                            ((val << 24) | (val2 << 16) | (val3 << 8) | val4);
+            break;
+        }
+        case ft_float32:
+        {
+            if (A->fillStyle == rs_range)
+            {
+                GetPtr<float*>(A->elements)[idx] =
+                       GetRandomFloat(randomState, A->min.f, A->max.f);
+            }
+            else
+            {
+                GetPtr<float*>(A->elements)[idx] =
+                       GetRandomFloatExp(randomState, A->min.i, A->max.i);
+            }
+            break;
+        }
+        case ft_float64:
+        {
+            if (A->fillStyle == rs_range)
+            {
+                GetPtr<double*>(A->elements)[idx] =
+                       GetRandomDouble(randomState, A->min.d, A->max.d);
+            }
+            else
+            {
+                GetPtr<double*>(A->elements)[idx] =
+                       GetRandomDoubleExp(randomState, A->min.i, A->max.i);
+            }
+            break;
+        }
+    }
+
+}
+
+#if (SM_VER >= 80)
+// colwert f32 to e8m7
+__device__  UINT16 floatToE8M7 (float fin)
+{
+    UINT32 data = *reinterpret_cast<UINT32*>(&fin);
+
+    // Round to Zero (truncate)
+    data >>= 16;
+
+    // If NaN was truncated, set the LSB in the mantissa to 1
+    if (isnan(fin) && !(data & 0x7F))
+    {
+        data |= 0x1;
+    }
+
+    return static_cast<UINT16>(data);
+}
+
+// colwert e8m7 to f32
+__device__  float E8M7ToFloat (UINT16 fin)
+{
+    UINT32 data = static_cast<UINT32>(fin) << 16;
+    return *reinterpret_cast<float*>(&data);
+}
+
+// colwert f32 to e8m7x2
+__device__ UINT32 floatToE8M7x2 (float fin)
+{
+    UINT32 data = *reinterpret_cast<UINT32*>(&fin);
+
+    // Round to Zero (truncate)
+    data >>= 16;
+
+    // If NaN was truncated, set the LSB in the mantissa to 1
+    if (isnan(fin) && !(data & 0x7F))
+    {
+        data |= 0x1;
+    }
+    return data;
+}
+
+// colwert e8m7x2 to f32
+__device__  float E8M7x2ToFloat (UINT32 fin)
+{
+    UINT32 data = fin << 16;
+    return *reinterpret_cast<float*>(&data);
+}
+
+#endif // (SM_VER >= 80)
+
+/******************************************************************************
+ This kernel will use up to 4 separate input sources to perform a series
+ of arithmetic operations on the output matrix C. The input sources are
+ loaded into shared memory for faster subsequent access. The interim
+ results are initialized with the contents of the output matrixC. Then
+ a series of arithmetic operations are performed using the 4 input sources
+ the results of each operation being stored back to the Values[]. When all
+ the operations are complete the interim results are copied to MatrixC which
+ is located in global memory.
+ This kernel assumes that MatrixA, MatrixB, & MatrixC are all have the same
+ width,height,and element size.
+ Below is a diagram of the data flow. x represents the input/output element
+ for thread x.
+  Input Sources:      Shared Mem   Arithemetic   Interim      Final
+                                   Operation     Results      Results
+   ______ ______                                 shared mem
+  |      |      |      ______       ______
+  |  x   |      |copy |      |     |      |
+  |______|______| --> |  x   |---->|      |
+  |      |      |     |______|     |      |
+  |      |      |     ABs[0][]     |      |
+  |______|______|                  |      |
+  Matrix A                         |      |
+                                   |      |
+   ______ ______                   |      |
+  |      |      |      ______      |      |
+  |  x   |      |copy |      |     |      |                  ______ ______
+  |______|______| --> |  x   |---->|      |                 |      |      |
+  |      |      |     |______|     |      |       ______    |  x   |      |
+  |      |      |     ABs[1][]     |      |      |      |   |______|______|
+  |______|______|                  |######|<---->|  x   |<->|      |      |
+  Matrix B                         |      |      |______|   |      |      |
+                                   |      |      Values[]   |______|______|
+   ______              ______      |      |                 Matrix C
+  |      |Tex2D fetch |      |     |      |
+  |  x   |----------> |  x   |---->|      |
+  |______|            |______|     |      |
+  TextureA            ABs[2][]     |      |
+                                   |      |
+   ______              ______      |      |
+  |      |Tex2D fetch |      |     |      |
+  |  x   | ---------> |  x   |---->|      |
+  |______|            |______|     |______|
+  TextureB            ABs[3][]
+
+******************************************************************************/
+
+namespace SeqMatrixArithTestOpcodesCommon
+{
+    // Unused variables in functions are nameless in the function argument decleration.
+    template <typename T> __device__ __inline__ void op_CRTST_KRNL_SEQ_MTX_OPCODE_Copy1(T result, T oper1, T)
+    {
+        result->f = oper1->f;
+    };
+    template <typename T> __device__ __inline__ void op_CRTST_KRNL_SEQ_MTX_OPCODE_Copy2(T result, T, T oper2)
+    {
+        result->f = oper2->f;
+    };
+    // Compute 1.0 Intrinsics on double operands
+    template <typename T> __device__ __inline__ void op_CRTST_KRNL_SEQ_MTX_OPCODE_Add(T result, T oper1, T)
+    {
+        result->f = result->f + oper1->f;
+    };
+    template <typename T> __device__ __inline__ void op_CRTST_KRNL_SEQ_MTX_OPCODE_Sub(T result, T oper1, T)
+    {
+        result->f = result->f - oper1->f;
+    };
+    template <typename T> __device__ __inline__ void op_CRTST_KRNL_SEQ_MTX_OPCODE_Mul(T result, T oper1, T)
+    {
+        result->f = result->f * oper1->f;
+    };
+    template <typename T> __device__ __inline__ void op_CRTST_KRNL_SEQ_MTX_OPCODE_Div(T result, T oper1, T)
+    {
+        result->f = result->f / oper1->f;
+    };
+    template <typename T> __device__ __inline__ void op_CRTST_KRNL_SEQ_MTX_OPCODE_Min(T result, T oper1, T)
+    {
+        result->f = min(oper1->f, result->f);
+    };
+    template <typename T> __device__ __inline__ void op_CRTST_KRNL_SEQ_MTX_OPCODE_Max(T result, T oper1, T)
+    {
+        result->f = max(oper1->f, result->f);
+    };
+    // Compute 2.0 intrinsics
+    // Basic integer ops (64-bit).
+    template <typename T> __device__ __inline__ void op_CRTST_KRNL_SEQ_MTX_OPCODE_Iadd(T result, T oper1, T)
+    {
+        result->i = result->i + oper1->i;
+    };
+    template <typename T> __device__ __inline__ void op_CRTST_KRNL_SEQ_MTX_OPCODE_Isub(T result, T oper1, T)
+    {
+        result->i = result->i - oper1->i;
+    };
+    template <typename T> __device__ __inline__ void op_CRTST_KRNL_SEQ_MTX_OPCODE_Imul(T result, T oper1, T)
+    {
+        result->i = result->i * oper1->i;
+    };
+    template <typename T> __device__ __inline__ void op_CRTST_KRNL_SEQ_MTX_OPCODE_Idiv(T result, T oper1, T)
+    {
+        result->i = result->i / oper1->i;
+    };
+}
+
+namespace SeqMatrixArithTestOpcodes
+{
+    // Unused variables in functions are nameless in the function argument decleration.
+    using T = Union32*;
+    template <int N> __device__ __inline__ void op(T, T, T, int){};
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Mul24>(T result, T oper1, T, int)
+    {
+        result->i = __mul24(oper1->i, result->i);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Sad>(T result, T oper1, T oper2, int)
+    {
+        result->i = __sad(oper1->i, oper2->i, result->u);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_uSad>(T result, T oper1, T oper2, int)
+    {
+        result->u = __usad(oper1->u, oper2->u, result->u);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Div>(T result, T oper1, T, int)
+    {
+        result->f = result->f / oper1->f;
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Int2Float>(T result, T oper1, T, int)
+    {
+        result->f = __int_as_float(oper1->u);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Sin>(T result, T oper1, T, int)
+    {
+        result->f = __sinf(oper1->f) + result->f;
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Cos>(T result, T oper1, T, int)
+    {
+        result->f = __cosf(oper1->f) + result->f;
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Tan>(T result, T oper1, T, int)
+    {
+        result->f = __tanf(oper1->f) + result->f;
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Log>(T result, T oper1, T, int)
+    {
+        result->f = __logf(fabs(oper1->f)) + result->f;
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Log2>(T result, T oper1, T, int)
+    {
+        result->f = __log2f(fabs(oper1->f)) + result->f;
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Log10>(T result, T oper1, T, int)
+    {
+        result->f = __log10f(fabs(oper1->f)) + result->f;
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Pow>(T result, T oper1, T, int)
+    {
+        result->f = __powf(fabs(oper1->f), result->f);
+    };
+    // Compute 1.1, 1.2 & 1.3 intrinsics
+    // Note: Compute capability 1.1 allows atomic functions, however
+    // to use atomic functions on shared data you have to be at 1.2 or higher.
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicAdd>(T result, T oper1, T, int)
+    {
+        atomicAdd(&result->u, oper1->u);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicSub>(T result, T oper1, T, int)
+    {
+        atomicSub(&result->u, oper1->u);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicExch>(T result, T oper1, T, int)
+    {
+        // Note: this operation will cause the results from all previous operations to be erased.
+        atomicExch(&result->f, oper1->f);
+        // To restore the previous operation results we would need
+        // another array of Values, ie Values2[], that would not be accessed by other threads.
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicMin>(T result, T oper1, T, int)
+    {
+        atomicMin(&result->u, oper1->u);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicMax>(T result, T oper1, T, int)
+    {
+        atomicMax(&result->u, oper1->u);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicInc>(T result, T oper1, T, int)
+    {
+        // increment value if x > v
+        atomicInc(&result->u, oper1->u);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicDec>(T result, T oper1, T, int)
+    {
+        atomicDec(&result->u, oper1->u);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicCas>(T result, T oper1, T oper2, int)
+    {
+        atomicCAS(&result->u, oper1->u, oper2->u);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicAnd>(T result, T oper1, T, int)
+    {
+        atomicAnd(&result->u, oper1->u);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicOr>(T result, T oper1, T, int)
+    {
+        atomicOr(&result->u, oper1->u);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicXor>(T result, T oper1, T, int)
+    {
+        atomicXor(&result->u, oper1->u);
+    };
+    // Compute 2.0 intrinsics
+    // Arithmetic instructions with a 32-bit immediate
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Imul32i>(T result, T, T, int idx)
+    {
+        if (idx % 2)
+            result->i = result->i * 1234567;
+        else
+            result->i = result->i * -9876543;
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Fadd32i>(T result, T, T, int idx)
+    {
+        if (idx % 2)
+            result->f = result->f - 12345;
+        else
+            result->f = result->f + 98765;
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Fmul32i>(T result, T, T, int idx)
+    {
+        if (idx % 2)
+            result->f = result->f * 12345;
+        else
+            result->f = result->f * -98765;
+    };
+
+#if (SM_VER >= 73)
+    // NOTE: MUFU.FP16 instructions with .f16x2 modifiers lwrrently
+    // degrade to two .f16 instructions.
+    // NOTE: ex2.rz.f16 and ex2.rz.f16x2 become MUFU.EX2.F32.
+
+    // Compute 7.3/7.5
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_Tanhf>(T result, T oper1, T, int)
+    {
+        FLOAT32 val = 0;
+        asm("tanh.approx.f32 %0, %1;": "=f"(val) : "f"(oper1->f));
+        result->f += val;
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hTanh>(T result, T oper1, T, int)
+    {
+        const __half in = __float2half(oper1->f);
+        __half out = 0;
+        asm("tanh.rz.f16 %0, %1;"
+                : "=h"(__HALF_TO_US(out)) : "h"(__HALF_TO_LWS(in)));
+        result->f += __half2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Tanh>(T result, T oper1, T, int)
+    {
+        const __half2 in = __float2half2_rn(oper1->f);
+        __half2 out;
+        asm("tanh.rz.f16x2 %0, %1;"
+            : "=r"(__HALF2_TO_UI(out)) : "r"(__HALF2_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hEx2>(T result, T oper1, T, int)
+    {
+        const __half in = __float2half(oper1->f);
+        __half out = 0;
+        asm("ex2.rz.f16 %0, %1;"
+            : "=h"(__HALF_TO_US(out)) : "h"(__HALF_TO_LWS(in)));
+        result->f += __half2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Ex2>(T result, T oper1, T, int)
+    {
+        const __half2 in = __float2half2_rn(oper1->f);
+        __half2 out;
+        asm("ex2.rz.f16x2 %0, %1;"
+            : "=r"(__HALF2_TO_UI(out)) : "r"(__HALF2_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hSin>(T result, T oper1, T, int)
+    {
+        const __half in = __float2half(oper1->f);
+        __half out = 0;
+        asm("sin.approx.f16 %0, %1;"
+            : "=h"(__HALF_TO_US(out)) : "h"(__HALF_TO_LWS(in)));
+        result->f += __half2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Sin>(T result, T oper1, T, int)
+    {
+        const __half2 in = __float2half2_rn(oper1->f);
+        __half2 out;
+        asm("sin.approx.f16x2 %0, %1;"
+            : "=r"(__HALF2_TO_UI(out)) : "r"(__HALF2_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hCos>(T result, T oper1, T, int)
+    {
+        const __half in = __float2half(oper1->f);
+        __half out = 0;
+        asm("cos.approx.f16 %0, %1;"
+            : "=h"(__HALF_TO_US(out)) : "h"(__HALF_TO_LWS(in)));
+        result->f += __half2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Cos>(T result, T oper1, T, int)
+    {
+        const __half2 in = __float2half2_rn(oper1->f);
+        __half2 out;
+        asm("cos.approx.f16x2 %0, %1;"
+            : "=r"(__HALF2_TO_UI(out)) : "r"(__HALF2_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hLg2>(T result, T oper1, T, int)
+    {
+        const __half in = __float2half(oper1->f);
+        __half out = 0;
+        asm("lg2.approx.f16 %0, %1;"
+            : "=h"(__HALF_TO_US(out)) : "h"(__HALF_TO_LWS(in)));
+        result->f += __half2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Lg2>(T result, T oper1, T, int)
+    {
+        const __half2 in = __float2half2_rn(oper1->f);
+        __half2 out;
+        asm("lg2.approx.f16x2 %0, %1;"
+            : "=r"(__HALF2_TO_UI(out)) : "r"(__HALF2_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hSqrt>(T result, T oper1, T, int)
+    {
+        const __half in = __float2half(oper1->f);
+        __half out = 0;
+        asm("sqrt.approx.f16 %0, %1;"
+            : "=h"(__HALF_TO_US(out)) : "h"(__HALF_TO_LWS(in)));
+        result->f += __half2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Sqrt>(T result, T oper1, T, int)
+    {
+        const __half2 in = __float2half2_rn(oper1->f);
+        __half2 out;
+        asm("sqrt.approx.f16x2 %0, %1;"
+            : "=r"(__HALF2_TO_UI(out)) : "r"(__HALF2_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hRsqrt>(T result, T oper1, T, int)
+    {
+        const __half in = __float2half(oper1->f);
+        __half out = 0;
+        asm("rsqrt.approx.f16 %0, %1;"
+            : "=h"(__HALF_TO_US(out)) : "h"(__HALF_TO_LWS(in)));
+        result->f += __half2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Rsqrt>(T result, T oper1, T, int)
+    {
+        const __half2 in = __float2half2_rn(oper1->f);
+        __half2 out;
+        asm("rsqrt.approx.f16x2 %0, %1;"
+            : "=r"(__HALF2_TO_UI(out)) : "r"(__HALF2_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hRcp>(T result, T oper1, T, int)
+    {
+        const __half in = __float2half(oper1->f);
+        __half out = 0;
+        asm("rcp.approx.f16 %0, %1;"
+            : "=h"(__HALF_TO_US(out)) : "h"(__HALF_TO_LWS(in)));
+        result->f += __half2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Rcp>(T result, T oper1, T, int)
+    {
+        const __half2 in = __float2half2_rn(oper1->f);
+        __half2 out;
+        asm("rcp.approx.f16x2 %0, %1;"
+            : "=r"(__HALF2_TO_UI(out)) : "r"(__HALF2_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+#endif // (SM_VER >= 73)
+#if (SM_VER >= 80)
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hfmaE8M7>(T result, T oper1, T oper2, int)
+    {
+        const UINT16 a = floatToE8M7(oper1->f);
+        const UINT16 b = floatToE8M7(oper2->f);
+        const UINT16 c = floatToE8M7(result->f);
+        UINT16 out = 0;
+        asm("fma.rn.bf16 %0, %1, %2, %3;"
+            : "=h"(out) : "h"(a), "h"(b), "h"(c));
+        result->f += E8M7ToFloat(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2fmaE8M7>(T result, T oper1, T oper2, int)
+    {
+        const UINT32 a = floatToE8M7x2(oper1->f);
+        const UINT32 b = floatToE8M7x2(oper2->f);
+        const UINT32 c = floatToE8M7x2(result->f);
+        UINT32 out = 0;
+        asm("fma.rn.bf16x2 %0, %1, %2, %3;"
+            : "=r"(out) : "r"(a), "r"(b), "r"(c));
+        result->f += E8M7x2ToFloat(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hmaxE8M7>(T result, T oper1, T oper2, int)
+    {
+        const UINT16 a = floatToE8M7(oper1->f);
+        const UINT16 b = floatToE8M7(oper2->f);
+        UINT16 out = 0;
+        asm("max.bf16 %0, %1, %2;"
+            : "=h"(out) : "h"(a), "h"(b));
+        result->f += E8M7ToFloat(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hminE8M7>(T result, T oper1, T oper2, int)
+    {
+        const UINT16 a = floatToE8M7(oper1->f);
+        const UINT16 b = floatToE8M7(oper2->f);
+        UINT16 out = 0;
+        asm("min.bf16 %0, %1, %2;"
+            : "=h"(out) : "h"(a), "h"(b));
+        result->f += E8M7ToFloat(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2max>(T result, T oper1, T oper2, int)
+    {
+        const __half2 a = __float2half2_rn(oper1->f);
+        const __half2 b = __float2half2_rn(oper2->f);
+        __half2 out;
+        asm("max.f16x2 %0, %1, %2;"
+            : "=r"(__HALF2_TO_UI(out)) : "r"(__HALF2_TO_LWI(a)), "r"(__HALF2_TO_LWI(b)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2min>(T result, T oper1, T oper2, int)
+    {
+        const __half2 a = __float2half2_rn(oper1->f);
+        const __half2 b = __float2half2_rn(oper2->f);
+        __half2 out;
+        asm("min.f16x2 %0, %1, %2;"
+            : "=r"(__HALF2_TO_UI(out)) : "r"(__HALF2_TO_LWI(a)), "r"(__HALF2_TO_LWI(b)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hfmaMMA>(T result, T oper1, T oper2, int)
+    {
+        // .MMA is inherently part of the fma instruction, and is used for f16x2
+        const __half2 a = __float2half2_rn(oper1->f);
+        const __half2 b = __float2half2_rn(oper2->f);
+        const __half2 c = __float2half2_rn(result->f);
+        __half2 out;
+        asm("fma.rn.f16x2 %0, %1, %2, %3;"
+            : "=r"(__HALF2_TO_UI(out)) : "r"(__HALF2_TO_LWI(a)), "r"(__HALF2_TO_LWI(b)), "r"(__HALF2_TO_LWI(c)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hfmaRELU>(T result, T oper1, T oper2, int)
+    {
+        const __half a = __float2half(oper1->f);
+        const __half b = __float2half(oper2->f);
+        const __half c = __float2half(result->f);
+        __half out;
+        asm("fma.rn.f16.relu %0, %1, %2, %3;"
+            : "=h"(__HALF_TO_US(out)) : "h"(__HALF_TO_LWS(a)), "h"(__HALF_TO_LWS(b)),  "h"(__HALF_TO_LWS(c)));
+        result->f += __half2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_fmaxNaN>(T result, T oper1, T oper2, int)
+    {
+        const float a = oper1->f;
+        const float b = oper2->f;
+        float out;
+        asm("max.NaN.f32 %0, %1, %2;"
+            : "=f"(out) : "f"(a), "f"(b));
+        result->f += out;
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_fminNaN>(T result, T oper1, T oper2, int)
+    {
+        const float a = oper1->f;
+        const float b = oper2->f;
+        float out;
+        asm("min.NaN.f32 %0, %1, %2;"
+            : "=f"(out) : "f"(a), "f"(b));
+        result->f += out;
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_bmmaAnd>(T result, T oper1, T oper2, int)
+    {
+        const UINT32 a = oper1->u;
+        const UINT32 b = oper2->u;
+        const UINT32 c = result->u;
+        UINT32 out[] = {0, 0};
+        asm("_mma.m8n8k128.row.col.s32.b1.b1.s32.and.pop<CRTST_KRNL_SEQ_MTX_OPCODE_>c {%0, %1}, %2, {%3, %4};"
+            : "=r"(out[0]) "=r"(out[1]) : "r"(a), "r"(b), "r"(c), "r"(c));
+        result->u = result->u + out[2] + out[1];
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_bmmaXor>(T result, T oper1, T oper2, int)
+    {
+        const UINT32 a = oper1->u;
+        const UINT32 b = oper2->u;
+        const UINT32 c = result->u;
+        UINT32 out[] = {0, 0};
+        asm("_mma.m8n8k128.row.col.s32.b1.b1.s32.xor.pop<CRTST_KRNL_SEQ_MTX_OPCODE_>c {%0, %1}, %2, {%3, %4};"
+            : "=r"(out[0]) "=r"(out[1]) : "r"(a), "r"(b), "r"(c), "r"(c));
+        result->u = result->u + out[2] + out[1];
+    };
+
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_scatter>(T result, T oper1, T oper2, int idx)
+    {
+        const UINT32 a = oper1->u;
+        const UINT16 b = *reinterpret_cast<UINT16*>(&oper2->u);
+        const UINT32 c = result->u;
+        UINT32 out;
+
+        // scatter requires integer immediates for the target index and masks,
+        // so hardcoding some values here.
+        switch (idx % 4)
+        {
+            case 0:
+            {
+                asm("scatter.b8.thread.b4 %0, %1, %2, 0, 0b1010, %3;"
+                    : "=r"(out) : "r"(a), "h"(b), "r"(c));
+            } break;
+            case 1:
+            {
+                asm("scatter.b8.thread.b4 %0, %1, %2, 1, 0b1011, %3;"
+                    : "=r"(out) : "r"(a), "h"(b), "r"(c));
+            } break;
+            case 2:
+            {
+                asm("scatter.b8.thread.b4 %0, %1, %2, 2, 0b0010, %3;"
+                    : "=r"(out) : "r"(a), "h"(b), "r"(c));
+            } break;
+            default:
+            {
+                asm("scatter.b8.thread.b4 %0, %1, %2, 3, 0b0101, %3;"
+                    : "=r"(out) : "r"(a), "h"(b), "r"(c));
+            }
+        }
+        result->u += out;
+    };
+
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_gather>(T result, T oper1, T oper2, int idx)
+    {
+        const UINT32 a = oper1->u;
+        const UINT32 b = oper2->u;
+        const UINT32 c = result->u;
+        UINT32 out;
+
+        // gather requires a 4 bit immediate for metadata index,
+        // which is a multiple of 2. We switch here to cover all possible values.
+        switch (idx % 8)
+        {
+            case 0:
+            {
+                asm("gather.1g.b8.b2 %0, %1, %2, %3, 0b0000;"
+                    : "=r"(out) : "r"(a), "r"(b), "r"(c));
+            } break;
+            case 1:
+            {
+                asm("gather.1g.b8.b2 %0, %1, %2, %3, 0b0010;"
+                    : "=r"(out) : "r"(a), "r"(b), "r"(c));
+            } break;
+            case 2:
+            {
+                asm("gather.1g.b8.b2 %0, %1, %2, %3, 0b0100;"
+                    : "=r"(out) : "r"(a), "r"(b), "r"(c));
+            } break;
+            case 3:
+            {
+                asm("gather.1g.b8.b2 %0, %1, %2, %3, 0b0110;"
+                    : "=r"(out) : "r"(a), "r"(b), "r"(c));
+            } break;
+            case 4:
+            {
+                asm("gather.1g.b8.b2 %0, %1, %2, %3, 0b1000;"
+                    : "=r"(out) : "r"(a), "r"(b), "r"(c));
+            } break;
+            case 5:
+            {
+                asm("gather.1g.b8.b2 %0, %1, %2, %3, 0b1010;"
+                    : "=r"(out) : "r"(a), "r"(b), "r"(c));
+            } break;
+            case 6:
+            {
+                asm("gather.1g.b8.b2 %0, %1, %2, %3, 0b1100;"
+                    : "=r"(out) : "r"(a), "r"(b), "r"(c));
+            } break;
+            default:
+            {
+                asm("gather.1g.b8.b2 %0, %1, %2, %3, 0b1110;"
+                    : "=r"(out) : "r"(a), "r"(b), "r"(c));
+            }
+        }
+        result->u += out;
+    };
+
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_genMetadata>(T result, T oper1, T oper2, int idx)
+    {
+        const UINT32 a = oper1->u;
+        const UINT32 b = oper2->u;
+        UINT32 out;
+
+        // genMetadata requires a 4 bit immediate for metadata index,
+        // which is a multiple of 2. We switch here to cover all possible values.
+        switch (idx % 8)
+        {
+            case 0:
+            {
+                asm("genmetadata.max.1g.f16.b2 %0, %1, %2, 0, 0b0000, 0;"
+                    : "=r"(out) : "r"(a), "r"(b));
+            } break;
+            case 1:
+            {
+                asm("genmetadata.max.1g.f16.b2 %0, %1, %2, 0, 0b0010, 0;"
+                    : "=r"(out) : "r"(a), "r"(b));
+            } break;
+            case 2:
+            {
+                asm("genmetadata.max.1g.f16.b2 %0, %1, %2, 0, 0b0100, 0;"
+                    : "=r"(out) : "r"(a), "r"(b));
+            } break;
+            case 3:
+            {
+                asm("genmetadata.max.1g.f16.b2 %0, %1, %2, 0, 0b0110, 0;"
+                    : "=r"(out) : "r"(a), "r"(b));
+            } break;
+            case 4:
+            {
+                asm("genmetadata.max.1g.f16.b2 %0, %1, %2, 0, 0b1000, 0;"
+                    : "=r"(out) : "r"(a), "r"(b));
+            } break;
+            case 5:
+            {
+                asm("genmetadata.max.1g.f16.b2 %0, %1, %2, 0, 0b1010, 0;"
+                    : "=r"(out) : "r"(a), "r"(b));
+            } break;
+            case 6:
+            {
+                asm("genmetadata.max.1g.f16.b2 %0, %1, %2, 0, 0b1100, 0;"
+                    : "=r"(out) : "r"(a), "r"(b));
+            } break;
+            default:
+            {
+                asm("genmetadata.max.1g.f16.b2 %0, %1, %2, 0, 0b1110, 0;"
+                    : "=r"(out) : "r"(a), "r"(b));
+            }
+        }
+        result->u += out;
+    };
+#endif // (SM_VER >= 80)
+#if (SM_VER >= 86)
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_fmaxXorSign>(T result, T oper1, T oper2, int)
+    {
+        const float a = oper1->f;
+        const float b = oper2->f;
+        float out;
+        asm("max.xorsign.f32 %0, %1, %2;"
+            : "=f"(out) : "f"(a), "f"(b));
+        result->f += out;
+    };
+
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_fminXorSign>(T result, T oper1, T oper2, int)
+    {
+        const float a = oper1->f;
+        const float b = oper2->f;
+        float out;
+        asm("min.xorsign.f32 %0, %1, %2;"
+            : "=f"(out) : "f"(a), "f"(b));
+        result->f += out;
+    };
+
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hmaxXorSign>(T result, T oper1, T oper2, int)
+    {
+        const __half a = __float2half(oper1->f);
+        const __half b = __float2half(oper2->f);
+        __half out;
+        asm("max.xorsign.f16 %0, %1, %2;"
+            : "=h"(__HALF_TO_US(out)) : "h"(__HALF_TO_LWS(a)), "h"(__HALF_TO_LWS(b)));
+        result->f += __half2float(out);
+    };
+
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hminXorSign>(T result, T oper1, T oper2, int)
+    {
+        const __half a = __float2half(oper1->f);
+        const __half b = __float2half(oper2->f);
+        __half out;
+        asm("min.xorsign.f16 %0, %1, %2;"
+            : "=h"(__HALF_TO_US(out)) : "h"(__HALF_TO_LWS(a)), "h"(__HALF_TO_LWS(b)));
+        result->f += __half2float(out);
+    };
+#endif // (SM_VER >= 86)
+
+#if (SM_VER >= 90)
+    // Compute 9.0
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2maxBF16>(T result, T oper1, T oper2, int)
+    {
+        const __lw_bfloat162 a = __float2bfloat162_rn(oper1->f);
+        const __lw_bfloat162 b = __float2bfloat162_rn(oper2->f);
+        __lw_bfloat162 out;
+        asm("max.bf16x2 %0, %1, %2;"
+            : "=r"(__BFLOAT162_TO_UI(out)) : "r"(__BFLOAT162_TO_LWI(a)), "r"(__BFLOAT162_TO_LWI(b)));
+        result->f += __low2float(out) + __high2float(out);
+
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2minBF16>(T result, T oper1, T oper2, int)
+    {
+        const __lw_bfloat162 a = __float2bfloat162_rn(oper1->f);
+        const __lw_bfloat162 b = __float2bfloat162_rn(oper2->f);
+        __lw_bfloat162 out;
+        asm("min.bf16x2 %0, %1, %2;"
+            : "=r"(__BFLOAT162_TO_UI(out)) : "r"(__BFLOAT162_TO_LWI(a)), "r"(__BFLOAT162_TO_LWI(b)));
+        result->f += __low2float(out) + __high2float(out);
+     };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hfmaRELUBF16>(T result, T oper1, T oper2, int)
+    {
+        const __lw_bfloat16 a = __float2bfloat16(oper1->f);
+        const __lw_bfloat16 b = __float2bfloat16(oper2->f);
+        const __lw_bfloat16 c = __float2bfloat16(result->f);
+        __lw_bfloat16 out;
+        asm("fma.rn.bf16.relu %0, %1, %2, %3;"
+            : "=h"(__BFLOAT16_TO_US(out)) : "h"(__BFLOAT16_TO_LWS(a)), "h"(__BFLOAT16_TO_LWS(b)),  "h"(__BFLOAT16_TO_LWS(c)));
+        result->f += __bfloat162float(out);
+     };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hmaxXorSignBF16>(T result, T oper1, T oper2, int)
+    {
+        const __lw_bfloat16 a = __float2bfloat16(oper1->f);
+        const __lw_bfloat16 b = __float2bfloat16(oper2->f);
+        __lw_bfloat16 out;
+        asm("max.xorsign.bf16 %0, %1, %2;"
+            : "=h"(__BFLOAT16_TO_US(out)) : "h"(__BFLOAT16_TO_LWS(a)), "h"(__BFLOAT16_TO_LWS(b)));
+        result->f += __bfloat162float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hminXorSignBF16>(T result, T oper1, T oper2, int)
+    {
+        const __lw_bfloat16 a = __float2bfloat16(oper1->f);
+        const __lw_bfloat16 b = __float2bfloat16(oper2->f);
+        __lw_bfloat16 out;
+        asm("min.xorsign.bf16 %0, %1, %2;"
+            : "=h"(__BFLOAT16_TO_US(out)) : "h"(__BFLOAT16_TO_LWS(a)), "h"(__BFLOAT16_TO_LWS(b)));
+        result->f += __bfloat162float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hTanhBF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat16 in = __float2bfloat16(oper1->f);
+        __lw_bfloat16 out = 0;
+        asm("tanh.approx.bf16 %0, %1;"
+                : "=h"(__BFLOAT16_TO_US(out)) : "h"(__BFLOAT16_TO_LWS(in)));
+        result->f += __bfloat162float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2TanhBF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat162 in = __float2bfloat162_rn(oper1->f);
+        __lw_bfloat162 out;
+        asm("tanh.approx.bf16x2 %0, %1;"
+            : "=r"(__BFLOAT162_TO_UI(out)) : "r"(__BFLOAT162_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hEx2BF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat16 in = __float2bfloat16(oper1->f);
+        __lw_bfloat16 out = 0;
+        asm("ex2.approx.ftz.bf16 %0, %1;"
+            : "=h"(__BFLOAT16_TO_US(out)) : "h"(__BFLOAT16_TO_LWS(in)));
+        result->f += __bfloat162float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Ex2BF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat162 in = __float2bfloat162_rn(oper1->f);
+        __lw_bfloat162 out;
+        asm("ex2.approx.ftz.bf16x2 %0, %1;"
+            : "=r"(__BFLOAT162_TO_UI(out)) : "r"(__BFLOAT162_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hSinBF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat16 in = __float2bfloat16(oper1->f);
+        __lw_bfloat16 out = 0;
+        asm("sin.approx.ftz.bf16 %0, %1;"
+            : "=h"(__BFLOAT16_TO_US(out)) : "h"(__BFLOAT16_TO_LWS(in)));
+        result->f += __bfloat162float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2SinBF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat162 in = __float2bfloat162_rn(oper1->f);
+        __lw_bfloat162 out;
+        asm("sin.approx.ftz.bf16x2 %0, %1;"
+            : "=r"(__BFLOAT162_TO_UI(out)) : "r"(__BFLOAT162_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hCosBF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat16 in = __float2bfloat16(oper1->f);
+        __lw_bfloat16 out = 0;
+        asm("cos.approx.ftz.bf16 %0, %1;"
+            : "=h"(__BFLOAT16_TO_US(out)) : "h"(__BFLOAT16_TO_LWS(in)));
+        result->f += __bfloat162float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2CosBF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat162 in = __float2bfloat162_rn(oper1->f);
+        __lw_bfloat162 out;
+        asm("cos.approx.ftz.bf16x2 %0, %1;"
+            : "=r"(__BFLOAT162_TO_UI(out)) : "r"(__BFLOAT162_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hLg2BF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat16 in = __float2bfloat16(oper1->f);
+        __lw_bfloat16 out = 0;
+        asm("lg2.approx.ftz.bf16 %0, %1;"
+            : "=h"(__BFLOAT16_TO_US(out)) : "h"(__BFLOAT16_TO_LWS(in)));
+        result->f += __bfloat162float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Lg2BF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat162 in = __float2bfloat162_rn(oper1->f);
+        __lw_bfloat162 out;
+        asm("lg2.approx.ftz.bf16x2 %0, %1;"
+            : "=r"(__BFLOAT162_TO_UI(out)) : "r"(__BFLOAT162_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hSqrtBF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat16 in = __float2bfloat16(oper1->f);
+        __lw_bfloat16 out = 0;
+        asm("sqrt.approx.ftz.bf16 %0, %1;"
+            : "=h"(__BFLOAT16_TO_US(out)) : "h"(__BFLOAT16_TO_LWS(in)));
+        result->f += __bfloat162float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2SqrtBF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat162 in = __float2bfloat162_rn(oper1->f);
+        __lw_bfloat162 out;
+        asm("sqrt.approx.ftz.bf16x2 %0, %1;"
+            : "=r"(__BFLOAT162_TO_UI(out)) : "r"(__BFLOAT162_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hRsqrtBF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat16 in = __float2bfloat16(oper1->f);
+        __lw_bfloat16 out = 0;
+        asm("rsqrt.approx.ftz.bf16 %0, %1;"
+            : "=h"(__BFLOAT16_TO_US(out)) : "h"(__BFLOAT16_TO_LWS(in)));
+        result->f += __bfloat162float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2RsqrtBF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat162 in = __float2bfloat162_rn(oper1->f);
+        __lw_bfloat162 out;
+        asm("rsqrt.approx.ftz.bf16x2 %0, %1;"
+            : "=r"(__BFLOAT162_TO_UI(out)) : "r"(__BFLOAT162_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_hRcpBF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat16 in = __float2bfloat16(oper1->f);
+        __lw_bfloat16 out = 0;
+        asm("rcp.approx.ftz.bf16 %0, %1;"
+            : "=h"(__BFLOAT16_TO_US(out)) : "h"(__BFLOAT16_TO_LWS(in)));
+        result->f += __bfloat162float(out);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_h2RcpBF16>(T result, T oper1, T, int)
+    {
+        const __lw_bfloat162 in = __float2bfloat162_rn(oper1->f);
+        __lw_bfloat162 out;
+        asm("rcp.approx.ftz.bf16x2 %0, %1;"
+            : "=r"(__BFLOAT162_TO_UI(out)) : "r"(__BFLOAT162_TO_LWI(in)));
+        result->f += __low2float(out) + __high2float(out);
+    };
+#endif // (SM_VER >= 90)
+}
+
+enum StressFlag
+{
+    NO = false,
+    YES = true
+};
+
+// In case of stress there is a fall-through unless i reaches input.numOps
+#define STRESS_BRIDGE i++; if ((!stressFlag) || (i >= input.numOps)) break;
+
+template <typename T, bool stressFlag> __device__ void SeqMatrixArithTestSelect(
+                                           const SeqKernelParam &input,
+                                           T Values,
+                                           T ABs,
+                                           const int &vIdx,
+                                           const int &gIdx
+                                           )
+{
+    const int maxIdx = blockDim.x * blockDim.y;
+    // Increment the idx value by this amount after each operation (default = 1)
+    const int inc = input.inc;
+    int idx = vIdx;
+    int i = 0;
+    volatile int o1,o2;
+
+    // In case of Non-stress, the switch statement is used to pick cases in a random sequence
+    // After a single Opcode exelwtion the control would jump back to DISPATCH until input.numOps limit is reached
+    // In case of stress, switch is used at the beginning after which the opcodes are exelwted in order/cycle
+    // until input.numOps limit is reached
+
+    DISPATCH:
+    if (i >= input.numOps)
+    {
+        goto END;
+    }
+    o1 = Seq32KernelOps[i + input.opIdx].Operand1 * MAX_THREADS_PER_BLOCK + idx;
+    o2 = Seq32KernelOps[i + input.opIdx].Operand2 * MAX_THREADS_PER_BLOCK + idx;
+    switch(Seq32KernelOps[i + input.opIdx].OpCode)
+    {
+        default:
+            i++;
+            break;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_None:  //for debugging
+        // START label for the stress version so it can linearly iterate over the opcodes without the use of switch
+        START:
+            o1 = Seq32KernelOps[i + input.opIdx].Operand1 * MAX_THREADS_PER_BLOCK + idx;
+            o2 = Seq32KernelOps[i + input.opIdx].Operand2 * MAX_THREADS_PER_BLOCK + idx;
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Copy1:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Copy1<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Copy2:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Copy2<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Add:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Add<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Sub:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Sub<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Mul:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Mul<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Mul24:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_Mul24>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Sad:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_Sad>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_uSad:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_uSad>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Div:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Div<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Min:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Min<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Max:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Max<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Int2Float:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_Int2Float>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Sin:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_Sin>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Cos:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_Cos>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Tan:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_Tan>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Log:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_Log>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Log2:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_Log2>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Log10:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_Log10>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Pow:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_Pow>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_AtomicAdd:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicAdd>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_AtomicSub:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicSub>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_AtomicExch:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicExch>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_AtomicMin:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicMin>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_AtomicMax:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicMax>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_AtomicInc:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicInc>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_AtomicDec:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicDec>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_AtomicCas:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicCas>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_AtomicAnd:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicAnd>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_AtomicOr:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicOr>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_AtomicXor:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_AtomicXor>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Iadd:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Iadd<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Isub:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Isub<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Imul:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Imul<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Idiv:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Idiv<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Imul32i:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_Imul32i>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Fadd32i:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_Fadd32i>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Fmul32i:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_Fmul32i>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+#if (SM_VER >= 73)
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Tanhf:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_Tanhf>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hTanh:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hTanh>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2Tanh:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Tanh>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hEx2:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hEx2>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2Ex2:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Ex2>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hSin:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hSin>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2Sin:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Sin>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hCos:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hCos>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2Cos:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Cos>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hLg2:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hLg2>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2Lg2:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Lg2>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hSqrt:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hSqrt>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2Sqrt:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Sqrt>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hRsqrt:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hRsqrt>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2Rsqrt:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Rsqrt>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hRcp:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hRcp>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2Rcp:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Rcp>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+#endif // (SM_VER >= 73)
+#if (SM_VER >= 80)
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hfmaE8M7:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hfmaE8M7>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2fmaE8M7:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2fmaE8M7>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hmaxE8M7:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hmaxE8M7>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hminE8M7:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hminE8M7>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2max:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2max>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2min:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2min>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hfmaMMA:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hfmaMMA>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hfmaRELU:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hfmaRELU>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_fmaxNaN:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_fmaxNaN>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_fminNaN:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_fminNaN>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_bmmaAnd:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_bmmaAnd>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_bmmaXor:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_bmmaXor>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_scatter:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_scatter>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_gather:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_gather>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_genMetadata:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_genMetadata>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+#endif // (SM_VER >= 80)
+#if (SM_VER >= 86)
+        case CRTST_KRNL_SEQ_MTX_OPCODE_fmaxXorSign:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_fmaxXorSign>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_fminXorSign:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_fminXorSign>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hmaxXorSign:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hmaxXorSign>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hminXorSign:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hminXorSign>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+#endif // (SM_VER >= 86)
+#if (SM_VER >= 90)
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2maxBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2maxBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2minBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2minBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hfmaRELUBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hfmaRELUBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hmaxXorSignBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hmaxXorSignBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hminXorSignBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hminXorSignBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hTanhBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hTanhBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2TanhBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2TanhBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hEx2BF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hEx2BF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2Ex2BF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Ex2BF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hSinBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hSinBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2SinBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2SinBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hCosBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hCosBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2CosBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2CosBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hLg2BF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hLg2BF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2Lg2BF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2Lg2BF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hSqrtBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hSqrtBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2SqrtBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2SqrtBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hRsqrtBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hRsqrtBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2RsqrtBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2RsqrtBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_hRcpBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_hRcpBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_h2RcpBF16:
+            SeqMatrixArithTestOpcodes::op<CRTST_KRNL_SEQ_MTX_OPCODE_h2RcpBF16>(Values + vIdx, ABs + o1, ABs + o2, idx);
+            STRESS_BRIDGE;
+#endif // (SM_VER >= 90)
+    }
+    // increment the indexes and wrap as necessary
+    idx += inc;
+    idx %= maxIdx;
+    if (i < input.numOps)
+    {
+        // For non-stress the jump is before the switch (DISPATCH label) so there can be random selection while
+        // in case of stress its to the START label to just linearly iterate via fall-through.
+        if(stressFlag)
+        {
+            goto START;
+        }
+        else
+        {
+            goto DISPATCH;
+        }
+    }
+
+    END:
+    // sync. the threads to make sure the preceding computation is done
+    // before loading the next set of A/B sub-matrices.
+    __syncthreads();
+
+    GetPtr<UINT32*>(input.C.elements)[gIdx] = Values[vIdx].u;
+    UINT32 sm;
+    asm("mov.u32 %0, %%smid;" : "=r"(sm));
+    GetPtr<UINT32*>(input.SMID.elements)[gIdx] = sm;
+}
+
+//-----------------------------------------------------------------------------
+// Double precision intrinsics only work on sm_13 and higher architectures.
+// B1175399:
+// Since the compiler doesn't see inside the asm statements it
+// colwerts the asm inputs to generic address's. So we have to
+// use generic loads in the asm instructions.
+// ie no .shared or .global identifiers
+
+namespace SeqMatrixArithTestOpcodesDouble
+{
+    // Unused variables in functions are nameless in the function argument decleration.
+    using T = Union64*;
+    template <int N> __device__ __inline__ void op(T, T, T){};
+    // Compute 1.3 double funtions
+    // fused multiply-add (d = a*b+c)
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_fmarn>(T result, T oper1, T oper2)
+    {
+        result->f = __fma_rn(result->f, oper1->f, oper2->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_fmarz>(T result, T oper1, T oper2)
+    {
+        result->f = __fma_rz(result->f, oper1->f, oper2->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_fmaru>(T result, T oper1, T oper2)
+    {
+        result->f = __fma_ru(result->f, oper1->f, oper2->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_fmard>(T result, T oper1, T oper2)
+    {
+        result->f =__fma_rd(result->f, oper1->f, oper2->f);
+    };
+    // add with rounding (d = a+b)
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_addrn>(T result, T oper1, T)
+    {
+        result->f = __dadd_rn(result->f, oper1->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_addrz>(T result, T oper1, T)
+    {
+        result->f = __dadd_rz(result->f, oper1->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_addru>(T result, T oper1, T)
+    {
+        result->f = __dadd_ru(result->f, oper1->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_addrd>(T result, T oper1, T)
+    {
+        result->f = __dadd_rd(result->f, oper1->f);
+    };
+    // multiply with rounding (d= a*b)
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_mulrn>(T result, T oper1, T)
+    {
+        result->f = __dmul_rn(result->f, oper1->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_mulrz>(T result, T oper1, T)
+    {
+        result->f = __dmul_rz(result->f, oper1->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_mulru>(T result, T oper1, T)
+    {
+        result->f = __dmul_ru(result->f, oper1->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_mulrd>(T result, T oper1, T)
+    {
+        result->f = __dmul_rd(result->f, oper1->f);
+    };
+    // Compute 2.0 intrinsics
+    // divide with rounding (d = a/b)
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_divrn>(T result, T oper1, T)
+    {
+        result->f = __ddiv_rn(result->f, oper1->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_divrd>(T result, T oper1, T)
+    {
+        result->f = __ddiv_rd(result->f, oper1->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_divrz>(T result, T oper1, T)
+    {
+        result->f = __ddiv_rz(result->f, oper1->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_divru>(T result, T oper1, T)
+    {
+        result->f = __ddiv_ru(result->f, oper1->f);
+    };
+    // recipical (d = 1/a)
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_rcprn>(T result, T oper1, T)
+    {
+        result->f = __drcp_rn(result->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_rcprd>(T result, T, T)
+    {
+        result->f = __drcp_rd(result->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_rcprz>(T result, T, T)
+    {
+        result->f = __drcp_rz(result->f);
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_rcpru>(T result, T, T)
+    {
+        result->f = __drcp_ru(result->f);
+    };
+    // square root (d = sqrt(a))
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_sqrtrn>(T result, T, T)
+    {
+        result->f = __dsqrt_rn(fabs(result->f));
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_sqrtrd>(T result, T, T)
+    {
+        result->f = __dsqrt_rd(fabs(result->f));
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_sqrtrz>(T result, T, T)
+    {
+        result->f = __dsqrt_rz(fabs(result->f));
+    };
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_sqrtru>(T result, T, T)
+    {
+        result->f = __dsqrt_ru(fabs(result->f));
+    };
+    // LDS_LDU instruction coverage
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_ldsldu>(T result, T oper1, T oper2)
+    {
+        //ldu requires read from constant memory
+        double * a = reinterpret_cast<double*>(&Seq64ConstValues[0]);
+        asm (".reg .f64 t1;");
+        asm (".reg .f64 t2;");
+        // see:B1175399
+        #if(LWDA_COMPILER_RELEASE < 550)
+            asm ("ld.shared.f64 t2, [%0];" :: "l"(&oper2->f));
+        #else
+            asm ("ld.f64 t2, [%0];" :: "l"(&oper2->f));
+        #endif
+        asm ("ldu.f64 t1, [%0];" :: "l"(a));
+        asm ("add.f64 t1, t1, t2;");
+        asm ("add.f64 %0, %0, t1;" : "+d"(result->f));
+    };
+    // LDU instruction coverage
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_ldu>(T result, T, T)
+    {
+        double * b = reinterpret_cast<double*>(&Seq64ConstValues[1]);
+        asm (".reg .f64 v1;");
+        asm ("ldu.f64 v1, [%0];" :: "l"(b));//see B1175399
+        // Thread sync to prevent compiler from using LDS_LDU
+        __syncthreads();
+        asm ("add.f64 %0, %0, v1;" : "+d"(result->f));
+    };
+#if (SM_VER >= 80)
+    template <> __device__ __inline__ void op<CRTST_KRNL_SEQ_MTX_OPCODE_clmad>(T result, T oper1, T oper2)
+    {
+        const UINT64 a = oper1->u;
+        const UINT64 b = oper2->u;
+        const UINT64 c = result->u;
+        UINT64 outHi = 0;
+        UINT64 outLo = 0;
+        asm ("clmad.hi.u64 %0, %1, %2, %3;" : "=l"(outHi) : "l"(a), "l"(b), "l"(c));
+        asm ("clmad.lo.u64 %0, %1, %2, %3;" : "=l"(outLo) : "l"(a), "l"(b), "l"(c));
+        result->u  = result->u + outHi + outLo;
+    };
+#endif // (SM_VER >= 80)
+}
+
+template <typename T, bool stressFlag> __device__ void SeqMatrixArithTestDoubleSelect(
+                                           const SeqKernelParam &input,
+                                           T Values,
+                                           T ABs,
+                                           const int &vIdx,
+                                           const int &gIdx,
+                                           const int &cWidth
+                                           )
+{
+    const int maxIdx = blockDim.x * blockDim.y;
+    // Increment the idx value by this amount after each operation (default = 1)
+    const int inc = input.inc;
+    int idx = vIdx;
+    int i = 0;
+    volatile int o1,o2;
+
+    // Index into tiles for thread 0 of this CTA/block.
+    // We can safely read this from any thread in the same CTA
+    // after a __syncthreads has been done.
+    const int t0_gIdx = blockIdx.y*blockDim.y*cWidth + blockIdx.x*blockDim.x;
+
+    // In case of Non-stress, the switch statement is used to pick cases in a random sequence
+    // After a single Opcode exelwtion the control would jump back to DISPATCH until input.numOps limit is reached
+    // In case of stress, switch is used at the beginning after which the opcodes are exelwted in order/cycle
+    // until input.numOps limit is reached
+
+    DISPATCH:
+    if (i >= input.numOps)
+    {
+        goto END;
+    }
+    o1 = Seq64KernelOps[i + input.opIdx].Operand1 * MAX_THREADS_PER_BLOCK + idx;
+    o2 = Seq64KernelOps[i + input.opIdx].Operand2 * MAX_THREADS_PER_BLOCK + idx;
+    switch(Seq64KernelOps[i + input.opIdx].OpCode)
+    {
+        default:
+            i++;
+            break;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_None:  //for debugging
+        // START label for the stress version so it can linearly iterate over the opcodes without the use of switch
+        START:
+            o1 = Seq64KernelOps[i + input.opIdx].Operand1 * MAX_THREADS_PER_BLOCK + idx;
+            o2 = Seq64KernelOps[i + input.opIdx].Operand2 * MAX_THREADS_PER_BLOCK + idx;
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Copy1:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Copy1<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Copy2:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Copy2<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Add:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Add<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Sub:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Sub<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Mul:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Mul<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Div:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Div<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_fmarn:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_fmarn>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_fmarz:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_fmarz>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_fmaru:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_fmaru>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_fmard:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_fmard>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_addrn:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_addrn>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_addrz:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_addrz>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_addru:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_addru>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_addrd:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_addrd>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_mulrn:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_mulrn>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_mulrz:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_mulrz>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_mulru:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_mulru>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_mulrd:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_mulrd>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Min:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Min<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Max:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Max<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_divrn:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_divrn>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_divrd:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_divrd>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_divrz:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_divrz>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_divru:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_divru>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_rcprn:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_rcprn>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_rcprd:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_rcprd>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_rcprz:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_rcprz>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_rcpru:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_rcpru>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_sqrtrn:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_sqrtrn>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_sqrtrd:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_sqrtrd>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_sqrtrz:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_sqrtrz>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_sqrtru:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_sqrtru>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_ldsldu:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_ldsldu>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_ldu:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_ldu>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_ldg:
+        {
+            double * ax = GetPtr<double*>(input.A.elements) + t0_gIdx;
+            asm (".reg .f64 v2;");
+            asm ("ld.global.nc.f64 v2, [%0];" :: "l"(ax));
+            asm ("add.f64 %0, %0, v2;" : "+d"(Values[vIdx].f));
+            STRESS_BRIDGE;
+        }
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Iadd:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Iadd<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Isub:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Isub<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Imul:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Imul<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+        case CRTST_KRNL_SEQ_MTX_OPCODE_Idiv:
+            SeqMatrixArithTestOpcodesCommon::op_CRTST_KRNL_SEQ_MTX_OPCODE_Idiv<T>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+#if (SM_VER >= 80)
+        case CRTST_KRNL_SEQ_MTX_OPCODE_clmad:
+            SeqMatrixArithTestOpcodesDouble::op<CRTST_KRNL_SEQ_MTX_OPCODE_clmad>(Values + vIdx, ABs + o1, ABs + o2);
+            STRESS_BRIDGE;
+#endif // (SM_VER >= 80)
+    }
+    // increment the indexes and wrap as necessary
+    idx += inc;
+    idx %= maxIdx;
+    if (i < input.numOps)
+    {
+        // For non-stress the jump is before the switch (DISPATCH label) so there can be random selection while
+        // in case of stress its to the START label to just linearly iterate via fall-through.
+        if(stressFlag)
+        {
+            goto START;
+        }
+        else
+        {
+            goto DISPATCH;
+        }
+    }
+
+    END:
+    // sync. the threads to make sure the preceding computation is done
+    // before loading the next set of A/B sub-matrices.
+    __syncthreads();
+
+    GetPtr<double*>(input.C.elements)[gIdx] = Values[vIdx].f;
+    UINT32 sm;
+    asm("mov.u32 %0, %%smid;" : "=r"(sm));
+    GetPtr<UINT64*>(input.SMID.elements)[gIdx] = sm;
+    return;
+}
+
+template <typename T1, typename T2, bool stressFlag, int numABs>
+__device__ void SeqMatrixArithTestCommon
+(
+    const SeqKernelParam &input,
+    const GPUFillParam &gFP
+)
+{
+    // Idx of this thread within the Tiles.  Unique within grid.
+    const int cWidth = input.C.pitch / input.C.elementSize;
+    const int gIdx = gmemIndex(cWidth);
+
+    // index counter for assigning to the Values[].  Unique within CTA/block.
+    const int vIdx = threadIdx.y * blockDim.x + threadIdx.x;
+
+    // Interim results storage. We need shared memory to support atomic
+    // operations.
+    __shared__ T1 Values[MAX_THREADS_PER_BLOCK];
+
+    // shared memory for the sub-matrix A & B
+    __shared__ T1 ABs[numABs][MAX_THREADS_PER_BLOCK];
+
+    // load up all of the input data from each thread in this block
+    if (gFP.GPUFill)
+    {
+        UINT32 randomState;
+        InitRandomState(gFP.seed + gIdx, &randomState);
+        FillMatrix(&input.A, gIdx, &randomState, gFP);
+        FillMatrix(&input.B, gIdx, &randomState, gFP);
+        FillMatrix(&input.C, gIdx, &randomState, gFP);
+        __syncthreads();
+    }
+
+    Values[vIdx].f = GetPtr<T2*>(input.C.elements)[gIdx];
+    ABs[0][vIdx].f = GetPtr<T2*>(input.A.elements)[gIdx];
+    ABs[1][vIdx].f = GetPtr<T2*>(input.B.elements)[gIdx];
+
+    // This is for 32-bit typs; 2 additional texture inputs are used.
+    if (numABs == 4)
+    {
+        const int tx = threadIdx.x;
+        const int ty = threadIdx.y;
+        ABs[2][vIdx].f = tex2D(LwdaRandomTexInputA,    (T2)tx, (T2)ty);
+        ABs[3][vIdx].f = tex2D(LwdaRandomTexInputB,    (T2)tx, (T2)ty);
+    }
+    // sync the threads to make sure all of the matrix indices are loaded
+    __syncthreads();
+
+    // Current read/write index for Values and maybe ABs.
+    // Each thread in the CTA/block has a different value here, but
+    // we rotate as we loop through the ops.
+
+    // Select between 32-bit & 64-bit(Double). 4 inputs in case of 32-bit while 2 for 64-bit
+    if (numABs == 4)
+    {
+        SeqMatrixArithTestSelect<Union32*, stressFlag>(input, 
+                                                       reinterpret_cast<Union32*>(&Values[0]), 
+                                                       reinterpret_cast<Union32*>(&ABs[0][0]), 
+                                                       vIdx, 
+                                                       gIdx);
+    }
+    else
+    {
+        SeqMatrixArithTestDoubleSelect<Union64*, stressFlag>(input, 
+                                                             reinterpret_cast<Union64*>(&Values[0]), 
+                                                             reinterpret_cast<Union64*>(&ABs[0][0]), 
+                                                             vIdx, 
+                                                             gIdx, 
+                                                             cWidth);
+    }
+}
+
+extern "C" __global__ void SeqMatrixArithmeticTest
+(
+    const SeqKernelParam input,
+    const GPUFillParam gFP
+)
+{
+    SeqMatrixArithTestCommon<Union32, float, StressFlag::NO, 4>(input, gFP);
+}
+
+extern "C" __global__ void SeqMatrixArithmeticTestDouble
+(
+    const SeqKernelParam input,
+    const GPUFillParam gFP
+)
+{
+    SeqMatrixArithTestCommon<Union64, double, StressFlag::NO, 2>(input, gFP);
+}
+
+#ifdef BUG_984813 // debugging feature, for gk110 hw issue
+//-----------------------------------------------------------------------------
+// Double precision intrinsics only work on sm_13 and higher architectures.
+extern "C" __global__ void DivRnExpFull
+(
+    const SeqKernelParam input,
+    const GPUFillParam gFP
+)
+{
+    // with (in elements) of matrix C
+    const int cWidth = input.C.pitch / input.C.elementSize;
+
+    // index counter for assigning to the Values[].
+    const int vIdx = threadIdx.y * blockDim.x + threadIdx.x;
+
+    // thread specific index into each array.
+    int idx;
+
+    // Interim results storage. We need shared memory to support atomic operations.
+    __shared__ Union64 Values[MAX_THREADS_PER_BLOCK];
+
+    // shared memory for the sub-matrix A & B
+    __shared__ Union64 ABs[2][MAX_THREADS_PER_BLOCK];
+
+    // Load the shared array with initial values
+    idx =  (((blockIdx.y * blockDim.y) + threadIdx.y) * cWidth) + // row offset
+            (blockIdx.x * blockDim.x) + threadIdx.x;              // col offset
+
+
+    Values[vIdx].f = GetPtr<double*>(input.C.elements)[idx];
+    ABs[0][vIdx].f = GetPtr<double*>(input.A.elements)[idx];
+    ABs[1][vIdx].f = GetPtr<double*>(input.B.elements)[idx];
+
+    // sync the threads to make sure all of the matrix indices are loaded
+    __syncthreads();
+
+
+    // perform a single __ddiv_rn() operation on the data
+    // Compute 2.0 intrinsics
+    // divide with rounding (d = a/b)
+    Values[vIdx].f = __ddiv_rn(Values[vIdx].f, ABs[0][vIdx].f);
+
+    // sync. the threads to make sure the preceding computation is done
+    // before loading the next set of A/B sub-matrices.
+    __syncthreads();
+
+
+    // write the result back to the output matrix
+    GetPtr<double*>(input.C.elements)[idx] = Values[vIdx].f;
+
+    // write the smid too.
+    UINT32 sm;
+    asm("mov.u32 %0, %%smid;" : "=r"(sm));
+    GetPtr<UINT64*>(input.SMID.elements)[idx] = sm;
+
+    return;
+}
+
+extern "C" __global__ void DivRnExp
+(
+    const SeqKernelParam input,
+    const GPUFillParam gFP
+)
+{
+    __shared__ Union64 Values[MAX_THREADS_PER_BLOCK];
+
+    // shared memory for the sub-matrix A & B
+    __shared__ Union64 ABs[2][MAX_THREADS_PER_BLOCK];
+    Values[0].f = GetPtr<double*>(input.C.elements)[0];
+    ABs[0][0].f = GetPtr<double*>(input.A.elements)[0];
+    ABs[1][0].f = GetPtr<double*>(input.B.elements)[0];
+
+    Values[0].f = __ddiv_rn(Values[0].f, ABs[0][0].f);
+
+    GetPtr<double*>(input.C.elements)[0] = Values[0].f;
+    return;
+}
+#endif // BUG_984813 debugging feature, for gk110 hw issue
+
+// Similar to SeqMatrixArithmeticTest. Gives up the randomness in the opcode order
+// and some randomness in operand source for higher performance.
+extern "C" __global__ void SeqMatrixArithmeticTestStress
+(
+    const SeqKernelParam input,
+    const GPUFillParam gFP
+)
+{
+    SeqMatrixArithTestCommon<Union32, float, StressFlag::YES, 4>(input, gFP);
+}
+
+// Similar to SeqMatrixArithmeticTestDouble. Gives up the randomness in the opcode order
+// and some randomness in operand source for higher performance.
+extern "C" __global__ void SeqMatrixArithmeticTestDoubleStress
+(
+    const SeqKernelParam input,
+    const GPUFillParam gFP
+)
+{
+    SeqMatrixArithTestCommon<Union64, double, StressFlag::YES, 2>(input, gFP);
+}
+
+// This test mimicks the workload found in LwdaStress2
+extern "C" __global__ void StressTest
+(
+    const SeqKernelParam input,
+    const GPUFillParam gFP
+)
+{
+    // Idx of this thread within the Tiles.  Unique within grid.
+    const int cWidth = input.C.pitch / input.C.elementSize;
+    const int gIdx = gmemIndex(cWidth);
+
+    // index counter for assigning to the Values[].  Unique within CTA/block.
+    const int vIdx = threadIdx.y * blockDim.x + threadIdx.x;
+
+    // Interim results storage. We need shared memory to support atomic
+    // operations.
+    __shared__ Union32 Values[MAX_THREADS_PER_BLOCK];
+
+    // shared memory for the sub-matrix A & B
+    __shared__ Union32 ABs[4][MAX_THREADS_PER_BLOCK];
+
+    // load up all of the input data from each thread in this block
+    if (gFP.GPUFill)
+    {
+        UINT32 randomState;
+        InitRandomState(gFP.seed + gIdx, &randomState);
+        FillMatrix(&input.A, gIdx, &randomState, gFP);
+        FillMatrix(&input.B, gIdx, &randomState, gFP);
+        FillMatrix(&input.C, gIdx, &randomState, gFP);
+        __syncthreads();
+    }
+
+    Values[vIdx].f = GetPtr<float*>(input.C.elements)[gIdx];
+    ABs[0][vIdx].f = GetPtr<float*>(input.A.elements)[gIdx];
+    ABs[1][vIdx].f = GetPtr<float*>(input.B.elements)[gIdx];
+
+    // sync the threads to make sure all of the matrix indices are loaded
+    __syncthreads();
+
+    volatile float s = ABs[0][vIdx].f;
+    volatile float t = ABs[1][vIdx].f;
+    const float x = GetPtr<float*>(input.C.elements)[gIdx];
+    if (input.numOps)
+    {
+        // now perform a series of operations on these matrices.
+        for (int i=0; i < input.numOps; i++)
+        {
+            s = s * x + x;
+            t = t * x + x;
+        }
+        Values[vIdx].f = s * t + x;
+    }
+    else
+    {
+        Values[vIdx].f = s + t + x;
+    }
+
+    // sync. the threads to make sure the preceding computation is done
+    // before loading the next set of A/B sub-matrices.
+    __syncthreads();
+
+    GetPtr<UINT32*>(input.C.elements)[gIdx] = Values[vIdx].u;
+    UINT32 sm;
+    asm("mov.u32 %0, %%smid;" : "=r"(sm));
+    GetPtr<UINT32*>(input.SMID.elements)[gIdx] = sm;
+}
+
+// This test exercises int instructions that don't mesh well with the float instructions
+extern "C" __global__ void SeqMatrixIntegerTest
+(
+    const SeqKernelParam input,
+    const GPUFillParam gFP
+)
+{
+    // Idx of this thread within the Tiles.  Unique within grid.
+    const int cWidth = input.C.pitch / input.C.elementSize;
+    const int gIdx = gmemIndex(cWidth);
+
+    // index counter for assigning to the Values[].  Unique within CTA/block.
+    const int vIdx = threadIdx.y * blockDim.x + threadIdx.x;
+
+    // Increment the idx value by this amount after each operation (default = 1)
+    const int inc = input.inc;
+
+    // Interim results storage. We need shared memory to support atomic
+    // operations.
+    __shared__ Union32 Values[MAX_THREADS_PER_BLOCK];
+
+    if (gFP.GPUFill)
+    {
+        UINT32 randomState;
+        InitRandomState(gFP.seed + gIdx, &randomState);
+        FillMatrix(&input.A, gIdx, &randomState, gFP);
+        FillMatrix(&input.B, gIdx, &randomState, gFP);
+        FillMatrix(&input.C, gIdx, &randomState, gFP);
+        __syncthreads();
+    }
+
+    // shared memory for the sub-matrix A & B
+    __shared__ Union32 ABs[4][MAX_THREADS_PER_BLOCK];
+    ABs[0][vIdx].i = GetPtr<INT32*>(input.A.elements)[gIdx];
+    ABs[1][vIdx].i = GetPtr<INT32*>(input.B.elements)[gIdx];
+
+    INT32 tmpValue;
+
+    Values[vIdx].i = GetPtr<INT32*>(input.C.elements)[gIdx];
+
+    // Current read/write index for Values and maybe ABs.
+    // Each thread in the CTA/block has a different value here, but
+    // we rotate as we loop through the ops.
+    int idx = vIdx;
+    const int maxIdx = blockDim.x * blockDim.y;
+
+    // sync the threads to make sure all of the matrix indices are loaded
+    __syncthreads();
+
+    // now perform a series of operations on these matrices.
+    for (int i=0; i < input.numOps; i++)
+    {
+        volatile int oper1 = SeqIntKernelOps[i+input.opIdx].Operand1;
+        volatile int oper2 = SeqIntKernelOps[i+input.opIdx].Operand2;
+        switch (SeqIntKernelOps[i+input.opIdx].OpCode)
+        {
+            // ignore operations we don't understand
+            default:
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_None:    // used for debugging.
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vadd:
+                //Values[vIdx].i += Values[vIdx][idx].i + ABs[oper1][idx].i;
+                asm("vadd.s32.s32.s32 %0, %0, %1;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vsub:
+                asm("vsub.s32.s32.s32 %0, %0, %1;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vabsdiff:
+                asm("vabsdiff.s32.s32.s32 %0, %0, %1;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vmin:
+                asm("vmin.s32.s32.s32.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vmax:
+                asm("vmax.s32.s32.s32.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vshl:
+                asm("vshl.u32.u32.u32.wrap %0, %0, %1;"
+                    : "+r"(Values[vIdx].u) : "r"(ABs[oper1][idx].u));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vshr:
+                asm("vshr.u32.u32.u32.wrap %0, %0, %1;"
+                    : "+r"(Values[vIdx].u) : "r"(ABs[oper1][idx].u));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vmad:
+                asm("vmad.s32.s32.s32 %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vset:
+                asm("vset.s32.s32.lt %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].u) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_prmt:
+                asm("prmt.b32 %0, %0, %1, %1;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_addcc:
+                asm("add.cc.s32 %0, %1, %2;"
+                    : "=r"(tmpValue) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                asm("addc.s32 %0, %0, %1;" : "+r"(Values[vIdx].i) : "r"(tmpValue));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_subcc:
+                asm("sub.cc.s32 %0, %1, %2;"
+                    : "=r"(tmpValue) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                asm("subc.s32 %0, %0, %1;" : "+r"(Values[vIdx].i) : "r"(tmpValue));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vadd2:
+                asm("vadd2.s32.s32.s32.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vsub2:
+                asm("vsub2.s32.s32.s32.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vavrg2:
+                asm("vavrg2.s32.s32.s32.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vabsdiff2:
+                asm("vabsdiff2.s32.s32.s32.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vmin2:
+                asm("vmin2.s32.s32.s32.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vmax2:
+                asm("vmax2.s32.s32.s32.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vset2:
+                asm("vset2.s32.s32.lt.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vadd4:
+                asm("vadd4.s32.s32.s32.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vsub4:
+                asm("vsub4.s32.s32.s32.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vavrg4:
+                asm("vavrg4.s32.s32.s32.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vabsdiff4:
+                asm("vabsdiff4.s32.s32.s32.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vmin4:
+                asm("vmin4.s32.s32.s32.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vmax4:
+                asm("vmax4.s32.s32.s32.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_vset4:
+                asm("vset4.s32.s32.lt.add %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_madcchi:
+                asm("mad.hi.cc.s32 %0, %1, %2, %3;" : "=r"(tmpValue)
+                    : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i), "r"(Values[vIdx].i));
+                asm("madc.hi.cc.s32 %0, %0, %1, %2;" : "+r"(tmpValue)
+                    : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                asm("madc.hi.s32 %0, %0, %1, %2;" : "+r"(Values[vIdx].i)
+                    : "r"(tmpValue), "r"(ABs[oper1][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_madcclo:
+                asm("mad.lo.cc.s32 %0, %1, %2, %3;" : "=r"(tmpValue)
+                    : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i), "r"(Values[vIdx].i));
+                asm("madc.lo.cc.s32 %0, %0, %1, %2;" : "+r"(tmpValue)
+                    : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                asm("madc.lo.s32 %0, %0, %1, %2;" : "+r"(Values[vIdx].i)
+                    : "r"(tmpValue), "r"(ABs[oper1][idx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_shfl:
+                //butterfly reduction
+                //see B1175399
+                asm (".reg .s32 t1;");
+                asm (".reg .s32 t2;");
+                #if(LWDA_COMPILER_RELEASE < 550)
+                    asm ("ld.shared.s32 t1, [%0];" :: "l"(&ABs[oper1][idx].i));
+                #else
+                    asm ("ld.s32 t1, [%0];" :: "l"(&ABs[oper1][idx].i));
+                #endif
+                asm ("shfl.sync.bfly.b32 t2, t1, 0x10, 0x1f, 0xffffffff;");
+                asm ("add.s32 t1, t2, t1;");
+                asm ("shfl.sync.bfly.b32 t2, t1, 0x8, 0x1f, 0xffffffff;");
+                asm ("add.s32 t1, t2, t1;");
+                asm ("shfl.sync.bfly.b32 t2, t1, 0x4, 0x1f, 0xffffffff;");
+                asm ("add.s32 t1, t2, t1;");
+                asm ("shfl.sync.bfly.b32 t2, t1, 0x2, 0x1f, 0xffffffff;");
+                asm ("add.s32 t1, t2, t1;");
+                asm ("shfl.sync.bfly.b32 t2, t1, 0x1, 0x1f, 0xffffffff;");
+                asm ("add.s32 %0, t2, t1;" : "+r"(Values[vIdx].i));
+                break;
+            case CRTST_KRNL_SEQ_MTX_OPCODE_shf:
+                asm("shf.l.clamp.b32 %0, %1, %2, 16;"
+                    : "=r"(tmpValue) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                Values[vIdx].i += tmpValue;
+                break;
+
+#if (SM_VER == 61)
+            case CRTST_KRNL_SEQ_MTX_OPCODE_dp4a:
+                asm("dp4a.s32.s32 %0, %1, %2, %0;"
+                    : "+r"(Values[vIdx].i) : "r"(ABs[oper1][idx].i), "r"(ABs[oper2][idx].i));
+                break;
+#endif // (SM_VER == 61)
+
+        }
+        idx += inc;
+        idx = idx % maxIdx;
+    }
+
+    // sync. the threads to make sure the preceding computation is done
+    // before loading the next set of A/B sub-matrices.
+    __syncthreads();
+
+    GetPtr<INT32*>(input.C.elements)[gIdx] = Values[vIdx].i;
+    UINT32 sm;
+    asm("mov.u32 %0, %%smid;" : "=r"(sm));
+    GetPtr<UINT32*>(input.SMID.elements)[gIdx] = sm;
+}
+
+__device__ void fixTileForOneCTA(Tile * pT, int x, int y)
+{
+    pT->elements =
+        pT->elements +
+        y * blockDim.y * pT->pitch +
+        x * blockDim.x * pT->elementSize;
+    pT->width = blockDim.x * pT->elementSize;
+    pT->height = blockDim.y;
+    pT->offsetX += x * blockDim.x;
+    pT->offsetY += y * blockDim.y;
+}
+
+extern "C" __global__ void GpuWorkCreationTest
+(
+    const GwcKernelParam input,
+    const GPUFillParam gFP
+)
+{
+    lwdaStream_t s;
+    lwdaError_t  err = lwdaStreamCreateWithFlags(&s, lwdaStreamNonBlocking);
+    if (err != lwdaSuccess)
+    {
+        const int cWidth = input.C.pitch / input.C.elementSize;
+        const int gIdx = gmemIndex(cWidth);
+        GetPtr<UINT32*>(input.C.elements)[gIdx] = (int)err;
+        __syncthreads();
+        return;
+    }
+    for (int gx = threadIdx.x; gx < input.gridW; gx += blockDim.x)
+    {
+        for (int gy = threadIdx.y; gy < input.gridH; gy += blockDim.y)
+        {
+            SeqKernelParam launchArg;
+            launchArg.numOps = input.numOps;
+            launchArg.A = input.A;
+            launchArg.B = input.B;
+            launchArg.C = input.C;
+            launchArg.SMID = input.SMID;
+
+            fixTileForOneCTA(&launchArg.A, gx, gy);
+            fixTileForOneCTA(&launchArg.B, gx, gy);
+            fixTileForOneCTA(&launchArg.C, gx, gy);
+            fixTileForOneCTA(&launchArg.SMID, gx, gy);
+
+            // launch one CTA of StressTest.
+            dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
+            dim3 dimGrid(1,1);
+            StressTest<<< dimGrid, dimBlock, 0, s >>>(launchArg, gFP);
+        }
+    }
+    lwdaDeviceSynchronize();
+    lwdaStreamDestroy(s);
+}
+
+extern "C" __global__ void SmallDebugTest
+(
+    const Tile A,
+    const Tile C,
+    const GPUFillParam gFP
+)
+{
+    // Idx of this thread within the Tiles.  Unique within grid.
+    const int cWidth = C.pitch / C.elementSize;
+    const int gIdx = gmemIndex(cWidth);
+
+    // index counter for assigning to the Values[].  Unique within CTA/block.
+    const int vIdx = threadIdx.y * blockDim.x + threadIdx.x;
+
+    // Interim results storage. We need shared memory to support atomic
+    // operations.
+    __shared__ Union32 Values[MAX_THREADS_PER_BLOCK];
+
+    // shared memory for the sub-matrix A & B
+    __shared__ Union32 ABs[4][MAX_THREADS_PER_BLOCK];
+
+    // load up all of the input data from each thread in this block
+    if (gFP.GPUFill)
+    {
+        UINT32 randomState;
+        InitRandomState(gFP.seed + gIdx, &randomState);
+        FillMatrix(&A, gIdx, &randomState, gFP);
+        FillMatrix(&C, gIdx, &randomState, gFP);
+        __syncthreads();
+    }
+
+    Values[vIdx].u = GetPtr<UINT32*>(C.elements)[gIdx];
+    ABs[0][vIdx].u = GetPtr<UINT32*>(A.elements)[gIdx];
+
+    // sync the threads to make sure all of the matrix indices are loaded
+    __syncthreads();
+
+    Values[vIdx].f = Values[vIdx].f + ABs[0][vIdx].f; // passes
+
+    // sync. the threads to make sure the preceding computation is done
+    // before loading the next set of A/B sub-matrices.
+    __syncthreads();
+
+    GetPtr<UINT32*>(C.elements)[gIdx] = *((UINT32*)&Values[vIdx].u);
+}
+
+
+
+// PBK/BRK (loop break instructions).
+__device__ int TryBreak(int control, int loops)
+{
+    int tmp = 0;
+    // incr is always 1, but optimizer doesn't know.
+    // Use arbitrary strange const to make this easier to find in SASS dump.
+    int incr = loops > 0x999 ? 7 : 1;
+
+    for (int i = 0; i < loops; i++)
+    {
+        tmp = tmp + incr;
+        if (i >= (control & 0x1f))
+            break;
+    }
+    return tmp;
+}
+
+// Stub to fool optimizer.
+__device__ int Return7(int control, int results)
+{
+    return 7;
+}
+
+// Test relwrsion.
+__device__ int Recur(int depth, int control)
+{
+    if (depth)
+    {
+        // Note: LWCA compiler is smart enough to recognize tail-relwrsion.
+        // We must add one to the returned value before returning ourselves,
+        // or it will just BRA instead of CAL.
+        // We're trying to test deep relwrsion (nested CAL).
+        return Recur(depth-1, control+1) + 1;
+    }
+    else
+    {
+        return control;
+    }
+}
+
+// This test exercising divergent and colwergent branching.
+extern "C" __global__ void DivergentBranching
+(
+    const Tile InTile,
+    const Tile OutTile,
+    const GPUFillParam gFP
+)
+{
+    // Width (in ints) of input/output rects.
+    const int Width = OutTile.pitch / sizeof(int);
+
+    // Offset (in ints) of this thread's in and out data.
+    const int tIdx = gmemIndex(Width);
+
+    // Fill with GPU if required
+    if (gFP.GPUFill)
+    {
+        UINT32 randomState;
+        InitRandomState(gFP.seed + tIdx, &randomState);
+        FillMatrix(&InTile, tIdx, &randomState, gFP);
+        FillMatrix(&OutTile, tIdx, &randomState, gFP);
+        __syncthreads();
+    }
+
+    // Pointers to our input and output subsurfaces.
+    const int * pIn  = GetPtr<const int*>(InTile.elements);
+    int *       pOut = GetPtr<int*>(OutTile.elements);
+
+    // Our result value -- start with current contents of output surface.
+    int result = pOut[tIdx];
+
+    // Our control value for data-driven branching below.
+    const int control = pIn[tIdx];
+
+    // incr is always 1, but the optimizer doesn't know that.
+    const int incr = OutTile.elementSize ? 1 : 0;
+
+    // Try to force optimizer to not inline functions, by calling through ptrs.
+    typedef int (*FuncPtr)(int, int);
+    FuncPtr FuncPtrs[3] = { TryBreak, Return7, Recur };
+
+    // Test SSY and .S suffix (if/else).
+    // Strange arbitrary constants make SASS code easier to locate.
+    if ((control * 0x111) & 1)
+    {
+        result = result + incr;
+        if ((control * 0x222) & 2)
+        {
+            result = result + incr;
+            if ((control * 0x333) & 3)
+            {
+                result = result + incr;
+                if ((control * 0x444) & 4)
+                {
+                    result = result + incr;
+                    if ((control * 0x555) & 5)
+                        result = result + incr;
+                }
+            }
+        }
+    }
+
+    // Reverse bit order (different set of threads diverging per warp).
+    if (control & 16)
+    {
+        result = result + incr;
+        if (control & 8)
+        {
+            result = result + incr;
+            if (control & 4)
+            {
+                result = result + incr;
+                if (control & 2)
+                {
+                    result = result + incr;
+                    if (control & 1)
+                        result = result + incr;
+                }
+            }
+        }
+    }
+
+    // Call TryBreak.
+    result ^= 0x777;
+    result += FuncPtrs[incr-1](control, 0x1f+incr);
+
+    // Call Return7.
+    result ^= 0x888;
+    result += FuncPtrs[incr](control, result & 0xff);
+
+    // Call Recur.
+    // First arg is relwrsion depth, limit this to 31.
+    result ^= 0x887;
+    result += FuncPtrs[incr+1](control & 0x1F, ~control);
+
+    // EXIT instructions.
+    pOut[tIdx] = result + 0x11*incr;
+    if (control & 1)
+        return;
+    pOut[tIdx] = result + 0x22*incr;
+    if (control & 2)
+        return;
+    pOut[tIdx] = result + 0x33*incr;
+    if (control & 4)
+        return;
+    pOut[tIdx] = result + 0x44*incr;
+    if (control & 8)
+        return;
+    pOut[tIdx] = result + 0x55*incr;
+    if (control & 16)
+        return;
+    pOut[tIdx] = result + 0x66*incr;
+}
+
+extern "C" __global__ void TextureTest
+(
+    const Tile outTile
+    ,const UINT32 numOps
+    ,const UINT32 opIdx
+    ,const GPUFillParam gFP
+)
+{
+    // Idx of this thread within the Tiles.  Unique within grid.
+    const int cWidth = outTile.pitch / outTile.elementSize;
+    const int gIdx = gmemIndex(cWidth);
+
+    // index counter for assigning to the Values[].  Unique within CTA/block.
+    const int vIdx = threadIdx.y * blockDim.x + threadIdx.x;
+
+    // Increment the idx value by this amount after each operation (default = 1)
+    const int inc = 1;
+
+    // Interim results storage. We need shared memory to support atomic
+    // operations.
+    __shared__ Union32 Values[MAX_THREADS_PER_BLOCK];
+
+    // load up all of the input data from each thread in this block
+    if (gFP.GPUFill)
+    {
+        UINT32 randomState;
+        InitRandomState(gFP.seed + gIdx, &randomState);
+        FillMatrix(&outTile, gIdx, &randomState, gFP);
+        __syncthreads();
+    }
+
+    Values[vIdx].f = GetPtr<float*>(outTile.elements)[gIdx];
+
+    // sync the threads to make sure all of the matrix indices are loaded
+    __syncthreads();
+
+    // from this point on we will be using the shared memory.
+    int idx = vIdx % LwdaRandomTexSize;
+
+    const int tx = threadIdx.x;   // This thread's X offset w/in block
+    const int ty = threadIdx.y;   // This thread's Y offset w/in block
+    const float normX = (float)tx / LwdaRandomTexSize;
+    const float normY = (float)ty / LwdaRandomTexSize;
+    for (int i=0; i < numOps; i++)
+    {
+        const int modifier = (i % 3);
+
+        switch(TexKernelOps[i+opIdx].OpCode)
+        {
+            default:
+                break;
+            case CRTST_KRNL_TEX_OPCODE_tex1D:
+                Values[vIdx].f += tex1D(LwdaRandomTexInput1D, (float)tx);
+                break;
+            case CRTST_KRNL_TEX_OPCODE_tex2D:
+                Values[vIdx].f += tex2D(LwdaRandomTexInputA, (float)tx, (float)ty);
+                break;
+            case CRTST_KRNL_TEX_OPCODE_tex3D:
+                Values[vIdx].f += tex3D(LwdaRandomTexInput3D, (float)tx, (float)ty, idx);
+                break;
+            case CRTST_KRNL_TEX_OPCODE_texclamphi:
+                Values[vIdx].f += tex2D(LwdaRandomTexInputNormClamp, normX+modifier, normY+modifier);
+                break;
+            case CRTST_KRNL_TEX_OPCODE_texclamplo:
+                Values[vIdx].f += tex2D(LwdaRandomTexInputNormClamp, normX-modifier, normY-modifier);
+                break;
+            case CRTST_KRNL_TEX_OPCODE_texwraphi:
+                Values[vIdx].f += tex2D(LwdaRandomTexInputNormWrap, normX+modifier, normY+modifier);
+                break;
+            case CRTST_KRNL_TEX_OPCODE_texwraplo:
+                Values[vIdx].f += tex2D(LwdaRandomTexInputNormWrap, normX-modifier, normY-modifier);
+                break;
+            case CRTST_KRNL_TEX_OPCODE_tex1DL:
+                Values[vIdx].f += tex1DLayered(LwdaRandomTexInput1DL, (float)tx, idx);
+                break;
+            case CRTST_KRNL_TEX_OPCODE_tex2DL:
+                Values[vIdx].f += tex2DLayered(LwdaRandomTexInput2DL, (float)tx, (float)ty, idx);
+                break;
+            case CRTST_KRNL_TEX_OPCODE_tld4:
+            {
+                float4 data;
+                asm("tld4.r.2d.v4.f32.f32 {%0,%1,%2,%3}, [LwdaRandomTexInputA, {%4,%5}];"
+                        : "=f"(data.x), "=f"(data.y), "=f"(data.w), "=f"(data.z)
+                        : "f"((float)tx), "f"((float)ty));
+                Values[vIdx].f += data.x + data.y + data.w + data.z;
+                break;
+            }
+        }
+        idx += inc;
+        idx = idx % LwdaRandomTexSize;
+    }
+
+    __syncthreads();
+
+    GetPtr<UINT32*>(outTile.elements)[gIdx] = Values[vIdx].u;
+}
+
+
+extern "C" __global__ void SurfaceRead
+(
+    const Tile outTile
+    ,const UINT32 numOps
+    ,const UINT32 opIdx
+    ,const UINT32 subSurfOffset
+    ,const GPUFillParam gFP
+)
+{
+    // Idx of this thread within the Tiles.  Unique within grid.
+    const int cWidth = outTile.pitch / outTile.elementSize;
+    const int gIdx = gmemIndex(cWidth);
+
+    // index counter for assigning to the Values[].  Unique within CTA/block.
+    const int vIdx = threadIdx.y * blockDim.x + threadIdx.x;
+
+    // Interim results storage. We need shared memory to support atomic
+    // operations.
+    __shared__ Union32 Values[MAX_THREADS_PER_BLOCK];
+
+    if (gFP.GPUFill)
+    {
+        UINT32 randomState;
+        InitRandomState(gFP.seed + gIdx, &randomState);
+        FillMatrix(&outTile, gIdx, &randomState, gFP);
+        __syncthreads();
+    }
+
+    Values[vIdx].f = GetPtr<float*>(outTile.elements)[gIdx];
+
+    __syncthreads();
+
+    float data;
+    const int tx = threadIdx.x;
+    const int ty = threadIdx.y;
+    const INT32 fSize = sizeof(float);
+    const UINT32 x = tx + subSurfOffset;
+    for (int i=0; i < numOps; i++)
+    {
+        switch(SurfKernelOps[i+opIdx].OpCode)
+        {
+            default:
+                break;
+            case CRTST_KRNL_SURF_OPCODE_suld1DA:
+                surf1Dread(&data, LwdaRandomSurfInput1DA, fSize*x, lwdaBoundaryModeClamp);
+                Values[vIdx].f += data;
+                break;
+            case CRTST_KRNL_SURF_OPCODE_suld2DA:
+                surf2Dread(&data, LwdaRandomSurfInput2DA, fSize*x, ty, lwdaBoundaryModeClamp);
+                Values[vIdx].f += data;
+                break;
+        }
+    }
+
+    // sync. the threads to make sure the preceding computation is done
+    // before loading the next set of A/B sub-matrices.
+    __syncthreads();
+
+    GetPtr<UINT32*>(outTile.elements)[gIdx] = Values[vIdx].u;
+}
+
+
+extern "C" __global__ void SurfaceWrite
+(
+    const Tile outTile
+    ,const UINT32 rndBlockx
+    ,const UINT32 rndBlocky
+    ,const UINT32 subSurfOffset
+)
+{
+    // Idx of this thread within the Tiles.  Unique within grid.
+    const int cWidth = outTile.pitch / outTile.elementSize;
+    const int gIdx = gmemIndex(cWidth);
+
+    // index counter for assigning to the Values[].  Unique within CTA/block.
+    const int vIdx = threadIdx.y * blockDim.x + threadIdx.x;
+
+    // Rnd Block index
+    const int2 rndBlockIdx = {static_cast<INT32>(rndBlockx % gridDim.x),
+                              static_cast<INT32>(rndBlocky % gridDim.y)};
+
+    // Interim results storage. We need shared memory to support atomic
+    // operations.
+    __shared__ Union32 Values[MAX_THREADS_PER_BLOCK];
+
+    Values[vIdx].f = GetPtr<float*>(outTile.elements)[gIdx];
+    __syncthreads();
+
+    const int tx = threadIdx.x;
+    const int ty = threadIdx.y;
+    const int bx = blockIdx.x;
+    const int by = blockIdx.y;
+    const INT32 fSize = sizeof(float);
+    const UINT32 x = tx + subSurfOffset;
+    if ( bx == rndBlockIdx.x  && by == rndBlockIdx.y )
+    {
+        // write to surfaces here
+        if ( ty == rndBlocky % blockDim.y )
+        {
+            surf1Dwrite(Values[vIdx].f, LwdaRandomSurfInput1DA, fSize*x, lwdaBoundaryModeClamp);
+        }
+
+        surf2Dwrite(Values[vIdx].f, LwdaRandomSurfInput2DA, fSize*x, ty, lwdaBoundaryModeClamp);
+    }
+
+    // sync. the threads to make sure the preceding computation is done
+    // before loading the next set of A/B sub-matrices.
+    __syncthreads();
+}
+
+// kernel for testing matrix inits on GPU
+extern "C" __global__ void MatrixInitTest
+(
+    const Tile C,
+    const GPUFillParam gFP
+)
+{
+    // Idx of this thread within the Tiles.  Unique within grid.
+    const int cWidth = C.pitch / C.elementSize;
+    const int gIdx = gmemIndex(cWidth);
+
+    // load up all of the input data from each thread in this block
+
+    if (gFP.GPUFill)
+    {
+        UINT32 randomState;
+        InitRandomState(gFP.seed + gIdx, &randomState);
+        FillMatrix(&C, gIdx, &randomState, gFP);
+    }
+
+}
+
+// Test ATOM and RED instructions in shared and global memory.
+
+// Four threads share one result struct in the output tile.
+struct result
+{
+    UINT32 i32;
+    float  f32;
+    UINT64 i64;
+};
+const int threadsPerResult = sizeof(result) / sizeof(UINT32);
+
+__device__ volatile result * GetResultPtr(const Tile * pTile, UINT32 ctaIdx)
+{
+    const UINT64 ctaOrigin =
+        pTile->elements +
+        blockIdx.y * blockDim.y * pTile->pitch +
+        blockIdx.x * blockDim.x * sizeof(UINT32);
+
+    const UINT32 ctaWidthInResults = blockDim.x / threadsPerResult;
+    const UINT32 x = ctaIdx % ctaWidthInResults;
+    const UINT32 y = ctaIdx / ctaWidthInResults;
+
+    const UINT64 addr = ctaOrigin + y * pTile->pitch + x * sizeof(result);
+    return reinterpret_cast<volatile result *>(addr);
+}
+
+extern "C" __global__ void AtomTest
+(
+    const Tile output
+    ,const GPUFillParam gFP
+    ,UINT32 opIdx
+    ,UINT32 numOps
+)
+{
+    // A local per-thread variable to accumulate results of atom instructions.
+    //
+    // Example:
+    //   atom.global.add.s32 reg, [addr], 1
+    //
+    // When N threads execute this at once to the same addr, the result
+    // in [addr] is deterministic.  But reg will be different
+    // between threads.  The sum of all the reg results is deterministic.
+    //
+    // If we ignore the atom results, the compiler will use reduce instead.
+    // So we must accumulate atom results in each thread, then consolidate
+    // in shared variables, then finally store in the result surface.
+    int localAtomResult = 0;
+
+    // This can be set false for debugging gmem stuff.
+    // It must be true normally so we test results of ops on shared memory.
+    bool doStoreSmem = true;
+
+    // Thread indexes.
+    const UINT32 gridX = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT32 gridY = blockIdx.y * blockDim.y + threadIdx.y;
+    const UINT32 tOfCta  = threadIdx.y * blockDim.x + threadIdx.x;
+    const UINT32 tOfGrid = gridY * output.width/sizeof(UINT32) + gridX;
+
+    // In each block, 256 threads share 64 global and 64 shared results structs.
+    const UINT32 resultsPerCta = BLOCK_SIZE * BLOCK_SIZE / threadsPerResult;
+
+    // One smem/gmem result object shared by 4 horizontally-adjacent threads.
+    const UINT32 sameWarpCtaIdx = tOfCta / threadsPerResult;
+
+    // One smem/gmem result object shared by 4 threads in 4 different warps
+    // of the same CTA, threads 0 to resultsPerCta-1 cover all results.
+    const UINT32 diffWarpCtaIdx = tOfCta % resultsPerCta;
+
+    // Global-memory results pointers:
+    volatile result * pgSameWarp = GetResultPtr(&output, sameWarpCtaIdx);
+    volatile result * pgDiffWarp = GetResultPtr(&output, diffWarpCtaIdx);
+
+    // Shared-memory arrays and pointers:
+    __shared__ volatile result sResults[resultsPerCta];
+
+    volatile result * psSameWarp = &sResults[sameWarpCtaIdx];
+    volatile result * psDiffWarp = &sResults[diffWarpCtaIdx];
+
+    // Initial fills of shared and global memory:
+
+    if (output.min.u == output.max.u)
+    {
+        // Slow, safe fill when we're forcing a simple pattern for debugging.
+        if (tOfCta % threadsPerResult == 0)
+        {
+            // 1/4th of threads in each warp:
+            psSameWarp->i32 = output.min.u;
+            psSameWarp->f32 = output.min.u;
+            psSameWarp->i64 = output.min.u;
+
+            if (gFP.GPUFill)
+            {
+                pgSameWarp->i32 = output.min.u;
+                pgSameWarp->f32 = output.min.u;
+                pgSameWarp->i64 = output.min.u;
+            }
+        }
+        // 3/4th of threads in each warp: no-op until they get here
+    }
+    else
+    {
+        // Fast fill for normal operation with random fills.
+        if (tOfCta < resultsPerCta)
+        {
+            // All threads in 1/4th of warps:
+            UINT32 randomState;
+            InitRandomState(gFP.seed + tOfGrid, &randomState);
+
+            if (gFP.GPUFill)
+            {
+                pgDiffWarp->i32 = GetRandomRange(
+                    &randomState, output.min.u, output.max.u);
+                pgDiffWarp->f32 = GetRandomFloat(
+                    &randomState, output.min.u, output.max.u);
+                pgDiffWarp->i64 =
+                    (static_cast<UINT64>(GetRandomRange(&randomState,
+                                                       output.min.u,
+                                                       output.max.u)) << 32) +
+                    GetRandomRange(&randomState, output.min.u, output.max.u);
+            }
+            psDiffWarp->i32 = GetRandomRange(
+                    &randomState, output.min.u, output.max.u);
+            psDiffWarp->f32 = GetRandomFloat(
+                    &randomState, output.min.u, output.max.u);
+            psDiffWarp->i64 = (static_cast<UINT64>(GetRandomRange(
+                                                       &randomState,
+                                                       output.min.u,
+                                                       output.max.u)) << 32) +
+                GetRandomRange(&randomState, output.min.u, output.max.u);
+        }
+    }
+
+    // Now perform a series of operations.
+    for (int i=0; i < numOps; i++)
+    {
+        volatile result tmp;
+        tmp.i32 = AtomKernelOps[i+opIdx].Arg0;
+        tmp.f32 = AtomKernelOps[i+opIdx].Arg1;
+        tmp.i64 = (static_cast<UINT64>(tmp.i32) << 32) + tmp.i32;
+
+        volatile result * pg;
+        volatile result * ps;
+        if (AtomKernelOps[i+opIdx].UseSameWarp)
+        {
+            pg = pgSameWarp;
+            ps = psSameWarp;
+        }
+        else
+        {
+            pg = pgDiffWarp;
+            ps = psDiffWarp;
+        }
+
+        // Each atomic/reduce op is commutative with itself:
+        //  4 colliding xors can be done in any order.
+        // But mixing xors and adds is order-dependent.
+        // Wait here until all writes so far are visible to all threads in
+        // this CTA.
+        // Wait for all warps to catch up exelwtion to this point.
+        __syncthreads();
+
+        switch (AtomKernelOps[i+opIdx].OpCode)
+        {
+            default:
+            case CRTST_KRNL_ATOM_noop:
+                break;
+
+
+#define CASE_ATOM_GLOBAL_I32(op, type) \
+            case CRTST_KRNL_ATOM_atom_global_##op##_##type: \
+                asm("atom." #op "." #type " %0, [%1], %0;" \
+                    :"+r"(tmp.i32) \
+                    :"l"(&pg->i32)); \
+                localAtomResult += tmp.i32; \
+                break;
+
+            CASE_ATOM_GLOBAL_I32(and, b32)
+            CASE_ATOM_GLOBAL_I32(or, b32)
+            CASE_ATOM_GLOBAL_I32(xor, b32)
+
+            case CRTST_KRNL_ATOM_atom_global_cas_b32:
+                asm("atom.cas.b32 %0, [%1], %0, %0;"
+                    :"+r"(tmp.i32)
+                    :"l"(&pg->i32));
+                localAtomResult += tmp.i32;
+                break;
+            case CRTST_KRNL_ATOM_atom_global_cas_b64:
+                asm("atom.cas.b64 %0, [%1], %0, %0;"
+                    :"+l"(tmp.i64)
+                    :"l"(&pg->i32));
+                localAtomResult += tmp.i64;
+                localAtomResult += (tmp.i64 >> 32);
+                break;
+
+            CASE_ATOM_GLOBAL_I32(exch, b32)
+
+            case CRTST_KRNL_ATOM_atom_global_exch_b64:
+                // In each set of 4 threads colliding on gmem, one
+                // gets back old value, rest get opArgI.
+                // gmem gets opArgI (4 times).
+                // Sum of localAtomResult will still be deterministic.
+                //asm("atom.global.exch.b64 %0, [%1], %0;"
+                asm("atom.exch.b64 %0, [%1], %0;"
+                    :"+l"(tmp.i64)
+                    :"l"(&pg->i64));
+                localAtomResult += tmp.i64;
+                localAtomResult += (tmp.i64 >> 32);
+                break;
+
+            CASE_ATOM_GLOBAL_I32(add, u32)
+            CASE_ATOM_GLOBAL_I32(add, s32)
+
+            case CRTST_KRNL_ATOM_atom_global_add_f32:
+                {
+                asm("atom.add.f32 %0, [%1], %0;"
+                    :"+f"(tmp.f32)
+                    :"l"(&pg->f32));
+                volatile UINT32 * p = reinterpret_cast<volatile UINT32*>(&tmp.f32);
+                localAtomResult += *p;
+                break;
+                }
+            case CRTST_KRNL_ATOM_atom_global_add_u64:
+                asm("atom.add.u64 %0, [%1], %0;"
+                    :"+l"(tmp.i64)
+                    :"l"(&pg->i64));
+                localAtomResult += tmp.i64;
+                localAtomResult += (tmp.i64 >> 32);
+                break;
+
+            case CRTST_KRNL_ATOM_atom_global_inc_u32:
+                asm("atom.inc.u32 %0, [%1], 0x7fffffff;"
+                    :"=r"(tmp.i32)
+                    :"l"(&pg->i32));
+                localAtomResult += tmp.i32;
+                break;
+            case CRTST_KRNL_ATOM_atom_global_dec_u32:
+                asm("atom.dec.u32 %0, [%1], 0xffffffff;"
+                    :"=r"(tmp.i32)
+                    :"l"(&pg->i32));
+                localAtomResult += tmp.i32;
+                break;
+
+            CASE_ATOM_GLOBAL_I32(min, u32)
+            CASE_ATOM_GLOBAL_I32(min, s32)
+            CASE_ATOM_GLOBAL_I32(max, u32)
+            CASE_ATOM_GLOBAL_I32(max, s32)
+
+
+// Due to SW bug 870608, shared-memory atom/red PTX instructions
+// are miscompiled, leading to OOR graphics exceptions.
+// Use C style intrinsics instead.
+
+#define CASE_ATOM_SHARED_U32(op, type, capOp) \
+            case CRTST_KRNL_ATOM_atom_shared_##op##_##type: \
+                // Cast away volatile. \
+                tmp.i32 = atomic##capOp(const_cast<UINT32*>(&ps->i32), tmp.i32); \
+                localAtomResult += tmp.i32; \
+                break;
+
+            CASE_ATOM_SHARED_U32(and, b32, And)
+            CASE_ATOM_SHARED_U32(or, b32, Or)
+            CASE_ATOM_SHARED_U32(xor, b32, Xor)
+
+            case CRTST_KRNL_ATOM_atom_shared_cas_b32:
+                // Cast away volatile.
+                tmp.i32 = atomicCAS(const_cast<UINT32*>(&ps->i32),
+                                    tmp.i32, tmp.i32>>1);
+                localAtomResult += tmp.i32;
+                break;
+
+            case CRTST_KRNL_ATOM_atom_shared_cas_b64:
+                // Cast away volatile.
+                tmp.i64 = atomicCAS(const_cast<UINT64*>(&ps->i64),
+                                    tmp.i64, tmp.i64>>1);
+                localAtomResult += tmp.i64;
+                localAtomResult += (tmp.i64 >> 32);
+                break;
+
+            CASE_ATOM_SHARED_U32(add, u32, Add)
+
+            case CRTST_KRNL_ATOM_atom_shared_add_u64:
+                // cast away volatile.
+                tmp.i64 = atomicAdd(const_cast<UINT64*>(&ps->i64), tmp.i64);
+                localAtomResult += tmp.i64;
+                localAtomResult += (tmp.i64 >> 32);
+                break;
+
+            CASE_ATOM_SHARED_U32(inc, u32, Inc)
+            CASE_ATOM_SHARED_U32(dec, u32, Dec)
+            CASE_ATOM_SHARED_U32(min, u32, Min)
+            CASE_ATOM_SHARED_U32(max, u32, Max)
+
+
+#define CASE_RED_GLOBAL_I32(op, type) \
+            case CRTST_KRNL_ATOM_red_global_##op##_##type: \
+                asm("red." #op "." #type " [%0], %1;"::"l"(&pg->i32), \
+                     "r"(tmp.i32)); \
+                break;
+
+            CASE_RED_GLOBAL_I32(and, b32)
+            CASE_RED_GLOBAL_I32(or, b32)
+            CASE_RED_GLOBAL_I32(xor, b32)
+            CASE_RED_GLOBAL_I32(add, u32)
+            CASE_RED_GLOBAL_I32(add, s32)
+
+            case CRTST_KRNL_ATOM_red_global_add_f32:
+                asm("red.add.f32 [%0], %1;"::"l"(&pg->f32),"f"(tmp.f32));
+                break;
+            case CRTST_KRNL_ATOM_red_global_add_u64:
+                asm("red.add.u64 [%0], %1;"::"l"(&pg->i64),"l"(tmp.i64));
+                break;
+
+            case CRTST_KRNL_ATOM_red_global_inc_u32:
+                asm("red.inc.u32 [%0], 0xdfffffff;" ::"l"(&pg->i32));
+                break;
+            case CRTST_KRNL_ATOM_red_global_dec_u32:
+                asm("red.dec.u32 [%0], 0xffffffff;"::"l"(&pg->i32));
+                break;
+
+            CASE_RED_GLOBAL_I32(min, u32)
+            CASE_RED_GLOBAL_I32(min, s32)
+            CASE_RED_GLOBAL_I32(max, u32)
+            CASE_RED_GLOBAL_I32(max, s32)
+
+
+// Due to SW bug 870608, shared-memory atom/red PTX instructions
+// are miscompiled, leading to OOR graphics exceptions.
+// Use C style intrinsics instead.
+// We ignore return-value from atomic* to get reduce behavior.
+
+            // Cast away volatile.
+#define CASE_RED_SHARED_U32(op, type, capOp) \
+            case CRTST_KRNL_ATOM_red_shared_##op##_##type: \
+                atomic##capOp(const_cast<UINT32*>(&ps->i32), tmp.i32); \
+                break;
+
+            CASE_RED_SHARED_U32(and, b32, And)
+            CASE_RED_SHARED_U32(or, b32, Or)
+            CASE_RED_SHARED_U32(xor, b32, Xor)
+
+            case CRTST_KRNL_ATOM_red_shared_cas_b32:
+                // Cast away volatile.
+                atomicCAS(const_cast<UINT32*>(&ps->i32), tmp.i32, tmp.i32>>1);
+                break;
+            case CRTST_KRNL_ATOM_red_shared_cas_b64:
+                // Cast away volatile.
+                atomicCAS(const_cast<UINT64*>(&ps->i64), tmp.i64, tmp.i64>>1);
+                break;
+
+            CASE_RED_SHARED_U32(add, u32, Add)
+
+            case CRTST_KRNL_ATOM_red_shared_add_u64:
+                // cast away volatile.
+                atomicAdd(const_cast<UINT64*>(&ps->i64), tmp.i64);
+                break;
+
+            CASE_RED_SHARED_U32(inc, u32, Inc)
+            CASE_RED_SHARED_U32(dec, u32, Dec)
+            CASE_RED_SHARED_U32(min, u32, Min)
+            CASE_RED_SHARED_U32(max, u32, Max)
+
+#define CASE_ATOM_GLOBAL_U64(op, type) \
+            case CRTST_KRNL_ATOM_atom_global_##op##_##type: \
+                asm("atom.global." #op "." #type " %0, [%1], %0;" \
+                    :"+l"(tmp.i64) \
+                    :"l"(&pg->i64)); \
+                localAtomResult += tmp.i64; \
+                localAtomResult += (tmp.i64 >> 32); \
+                break;
+
+#define CASE_ATOM_GLOBAL_B64 CASE_ATOM_GLOBAL_U64
+
+            CASE_ATOM_GLOBAL_B64(and, b64);
+            CASE_ATOM_GLOBAL_B64(or,  b64);
+            CASE_ATOM_GLOBAL_B64(xor, b64);
+            CASE_ATOM_GLOBAL_U64(min, u64);
+            CASE_ATOM_GLOBAL_U64(max, u64);
+
+
+// Due to SW bug 870608, shared-memory atom/red PTX instructions
+// are miscompiled, leading to OOR graphics exceptions.
+// Use C style intrinsics instead.
+// We ignore return-value from atomic* to get reduce behavior.
+
+#define CASE_ATOM_SHARED_U64(op, type, capOp) \
+            case CRTST_KRNL_ATOM_atom_shared_##op##_##type: \
+            tmp.i64 = atomic##capOp(const_cast<UINT64*>(&ps->i64), tmp.i64); \
+            localAtomResult += tmp.i64; \
+            localAtomResult += (tmp.i64 >> 32); \
+            break;
+
+#define CASE_ATOM_SHARED_B64 CASE_ATOM_SHARED_U64
+
+            CASE_ATOM_SHARED_B64(and, b64, And);
+            CASE_ATOM_SHARED_B64(or,  b64, Or);
+            CASE_ATOM_SHARED_B64(xor, b64, Xor);
+            CASE_ATOM_SHARED_U64(min, u64, Min);
+            CASE_ATOM_SHARED_U64(max, u64, Max);
+
+#if (SM_VER >= 80)
+#define CASE_REDUX_SYNC(op, type) \
+            case CRTST_KRNL_ATOM_redux_sync_##op##_##type: \
+                asm("redux.sync." #op "." #type " %0, %1, 0xFFFFFFFF;" : "=r"(tmp.i32) : "r"(pg->i32)); \
+                localAtomResult += tmp.i32; \
+                break;
+
+            CASE_REDUX_SYNC(add, u32)
+            CASE_REDUX_SYNC(min, u32)
+            CASE_REDUX_SYNC(max, u32)
+            CASE_REDUX_SYNC(and, b32)
+            CASE_REDUX_SYNC(or,  b32)
+            CASE_REDUX_SYNC(xor, b32)
+
+#endif // (SM_VER >= 80)
+
+            case CRTST_KRNL_ATOM_debug:
+            {
+                // Dont let final consolidation overwrite debug output.
+                localAtomResult = 0;
+                doStoreSmem = false;
+
+                // As gmem is dumped as hex data, its easiest to report debug
+                // data by treating gmem as an array of UINT32.
+                volatile UINT32 * pGmem;
+                switch (tmp.i32)
+                {
+                    case 0:
+                        // Store grid x,y using pgSameWarp.
+                        pGmem = reinterpret_cast<volatile UINT32*>(pgSameWarp);
+                        pGmem[tOfCta % threadsPerResult] = (gridY << 16) + gridX;
+                        break;
+                    case 1:
+                        // Store grid x,y using pgDiffWarp.
+                        pGmem = reinterpret_cast<volatile UINT32*>(pgDiffWarp);
+                        pGmem[tOfCta / resultsPerCta] = (gridY << 16) + gridX;
+                        break;
+                    case 2:
+                        // Store smid and timestamp, 1 thread of warp only.
+                        // Warning: causes miscompares, debugging only.
+                        if (tOfCta % 32 == 0)
+                        {
+                            UINT32 s;
+                            UINT64 c;
+                            asm("mov.u32 %0, %%smid;" :"=r"(s));
+                            asm("mov.u64 %0, %%clock64;" :"=l"(c));
+                            pgSameWarp->i64 = c;
+                            pgSameWarp->i32 = s;
+                        }
+                        break;
+                }
+                break;
+            } // CRTST_KRNL_ATOM_debug
+        }
+    }
+
+    __syncthreads();
+
+    // Note on consolidating localAtomResults:
+    //
+    // In this kernel, atomic ops collide between 4 threads, either in
+    // the same or different warps.
+    //
+    // Same-warp collisions are handled in a HW-determined order
+    // (i.e lowest-to-highest thread) every time.
+    //
+    // Different-warp collisions are handled in random order, because the
+    // scheduling of warps is nondeterministic.
+    // So localAtomResults is nondeterministic whenever we run an op
+    // with UseSameWarp != 0.
+    //
+    // But the *sum* of localAtomResults across the 4 threads that share
+    // the same pgDiffWarp/psDiffWarp pointers is deterministic.
+    //
+    // So we must sum-up localAtomResults between these corresponding threads
+    // before writing to gmem, or we'll get false miscompares.
+
+    atomicAdd(const_cast<UINT32*>(&psDiffWarp->i32), localAtomResult);
+    __syncthreads();  // required before reading smem subsequently
+
+    if (tOfCta < resultsPerCta && doStoreSmem)
+    {
+        // Store shared-memory results in global memory.
+        asm("red.add.u32 [%0], %1;" ::"l"(&pgDiffWarp->i32),"r"(psDiffWarp->i32));
+        asm("red.add.f32 [%0], %1;" ::"l"(&pgDiffWarp->f32),"f"(psDiffWarp->f32));
+        asm("red.add.u64 [%0], %1;" ::"l"(&pgDiffWarp->i64),"l"(psDiffWarp->i64));
+    }
+}
+
+#if (SM_VER >= 73)
+#undef __HALF_TO_US
+#undef __HALF_TO_LWS
+#undef __HALF2_TO_UI
+#undef __HALF2_TO_LWI
+#undef __COPY_FLOAT_TO_UI
+#undef __COPY_UI_TO_FLOAT
+#endif // (SM_VER >= 73)
+
+#if (SM_VER >= 90)
+#undef __BFLOAT16_TO_US
+#undef __BFLOAT16_TO_LWS
+#undef __BFLOAT16_TO_VUS
+#undef __BFLOAT16_TO_CVUS
+#undef __BFLOAT162_TO_UI
+#undef __BFLOAT162_TO_LWI
+#endif // (SM_VER >= 90)

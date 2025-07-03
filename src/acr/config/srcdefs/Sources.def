@@ -1,0 +1,159 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Engines.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    ACRSRC_CORE => [
+
+        FLAGS => ':CORE',             # following are all part of core (non-hal)
+
+        'acrshared/lw/acr_helper_functions.c',
+        'bsilock/lw/acr_bsi_lock.c',
+
+        ONLY_IF => 'ACR_BOOT_FROM_HS',
+                '../../bootloader/src/hs_entry_checks.c',
+
+    ],  # ACRSRC_CORE
+
+    ACRSRC_ENGINES => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        HAL =>
+        [
+            # These are the files that install the hal support for a given gpu.
+            # The files may be shared across multiple gpus, but every gpu must
+            # be represented by exactly 1 file.
+
+            FLAGS => ':HAL_IMPLEMENTATION'    # mark these files as the hal implementation
+                   . ':HAL_SETUP'
+                   . '',
+        ],
+
+        ACR =>
+        [
+            CHIPS_SUPPORTED => [ TURING, ],
+                 'acrshared/turing/acr_war_functions_tu1xx_only.c',
+
+            CHIPS_SUPPORTED => [ TU116, TU117, ],
+                 'acrshared/turing/acr_sanity_checks_tu116_only.c',
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                 'acrshared/turing/acr_war_functions_tu10x.c',
+                 'acrshared/turing/acr_se_access_tu10x.c',
+                 'acrshared/turing/acr_helper_functions_tu10x.c',
+                 'acrshared/turing/acr_sanity_checks_tu10x.c',
+                 'acrshared/turing/acr_trng_tu10x.c',
+                 'acrsec2shared/turing/acr_register_access_tu10x.c',
+                 'acrsec2shared/turing/acr_timer_access_tu10x.c',
+                 'acrsec2shared/turing/acr_dma_tu10x.c',
+                 'acrsec2shared/turing/acr_mem_utils_tu10x.c',
+                 'ahesasc/turing/acr_lock_wpr_tu10x.c',
+                 'ahesasc/turing/acr_verify_ls_signature_tu10x.c',
+                 'ahesasc/turing/acr_sub_wpr_tu10x.c',
+                 'ahesasc/turing/acr_hub_encryption_tu10x.c',
+                 'asb/turing/acr_ls_falcon_boot_tu10x.c',
+                 'unload/lw/acr_unload.c',
+                 'unload/turing/acr_unload_tu10x.c',
+                 'bsilock/turing/acr_bsi_lock_tu10x.c',
+
+            CHIPS_SUPPORTED => [ TU10X_thru_AD10X, ],
+                 'acrshared/turing/acr_helper_functions_tu10x_ga10x_only.c',
+                 'acrsec2shared/turing/acr_register_access_tu10x_ga10x_only.c',
+
+            CHIPS_SUPPORTED => [ TURING, GA100, ],
+                 'asb/turing/acr_ls_falcon_boot_tu10xga100.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, -GA100, ],
+                 'asb/ampere/acr_ls_falcon_boot_ga10x.c',
+                 'acrshared/ampere/acr_war_functions_ga10x.c',
+                 'acrsec2shared/ampere/acr_register_access_ga10x.c',
+                 'ahesasc/ampere/acr_decrypt_ls_ucode_ga10x.c',
+
+            CHIPS_SUPPORTED => [ GA100, ],
+                 'acrshared/ampere/acr_sanity_checks_ga100.c',
+                 'acrshared/ampere/acr_war_functions_ga100_only.c',
+                 'apm/ampere/acr_measurements_ga100.c',
+                 'apm/ampere/acr_apm_checks_ga100.c',
+
+            CHIPS_SUPPORTED => [ GA10X, -GA100, ],
+                 'acrshared/ampere/acr_war_functions_ga10x_only.c',
+
+            CHIPS_SUPPORTED => [ GA10X, -GA100, AD10X, ],
+                 'acrsec2shared/ampere/acr_register_access_ga10x_only.c',
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, -GA100, ],
+                 'acrshared/ampere/acr_sanity_checks_ga10x.c',
+                 'acrshared/ampere/acr_helper_functions_ga10x.c',
+                 'acrshared/ampere/acr_wpr_ctrl_ga10x.c',
+                 'ahesasc/ampere/acr_verify_ls_signature_ga10x.c',
+                 'ahesasc/ampere/acr_sub_wpr_ga10x.c',
+                 'ahesasc/ampere/acr_signature_manager_ga10x.c',
+                 'se/ampere/acrucsega10x.c',
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, ],
+                 'acrsec2shared/ampere/acr_register_access_ga100.c',
+                 'acrsec2shared/ampere/acr_dma_ga100.c',
+                 'asb/ampere/acr_ls_falcon_boot_ga100.c',
+                 'acrshared/ampere/acr_sanity_checks_ga100_and_later.c',
+                 'unload/ampere/acr_unload_ga10x.c',
+                 'acrshared/ampere/acr_war_functions_ga100_and_later.c',
+
+          CHIPS_SUPPORTED => [ GA100_and_later, ],
+                 'sha/ampere/acrucshaga100.c',
+                 'apm/lw/acr_apmmsr.c',
+
+          CHIPS_SUPPORTED => [ AD10X, ],
+                 'acrshared/ada/acr_sanity_checks_ad10x.c',
+                 'acrsec2shared/ada/acr_register_access_ad10x.c',
+                 'ahesasc/ada/acr_sub_wpr_ad10x.c',
+
+           CHIPS_SUPPORTED => [ HOPPER_and_later, ],
+                 'acrshared/hopper/acr_sanity_checks_gh100.c',
+                 'acrshared/hopper/acr_sanity_checks_gh20x.c',
+                 'acrshared/hopper/acr_helper_functions_gh100.c',
+                 'ahesasc/hopper/acr_hub_encryption_gh100.c',
+                 'ahesasc/hopper/acr_sub_wpr_gh100.c',
+                 'asb/hopper/acr_ls_falcon_boot_gh100.c',
+                 'unload/hopper/acr_unload_gh100.c',
+                 'acrsec2shared/hopper/acr_register_access_gh100.c',
+                 'acrsec2shared/hopper/acr_fuse_gh100.c',
+           
+            CHIPS_SUPPORTED => [ GH100, G00X],
+                 'acrsec2shared/hopper/acr_register_access_gh100_only.c',
+            
+            CHIPS_SUPPORTED => [ GH202_and_later, ],
+                 'acrsec2shared/hopper/acr_register_access_gh202.c',
+
+           CHIPS_SUPPORTED => [ G00X, ],
+                 'acrshared/g00x/acr_sanity_checks_g000.c',
+
+        ],
+
+    ],  # ACRSRC_ENGINES
+
+];   # filesRef
+
+
+my $platformsRef = [
+
+    # the ACR platform
+    PLATFORM_ACR  => [
+        ACRSRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

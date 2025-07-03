@@ -1,0 +1,225 @@
+#include <liblwriscv/g_lwriscv_config.h>
+
+OUTPUT_ARCH( "riscv" )
+ENTRY(partition_dispatcher)
+
+#include "memory_layout.ld.in"
+
+#if !CC_PERMIT_DEBUG
+#define LIBLWRISCV_EXCLUDE_PRINT EXCLUDE_FILE(*print.o)
+
+#define LIBLWRISCV_INCLUDE_PRINT_CODE *liblwriscv.a:(.text.* .rodata* .srodata*)
+#define LIBLWRISCV_INCLUDE_PRINT_DATA *liblwriscv.a:(.data* .sdata*)
+#define LIBLWRISCV_INCLUDE_PRINT_BSS  *liblwriscv.a:(.bss* .sbss*)
+#else // CC_PERMIT_DEBUG
+#define LIBLWRISCV_EXCLUDE_PRINT
+
+#define LIBLWRISCV_INCLUDE_PRINT_CODE
+#define LIBLWRISCV_INCLUDE_PRINT_DATA
+#define LIBLWRISCV_INCLUDE_PRINT_BSS
+#endif // CC_PERMIT_DEBUG
+
+SECTIONS
+{
+  .partition_shared_code :
+  {
+      KEEP(*libpart_shared.a:(.text.partition_dispatcher))   // entry points
+      *libpart_shared.a:(.text.* .rodata* .srodata*)
+      *liblwriscv.a:(LIBLWRISCV_EXCLUDE_PRINT .text.* .rodata* .srodata*)
+      *libCCC.a:(.text.* .rodata* .srodata*)
+      *libRTS.a:(.text.* .rodata* .srodata*)
+  } > imem_shr
+
+////////////////////////////////////////////////////////////////////////////////
+// Partition code
+////////////////////////////////////////////////////////////////////////////////
+
+.partition_init_code :
+{
+    KEEP(*libpart_init.a:(.text.partition_init_wipe_and_switch))
+    . = ALIGN(8);
+    __partition_init_code_wipe_start = .;
+    KEEP(*libpart_init.a:(.text.partition_init_entry))
+    . = ALIGN(8); // Exception vector must be aligned
+    KEEP(*libpart_init.a:(.text.partition_init_trap_handler))
+    *libpart_init.a:(.text* .rodata* .srodata*)
+    . = ALIGN(0x100);
+    __partition_init_code_wipe_end = .;
+} > imem_init
+
+.partition_acr_code :
+{
+    //
+    // NOTE : Please ensure that changes done in this section
+    // have been reviewed by the ACR-RISCV ucode owners. 
+    //
+    KEEP(*libpart_acr.a:(.text.partition_acr_entry))
+    . = ALIGN(8); // Exception vector must be aligned
+    KEEP(*libpart_init.a:(.text.partition_acr_scrub_dmem))
+    . = ALIGN(8);
+    KEEP(*libpart_acr.a:(.text.partition_acr_trap_handler))
+    *libpart_acr*.a:(.imem_acr* .text* .rodata* .srodata*)
+    . = ALIGN(0x100);
+} > imem_acr
+
+.partition_attestation_code :
+{
+    KEEP(*libpart_attestation.a:(.text.partition_attestation_entry))
+    . = ALIGN(8); // Exception vector must be aligned
+    KEEP(*libpart_attestation.a:(.text.partition_attestation_trap_handler))
+    *libpart_attestation.a:(.text* .rodata* .srodata*)
+    . = ALIGN(0x100);
+} > imem_att
+
+.partition_spdm_code :
+{
+    KEEP(*libpart_spdm.a:(.text.partition_spdm_entry))
+    . = ALIGN(8); // Exception vector must be aligned
+    KEEP(*libpart_spdm.a:(.text.partition_spdm_trap_handler))
+    *libpart_spdm.a:(.text* .rodata* .srodata*)
+    KEEP(*libSPDM.a:(.imem_libspdm.* .rodata* .srodata*))
+    . = ALIGN(0x100);
+} > imem_spdm
+
+// RM PROXY or GSP RM
+// This is dual entry, for both resident and non-resident variants
+.partition_rm_code :
+{
+    __imem_rm_section_start = .;
+    KEEP(*libpart_rm.a:(.text.partition_rm_entry))
+    KEEP(*libpart_rm_proxy.a:(.text.partition_rm_entry))
+    . = ALIGN(8); // Exception vector must be aligned
+    KEEP(*libpart_rm.a:(.text.partition_rm_trap_handler))
+    KEEP(*libpart_rm_proxy.a:(.text.partition_rm_trap_handler))
+    LIBLWRISCV_INCLUDE_PRINT_CODE
+    *libpart_rm.a:(.text* .rodata* .srodata*)
+    *libpart_rm_proxy.a:(.text* .rodata* .srodata*)
+    . = ALIGN(0x100);
+    __imem_rm_section_end = .;
+} > imem_rm
+
+////////////////////////////////////////////////////////////////////////////////
+// DATA
+////////////////////////////////////////////////////////////////////////////////
+  .partition_shared_data :
+  {
+    // Start with scp buffer
+    __liblwriscv_ssp_dma_start = .;
+    *liblwriscv.a:(.data.liblwriscv.ssp_scpdma_buf);
+    __liblwriscv_ssp_dma_end = .;
+    // Then stack canary
+    *liblwriscv.a:(.data.liblwriscv.__stack_chk_guard*);
+    . = ALIGN(1024); // Add hole so we can restrict DMA access to canary
+    *liblwriscv.a:(LIBLWRISCV_EXCLUDE_PRINT .data* .sdata*)
+    *libCCC.a:(.data* .sdata*)
+    *libRTS.a:(.data* .sdata*)
+    *libpart_shared.a:(.data* .sdata*)
+    *(.partition_shared_data* .partition_shared_data.*)
+    *liblwriscv.a:(LIBLWRISCV_EXCLUDE_PRINT .bss* .sbss*)
+    *libCCC.a:(.bss* .sbss*)
+    *libRTS.a:(.bss* .sbss*)
+    *libpart_shared.a:(.bss* .sbss*)
+    . = ALIGN(0x100);
+  } > dmem_shr
+
+  .partition_init_data :
+  {
+    __partition_init_data_wipe_start = .;
+    _partition_init_stack_bottom = . ;
+    . += 1024 ;
+    _partition_init_stack_top = ALIGN(0x400); // Stack must be aligned to MPU granularity
+    *libpart_init.a:(.data* .sdata* .partition_context)
+    *libpart_init.a:(.bss* .sbss*)
+    . = ALIGN(0x100);
+    __partition_init_data_wipe_end = .;
+  } > dmem_init
+
+  .partition_acr_data :
+  {
+    _partition_acr_stack_bottom = . ;
+    . += 8192;
+    _partition_acr_stack_top = ALIGN(0x400); // Stack must be aligned to MPU granularity
+    *libpart_acr*.a:(.dataEntry* .data* .sdata* .partition_context)
+    _partition_acr_bss_start = ALIGN(4);
+    *libpart_acr*.a:(.bss* .sbss*)
+    . = ALIGN(0x100);
+    _partition_acr_bss_end = ALIGN(4);
+  } > dmem_acr
+
+  .partition_attestation_data :
+  {
+    _partition_attestation_stack_bottom = . ;
+    . += 1024 ;
+    _partition_attestation_stack_top = ALIGN(0x400); // Stack must be aligned to MPU granularity
+    *libpart_attestation.a:(.data* .sdata* .partition_context)
+    *libpart_attestation.a:(.bss* .sbss*)
+    . = ALIGN(0x100);
+  } > dmem_att
+
+  .partition_spdm_data :
+  {
+    // Put stack first, that may bloat binary a bit, but would catch stack overflows
+    _partition_spdm_stack_bottom = . ;
+    . += 7 * 1024 ;
+    _partition_spdm_stack_top = ALIGN(0x400); // Stack must be aligned to MPU granularity
+    _partition_spdm_data_start = . ;
+    *libpart_spdm.a:(.data* .sdata* partition_context)
+    *libSPDM.a:(.data* .sdata* .dmem_spdm* .dmem_libspdm*)
+
+    . = ALIGN(0x100);
+  } > dmem_spdm
+
+  // This split is needed, so linker would treat this section as Allocate-only
+  // so it won't end up in final binary
+  .partition_spdm_bss_data :
+  {
+    _partition_spdm_bss_start = . ;
+    *libpart_spdm.a:(.bss* .sbss*)
+    *libSPDM.a:(.bss* .sbss*)
+      _partition_spdm_bss_end = . ;
+  } > dmem_spdm
+
+
+  .partition_rm_data :
+  {
+    __dmem_rm_section_start = .;
+    *libpart_rm.a:(.data* .partition_context)
+    *libpart_rm_proxy.a:(.data* .partition_context)
+    LIBLWRISCV_INCLUDE_PRINT_DATA
+    *libpart_rm.a:(.bss* .sbss*)
+    *libpart_rm_proxy.a:(.bss* .sbss*)
+    LIBLWRISCV_INCLUDE_PRINT_BSS
+    . = ALIGN(0x100);
+    __dmem_rm_section_end = .;
+  } > dmem_rm
+
+  .trap_COMMON :
+  {
+    *(COMMON)
+  }
+}
+
+// Make sure there is enough space for bootrom in SPDM's bss
+ASSERT( _partition_spdm_bss_start <= ORIGIN(dmem_sk) + LWRISCV_DMEM_SIZE - (9 * 1024),
+        "Not enough bss space for bootrom exelwtion.");
+
+// Sanity checks that we don't use sections we're not supposed to
+ASSERT(SIZEOF(.trap_COMMON) == 0,
+       "Unexpected data in COMMON section. Add -fno-common to CFLAGS.");
+
+_partition_rm_stack_bottom = ORIGIN(dmem_init) + LENGTH(dmem_init)  - 1024 ;
+_partition_rm_stack_top = ORIGIN(dmem_init) + LENGTH(dmem_init) ;
+ASSERT(LENGTH(dmem_init) > 1024, "To little space for RM partition stack")
+
+// Sanity check for SSP DMA buffer - must be first 16 bytes of shared data
+ASSERT(__liblwriscv_ssp_dma_start == ORIGIN(dmem_shr), "SSP DMA buffer must be at start of shared data partition.");
+ASSERT(__liblwriscv_ssp_dma_end - __liblwriscv_ssp_dma_start == 16, "SSP DMA buffer size must be 16 bytes.");
+
+// Check that there are no crossrefs between partitions for both code and data
+
+NOCROSSREFS(.partition_init_code .partition_acr_code .partition_attestation_code .partition_spdm_code .partition_rm_code)
+NOCROSSREFS_TO(.partition_init_data .partition_acr_code .partition_attestation_code .partition_spdm_code .partition_rm_code)
+NOCROSSREFS_TO(.partition_acr_data .partition_init_code .partition_attestation_code .partition_spdm_code .partition_rm_code)
+NOCROSSREFS_TO(.partition_attestation_data .partition_init_code .partition_acr_code .partition_spdm_code .partition_rm_code)
+NOCROSSREFS_TO(.partition_spdm_data .partition_init_code .partition_acr_code .partition_attestation_code .partition_rm_code)
+NOCROSSREFS_TO(.partition_rm_data .partition_init_code .partition_acr_code .partition_attestation_code .partition_spdm_code)

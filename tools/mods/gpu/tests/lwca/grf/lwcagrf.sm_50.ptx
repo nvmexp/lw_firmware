@@ -1,0 +1,521 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2011-2016 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+.version 4.0
+.target sm_50
+
+// This is a Maxwell test for stress-testing the L1 cache.
+//
+// Make instruction:
+// 1) go to <tree>/diag/mods/gpu/tests/lwca/grf/ folder
+// 2) make lwgrf50.lwbin
+
+// Test (1) and (2)
+// On Maxwell there is 64KB of L1 cache and it's split into 16KB/48KB or
+// 48KB/16KB of shared memory/L1. The lower portion (either 16KB or 48KB)
+// is used for shared memory while the upper, remaining portion is used
+// as actual cache. The lower portion can be tested by accessing shared
+// memory, but the upper portion can only be tested by accessing local
+// or global memory so that it is cached in L1.
+//
+// In this test we allocate 48KB of shared memory, so the remaining 16KB
+// is tested as local memory. With local memory the writes do not have to
+// go back to backing store (L2/FB/sysmem), unless there are line evictions.
+// We allocate 512 bytes of local memory, which at 32 threads totals in
+// 16KB of memory per SM and perfectly fits in all L1 cache lines.
+//
+// The test runs N blocks (N is equal to the number of SMs) and 32 threads,
+// assuming 32 is the warp size.
+//
+// Each lane (thread in the warp) accesses a separate L1 bank. There
+// are 32 L1 banks on Kepler, one bank per lane. Data is stored as 32-bit
+// words (without ECC) or as 39-bit words (with ECC). The 7 extra bits
+// for ECC are not directly accessible or visible.
+//
+// With shared memory we need to interleave threads, because e.g. dword
+// at offset 0 will always go to bank 0 and dword at offset 4 will
+// always go to bank 1, etc. 
+// With local memory a thread from lane X
+// sees only bank X, so we test contiguous 512 bytes of local memory.
+//
+// The test uses a short MATS pattern set:
+// [0x00000000, 0xFFFFFFFF, 0x55555555, 0xAAAAAAAA]
+// The memory is filled with these patterns in both directions.
+
+
+//#define SHAREDMEMSIZE 0x4000    // 16KB
+
+.global .align 8 .b8 Report[229376];  // = 64SMs * 7 CTAs per SM * 32threads/warp * 4 dwords
+.global.u32 NumFinished;
+
+.entry L1MemoryTest
+(
+    .param .align 8 .b8 Patterns[8],
+    .param .u32         NumPatterns,
+    .param .u32         NumIterations,
+    .param .u32         TotalThreads
+)
+{
+    .reg .u32 %r_NewPattern;
+    .reg .u32 %r_OldPattern;
+    .reg .u32 %r_Ptr;
+    .reg .u32 %r_Tmp;
+    .reg .u32 %r_Errors;
+    .reg .u32 %r_Iter;
+    .reg .u32 %r_PatternId;
+    .reg .u32 %r_NumPatterns;
+    .reg .u32 %r_StageNum;
+    .reg .u32 %r_DbgReg;
+    .reg .u32 %r_NumFinished;
+    .reg .u32 %r_TotThreads;
+
+    .reg .u64 %dr_Ptr;
+    .reg .u64 %dr_Val;
+    .reg .u64 %dr_NewPattern;
+    .reg .u64 %dr_OldPattern;
+  
+    .reg .pred %p<3>;
+     // The size of local memory needs to be equal to size of L1 minus shared mem
+     // 512  : 16KB / 32 threads
+    .local .align 8 .b8 localMem[512];
+     // Reserve all possible shared memory for testing.
+    .shared .align 8 .b8 sharedMem[0x4000];
+
+    mov.u32         %r_NewPattern , 0xFFFFFFFF;
+    
+// fill shared memory     
+    mov.u32         %r_Ptr , %laneid;
+    shl.b32         %r_Ptr , %r_Ptr , 2;
+    mov.u32         %r_Tmp , sharedMem+ 0x4000 - 128; 
+    add.u32         %r_Ptr , %r_Ptr , %r_Tmp ; 
+$fillShared0   : 
+        st.shared.u32   [%r_Ptr +0], %r_NewPattern ;
+        sub.u32         %r_Ptr , %r_Ptr , 128; 
+        setp.ge.s32     %p0, %r_Ptr , sharedMem+0;
+    @%p0 bra        $fillShared0   ; 
+
+// fill local memory     
+    mov.u32         %r_Ptr , localMem; 
+$fillLocal0   : 
+        st.local.u32    [%r_Ptr +0], %r_NewPattern ;
+        add.u32         %r_Ptr, %r_Ptr , 4; 
+        setp.lt.u32     %p0, %r_Ptr , localMem + 512; 
+    @%p0 bra        $fillLocal0; 
+
+// at this point OldPattern should be 0xFFFFFFFF    
+
+//-----------------------------------------------------------------------
+// initialize the iterations and patterns
+    ld.param.u32    %r_Iter,        [NumIterations];
+    ld.param.u32    %r_NumPatterns, [NumPatterns];
+    
+    mov.u32         %r_Errors, 0;
+    mov.u32         %r_StageNum, 0;
+
+$outerLoop:
+
+// Run all patterns in ascending direction
+    mov.u32         %r_PatternId, 0;
+    $PatternLoop:
+        // set the pattern: this is equivalent to this in C:
+        // UINT64 *pPtr  = Patterns;
+        // UINT32 Offset = PatternId * 8;
+        // NewPattern    = *(Ptr + Offset);
+        mov.u32         %r_OldPattern , %r_NewPattern; 
+        ld.param.u64    %dr_Ptr, [Patterns];
+        mul.lo.u32      %r_Tmp,  %r_PatternId, 8;
+        cvt.u64.u32     %dr_Val, %r_Tmp;
+        add.u64         %dr_Ptr, %dr_Ptr, %dr_Val;
+        ld.global.u64   %dr_Val, [%dr_Ptr];
+        cvt.u32.u64     %r_NewPattern, %dr_Val;
+
+        // Setup share memory loop. C pseudo code:
+        // UINT32 *pPtr = shareMem + (laneId * 4);
+        mov.u32         %r_Ptr, %laneid; 
+        shl.b32         %r_Ptr, %r_Ptr, 2;
+        mov.u32         %r_Tmp, sharedMem; 
+        add.u32         %r_Ptr, %r_Ptr, %r_Tmp;
+        $sharedLoop189    :
+            ld.shared.u32   %r_Tmp, [%r_Ptr +0];
+            xor.b32         %r_Tmp, %r_Tmp, %r_OldPattern;
+            or.b32          %r_Errors, %r_Errors, %r_Tmp; 
+            st.shared.u32   [%r_Ptr +0], %r_NewPattern;
+            // 32 thread/SM
+            add.u32         %r_Ptr, %r_Ptr, 128; 
+            setp.lt.u32     %p0, %r_Ptr, sharedMem+ 0x4000; 
+            @%p0 bra        $sharedLoop189;
+        
+        add.u32         %r_StageNum, %r_StageNum, 1;
+        setp.ne.u32     %p0, %r_Errors, 0;
+        @%p0 bra        $EXIT;
+    
+        mov.u32         %r_Ptr, localMem;
+        $localLoop189    :
+            ld.local.u32    %r_Tmp, [%r_Ptr +0];
+            xor.b32         %r_Tmp, %r_Tmp, %r_OldPattern;
+            or.b32          %r_Errors , %r_Errors, %r_Tmp;
+            st.local.u32    [%r_Ptr +0], %r_NewPattern;
+            add.u32         %r_Ptr, %r_Ptr, 4;
+            setp.lt.u32     %p0, %r_Ptr, localMem + 512;
+            @%p0 bra        $localLoop189;
+    
+        add.u32         %r_StageNum, %r_StageNum, 1;
+        setp.ne.u32     %p0, %r_Errors, 0;
+        @%p0 bra        $EXIT;
+
+    add.u32         %r_PatternId, %r_PatternId, 1;
+    setp.lt.u32     %p1, %r_PatternId, %r_NumPatterns;
+    @%p1 bra        $PatternLoop;
+
+
+// Run all patterns in descending  direction
+    mov.u32         %r_PatternId, 0;
+    $PatternLoop2:
+        mov.u32         %r_OldPattern , %r_NewPattern; 
+        ld.param.u64    %dr_Ptr, [Patterns];
+        mul.lo.u32      %r_Tmp, %r_PatternId, 8;
+        cvt.u64.u32     %dr_Val, %r_Tmp;
+        add.u64         %dr_Ptr, %dr_Ptr, %dr_Val;
+        ld.global.u64   %dr_Val, [%dr_Ptr];
+        cvt.u32.u64     %r_NewPattern, %dr_Val;
+        // do descending loop on local:
+        mov.u32         %r_Ptr , localMem+ 512 -4;
+        $localLoop195    :  
+            ld.local.u32    %r_Tmp, [%r_Ptr +0]; 
+            xor.b32         %r_Tmp, %r_Tmp , %r_OldPattern; 
+            or.b32          %r_Errors, %r_Errors , %r_Tmp; 
+            st.local.u32    [%r_Ptr +0], %r_NewPattern;
+            sub.u32         %r_Ptr, %r_Ptr , 4; 
+            setp.ge.s32     %p0, %r_Ptr , localMem+0; 
+            @%p0 bra        $localLoop195;  
+
+        add.u32         %r_StageNum, %r_StageNum, 1;
+        setp.ne.u32     %p0, %r_Errors, 0;
+        @%p0 bra        $EXIT;
+        
+        // do descending loop on shared
+        mov.u32         %r_Ptr, %laneid; 
+        shl.b32         %r_Ptr, %r_Ptr, 2;
+        mov.u32         %r_Tmp, sharedMem + 0x4000 -128; 
+        add.u32         %r_Ptr, %r_Ptr, %r_Tmp ;
+    $sharedLoop195    :  
+            ld.shared.u32   %r_Tmp, [%r_Ptr +0]; 
+            xor.b32         %r_Tmp, %r_Tmp, %r_OldPattern ; 
+            or.b32          %r_Errors, %r_Errors, %r_Tmp ; 
+            st.shared.u32   [%r_Ptr +0], %r_NewPattern ;  
+            sub.u32         %r_Ptr , %r_Ptr, 128; 
+            setp.ge.s32     %p0, %r_Ptr, sharedMem+0; 
+            @%p0 bra        $sharedLoop195;   
+
+        add.u32         %r_StageNum, %r_StageNum, 1;
+        setp.ne.u32     %p0, %r_Errors, 0;
+        @%p0 bra        $EXIT;
+
+    add.u32         %r_PatternId, %r_PatternId, 1;
+    setp.lt.u32     %p1, %r_PatternId, %r_NumPatterns;
+    @%p1 bra        $PatternLoop2;
+
+    sub.s32         %r_Iter, %r_Iter, 1;
+    setp.gt.s32     %p1, %r_Iter, 0;
+    @%p1 bra        $outerLoop;
+
+$EXIT:
+
+    //-----------------------------------------------------------------------
+    // Remember all bits which failed, separately for each thread/bank
+    // Callwlate thread-specific pointer for each CTA
+    // We have a max of 64 SMs possible, each with a max of 7 CTAs to test
+    // upto 112KB shared memory. Each CTA has 32 threads (warp) running
+    // Each CTA reports errors in 4 32-bit words from each threads 
+    // C Pseudo code:
+    // ThreadId = (ctaid * 512) + (laneid * 16)
+
+    mov.u32         %r_Ptr, %ctaid.x;
+    shl.b32         %r_Ptr, %r_Ptr, 9;
+    mov.u32         %r_Tmp, %laneid;
+    shl.b32         %r_Tmp, %r_Tmp, 4;
+    add.u32         %r_Ptr, %r_Ptr, %r_Tmp;
+    mov.u32         %r_Tmp, Report;
+    add.u32         %r_Ptr, %r_Ptr, %r_Tmp;           
+
+
+    // Store stage num and SMID in %r_StageNum
+    // [15:0] - Stage Num
+    // [31:16] - SMID
+    // Clear top 16 bits
+    and.b32         %r_StageNum, %r_StageNum, 0xFFFF;
+    mov.u32         %r_Tmp, %smid;
+    and.b32         %r_Tmp, %r_Tmp, 0xFFFF;
+    shl.b32         %r_Tmp, %r_Tmp, 16;
+    // OR in SMID into the top 16 bits of stageNum
+    or.b32          %r_StageNum, %r_StageNum, %r_Tmp;
+
+    red.global.add.u32 [%r_Ptr +0], 1;
+    red.global.or.b32  [%r_Ptr +4], %r_Errors;
+    red.global.or.b32  [%r_Ptr +8], %r_StageNum;
+    red.global.or.b32  [%r_Ptr +12],%r_DbgReg;
+
+    // atomically add 1 to the global NumFinished
+    red.global.add.u32  [NumFinished], 1;
+
+    bar.sync        0;
+
+    // WAIT for all threads to complete: C Pseudo code:
+    // while(NumFinished < TotalThreads){};
+
+        ld.param.u32           %r_TotThreads, [TotalThreads];
+WAIT_FOR_COMPLETION:
+        ld.volatile.global.u32 %r_NumFinished, [NumFinished];
+        setp.lt.u32            %p0, %r_NumFinished, %r_TotThreads;
+    @%p0     bra WAIT_FOR_COMPLETION;
+
+    exit;
+}
+
+.entry L1MemoryTest8BbMode
+(
+    .param .align 8 .b8 Patterns[8],
+    .param .u32         NumPatterns,
+    .param .u32         NumIterations
+)
+{
+}
+
+//-----------------------------------------------------------------------------
+// L1 Random test:
+// * Local vs shared sizes: 32K each
+// * with shared memory, don't care about how the banks are allocated, just
+//   subdivide it equally
+// See lwda_grf.cpp's Run30_CpuOperations() to get a better idea of what this
+// PTX is doing
+//-----------------------------------------------------------------------------
+.entry L1Random
+(
+    .param .align 4 .b8 Patterns[8],
+    .param .align 4 .b8 Operations[8],
+    .param .u32         NumOperations
+)
+{
+    .reg .u32 %r_Ptr;
+    .reg .u32 %r_ReportPtr;
+    .reg .u32 %r_SharedBase;
+    .reg .u32 %r_NumOps;
+    .reg .u32 %r_IsLocal;
+    .reg .u32 %r_ToWrite;
+    .reg .u32 %r_DstOffset;
+    .reg .u32 %r_SrcOffset;
+    .reg .u32 %r_Tmp;
+    .reg .u32 %r_Tmp1;
+    .reg .u32 %r_ThreadId;
+    .reg .u32 %r_Offset;
+    .reg .u32 %r_NumDone;
+
+    .reg .u64 %dr_BasePtr;
+    .reg .u64 %dr_OptBase;
+    .reg .u64 %dr_Ptr;
+    .reg .u64 %dr_Tmp;
+
+    .local .align 4 .b8 localMem[512];      // 32K / 64 threads = 512 bytes
+    .shared .align 4 .b8 sharedMem[8192];   // 8K of shared per CTA * 4 CTA per SM = 32K total
+    .reg .pred %p<3>;
+
+    // ThreadId = tid.x + ctaid.x*ntid.x
+    mov.u32         %r_Tmp1, %ctaid.x;
+    mov.u32         %r_Tmp, %ntid.x;
+    mul.lo.u32      %r_Tmp, %r_Tmp1, %r_Tmp;
+    mov.u32         %r_ThreadId, %tid.x;
+    add.u32         %r_ThreadId, %r_ThreadId, %r_Tmp;
+
+    // select a section of the report for the current thread
+    mov.u32         %r_Tmp, %r_ThreadId;
+    shl.b32         %r_Tmp, %r_Tmp, 4;  // for 16 bytes of data to be stored in report per thread
+    mov.u32         %r_ReportPtr, Report;
+    add.u32         %r_ReportPtr, %r_ReportPtr, %r_Tmp; 
+
+    // Even though the pattern repeats itself per-SM, each SM must use its own
+    // block of memory since the operations can read/write from the pattern memory
+    // If each SM shared the same pattern memory block then non-determinism would
+    // be introduced based on which order the threads in the SM actually exelwted
+    //
+    // const UINT32 FB_START_IDX = i * NUM_DWORD_PER_THREAD;
+    // LOCAL = FB_START_IDX + j
+    // SHARED = FB_START_IDX + NUM_LOCAL + j
+    mul.lo.u32      %r_Tmp,    %r_ThreadId, 128;   // 128 dwords for local and shared combined (64 each)
+    shl.b32         %r_Tmp,    %r_Tmp, 2;          // times 4 to get offset in bytes
+    cvt.u64.u32     %dr_Tmp,   %r_Tmp;             // move the offset to 64 bit register
+
+    // find the right start location for the pattern to read in:
+    ld.param.u64    %dr_BasePtr, [Patterns];
+    add.u64         %dr_BasePtr, %dr_BasePtr, %dr_Tmp;
+
+
+// Fill Local with Pattern 
+    mov.u32         %r_Ptr , localMem;
+    mov.u64         %dr_Ptr, %dr_BasePtr;
+$FILL_LOCAL_PATTERN:
+        ld.global.u32   %r_Tmp, [%dr_Ptr];              // load from FB pattern
+        st.local.u32    [%r_Ptr], %r_Tmp;
+        add.u32         %r_Ptr, %r_Ptr, 4;
+        add.u64         %dr_Ptr, %dr_Ptr, 4;
+        setp.lt.u32     %p0, %r_Ptr, localMem + 256;     // 64 words of local * sizeof(UINT32)
+    @%p0 bra        $FILL_LOCAL_PATTERN; 
+
+
+// Fill Shared with Pattern 
+    // find the offset in shared memory. Shared memory is divided PER CTA
+    //
+    mov.u32         %r_Ptr,    sharedMem;
+    mov.u32         %r_Tmp,    %tid.x;
+    mul.lo.u32      %r_Tmp,    %r_Tmp, 64;       //  64 words for shared per thread
+    shl.b32         %r_Tmp,    %r_Tmp, 2;        //  times 4 to get offset in bytes
+    add.u32         %r_SharedBase, %r_Ptr, %r_Tmp;
+    add.u32         %r_Offset, %r_SharedBase, 256;      // end offset: 256 = 64 words * sizeof(UINT32)
+    mov.u32         %r_Ptr,  %r_SharedBase;
+    mov.u64         %dr_Ptr, %dr_BasePtr;
+    add.u64         %dr_Ptr, %dr_Ptr, 256;       // base pattern starts 64 words down
+$FILL_SHARED_PATTERN:
+        ld.global.u32   %r_Tmp, [%dr_Ptr];              // load from FB pattern
+        st.shared.u32   [%r_Ptr], %r_Tmp;
+        add.u32         %r_Ptr, %r_Ptr, 4;
+        add.u64         %dr_Ptr, %dr_Ptr, 4;
+        setp.lt.u32     %p0, %r_Ptr, %r_Offset;
+    @%p0 bra        $FILL_SHARED_PATTERN; 
+
+
+// Do the Operations here:
+
+    ld.param.u64    %dr_OptBase, [Operations];
+    ld.param.u32    %r_NumOps, [NumOperations];
+    mov.u32         %r_NumDone, 0;
+
+    // r_Tmp1 holds the startIdx
+    // ***unknown***: somehow using r_Tmp1 to swizzle the operation array for each
+    // CTA doesn't work. We get bad load/store between FB and L1. This happens even
+    // if (r_ThreadId/32 == 0) -> which would result in the same r_Tmp1 as 
+    // the "mov.u32 %r_Tmp1,0;" instruction.
+    //div.u32         %r_Tmp1, %r_ThreadId, 32;    // 32 threads per CTA
+    mov.u32  %r_Tmp1, 0;
+$OPERATION_LOOP:
+        add.u32         %r_Tmp, %r_NumDone, %r_Tmp1;
+        rem.u32         %r_Tmp, %r_Tmp, %r_NumOps;
+        mul.lo.u32      %r_Offset, %r_Tmp, 16;          // byte offset (16 bytes in struct OperationInfo)
+        cvt.u64.u32     %dr_Tmp, %r_Offset;
+        add.u64         %dr_Ptr, %dr_OptBase, %dr_Tmp;
+        //    struct OperationInfo
+        //    {
+        //        UINT32   IsLocal;
+        //        UINT32   ToWrite;
+        //        UINT32   DstOffset;
+        //        UINT32   SrcOffset;
+        //    };
+        ld.global.u32   %r_IsLocal,   [%dr_Ptr];
+        ld.global.u32   %r_ToWrite,   [%dr_Ptr + 4];
+        ld.global.u32   %r_DstOffset, [%dr_Ptr + 8];
+        ld.global.u32   %r_SrcOffset, [%dr_Ptr + 12];
+
+        setp.ne.u32     %p1, %r_IsLocal, 1;
+        @%p1 bra        $DO_SHARED;
+
+            // setup local mem pointer and FB pointer
+            mov.u32         %r_Ptr , localMem;
+            mov.u64         %dr_Ptr, %dr_BasePtr;
+
+            setp.eq.u32     %p2, %r_ToWrite, 1;
+            @%p2 bra        $WRITE_TO_LOCAL;               
+
+                //
+                // read from local, then write to FB
+                //
+                cvt.u64.u32     %dr_Tmp, %r_DstOffset;
+                add.u64         %dr_Ptr, %dr_Ptr, %dr_Tmp;      // FB Ptr
+                add.u32         %r_Ptr, %r_Ptr, %r_SrcOffset;
+                ld.local.u32    %r_Tmp, [%r_Ptr];               // load from local memory                
+                st.global.u32   [%dr_Ptr], %r_Tmp;
+                bra $NEXT_OPERATION_LOOP;
+
+            $WRITE_TO_LOCAL:
+
+                //
+                // read from FB, write to local
+                //
+                cvt.u64.u32     %dr_Tmp, %r_SrcOffset;
+                add.u64         %dr_Ptr, %dr_Ptr, %dr_Tmp;      // FB Ptr
+                add.u32         %r_Ptr, %r_Ptr, %r_DstOffset;   // local mem ptr
+                ld.global.u32   %r_Tmp, [%dr_Ptr];
+                st.local.u32    [%r_Ptr], %r_Tmp;
+                bra $NEXT_OPERATION_LOOP;
+
+        $DO_SHARED:
+            // setup shared mem pointer and FB pointer
+            mov.u32         %r_Ptr,  %r_SharedBase;
+            mov.u64         %dr_Ptr, %dr_BasePtr;
+            add.u64         %dr_Ptr, %dr_Ptr, 256;       // base pattern starts 64 words down = 256 bytes
+            setp.eq.u32     %p2, %r_ToWrite, 1;
+            @%p2 bra        $WRITE_TO_SHARED; 
+
+                //
+                // read from shared, write to FB
+                //
+                cvt.u64.u32     %dr_Tmp, %r_DstOffset;
+                add.u64         %dr_Ptr, %dr_Ptr, %dr_Tmp;      // FB Ptr
+                add.u32         %r_Ptr, %r_Ptr, %r_SrcOffset;
+                ld.shared.u32   %r_Tmp, [%r_Ptr];               // load from local memory                
+                st.global.u32   [%dr_Ptr], %r_Tmp;
+
+                bra $NEXT_OPERATION_LOOP;
+
+            $WRITE_TO_SHARED:
+                //
+                // read from FB, write to shared:
+                //
+                cvt.u64.u32     %dr_Tmp, %r_SrcOffset;
+                add.u64         %dr_Ptr, %dr_Ptr, %dr_Tmp;      // FB Ptr
+                add.u32         %r_Ptr, %r_Ptr, %r_DstOffset;   // shared mem ptr
+                ld.global.u32   %r_Tmp, [%dr_Ptr];
+                st.shared.u32   [%r_Ptr], %r_Tmp;
+
+                bra $NEXT_OPERATION_LOOP;
+
+$NEXT_OPERATION_LOOP:
+
+        add.u32         %r_NumDone, %r_NumDone, 1;
+    setp.lt.u32     %p0, %r_NumDone, %r_NumOps;
+    @%p0 bra        $OPERATION_LOOP;
+
+
+// compute check sum on Local Memory:
+    mov.u32         %r_Ptr , localMem;
+    mov.u32         %r_Tmp1, 0;         // use r_Tmp1 as sum
+$LOOP_LOCAL_CHECKSUM:
+        ld.local.u32    %r_Tmp, [%r_Ptr];
+        add.u32         %r_Tmp1, %r_Tmp1, %r_Tmp;
+        add.u32         %r_Ptr, %r_Ptr, 4;
+        setp.lt.u32     %p0, %r_Ptr, localMem + 256;     // 64 words of local
+    @%p0 bra        $LOOP_LOCAL_CHECKSUM; 
+  
+    st.global.u32  [%r_ReportPtr + 8], %r_Tmp1;
+
+
+// compute check sum of shared Memory:
+    mov.u32         %r_Ptr,  %r_SharedBase;
+    add.u32         %r_Offset, %r_SharedBase, 256;      // end offset - 64 words of shared
+    mov.u32         %r_Tmp1, 0;         // use r_Tmp1 as sum
+$LOOP_SHARED_CHECKSUM:
+        ld.shared.u32    %r_Tmp, [%r_Ptr];
+        add.u32         %r_Tmp1, %r_Tmp1, %r_Tmp;
+        add.u32         %r_Ptr, %r_Ptr, 4;
+        setp.lt.u32     %p0, %r_Ptr, %r_Offset;
+    @%p0 bra        $LOOP_SHARED_CHECKSUM; 
+
+    st.global.u32  [%r_ReportPtr + 12], %r_Tmp1;
+    exit;
+}
+

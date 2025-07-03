@@ -1,0 +1,422 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2016-2022 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD                ?= false
+NO_RELEASE                    ?= false
+INCLUDE_DT                    ?= false
+SAVE_TEMPS                    ?= false
+HDCP22_DEBUG_MODE             ?= false
+HDCP22_USE_SCP_ENCRYPT_SECRET ?= false
+HDCP22_CHECK_STATE_INTEGRITY  ?= false
+HDCP22_USE_SCP_GEN_DKEY       ?= false
+HDCP22_SUPPORT_MST            ?= true
+HDCP22_FORCE_TYPE1_ONLY       ?= false
+HDCP_TEGRA_BUILD              ?= false
+HDCP22_LC_RETRY_WAR_ENABLED   ?= false
+HDCP22_WAR_3051763_ENABLED    ?= false
+HDCP22_WAR_ECF_SELWRE_ENABLED ?= false
+HDCP22_USE_HW_RSA             ?= false
+LIB_CCC_PRESENT               ?= false
+HDCP22_KMEM_ENABLED           ?= false
+HDCP22_USE_HW_SHA             ?= false
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+HDCP22WIRED_SW          = $(LW_SOURCE)/uproc/libs/hdcp/hdcp22wired
+LWUPROC                 = $(LW_SOURCE)/uproc
+FLCNLIBCFG              = $(LWUPROC)/libs/flcnlib_config
+RESMAN_ROOT             = $(LW_SOURCE)/drivers/resman
+LIB_UPROC_LWOS_SRC      = $(LWUPROC)/libs/lwos/$(LWOS_VERSION)
+LIB_CCC_REL_AD10X_ROOT  = $(LWUPROC)/lwriscv/sdk/lwriscv-sdk-3.0_dev/prebuilt/hdcp-ad10x-gsp-falcon
+LIB_CCC_REL_AD10X_INC   = $(LIB_CCC_REL_AD10X_ROOT)/inc
+LIB_CCC_REL_AD10X_LIB   = $(LIB_CCC_REL_AD10X_ROOT)/lib
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+FLCNLIBCFG_PROFILE ?= hdcp22wired-v0205
+ifdef HDCP22WIREDCFG_PROFILE
+  FLCNLIBCFG_PROFILE := $(HDCP22WIREDCFG_PROFILE)
+endif
+include $(HDCP22WIRED_SW)/config/hdcp22wired-profiles.mk
+
+###############################################################################
+# Load common falcon make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+override LW_PROJ        = $(IPMAJORVER)$(IPMINORVER)
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Define the output directory paths for the HDCP22WIRED build and all sub-make builds.
+###############################################################################
+
+OUTPUTDIR := $(HDCP22WIRED_SW)/_out/$(subst hdcp22wired-,,$(FLCNLIBCFG_PROFILE))
+
+###############################################################################
+# Setup flcnlib-config make vars and ilwoke flcnlib-config. Use flcnlib-config's
+# makefile.mk to do all the work. The makefile will generate flcnlib-config.mk in
+# the output directory and then include it.
+###############################################################################
+
+FLCNLIBSRC_ALL              :=
+FLCNLIBCFG_OPTIONS          := --h_file hdcp22wired-config.h --mk_file hdcp22wired-config.mk
+HDCP22WIREDCFG_OUTPUTDIR    ?= $(OUTPUTDIR)/config
+FLCNLIBCFG_OUTPUTDIR        := $(HDCP22WIREDCFG_OUTPUTDIR)
+FLCNLIBCFG_RESMAN_ROOT      := $(RESMAN_ROOT)
+FLCNLIBCFG_HEADER           := $(FLCNLIBCFG_OUTPUTDIR)/hdcp22wired-config.h
+FLCNLIBCFG_MAKEFRAGMENT     := $(FLCNLIBCFG_OUTPUTDIR)/hdcp22wired-config.mk
+FLCNLIBCFG_CONFIGFILE       := $(HDCP22WIRED_SW)/config/hdcp22wired-config.cfg
+FLCNLIBCFG_SRC_ROOT         := $(HDCP22WIRED_SW)/src
+
+include $(FLCNLIBCFG)/makefile.mk
+
+# include the generated list of source files
+ifdef FLCNLIBCFG_INITIALIZED
+  include $(FLCNLIBCFG_OUTPUTDIR)/g_sources.mk
+endif
+
+###############################################################################
+# Include profile-specific make settings to account for profile-specific build
+# options/requirements.
+###############################################################################
+
+-include $(HDCP22WIRED_SW)/config/$(FLCNLIBCFG_PROFILE).mk
+
+###############################################################################
+# Additional files to remove for 'clean' and 'clobber' targets.
+###############################################################################
+
+ifeq ("$(SAVE_TEMPS)","true")
+    OTHER_FILES_TO_REMOVE += $(LW_SOURCE)/uproc/libs/hdcp/hdcp22wired/src/*.s
+    OTHER_FILES_TO_REMOVE += $(LW_SOURCE)/uproc/libs/hdcp/hdcp22wired/src/*.i
+endif
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+export LW_TARGET_ARCH
+export MANUAL_PATHS
+
+###############################################################################
+# RTOS Configuration
+###############################################################################
+
+include $(LWUPROC)/build/common/lwRtosVersion.lwmk
+
+RTOS_SRC  = $(LW_RTOS_SRC)
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(LIB_UPROC_LWOS_SRC)/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES += $(HDCP22WIRED_SW)/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/i2c/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/dpaux/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/crypto/sha/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/crypto/shahw/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/crypto/bigint/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/hdcp/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/hdcp/hdcpauth/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/mutex/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/se/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/scp/inc
+ifdef DPU_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/uproc/disp/dpu/inc
+else ifdef GSPLITE_RTOS
+LW_INCLUDES += $(LW_SOURCE)/uproc/disp/dpu/inc
+else ifdef SEC2_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/uproc/sec2/inc
+endif
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/swref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/hwref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/displayport
+LW_INCLUDES += $(RESMAN_ROOT)/kernel/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(LW_RTOS_INCLUDES)
+ifeq ($(LW_TARGET_OS), riscv)
+  LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/inc
+  LW_INCLUDES += $(LWRISCV_TOOLS)/include/spike/
+  LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/syslib/inc
+  LW_INCLUDES += $(LWRISCV_SDK)/inc
+  LW_INCLUDES += $(LWRISCV_SDK_PROFILE)/inc
+  LW_INCLUDES += $(MEMMAP_PATH)
+
+  ifdef GSP_RTOS
+    LW_INCLUDES += $(LW_SOURCE)/uproc/gsp/src/$(GSP_OUTPUTDIR)
+  endif
+  ifdef PMU_RTOS
+    LW_INCLUDES += $(LW_SOURCE)/pmu_sw/prod_app/$(PMU_OUTPUTDIR)
+  endif
+else
+  LW_INCLUDES += $(FALCON_TOOLS)/include
+  ifdef GSPLITE_RTOS
+    LW_INCLUDES += $(LW_SOURCE)/uproc/disp/dpu/inc
+  endif
+endif
+
+ifdef GSP_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/uproc/gsp/inc
+  LW_INCLUDES += $(LW_SOURCE)/uproc/gsp/src
+endif
+
+ifeq ("$(LIB_CCC_PRESENT)","true")
+  CFLAGS += -DLIB_CCC_PRESENT
+  CFLAGS += -DCCC_ENGINE_GSP
+  CFLAGS += -DUPROC_ARCH_FALCON
+  LW_INCLUDES += $(LIB_CCC_REL_AD10X_INC)/libCCC
+  LW_INCLUDES += $(LIB_CCC_REL_AD10X_INC)/libCCC/hwref
+  LW_INCLUDES += $(LIB_CCC_REL_AD10X_INC)/libCCC/common
+  LW_INCLUDES += $(LIB_CCC_REL_AD10X_INC)/libCCC/common_crypto
+  LW_INCLUDES += $(LIB_CCC_REL_AD10X_INC)/libCCC/common_crypto/include
+  LW_INCLUDES += $(LIB_CCC_REL_AD10X_INC)/libCCC/common_crypto_private
+  LW_INCLUDES += $(LIB_CCC_REL_AD10X_INC)/libCCC/common_crypto_private/lwpka
+endif
+
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+ifeq ("$(SAVE_TEMPS)","true")
+  CFLAGS += -save-temps
+endif
+
+# HDCP22_DEBUG_MODE is an option to apply test vectors in hdcp22 authentication
+# and needs QD analyzer configured with debug keys.
+ifeq ("$(HDCP22_DEBUG_MODE)","true")
+  CFLAGS += -DHDCP22_DEBUG_MODE
+endif
+
+ifeq ("$(HDCP22_USE_SCP_ENCRYPT_SECRET)","true")
+  CFLAGS += -DHDCP22_USE_SCP_ENCRYPT_SECRET
+endif
+
+ifeq ("$(HDCP22_CHECK_STATE_INTEGRITY)","true")
+  CFLAGS += -DHDCP22_CHECK_STATE_INTEGRITY
+endif
+
+ifeq ("$(HDCP22_LC_RETRY_WAR_ENABLED)","true")
+  CFLAGS += -DHDCP22_LC_RETRY_WAR_ENABLED
+endif
+
+ifeq ("$(HDCP22_WAR_3051763_ENABLED)","true")
+  CFLAGS += -DHDCP22_WAR_3051763_ENABLED
+endif
+
+ifeq ("$(HDCP22_WAR_ECF_SELWRE_ENABLED)","true")
+  CFLAGS += -DHDCP22_WAR_ECF_SELWRE_ENABLED
+endif
+
+ifeq ("$(HDCP22_USE_HW_RSA)","true")
+  CFLAGS += -DHDCP22_USE_HW_RSA
+endif
+
+ifeq ("$(HDCP22_KMEM_ENABLED)","true")
+  CFLAGS += -DHDCP22_KMEM_ENABLED
+endif
+
+ifeq ("$(HDCP22_USE_HW_SHA)","true")
+  CFLAGS += -DHDCP22_USE_HW_SHA
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+  CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+  CFLAGS += -DUPROC_RISCV
+  # Setting SSP_ENABLED to false for RISCV builds to avoid printing build warnings
+  # When SSP needs to be enabled for RISCV, use variable IS_SSP_ENABLED
+  SSP_ENABLED ?= false
+endif
+
+ifeq ("$(HDCP22_USE_SCP_GEN_DKEY)","true")
+  CFLAGS += -DHDCP22_USE_SCP_GEN_DKEY
+endif
+
+#Enabling secure stack protection
+ifeq ("$(SSP_ENABLED)","true")
+  CFLAGS += -DIS_SSP_ENABLED
+  CFLAGS += -fstack-protector-all
+  # It replaces __stack_chk_fail with halt.
+  # If SSP needs to be enabled in LS as well as HS enable this flag.
+  SSP_REPLACE_STACK_CHK_FAIL = TRUE
+endif
+
+ifeq ($(SELWRITY_ENGINE), true)
+  CFLAGS += -DSELWRITY_ENGINE_ENABLED
+endif
+
+ifeq ($(DMEM_VA_SUPPORTED),true)
+  CFLAGS += -DDMEM_VA_SUPPORTED
+endif
+
+ifdef SUBMAKE_CFLAGS
+  CFLAGS += $(SUBMAKE_CFLAGS)
+endif
+
+ifeq ("$(HDCP22_SUPPORT_MST)","true")
+  CFLAGS += -DHDCP22_SUPPORT_MST
+endif
+
+ifeq ("$(HDCP22_FORCE_TYPE1_ONLY)","true")
+  CFLAGS += -DHDCP22_FORCE_TYPE1_ONLY
+endif
+
+CFLAGS += -fno-jump-tables
+
+ifeq ("$(HDCP_TEGRA_BUILD)","true")
+  # TODO: clean up if redundant flags, GSP_RTOS, GSP_LITE_RTOS, UPROC_RISCV, UPROC_FALCON, USE_CBB.
+  CFLAGS += -DHDCP_TEGRA_BUILD
+endif
+
+ifeq ($(USE_CBB), true)
+  CFLAGS += -DUSE_CBB=1
+else
+  CFLAGS += -DUSE_CBB=0
+endif
+
+ifeq ($(LWRISCV_PARTITION_SWITCH), true)
+  SUBMAKE_CONFIG_FLAGS += -DLWRISCV_PARTITION_SWITCH=1
+else
+  SUBMAKE_CONFIG_FLAGS += -DLWRISCV_PARTITION_SWITCH=0
+endif
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+
+ifdef FLCNLIBCFG_INITIALIZED
+  SOURCES := $(FLCNLIB_ALL)
+endif
+
+TGT       = $(OUTPUTDIR)/libHDCP22WIRED.a
+
+###############################################################################
+# The falcon which is building HDCP22WIRED with it will set a variable. Based on that,
+# Register access bus will be decided.
+###############################################################################
+
+ifdef SEC2_RTOS
+  CFLAGS += -DSEC2_RTOS
+  CFLAGS += -DSEC2_CSB_ACCESS
+endif
+ifdef DPU_RTOS
+  CFLAGS += -DDPU_RTOS
+endif
+ifdef PMU_RTOS
+  CFLAGS += -DPMU_RTOS
+endif
+ifdef GSPLITE_RTOS
+  CFLAGS += -DGSPLITE_RTOS
+  CFLAGS += -DGSPLITE_CSB_ACCESS
+endif
+ifdef GSP_RTOS
+  CFLAGS += -DGSP_RTOS
+  ifeq ($(RUN_ON_SEC), true)
+    CFLAGS += -DRUN_ON_SEC
+  endif
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(FLCNLIBCFG_PROFILE)]"
+
+#
+# When not building for DVS, the output image files need copied over to the RM
+# so that they get picked up by the driver/mods build. Trigger the process by
+# adding a phony prerequisite to 'all' called 'install'. The rule to rebuild
+# that target will perform the install process and will copy the files to the
+# RM if necessary.  Skip this process if the user has requested that files NOT
+# be installed via NO_INSTALL=true.
+#
+ifneq ($(LW_DVS_BLD),1)
+  ifneq ("$(NO_RELEASE)","true")
+    .PHONY: install
+    all: install
+  endif
+endif
+
+build: all
+
+###############################################################################
+# Rule for running a script that checks select files and directories in the
+# environment and checks w/perforce that they are up-to-date (ie. TOT).
+###############################################################################
+
+CHECK_ELW_SCRIPT = $(BUILD_SCRIPTS)/check-build-elw.pl
+
+# files/directories added to this list will be checked
+CHECK_ELW_FILES += $(LW_SOURCE)/uproc/libs/hdcp/hdcp22wired
+CHECK_ELW_FILES += $(LW_SOURCE)/uproc/build
+CHECK_ELW_FILES += $(LIB_UPROC_LWOS_SRC)
+CHECK_ELW_FILES += $(RTOS_SRC)
+
+CHECK_ELW_ARGS  += --check-list $(subst $(SPACE),$(COMMA),$(CHECK_ELW_FILES))
+CHECK_ELW_ARGS  += --p4 $(P4)
+
+checkbuild:
+	-$(PERL) $(CHECK_ELW_SCRIPT) $(CHECK_ELW_ARGS)
+
+all: $(TGT)
+$(TGT): $(OBJECTS)
+	$(MKDIR) ${dir $@}
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(AR) -r -c $(TGT) $(OBJECTS)
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+#	-$(RM) -f $(GEN_TMP_HDCP22WIRED_DEF)
+
+.PHONY: clean_ucode
+clean: clean_ucode
+
+clobber_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+#	-$(RM) -f $(GEN_TMP_HDCP22WIRED_DEF)
+
+.PHONY: clobber_ucode
+clobber: clobber_ucode

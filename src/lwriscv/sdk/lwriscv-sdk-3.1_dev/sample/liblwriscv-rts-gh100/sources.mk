@@ -1,0 +1,2 @@
+OBJS += libRTSUnitTests.o
+

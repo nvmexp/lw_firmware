@@ -1,0 +1,380 @@
+
+Author: Juki <jvirtanen@lwpu.com>
+Date: 2018-06-05
+Version 1:
+
+Use version 6.4.1
+
+I could not create a new environment with source code with the version
+2018sp1 and gave up. The version 6.4.1 works fine.
+
+0) You need to setup the rules.mk makefile correctly.
+   I have changed mine to support Vectorcast, will push to gerrit
+
+1) mkdir CCC/ccc-vcast
+   mkdir CCC/ccc-vcast/include
+   mkdir CCC/ccc-vcast/tests
+
+2) cp CCC/*.[hc] to CCC/ccc-vcast
+   cp CCC/include/*.h CCC/ccc-vcast/include
+   cp CCC/tests/*.[ch] CCC/ccc-vcast/tests
+
+
+2.1) Using the modified rules.mk compile the system normally (with mmp command)
+     and check that it works on a board.
+
+     This compiles CCC from the new CCC/ccc-vcast location and does not
+     yet add any vectorcast related stuff.
+
+     Run some tests (e.g. setest) to see that CCC works on board.
+
+     Generally just check that things compile and work ok.
+
+2.2) Then touch some CCC file (I use crypto_util.c)
+
+     touch CCC/ccc-vcast/crypto_util.c
+
+     Compile the touched file again with this command:
+
+     mm showcommands
+
+     You will need the output of the command that compiles the crypto_util.c.
+
+     It does not matter which CCC C file you compile, crypto_util.c is just
+     an example.
+
+     Find that line from the output of the "mm" command.
+
+2.3)
+
+     For me, it looks like this:
+
+/tera/dev-other/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-gcc -O2  -g -fno-builtin -finline -include /tera/dev-other/out/tmake/part/trusty_android_tos_t210b01_t186ref_debug/lwpu/trusty/build-t186/config.h -W -Wall -Wno-multichar -Wno-unused-parameter -fstack-protector -ffunction-sections -fdata-sections  -mgeneral-regs-only -DWITH_NO_FP=1  --include /tera/dev-other/out/tmake/part/trusty_android_tos_t210b01_t186ref_debug/lwpu/trusty/build-t186/lk/cheetah/platform/se_driver/module_config.h --std=gnu99 -Werror-implicit-function-declaration -Wstrict-prototypes -Wwrite-strings -Wextra -Wformat -Wformat-security -Wunused-function -Werror   -Dmemcpy=error_using_memcpy -DHAVE_RNG1_DRNG=1 -DHAVE_PKA1_TRNG=1 -DHAVE_AES_CTS=1 -DHAVE_P521 -DHAVE_ELLIPTIC_20=1 -DHAVE_RSA_PKCS_SIGN=1 -DHAVE_RSA_PSS_SIGN=1 -DHAVE_ENGINE_API_TESTS=1 -DKERNEL_TEST_MODE=1 -DSE_RD_DEBUG=1 -DKERNEL_SIMPLE_TESTS=0 -DTEST_RSA_CIPHER -DUPDATE_DIGEST_TEST=1 -DVCAST_USE_STDOUT -DVCAST_NO_FLOAT -DVCAST_LWSTOM_STD_OUTPUT -Wno-error=implicit-function-declaration -Wno-error=unused-variable -Wno-error=unused-parameter -Wno-error=colwersion  -Wno-error=sign-colwersion  -Wno-error=sign-compare -Wno-error=redundant-decls  -Wno-error=unused-but-set-variable -Wno-error   -I/tera/dev-other/out/tmake/part/trusty_android_tos_t210b01_t186ref_debug/lwpu/trusty/build-t186 -Ilk/trusty/include -Iexternal/lk/include -Iexternal/headers/include -Ilk/cheetah/include -Iapp/include -Iexternal/include -Ilib/include -Idevice/arm/generic-arm64/include -Idevice/arm/vexpress-a15/include -Idevice/lwpu/common/include -Idevice/lwpu/t132/include -Idevice/lwpu/t210/include -Idevice/lwpu/t186/include -I/tera/dev-other/vendor/lwpu/cheetah/ote/include -Ilk/cheetah/target/t186/include -Ilk/cheetah/platform/t18x/include -Ilk/cheetah/platform/tegra_common/include -Iexternal/lk/arch/arm64/include -Idevice/lwpu/t132/../../../../libfdt -Iexternal/lk/dev/interrupt/arm_gic/include -Iexternal/lk/dev/timer/arm_generic/include -Ilk/cheetah/lib/boot_profiler/include -Ilk/trusty/lib/sm/include -Ilk/trusty/lib/trusty/include -I/tera/dev-other/vendor/lwpu/cheetah/ote/lib/include -Iexternal/lk/lib/fixed_point/include -Ilk/trusty/lib/syscall/include -Ilk/cheetah/lib/tz-bpmp/include -Ilk/trusty/lib/uthread/include -Ilk/trusty/lib/uthread/arch/arm64/include -Ilk/trusty/lib/version/include -Ilk/cheetah/lib/ivc/include -I/tera/dev-other/vendor/lwpu/cheetah/common_crypto/ccc-vcast/include -I/tera/dev-other/vendor/lwpu/cheetah/common_crypto/ccc-vcast -Ilk/cheetah/platform/se_driver -I/tera/dev-other/vendor/lwpu/cheetah/hwinc-t18x -c /tera/dev-other/vendor/lwpu/cheetah/common_crypto/ccc-vcast/crypto_util.c -MD -MP -MT /tera/dev-other/out/tmake/part/trusty_android_tos_t210b01_t186ref_debug/lwpu/trusty/build-t186//tera/dev-other/vendor/lwpu/cheetah/common_crypto/ccc-vcast/crypto_util.o -MF /tera/dev-other/out/tmake/part/trusty_android_tos_t210b01_t186ref_debug/lwpu/trusty/build-t186//tera/dev-other/vendor/lwpu/cheetah/common_crypto/ccc-vcast/crypto_util.d -o /tera/dev-other/out/tmake/part/trusty_android_tos_t210b01_t186ref_debug/lwpu/trusty/build-t186//tera/dev-other/vendor/lwpu/cheetah/common_crypto/ccc-vcast/crypto_util.o
+
+2.4) Then, prepare a "compile line" input for the vectorcast GUI (you will feed this
+     later to the GUI):
+
+     From the above, include everything that is BEFORE the option "-c" in the output line,
+     i.e. this:
+
+/tera/dev-other/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-gcc -O2  -g -fno-builtin -finline -include /tera/dev-other/out/tmake/part/trusty_android_tos_t210b01_t186ref_debug/lwpu/trusty/build-t186/config.h -W -Wall -Wno-multichar -Wno-unused-parameter -fstack-protector -ffunction-sections -fdata-sections  -mgeneral-regs-only -DWITH_NO_FP=1  --include /tera/dev-other/out/tmake/part/trusty_android_tos_t210b01_t186ref_debug/lwpu/trusty/build-t186/lk/cheetah/platform/se_driver/module_config.h --std=gnu99 -Werror-implicit-function-declaration -Wstrict-prototypes -Wwrite-strings -Wextra -Wformat -Wformat-security -Wunused-function -Werror   -Dmemcpy=error_using_memcpy -DHAVE_RNG1_DRNG=1 -DHAVE_PKA1_TRNG=1 -DHAVE_AES_CTS=1 -DHAVE_P521 -DHAVE_ELLIPTIC_20=1 -DHAVE_RSA_PKCS_SIGN=1 -DHAVE_RSA_PSS_SIGN=1 -DHAVE_ENGINE_API_TESTS=1 -DKERNEL_TEST_MODE=1 -DSE_RD_DEBUG=1 -DKERNEL_SIMPLE_TESTS=0 -DTEST_RSA_CIPHER -DUPDATE_DIGEST_TEST=1 -DVCAST_USE_STDOUT -DVCAST_NO_FLOAT -DVCAST_LWSTOM_STD_OUTPUT -Wno-error=implicit-function-declaration -Wno-error=unused-variable -Wno-error=unused-parameter -Wno-error=colwersion  -Wno-error=sign-colwersion  -Wno-error=sign-compare -Wno-error=redundant-decls  -Wno-error=unused-but-set-variable -Wno-error   -I/tera/dev-other/out/tmake/part/trusty_android_tos_t210b01_t186ref_debug/lwpu/trusty/build-t186 -Ilk/trusty/include -Iexternal/lk/include -Iexternal/headers/include -Ilk/cheetah/include -Iapp/include -Iexternal/include -Ilib/include -Idevice/arm/generic-arm64/include -Idevice/arm/vexpress-a15/include -Idevice/lwpu/common/include -Idevice/lwpu/t132/include -Idevice/lwpu/t210/include -Idevice/lwpu/t186/include -I/tera/dev-other/vendor/lwpu/cheetah/ote/include -Ilk/cheetah/target/t186/include -Ilk/cheetah/platform/t18x/include -Ilk/cheetah/platform/tegra_common/include -Iexternal/lk/arch/arm64/include -Idevice/lwpu/t132/../../../../libfdt -Iexternal/lk/dev/interrupt/arm_gic/include -Iexternal/lk/dev/timer/arm_generic/include -Ilk/cheetah/lib/boot_profiler/include -Ilk/trusty/lib/sm/include -Ilk/trusty/lib/trusty/include -I/tera/dev-other/vendor/lwpu/cheetah/ote/lib/include -Iexternal/lk/lib/fixed_point/include -Ilk/trusty/lib/syscall/include -Ilk/cheetah/lib/tz-bpmp/include -Ilk/trusty/lib/uthread/include -Ilk/trusty/lib/uthread/arch/arm64/include -Ilk/trusty/lib/version/include -Ilk/cheetah/lib/ivc/include -I/tera/dev-other/vendor/lwpu/cheetah/common_crypto/ccc-vcast/include -I/tera/dev-other/vendor/lwpu/cheetah/common_crypto/ccc-vcast -Ilk/cheetah/platform/se_driver -I/tera/dev-other/vendor/lwpu/cheetah/hwinc-t18x
+
+3) Start vcast GUI
+   I have installed it to /opt/vectorcast/6.4.1/ directory
+   (install ==> copy the p4 synced vectorcast tree there)
+
+   You need to setup the ENVIRONMENT values in your shell
+   and provide the VC license in the environment
+   (this is not dolwmented here)
+
+   /opt/vectorcast/6.4.1/vcastqt &
+
+4) select "Build a VectorCAST/Cover Environment"
+
+5) Name your environment in the box that popped up
+   (I use name: CCC_old_gcc)
+
+   This is a C/C++ language project.
+
+6) Step 2 => Configure language
+
+   This will need the "prepared compilation command"
+   created in 2.4
+
+ 6.1)
+  Compilers => select "GNU Target Linux ARM (C)"
+
+ 6.2)
+  Copy paste the prepared compilation command from 2.4. to the box and
+  Push "Parse Command Line" and paste the "prepared compilation command"
+  to the upper box.
+
+  Push "Parse"
+
+  A button "Select base directory" appears. Push that.
+
+  Since we are using Trusty include files, we need to use a base directory
+  for Trusty sources. [ If you are building CCC as part of some other subsystem,
+  probably should select those sources instead.[
+
+  Navigate to $TOP/3rdparty and "Choose" "trusty" as base directory.
+
+ 6.3)
+  Then cmd line is parsed, push "OK"
+
+ 6.4)
+  Then the "preprocessor/compiler" tab, the "preprocessor command" and "compile command" and
+  in the "linker/debug" tab the linker command are still wrong, need to fix those...
+
+  Notice the different flags for the default "arm-linux-gcc".
+  DO NOT remove those flags.
+
+  Replace the string "arm-linux-gcc" with the (all of it) "prepared compilation command"
+  from 2.4 but LEAVE THE CURRENT FLAGS to the end.
+
+  So, as an example, Preprocessor command will be:
+
+/tera/dev-other/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-gcc -O2  -g -fno-builtin -finline -include /tera/dev-other/out/tmake/part/trusty_android_tos_t210b01_t186ref_debug/lwpu/trusty/build-t186/config.h -W -Wall -Wno-multichar -Wno-unused-parameter -fstack-protector -ffunction-sections -fdata-sections  -mgeneral-regs-only -DWITH_NO_FP=1  --include /tera/dev-other/out/tmake/part/trusty_android_tos_t210b01_t186ref_debug/lwpu/trusty/build-t186/lk/cheetah/platform/se_driver/module_config.h --std=gnu99 -Werror-implicit-function-declaration -Wstrict-prototypes -Wwrite-strings -Wextra -Wformat -Wformat-security -Wunused-function -Werror   -Dmemcpy=error_using_memcpy -DHAVE_RNG1_DRNG=1 -DHAVE_PKA1_TRNG=1 -DHAVE_AES_CTS=1 -DHAVE_P521 -DHAVE_ELLIPTIC_20=1 -DHAVE_RSA_PKCS_SIGN=1 -DHAVE_RSA_PSS_SIGN=1 -DHAVE_ENGINE_API_TESTS=1 -DKERNEL_TEST_MODE=1 -DSE_RD_DEBUG=1 -DKERNEL_SIMPLE_TESTS=0 -DTEST_RSA_CIPHER -DUPDATE_DIGEST_TEST=1 -DVCAST_USE_STDOUT -DVCAST_NO_FLOAT -DVCAST_LWSTOM_STD_OUTPUT -Wno-error=implicit-function-declaration -Wno-error=unused-variable -Wno-error=unused-parameter -Wno-error=colwersion  -Wno-error=sign-colwersion  -Wno-error=sign-compare -Wno-error=redundant-decls  -Wno-error=unused-but-set-variable -Wno-error   -I/tera/dev-other/out/tmake/part/trusty_android_tos_t210b01_t186ref_debug/lwpu/trusty/build-t186 -Ilk/trusty/include -Iexternal/lk/include -Iexternal/headers/include -Ilk/cheetah/include -Iapp/include -Iexternal/include -Ilib/include -Idevice/arm/generic-arm64/include -Idevice/arm/vexpress-a15/include -Idevice/lwpu/common/include -Idevice/lwpu/t132/include -Idevice/lwpu/t210/include -Idevice/lwpu/t186/include -I/tera/dev-other/vendor/lwpu/cheetah/ote/include -Ilk/cheetah/target/t186/include -Ilk/cheetah/platform/t18x/include -Ilk/cheetah/platform/tegra_common/include -Iexternal/lk/arch/arm64/include -Idevice/lwpu/t132/../../../../libfdt -Iexternal/lk/dev/interrupt/arm_gic/include -Iexternal/lk/dev/timer/arm_generic/include -Ilk/cheetah/lib/boot_profiler/include -Ilk/trusty/lib/sm/include -Ilk/trusty/lib/trusty/include -I/tera/dev-other/vendor/lwpu/cheetah/ote/lib/include -Iexternal/lk/lib/fixed_point/include -Ilk/trusty/lib/syscall/include -Ilk/cheetah/lib/tz-bpmp/include -Ilk/trusty/lib/uthread/include -Ilk/trusty/lib/uthread/arch/arm64/include -Ilk/trusty/lib/version/include -Ilk/cheetah/lib/ivc/include -I/tera/dev-other/vendor/lwpu/cheetah/common_crypto/ccc-vcast/include -I/tera/dev-other/vendor/lwpu/cheetah/common_crypto/ccc-vcast -Ilk/cheetah/platform/se_driver -I/tera/dev-other/vendor/lwpu/cheetah/hwinc-t18x -E -C
+
+  The other are similar, just different trailing options.
+
+ 6.5) After setting the above, push "Test Settings" and select using the Choose button select
+      one CCC file to process. Te "base directory" setting takes us to wrong default dir,
+      navigate to CCC/ccc-vcast directory and select one file.
+
+      I select crypto_process_signature.c and push "Test"
+
+      It should inform of "Success" and show preprocessored file output in the other box.
+
+     Push "Dismiss" to close the window.
+
+7) Step 3 => Locate Source Files
+
+   Push "Next" in the config language window.
+
+   Then select the include directories you wish to use for the compilations.
+
+   I just leave the defaults (huge number of them) as they are.
+
+   Press "+" in the include directories, the Source file selector appears.
+   (It may just appear by itself).
+
+   Select the files you wish to analyze with VectorCast.
+
+   I selected all files in common_crypto/ccc-vcast directory (check box
+   in front of all files)
+
+8) Step 4 => "Coverage Options"
+
+   Push "Next" in Locate Source Files window.
+
+   8.1) Check the following boxes:
+
+	- Leave the current checks as they are unless you need to change them
+
+	- Consider case fallthrough for branch coverage
+
+	- Select Tab "Misc"
+	  - Check "Exelwtion results go to stdout (C/C++ only)"
+
+9) Press "Build"
+
+   There is no save button, so just for the sake of it press "Build"
+   since there is nothing else to push ;-)
+
+10) After this you have set up the "environment" that you can
+    start instrumenting the CCC source files in ccc-vcast directory.
+
+    So, let's "instrument" the code to allow vectorcast to
+    do surface analysis...
+
+10.0) Select "Coverage" from menu, then
+
+      Initialize -> ISO26262 (Automotive) ASILD
+
+10.1) In the "Environment view" "Filename" box, select all files
+      (press Control-A after selectingone file)
+
+10.2) Press "mouse right button" on the selected files.
+
+      From manu, select:
+      instrument -> ISO 26262 (ASIL-D)
+
+      vectorcast will process (modify) the source files and this takes a while
+
+      If you see errors (Instrumentation Failures), you need to fix
+      them and retry this step until there are no errors.
+
+      If the error oclwrs in some file you do not need => just "remove" the file
+      from the right click menu on top of that file.
+
+10.3) Once the above step passed => you have "instrumented the CCC
+      source files".
+
+10.4) You need to add the "I/O support" to the compilation process.
+
+      You can do that probably in many ways, but I did it as
+      recommended by Jeff...
+
+      Choose any CCC source file in the "environment" "Filename" box and push
+      right mouse button.
+
+      I use "crypto_util.c": Right click that file and select the
+      "Append Cover IO"
+
+      [ You only need to add this to one file ]
+
+      This will remove the "instrumentation" (due to errors), so
+      instrument this file again as in step 10.2.
+
+      If you get now errors => need to fix those as well. I got this error in
+      compilation:
+
+#error Need to insert serial/std i/o code in VCAST_WRITE_TO_INST_FILE_COVERAGE()
+
+       This is because we checked the "use stdout" earlier, we need to MODIFY
+       the vectorcast source file from the "project directory".
+
+       This is a vectorcast created source directory inside
+       "ccc-vcast" directory, with the name of the environment you
+       set.
+
+10.5) Modify the c_cover_io.c vectorcast source file to log
+      the vectorcast output.
+
+      The source file used is in my case in
+      ccc-vcast/CCC_old_gcc/c_cover_io.c
+
+      Edit this file, around line 381 you will see this:
+
+#ifdef VCAST_LWSTOM_STD_OUTPUT_INCLUDE
+#include VCAST_LWSTOM_STD_OUTPUT_INCLUDE
+#else /* ndef VCAST_LWSTOM_STD_OUTPUT_INCLUDE */
+#error Need to insert serial/std i/o code in VCAST_WRITE_TO_INST_FILE_COVERAGE()
+#endif /* VCAST_LWSTOM_STD_OUTPUT_INCLUDE */
+
+       Change this to be as follows:
+
+#ifdef VCAST_LWSTOM_STD_OUTPUT_INCLUDE
+#include VCAST_LWSTOM_STD_OUTPUT_INCLUDE
+#else /* ndef VCAST_LWSTOM_STD_OUTPUT_INCLUDE */
+  /* Juki: Added this by hand and commented out the #error below */
+  dprintf(CRITICAL, "::%s \n", S);
+// #error Need to insert serial/std i/o code in VCAST_WRITE_TO_INST_FILE_COVERAGE()
+#endif /* VCAST_LWSTOM_STD_OUTPUT_INCLUDE */
+
+       The dprintf() line adds a prefix "::" to make it easier to strip out
+       all lines that do not start with this prefix. This is needed to
+       parse the vectorcast generated stdout from the trusty console log file
+       (generated by a Quill/parker board).
+
+       I use the following shell command to parse the log file:
+
+grep '^::' ~/console-log-file.1  | sed -e 's/^:://' > ~/vectorcast-output.DAT
+
+       once we get that far ;-)
+
+       But now, need to reinstrument the file in which you added
+       the "vectorcast IO" =>
+
+10.6) Reinstrument file (e.g.) crypto_util.c as in 10.2
+
+      If no errors, then gui is done.
+
+10.7) The GUI is not used after this, so now get back to the normal compilation
+    process. (You may need the gui again if you modify a file and want to
+    instrument the new version again. Do NOT modify the instrumented sources,
+    that makes no sense!!!).
+
+    Use "remove" to remove the file, then COPY a new file version to ccc-vcast
+    directory and then use the
+
+     "Environment" -> "Add Files"
+
+    to add a modified file back. After you have added it, you need to do
+    step 10.2 again for it to instrument it again.
+
+11) Compile the Trusty again with the normal compilation command...
+
+    I use mmp in the shell...
+
+
+11.1) You will probably get more errors when now compiling the vectorcast
+      instrumented code...
+
+      E.g. it does seem to need the following defines added (the c_cover_io.c
+      include setup is a real mess...)
+
+      I added these two lines to the beginning of this file
+      (as first two lines):
+
+#define VCAST_malloc malloc
+#define VCAST_free free
+
+	Recompile with mmp
+
+12) Success! Compilation passed.
+
+    Flash the image to the board and try to run seme CCC tests.
+    Check the console output at the same time...
+
+    If you see lines that contain stuff like:
+
+::34a57 1 1
+::34 72
+::34 73
+
+     You are seeing vectorcast in action....
+
+     You need to collect ALL SUCH LINES, strip out all unrelated stuff
+     from the log and then feed just the HEX NUMBERS back to the GUI.
+
+12.1) If you do not get "Success", you may run into some issues that
+      yuou need to solve first.
+
+      E.g. if you get a linker warning about relocation (text segment overflows
+      to page tables) ==> serious, you need to make the image smaller.
+
+      You may need to strip out some TA's from the system to make the
+      image smaller.  Do this by editing the Trusty make config file
+      in
+
+      $TOP/3rdparty/trusty/devices/lwpu/t186/project/t186-inc.mk
+
+      If you need to do this and you are unsure what you can drop and
+      how, let me know.
+
+13) Collecting log output from Trusty console and feeding it back to VC GUI
+
+    13.0) Tell Linux to shut up:
+
+	  adb shell "echo 0 > /proc/sys/kernel/printk"
+
+    13.1) Note that vectorcast does NOT OUTPUT ANYTHING if you excelwte
+	  a line it has previously already created output for.
+
+	  So (at least in this setting) vectorcast is not interested
+	  how many times a line was exelwted.
+
+	  That is why you will see less and less output from vectorcast when
+	  the test suite is run. All previously run lines are silent next time.
+
+    13.2) I have modified my Trusty debug.c so that it can be told
+	  at runtime to output stuff directly to the UART. This will
+	  drop all "[TRUSTY]" prefixes from the output and it outputs
+	  the raw text from the log functions.
+
+	  This is in some "unmerged Trusty commit" in gerrit (don't now
+	  remember the commit id).
+
+	  Anyway, if you go via android logger or directly to UART you anyway
+	  will see some form of "hex output" from vectorcast in the log.
+
+	  If you have my commit merged you can use the sed command
+	  above to filter output so that it only contains log from
+	  vectorcast.
+
+	  I use this shell command to strip out only the vectorcast hex numbers:
+
+grep '^::' ~/console-log-file.1  | sed -e 's/^:://' > ~/vectorcast-output.DAT
+
+
+    13.3) The created file, vectorcast-output.1 needs to be fed back to the GUI
+
+	  Select VC GUI menu entry "Environment" -> "Add Test Results"
+
+	  And browse to the file vectorcast-output.DAT
+
+	  The GUI requests you to add a name for the test result import
+	  chunk...
+
+	  I just use the same name CCC_old_gcc
+
+    13.4) After it imports the data set, the "environment view" "Name"
+	  "Coverage Data" will get a new "Test Results" entry
+	  CCC_old_gcc
+
+	  Check the box left to it.
+
+    13.5) Now you should see the coverage results (surface analysis
+	  created by the vectorcast instrumented code)

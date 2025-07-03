@@ -1,0 +1,46 @@
+
+## API: Core
+
+```C
+static inline LibosStatus libosPortSendRecv(
+    LibosHandle destinationPort,    // port to send messagePayload to
+    LibosHandle replyPort,          // port sent to remote for reply messagePayload
+    LwU64     * messageId,          // 64-bit token identifying command type
+    void      * messagePayload,     // [optional] messagePayload input/output payload
+    LwU64       outgoingMessageSize // [in]  size of messagePayload to transmit
+                                    // [out] size of messagePayload received @bug need separate input and output sizes
+    LwU64 *     incomingMessageSize // [in] size of buffer to receive reply
+                                    // [out] size of reply
+);
+
+static inline LibosStatus libosPortSend(
+    LibosHandle destinationPort,    // port to send messagePayload to
+    LibosHandle replyPort,          // port sent to remote for reply messagePayload
+    LwU64       messageId,          // 64-bit token identifying command type
+    void      * messagePayload,     // [optional] messagePayload input/output payload
+    LwU64       outgoingMessageSize // [in]  size of messagePayload to transmit
+)
+
+static inline LibosStatus libosPortRecv(
+    LibosHandle   destinationPort,        // port to send messagePayload to
+    LibosHandle * replyPort,              // [out] optional reply report
+    LwU8        * sourceIsolationDomain,  // [out] isolation pasid messagePayload arrived from
+    LwU64       * messageId,              // [out] messagePayload-tid
+    void        * messagePayload,         // [optional] messagePayload payload
+    LwU64       * incomingMessageSize     // [in] size of receipt buffer
+                                          // [out] size of received messagePayload
+)
+```
+Lifetimes:
+  ioctl-code            - a0 - Live until dispatch completes
+  return                - a2 - Lifetime starts at error position [always before kernel_port_copy_and_schedule]
+  destinationPort[in]   - a3 - Lifetime ends before kernel_port_copy_and_schedule
+  replyPort[in/out]     - a4 - Always live
+  messageId[in/out]     - a5 - Always live
+  outgoingMessageSize   - a6 - ends before kernel_port_copy_and_schedule / not live in libosPortRecv
+  sourceIsolationDomain - a6 - live right before kernel_port_copy_and_schedule / live in libosPortRecv only
+  incomingMessageSize   - a7 - Always live
+  messagePayload        - t2 - Always live in libosPortSendRecv / Lifetime ends before kernel_port_copy_and_schedule
+  Clobbered             - a0-a3,t0-t1
+
+Total registers clobbered: 10

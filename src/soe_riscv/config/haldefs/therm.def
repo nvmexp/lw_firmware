@@ -1,0 +1,85 @@
+# -*- mode: perl; -*-
+
+# Thermal SOE Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $thermHal = [
+
+    # defaults for Therm for all interfaces below
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PRE_INIT => [
+            DESCRIPTION    => "Initialization",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+         SERVICE_OVERT => [
+            DESCRIPTION    => "Service Overtemp Interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+         SERVICE_ALERT => [
+            DESCRIPTION          => "Service Overtemp Alert Interrupts",
+            RETURN_TYPE          => void,
+            ARGUMENTS            => void,
+            FLAGS                => ":NO_STUB",
+
+            _LS10                 => [ ALL, ],
+        ],
+
+         GET_TSENSE_MAX => [
+            DESCRIPTION    => "Returns maximum internal temperature",
+            RETURN_TYPE    => LwTemp,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+         GET_TSENSE_THRESHOLDS => [
+            DESCRIPTION    => "Returns Tsense threshold values for warn and overt",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 thresholdIdx, LwTemp *pThresholdValue",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+         FORCE_SLOWDOWN => [
+            DESCRIPTION    => "Force Thermal Slowdown",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwBool slm, LwU32 periodUs",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+         CHECK_THERMAL_EVENT_STATUS => [
+            DESCRIPTION    => "Check thermal event status",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+         ],
+
+        ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $thermHal;

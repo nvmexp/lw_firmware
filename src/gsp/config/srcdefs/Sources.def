@@ -1,0 +1,128 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Engines.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    GSPSRC_CORE => [
+
+        FLAGS => ':CORE',                     # following are all part of core (non-hal)
+
+        LEGACY_WRAPPERS => [
+            # TODO (Bug 200471270): codes inside lwoscmdmgmtGSP.c is not
+            # implemented yet and also duplicate definition to libLwOs's.
+            # Add that back when implemented.
+            # 'syslib/lwoscmdmgmtGSP.c',
+        ],
+
+        TASKS => [
+            'tasks/msgmgmt/msgmgmt.c',
+            'tasks/cmdmgmt/cmdmgmt.c',
+            'tasks/test/test.c',
+            'tasks/debugger/debugger.c',
+
+            ONLY_IF => GSPTASK_DISPLAY,
+            'tasks/hdcp1x/hdcp1x.c',
+            'tasks/hdcp22/hdcp22.c',
+
+            ONLY_IF => GSPTASK_SCHEDULER,
+            'tasks/scheduler/scheduler.c',
+
+        ],
+
+        OS =>
+        [
+            CHIPS_SUPPORTED => [ TURING_and_later, T234D_and_later, ],
+                'kernel/init.c',
+                'kernel/start.S',
+
+                'syslib/os.c',
+                'syslib/ostmrcallback.c',
+                'syslib/partswitchtest.c',
+        ],
+
+    ],  # GSPSRC_CORE
+
+    GSPSRC_ENGINES => [
+
+        # TODO : enable this later if this fits GSP src code structure
+        # include these files only if they show up in a SRCFILES list in Engines.pm
+        # FLAGS => ':MUST_BE_REQUIRED',
+
+        HAL =>
+        [
+            # These are the files that install the hal support for a given gpu.
+            # The files may be shared across multiple gpus, but every gpu must
+            # be represented by exactly 1 file.
+
+            FLAGS => ':HAL_IMPLEMENTATION'    # mark these files as the hal implementation
+                   . ':HAL_SETUP'
+                   . '',
+
+            CHIPS_SUPPORTED => [ TURING_and_later, T234D_and_later, ], #TODO 200586859: This is not required for ucodes, need to clean this code
+                'hal/haltu10x.c',
+        ],
+
+        HDCP1X =>
+        [
+            CHIPS_SUPPORTED => [ TURING_and_later, T234D_and_later, -GA100, ],
+            ONLY_IF => GSPTASK_DISPLAY,
+                'tasks/hdcp1x/libintfchdcp1x.c',
+        ],
+
+        HDCP22WIRED =>
+        [
+            CHIPS_SUPPORTED => [ TURING_and_later, T234D_and_later, -GA100, ],
+            ONLY_IF => GSPTASK_DISPLAY,
+                'tasks/hdcp22/libintfchdcp22wired.c',
+        ],
+
+        LSF =>
+        [
+            CHIPS_SUPPORTED => [ TURING_and_later, ],
+                'syslib/lsftu10x.c',
+            CHIPS_SUPPORTED => [ T234D_and_later, ],
+                'syslib/lsft23xd.c',
+        ],
+
+        MUTEX =>
+        [
+            CHIPS_SUPPORTED => [ TURING_and_later, ],
+                'syslib/mutextu10x.c',
+            CHIPS_SUPPORTED => [ T234D_and_later, ],
+                'syslib/mutext23xd.c',
+        ],
+
+        DIO =>
+        [
+            CHIPS_SUPPORTED => [ TURING_and_later, T234D_and_later, ],
+                'syslib/dio.c',
+            CHIPS_SUPPORTED => [ T234D_and_later, ],
+                'syslib/diot23xd.c',
+        ],
+
+    ],  # GSPSRC_ENGINES
+
+];   # filesRef
+
+
+my $platformsRef = [
+
+    # The GSP platform
+    PLATFORM_DEFAULT  => [
+        GSPSRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

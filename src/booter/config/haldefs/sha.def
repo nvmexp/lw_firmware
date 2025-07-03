@@ -1,0 +1,121 @@
+# -*- mode: perl; -*-
+
+# SHA Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $shaHal = [
+
+    DEFAULTS => [
+       FLAGS           => ":DIRECT_HAL_CALLS",
+       _STUB           => [ pre_TU10X, ],
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        OPERATION_INIT => [
+            DESCRIPTION    => "To initialize SHA operation",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'SHA_CONTEXT *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => BOOTER_ERROR_BIN_NOT_SUPPORTED,
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        GET_CONFIG_ENCODE_MODE => [
+            DESCRIPTION    => "To get SHA encode mode",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'SHA_ID, LwU8 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => OPERATION_INIT,
+        ],
+
+        WAIT_ENGINE_IDLE => [
+            DESCRIPTION    => "Wait SHA engine idle",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => OPERATION_INIT,
+        ],
+
+        ENGINE_SOFT_RESET => [
+            DESCRIPTION    => "Execute soft reset for SHA engine",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => OPERATION_INIT,
+        ],
+
+        ENGINE_HALT => [
+            DESCRIPTION    => "Execute halt request for SHA engine",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => OPERATION_INIT,
+        ],
+
+        ACQUIRE_MUTEX => [
+            DESCRIPTION    => "To acquire SHA engine mutex",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU8',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => OPERATION_INIT,
+        ],
+
+        RELEASE_MUTEX => [
+            DESCRIPTION    => "To release SHA engine mutex",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU8',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => OPERATION_INIT,
+        ],
+
+        INSERT_TASK => [
+            DESCRIPTION    => "To insert SHA task",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'SHA_CONTEXT *, SHA_TASK_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => OPERATION_INIT,
+        ],
+
+        READ_HASH_RESULT => [
+            DESCRIPTION    => "To read SHA hash result",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'SHA_CONTEXT *, void *, LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => OPERATION_INIT,
+        ],
+
+        GET_HASH_SIZE_BYTE => [
+            DESCRIPTION    => "To get SHA hash size per SHA Id",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'SHA_ID, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => OPERATION_INIT,
+        ],
+		
+		GET_BLOCK_SIZE_BYTE => [
+            DESCRIPTION    => "To get SHA block size per SHA Id",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'SHA_ID, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => OPERATION_INIT,
+		],
+    ],
+];
+
+# return a reference to the Hal definition
+return $shaHal;

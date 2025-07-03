@@ -1,0 +1,298 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2021 by LWPU Corporation.  All rights reserved.
+ * All information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+.language merlwry
+.version 1.0
+.target sm_90
+.virtual_target sm_90
+.abi_version   0
+.elftype exec
+
+#include "../tools/merc_common.h"
+
+.sectionattr .lw.info, align@4
+.section .lw.info
+{
+    LW_INFO_BLOCK(regstress)
+    LW_INFO_BLOCK(regstressRO)
+}
+
+.sectionattr .lw.info.regstress, align@4
+.section .lw.info.regstress
+{
+    LWI_PARAM_CBANK(regstress, 8, 528, 40)
+    LWI_CBANK_PARAM_SIZE(0x28)
+    LWI_KPARAM_INFO(12, 240, 161)
+    LWI_MAXREG_COUNT(0x100)
+}
+
+.sectionattr .lw.info.regstressRO, align@4
+.section .lw.info.regstressRO
+{
+    LWI_PARAM_CBANK(regstressRO, 8, 528, 40)
+    LWI_CBANK_PARAM_SIZE(0x28)
+    LWI_KPARAM_INFO(12, 240, 161)
+    LWI_MAXREG_COUNT(0x100)
+}
+
+LW_PARAM(regstress, 568)
+LW_PARAM(regstressRO, 568)
+
+#define WRITE_REGISTER(reg) mov.b32 %r ## reg = %r3;
+
+#define REG_CONCAT(x) %r ## x
+
+/*
+In this MACRO Block we are first checking the register value for miscomparison.
+In case its expected value we move to the next register but jumping to its label.
+Otherwise, we will report the error by storing iteration, smid, laneid, expected and read values.
+reg -> the target register to verify
+sLabel -> the target registers verification code block
+jNum & jLabel -> In case of match which label to jump to for either program termination or another register verification.
+*/
+
+#define VERIFY_AND_REPORT(reg, sLabel, jNum, jLabel) .GEN_LABEL(sLabel, reg): \
+                                                     setp.u32.eq %p0 = REG_CONCAT(reg), %r3; \
+                                                     @%p0 bra.rel %pt, (`.GEN_LABEL(jLabel, jNum)); \
+                                                     ld.const.b64 {%ur2:2} = [bank0 + 0x220]; \
+                                                     mov.b32 %r6 = %ur2; \
+                                                     mov.b32 %r7 = %ur3; \
+                                                     mov.b32 %r8 = 0x1; \
+                                                     atom.global.add.relaxed.gpu.policy %pt, %r8 = [{%r6:2} + 0x0], {%ur4:2}, %r8; \
+                                                     ld.const %ur6 = [bank0 + 0x230]; \
+                                                     setp.u32.ge %p0 = %r8, %ur6; \
+                                                     @%p0 exit %pt; \
+                                                     mov.b32 %r7 = 0x1c; \
+                                                     ld.const.b64 {%ur6:2} = [bank0 + 0x218]; \
+                                                     mad.u32.wide {%r6:2}, %pt = %r8, %r7, {%ur6:2}; \
+                                                     st.global.policy [{%r6:2} + 0x0], {%ur4:2}, REG_CONCAT(reg); \
+                                                     st.global.policy [{%r6:2} + 0x4], {%ur4:2}, %r3; \
+                                                     st.global.policy [{%r6:2} + 0x8], {%ur4:2}, %r0; \
+                                                     mov.b32 %r8 = %smid; \
+                                                     st.global.policy [{%r6:2} + 0xc], {%ur4:2}, %r8; \
+                                                     mov.b32 %r8 = %warpid; \
+                                                     st.global.policy [{%r6:2} + 0x10], {%ur4:2}, %r8; \
+                                                     mov.b32 %r8 = %laneid; \
+                                                     st.global.policy [{%r6:2} + 0x14], {%ur4:2}, %r8; \
+                                                     mov.b32 %r8 = reg; \
+                                                     st.global.policy [{%r6:2} + 0x18], {%ur4:2}, %r8;
+
+#define VERIFY_AND_REPORT_BLOCK(n1 , L, n2) VERIFY_AND_REPORT(n1##0, L, n1##1, L) VERIFY_AND_REPORT(n1##1, L, n1##2, L) \
+                                            VERIFY_AND_REPORT(n1##2, L, n1##3, L) VERIFY_AND_REPORT(n1##3, L, n1##4, L) \
+                                            VERIFY_AND_REPORT(n1##4, L, n1##5, L) VERIFY_AND_REPORT(n1##5, L, n1##6, L) \
+                                            VERIFY_AND_REPORT(n1##6, L, n1##7, L) VERIFY_AND_REPORT(n1##7, L, n1##8, L) \
+                                            VERIFY_AND_REPORT(n1##8, L, n1##9, L) VERIFY_AND_REPORT(n1##9, L, n2##0, L)
+
+.visible .entry regstress
+.section .text.regstress
+{
+    regstress:
+    {
+        // Iterate over NumInnerIterations (outer loop)
+        ld.const %r0 = [bank0 + 0x22c];
+        .L_1:
+        setp.u32.eq %p0 = %r0, %rz;
+        @%p0 bra.rel %pt, (`.L_3);
+
+        // Iterate over numPatterns (inner loop)
+        ld.const %r1 = [bank0 + 0x228];
+        mov.b32 %r2 = %rz;
+        .B_1:
+        setp.u32.eq %p0 = %r1, %r2;
+        @%p0 bra.rel %pt, (`.L_2);
+
+        // getting the patternPtr
+        ld.const.b64 {%ur0:2} = [bank0 + 0x210];
+
+        // patternIdx based pointer arithmetic
+        mov.b32 %r3 = 0x4;
+
+        // getting the pattern address at the index
+        mad.u32.wide {%r4:2}, %pt = %r3, %r2, {%ur0:2};
+
+        // getting the implicit memory descriptor
+        ld.const.b64 {%ur4:2} = [bank0 + 0x118];
+
+        // loading the pattern
+        ld.global.policy %r3 = [{%r4:2} + 0x0], {%ur4:2}, %pt;
+
+        // Writing the pattern to the registers
+        WRITE_REGISTER(4) 
+        WRITE_REGISTER(5) 
+        WRITE_REGISTER(9) 
+        ASM_BLOCK(WRITE_REGISTER, 1)
+        ASM_BLOCK(WRITE_REGISTER, 2)
+        ASM_BLOCK(WRITE_REGISTER, 3)
+        ASM_BLOCK(WRITE_REGISTER, 4)
+        ASM_BLOCK(WRITE_REGISTER, 5)
+        ASM_BLOCK(WRITE_REGISTER, 6)
+        ASM_BLOCK(WRITE_REGISTER, 7)
+        ASM_BLOCK(WRITE_REGISTER, 8)
+        ASM_BLOCK(WRITE_REGISTER, 9)
+        ASM_BLOCK(WRITE_REGISTER, 10)
+        ASM_BLOCK(WRITE_REGISTER, 11)
+        ASM_BLOCK(WRITE_REGISTER, 12)
+        ASM_BLOCK(WRITE_REGISTER, 13)
+        ASM_BLOCK(WRITE_REGISTER, 14)
+        ASM_BLOCK(WRITE_REGISTER, 15)
+        ASM_BLOCK(WRITE_REGISTER, 16)
+        ASM_BLOCK(WRITE_REGISTER, 17)
+        ASM_BLOCK(WRITE_REGISTER, 18)
+        ASM_BLOCK(WRITE_REGISTER, 19)
+        ASM_BLOCK(WRITE_REGISTER, 20)
+        ASM_BLOCK(WRITE_REGISTER, 21)
+        ASM_BLOCK(WRITE_REGISTER, 22)
+        ASM_BLOCK(WRITE_REGISTER, 23)
+        ASM_BLOCK(WRITE_REGISTER, 24)
+        WRITE_REGISTER(250)
+        WRITE_REGISTER(251)
+        WRITE_REGISTER(252)
+        WRITE_REGISTER(253)
+
+        // checking for register miscompares
+        VERIFY_AND_REPORT(4,W,5,W)
+        VERIFY_AND_REPORT(5,W,9,W)
+        VERIFY_AND_REPORT(9,W,10,W)
+        VERIFY_AND_REPORT_BLOCK(1,W,2)
+        VERIFY_AND_REPORT_BLOCK(2,W,3)
+        VERIFY_AND_REPORT_BLOCK(3,W,4)
+        VERIFY_AND_REPORT_BLOCK(4,W,5)
+        VERIFY_AND_REPORT_BLOCK(5,W,6)
+        VERIFY_AND_REPORT_BLOCK(6,W,7)
+        VERIFY_AND_REPORT_BLOCK(7,W,8)
+        VERIFY_AND_REPORT_BLOCK(8,W,9)
+        VERIFY_AND_REPORT_BLOCK(9,W,10)
+        VERIFY_AND_REPORT_BLOCK(10,W,11)
+        VERIFY_AND_REPORT_BLOCK(11,W,12)
+        VERIFY_AND_REPORT_BLOCK(12,W,13)
+        VERIFY_AND_REPORT_BLOCK(13,W,14)
+        VERIFY_AND_REPORT_BLOCK(14,W,15)
+        VERIFY_AND_REPORT_BLOCK(15,W,16)
+        VERIFY_AND_REPORT_BLOCK(16,W,17)
+        VERIFY_AND_REPORT_BLOCK(17,W,18)
+        VERIFY_AND_REPORT_BLOCK(18,W,19)
+        VERIFY_AND_REPORT_BLOCK(19,W,20)
+        VERIFY_AND_REPORT_BLOCK(20,W,21)
+        VERIFY_AND_REPORT_BLOCK(21,W,22)
+        VERIFY_AND_REPORT_BLOCK(22,W,23)
+        VERIFY_AND_REPORT_BLOCK(23,W,24)
+        VERIFY_AND_REPORT_BLOCK(24,W,25)
+        VERIFY_AND_REPORT(250,W,251,W)
+        VERIFY_AND_REPORT(251,W,252,W)
+        VERIFY_AND_REPORT(252,W,253,W)
+        VERIFY_AND_REPORT(253,W,2,B)
+        
+        .B_2:
+        // incrementing the pattern index
+        add.s32 %r2 = %r2, 0x1;
+        bra.rel %pt, (`.B_1);
+
+        .L_2:
+        add.s32 %r0 = %r0, ~0x0;
+        bra.rel %pt, (`.L_1);
+        .L_3:
+        exit %pt;
+    }
+}
+
+.visible .entry regstressRO
+.section .text.regstressRO
+{
+    regstressRO:
+    {
+        // Get Pattern to fill up the register file
+        ld.const %r3 = [bank0 + 0x228];
+        
+        // getting the implicit memory descriptor
+        ld.const.b64 {%ur4:2} = [bank0 + 0x118];
+        
+        WRITE_REGISTER(1) 
+        WRITE_REGISTER(2) 
+        WRITE_REGISTER(4) 
+        WRITE_REGISTER(5) 
+        WRITE_REGISTER(9) 
+        ASM_BLOCK(WRITE_REGISTER, 1)
+        ASM_BLOCK(WRITE_REGISTER, 2)
+        ASM_BLOCK(WRITE_REGISTER, 3)
+        ASM_BLOCK(WRITE_REGISTER, 4)
+        ASM_BLOCK(WRITE_REGISTER, 5)
+        ASM_BLOCK(WRITE_REGISTER, 6)
+        ASM_BLOCK(WRITE_REGISTER, 7)
+        ASM_BLOCK(WRITE_REGISTER, 8)
+        ASM_BLOCK(WRITE_REGISTER, 9)
+        ASM_BLOCK(WRITE_REGISTER, 10)
+        ASM_BLOCK(WRITE_REGISTER, 11)
+        ASM_BLOCK(WRITE_REGISTER, 12)
+        ASM_BLOCK(WRITE_REGISTER, 13)
+        ASM_BLOCK(WRITE_REGISTER, 14)
+        ASM_BLOCK(WRITE_REGISTER, 15)
+        ASM_BLOCK(WRITE_REGISTER, 16)
+        ASM_BLOCK(WRITE_REGISTER, 17)
+        ASM_BLOCK(WRITE_REGISTER, 18)
+        ASM_BLOCK(WRITE_REGISTER, 19)
+        ASM_BLOCK(WRITE_REGISTER, 20)
+        ASM_BLOCK(WRITE_REGISTER, 21)
+        ASM_BLOCK(WRITE_REGISTER, 22)
+        ASM_BLOCK(WRITE_REGISTER, 23)
+        ASM_BLOCK(WRITE_REGISTER, 24)
+        WRITE_REGISTER(250)
+        WRITE_REGISTER(251)
+        WRITE_REGISTER(252)
+        WRITE_REGISTER(253)
+
+        // Iterate over NumInnerIterations (outer loop)
+        ld.const %r0 = [bank0 + 0x22c];
+        .LL_1:
+        setp.u32.eq %p0 = %r0, %rz;
+        @%p0 bra.rel %pt, (`.LL_3);
+
+        VERIFY_AND_REPORT(1,R,2,R)
+        VERIFY_AND_REPORT(2,R,4,R)
+        VERIFY_AND_REPORT(4,R,5,R)
+        VERIFY_AND_REPORT(5,R,9,R)
+        VERIFY_AND_REPORT(9,R,10,R)
+        VERIFY_AND_REPORT_BLOCK(1,R,2)
+        VERIFY_AND_REPORT_BLOCK(2,R,3)
+        VERIFY_AND_REPORT_BLOCK(3,R,4)
+        VERIFY_AND_REPORT_BLOCK(4,R,5)
+        VERIFY_AND_REPORT_BLOCK(5,R,6)
+        VERIFY_AND_REPORT_BLOCK(6,R,7)
+        VERIFY_AND_REPORT_BLOCK(7,R,8)
+        VERIFY_AND_REPORT_BLOCK(8,R,9)
+        VERIFY_AND_REPORT_BLOCK(9,R,10)
+        VERIFY_AND_REPORT_BLOCK(10,R,11)
+        VERIFY_AND_REPORT_BLOCK(11,R,12)
+        VERIFY_AND_REPORT_BLOCK(12,R,13)
+        VERIFY_AND_REPORT_BLOCK(13,R,14)
+        VERIFY_AND_REPORT_BLOCK(14,R,15)
+        VERIFY_AND_REPORT_BLOCK(15,R,16)
+        VERIFY_AND_REPORT_BLOCK(16,R,17)
+        VERIFY_AND_REPORT_BLOCK(17,R,18)
+        VERIFY_AND_REPORT_BLOCK(18,R,19)
+        VERIFY_AND_REPORT_BLOCK(19,R,20)
+        VERIFY_AND_REPORT_BLOCK(20,R,21)
+        VERIFY_AND_REPORT_BLOCK(21,R,22)
+        VERIFY_AND_REPORT_BLOCK(22,R,23)
+        VERIFY_AND_REPORT_BLOCK(23,R,24)
+        VERIFY_AND_REPORT_BLOCK(24,R,25)
+        VERIFY_AND_REPORT(250,R,251,R)
+        VERIFY_AND_REPORT(251,R,252,R)
+        VERIFY_AND_REPORT(252,R,253,R)
+        VERIFY_AND_REPORT(253,R,2,LL)
+
+        .LL_2:
+        add.s32 %r0 = %r0, ~0x0;
+        bra.rel %pt, (`.LL_1);
+        
+        .LL_3:
+        exit %pt;
+    }
+}

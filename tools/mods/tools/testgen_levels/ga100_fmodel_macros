@@ -1,0 +1,21 @@
+# LWIDIA_COPYRIGHT_BEGIN
+#
+# Copyright 2015-2019 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# LWIDIA_COPYRIGHT_END
+
+# GA100 specific macros used in MODS testgen levels
+
+DEFAULT_ARGS           -chiplib_deepbind -exelwte_rm_devinit_on_pmu 0 -devid_check_ignore -skip_pertest_pexcheck
+NO_VIDEO_ENGINES       -chipargs -noinstance_lwdec -chipargs -noinstance_lwenc
+FBP_CONFIG             -chipargs -use_floorsweep -chipargs -useVirtualization -chipargs -num_ropltcs=4 -chipargs -num_fbps=2 -chipargs -num_fbio=4 -chipargs -fbp_port_sel_hub=0:0:5:5:7:7:7:7:7:7:7:7:7:7:7:7:7:7:7:7:7:7:7:7 -chipargs -fbpa_en_mask=0x00c3 -chipargs -ltc_en_mask=0x00c3 -chipargs -fbp_en_mask=0x09 -floorsweep fbp_rop_l2_enable:0:0x3:fbp_rop_l2_enable:1:0x0:fbp_rop_l2_enable:2:0x0:fbp_rop_l2_enable:3:0x3:fbp_rop_l2_enable:4:0x0:fbp_rop_l2_enable:5:0x0:fbp_rop_l2_enable:6:0x0:fbp_rop_l2_enable:7:0x0:fbp_enable:0x9:fbio_enable:0x00c3:fbpa_enable:0x00c3
+GPC_CONFIG             -chipargs -use_floorsweep -chipargs -useVirtualization -chipargs -num_tpcs=2:2:2:2 -floorsweep gpc_enable:0xf:gpc_tpc_enable:0:0x3:gpc_pes_enable:0:0x1:gpc_tpc_enable:1:0x3:gpc_pes_enable:1:0x1:gpc_tpc_enable:2:0x3:gpc_pes_enable:2:0x1:gpc_tpc_enable:3:0x3:gpc_pes_enable:3:0x1 -chipargs -noinstance_devices=gr1,gr2,gr3,gr4,gr5,gr6,gr7
+LWLINK_ALL_PEER        -chipargs -lwlink0=PEER0 -chipargs -lwlink1=PEER0 -chipargs -lwlink2=PEER0 -chipargs -lwlink3=PEER0 -chipargs -lwlink4=PEER0 -chipargs -lwlink5=PEER0 -chipargs -lwlink6=PEER0 -chipargs -lwlink7=PEER0 -chipargs -lwlink8=PEER0 -chipargs -lwlink9=PEER0 -chipargs -lwlink10=PEER0 -chipargs -lwlink11=PEER0
+LWLINK_ALL_CPU         -chipargs -lwlink0=CPU -chipargs -lwlink1=CPU -chipargs -lwlink2=CPU -chipargs -lwlink3=CPU -chipargs -lwlink4=CPU -chipargs -lwlink5=CPU -chipargs -lwlink6=CPU -chipargs -lwlink7=CPU -chipargs -lwlink8=CPU -chipargs -lwlink9=CPU -chipargs -lwlink10=CPU -chipargs -lwlink11=CPU
+LWLINK_PEER_AND_CPU    -chipargs -lwlink0=PEER0 -chipargs -lwlink1=PEER0 -chipargs -lwlink2=PEER0 -chipargs -lwlink3=PEER0 -chipargs -lwlink4=PEER0 -chipargs -lwlink5=PEER0 -chipargs -lwlink6=CPU -chipargs -lwlink7=CPU -chipargs -lwlink8=CPU -chipargs -lwlink9=CPU -chipargs -lwlink10=CPU -chipargs -lwlink11=CPU
+LWLINK_MAX_PER_RTE_CES MaxPerRtePerDirCes 2
+LWLINK_EYE_THRESHOLDS  -testarg 248 XPassThreshold 0 -testarg 248 XFailThreshold 0 -testarg 248 YPassThreshold 0 -testarg 248 YFailThreshold 0
+IGNORE_PRMT_FAILURES   -chipargs -smDisableUninitializedRegAssertOnInstr=:PRMT_Imm_Rc: -chipargs -smDontUseSplinterOverride

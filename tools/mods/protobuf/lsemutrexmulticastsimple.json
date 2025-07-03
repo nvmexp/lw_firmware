@@ -1,0 +1,116 @@
+{
+    "config" :
+    {
+        "topology_architecture" : "laguna"
+    },
+    "node0" :
+    {
+        "type" : "node",
+        "ip"   : "ipaddr"
+    },
+    "gpu0" :
+    {
+        "type"             : "gpu",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "target_id"        : 0,
+        "gpa_base"         : 0,
+        "gpa_ranges"       : 2,
+        "fla_base"         : 144,
+        "requester_base"   : 0,
+        "max_ports"        : 6
+    },
+    "gpu1" :
+    {
+        "type"             : "gpu",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "target_id"        : 1,
+        "gpa_base"         : 2,
+        "gpa_ranges"       : 2,
+        "fla_base"         : 145,
+        "requester_base"   : 6,
+        "max_ports"        : 6
+    },
+    "gpu2" :
+    {
+        "type"             : "gpu",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "target_id"        : 2,
+        "gpa_base"         : 4,
+        "gpa_ranges"       : 2,
+        "fla_base"         : 146,
+        "requester_base"   : 12,
+        "max_ports"        : 6
+    },
+    "gpu3" :
+    {
+        "type"             : "gpu",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "target_id"        : 3,
+        "gpa_base"         : 6,
+        "gpa_ranges"       : 2,
+        "fla_base"         : 147,
+        "requester_base"   : 18,
+        "max_ports"        : 6
+    },
+    "switch0" :
+    {
+        "type"             : "switch",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "max_ports"        : 64,
+        "ports"            :
+            [
+                { "port"        : 0,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 0,
+                  "routing"     :
+                      [
+
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0 ] },
+                          { "dest_dev_tag" : "gpu1", "rmod" : 0, "output_ports" : [ 1 ] },
+                          { "dest_dev_tag" : "gpu2", "rmod" : 0, "output_ports" : [ 2 ] },
+                          { "dest_dev_tag" : "gpu3", "rmod" : 0, "output_ports" : [ 3 ] }
+                      ]
+                },
+                { "port"        : 1,
+                  "remote_tag"  : "gpu1",
+                  "remote_port" : 0,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0 ] },
+                          { "dest_dev_tag" : "gpu1", "rmod" : 0, "output_ports" : [ 1 ] },
+                          { "dest_dev_tag" : "gpu2", "rmod" : 0, "output_ports" : [ 2 ] },
+                          { "dest_dev_tag" : "gpu3", "rmod" : 0, "output_ports" : [ 3 ] }
+                      ]
+                },
+                { "port"        : 2,
+                  "remote_tag"  : "gpu2",
+                  "remote_port" : 0,
+                  "routing"     :
+                      [
+
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0 ] },
+                          { "dest_dev_tag" : "gpu1", "rmod" : 0, "output_ports" : [ 1 ] },
+                          { "dest_dev_tag" : "gpu2", "rmod" : 0, "output_ports" : [ 2 ] },
+                          { "dest_dev_tag" : "gpu3", "rmod" : 0, "output_ports" : [ 3 ] }
+                      ]
+                },
+                { "port"        : 3,
+                  "remote_tag"  : "gpu3",
+                  "remote_port" : 0,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0 ] },
+                          { "dest_dev_tag" : "gpu1", "rmod" : 0, "output_ports" : [ 1 ] },
+                          { "dest_dev_tag" : "gpu2", "rmod" : 0, "output_ports" : [ 2 ] },
+                          { "dest_dev_tag" : "gpu3", "rmod" : 0, "output_ports" : [ 3 ] }
+                      ]
+                }
+            ]
+    }
+}
+

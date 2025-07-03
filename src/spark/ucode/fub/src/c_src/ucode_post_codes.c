@@ -1,0 +1,18 @@
+#define IN_ADA_BODY
+#include "ucode_post_codes.h"
+
+typedef integer_32 ucode_post_codes__lw_ucode_unified_error_type;
+enum {ucode_post_codes__ucode_err_code_noerror=0, ucode_post_codes__ucode_descriptor_ilwalid=1, ucode_post_codes__xtal4x_clk_not_good=
+  2, ucode_post_codes__ilwalid_falcon_rev=3, ucode_post_codes__chip_id_ilwalid=4, ucode_post_codes__ilwalid_ucode_revision=
+  5, ucode_post_codes__unexpected_falcon_engid=6, ucode_post_codes__bad_csberrorstate=7, ucode_post_codes__sebus_get_data_timeout=
+  8, ucode_post_codes__sebus_get_data_bus_request_fail=9, ucode_post_codes__sebus_send_request_timeout_channel_empty=
+  10, ucode_post_codes__sebus_send_request_timeout_write_complete=11, ucode_post_codes__sebus_default_timeout_ilwalid=
+  12, ucode_post_codes__sebus_err_mutex_acquire=13, ucode_post_codes__sebus_vhr_check_failed=14, ucode_post_codes__flcn_error_reg_access=
+  15, ucode_post_codes__debug1=16, ucode_post_codes__debug2=17, ucode_post_codes__debug3=18, ucode_post_codes__debug4=
+  19, ucode_post_codes__debug5=20};
+typedef character ucode_post_codes__Tlw_ucode_unified_error_typeSS[419];
+const ucode_post_codes__Tlw_ucode_unified_error_typeSS ucode_post_codes__lw_ucode_unified_error_typeS =
+  "UCODE_ERR_CODE_NOERRORUCODE_DESCRIPTOR_ILWALIDXTAL4X_CLK_NOT_GOODILWALID_FALCON_REVCHIP_ID_ILWALIDILWALID_UCODE_REVISIONUNEXPECTED_FALCON_ENGIDBAD_CSBERRORSTATESEBUS_GET_DATA_TIMEOUTSEBUS_GET_DATA_BUS_REQUEST_FAILSEBUS_SEND_REQUEST_TIMEOUT_CHANNEL_EMPTYSEBUS_SEND_REQUEST_TIMEOUT_WRITE_COMPLETESEBUS_DEFAULT_TIMEOUT_ILWALIDSEBUS_ERR_MUTEX_ACQUIRESEBUS_VHR_CHECK_FAILEDFLCN_ERROR_REG_ACCESSDEBUG1DEBUG2DEBUG3DEBUG4DEBUG5";
+typedef integer_16 ucode_post_codes__Tlw_ucode_unified_error_typeNT[22];
+const ucode_post_codes__Tlw_ucode_unified_error_typeNT ucode_post_codes__lw_ucode_unified_error_typeN = {1, 23, 47,
+  66, 84, 99, 121, 144, 161, 183, 214, 254, 295, 324, 347, 369, 390, 396, 402, 408, 414, 420};

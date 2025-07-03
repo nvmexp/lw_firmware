@@ -1,0 +1,735 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2012-2021 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "linpack.h"
+#include "../tools/random.lw"
+#include "../tools/lwda_atomic.h"
+
+#define INT8_SUPPORT (SM_VER == 61 || SM_VER >= 70)
+#define HALF_SUPPORT (SM_VER >= 53)
+#define IMMA_SUPPORT (SM_VER >= 72)
+#define BF16_SUPPORT (SM_VER >= 75)
+#define TF32_SUPPORT (SM_VER >= 75)
+#define DMMA_SUPPORT (SM_VER >= 80)
+#define SPARSE_SUPPORT (SM_VER >= 80)
+
+#if HALF_SUPPORT
+#include <lwda_fp16.h>
+#define F16_EPSILON         9.765625e-4
+#define F16_TOLERANCE_MULT  1.0
+__device__ __constant__ float g_ToleranceH = F16_EPSILON * F16_TOLERANCE_MULT;
+#endif
+
+#if SM_VER >= 70
+#include <lwca/barrier>
+__device__ lwca::barrier<lwca::thread_scope_device> g_OclwpyBarrier;
+#endif
+
+//-----------------------------------------------------------------------------
+//! \brief Do a comparison on two buffers
+//!
+//! \param srcPtr : Pointer to the source pointer
+//!
+//! \param dstPtr : Pointer to the destination pointer
+//!
+//! \param numElems : Number of elements in buffer srcPtr/dstPtr
+//!
+//! \param errorLogPtr : Pointer to array of failures
+//!
+//! \param errorCountPtr : Pointer to number of miscompares
+//!
+template<typename T, UINT32 bitShift = 0>
+__device__ void CompareOnDevice
+(
+    device_ptr srcPtr,
+    device_ptr dstPtr,
+    device_ptr errorLogPtr,
+    device_ptr errorCountPtr,
+    const UINT64 numElems
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+        if ((GetPtr<T*>(dstPtr)[i] >> bitShift) != (GetPtr<T*>(srcPtr)[i] >> bitShift))
+        {
+            // Increment the error counter
+            UINT64 errorIdx = IncrementErrCount(errorCountPtr);
+
+            // Dump the failing offset if there is room in the error buffer
+            if (errorIdx < ERROR_LOG_LEN)
+            {
+                LinpackError* pErrorLog = GetPtr<LinpackError*>(errorLogPtr);
+                pErrorLog[errorIdx].failureIdx = i;
+            }
+        }
+    }
+}
+
+extern "C" __global__ void CompareOnDeviceF
+(
+    device_ptr srcPtr,
+    device_ptr dstPtr,
+    device_ptr errorLogPtr,
+    device_ptr errorCountPtr,
+    const UINT64 numElems
+)
+{
+    // Do a binary comparison
+    CompareOnDevice<UINT32>(srcPtr, dstPtr, errorLogPtr, errorCountPtr, numElems);
+}
+
+extern "C" __global__ void CompareOnDeviceD
+(
+    device_ptr srcPtr,
+    device_ptr dstPtr,
+    device_ptr errorLogPtr,
+    device_ptr errorCountPtr,
+    const UINT64 numElems
+)
+{
+    // Do a binary comparison
+    CompareOnDevice<UINT64>(srcPtr, dstPtr, errorLogPtr, errorCountPtr, numElems);
+}
+
+#if INT8_SUPPORT
+extern "C" __global__ void CompareOnDeviceI
+(
+    device_ptr srcPtr,
+    device_ptr dstPtr,
+    device_ptr errorLogPtr,
+    device_ptr errorCountPtr,
+    const UINT64 numElems
+)
+{
+    CompareOnDevice<UINT32>(srcPtr, dstPtr, errorLogPtr, errorCountPtr, numElems);
+}
+#endif
+
+#if IMMA_SUPPORT
+extern "C" __global__ void CompareOnDeviceIMMA
+(
+    device_ptr srcPtr,
+    device_ptr dstPtr,
+    device_ptr errorLogPtr,
+    device_ptr errorCountPtr,
+    const UINT64 numElems
+)
+{
+    CompareOnDevice<UINT08>(srcPtr, dstPtr, errorLogPtr, errorCountPtr, numElems);
+}
+#endif
+
+#if HALF_SUPPORT
+extern "C" __global__ void CompareOnDeviceHLegacy
+(
+    device_ptr srcPtr,
+    device_ptr dstPtr,
+    device_ptr errorLogPtr,
+    device_ptr errorCountPtr,
+    const UINT64 numElems
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+        half hsrc, hdst;
+        hsrc = GetPtr<half*>(srcPtr)[i];
+        hdst = GetPtr<half*>(dstPtr)[i];
+
+        // Check that neither vals are NaN and if they're equal. This is
+        // usually going to be the case, so continue early before performing
+        // additional checks.
+        if(__heq(hsrc, hdst))
+        {
+            continue;
+        }
+
+        // Check that neither vals are NaN
+        if(!__hisnan(hsrc) && !__hisnan(hdst))
+        {
+            // Upcolwert to float, and check that the values are within an
+            // acceptable tolerance. Upcolwerting avoids potential overflow
+            float fsrc = __half2float(hsrc);
+            float fdst = __half2float(hdst);
+            if (fabs(fsrc - fdst) <= g_ToleranceH)
+            {
+                continue;
+            }
+        }
+
+        // Increment the error counter
+        UINT64 errorIdx = IncrementErrCount(errorCountPtr);
+
+        // Dump the failing offset if there is room in the error buffer
+        if (errorIdx < ERROR_LOG_LEN)
+        {
+            LinpackError* pErrorLog = GetPtr<LinpackError*>(errorLogPtr);
+            pErrorLog[errorIdx].failureIdx = i;
+        }
+    }
+}
+
+extern "C" __global__ void CompareOnDeviceH
+(
+    device_ptr srcPtr,
+    device_ptr dstPtr,
+    device_ptr errorLogPtr,
+    device_ptr errorCountPtr,
+    const UINT64 numElems
+)
+{
+    // Do a binary comparison
+    CompareOnDevice<UINT16>(srcPtr, dstPtr, errorLogPtr, errorCountPtr, numElems);
+}
+#endif
+
+#if BF16_SUPPORT
+extern "C" __global__ void CompareOnDeviceBF16
+(
+    device_ptr srcPtr,
+    device_ptr dstPtr,
+    device_ptr errorLogPtr,
+    device_ptr errorCountPtr,
+    const UINT64 numElems
+)
+{
+    // Do a binary comparison
+    CompareOnDevice<UINT16>(srcPtr, dstPtr, errorLogPtr, errorCountPtr, numElems);
+}
+#endif
+
+#if TF32_SUPPORT
+extern "C" __global__ void CompareOnDeviceTF32
+(
+    device_ptr srcPtr,
+    device_ptr dstPtr,
+    device_ptr errorLogPtr,
+    device_ptr errorCountPtr,
+    const UINT64 numElems
+)
+{
+    // TF32 is a 19-bit format
+    // Do a binary comparison, ignoring the lower 13 bits
+    CompareOnDevice<UINT32, 13>(srcPtr, dstPtr, errorLogPtr, errorCountPtr, numElems);
+}
+#endif
+
+//-----------------------------------------------------------------------------
+//! \brief Generate Random data
+//!
+//! \param ptr : Pointer to where random nos. will be stored
+//!
+//! \param numElems : Number of elements in buffer pSrc/pDst
+//!
+//! \param seed : Initial seed value for rand no. generation
+//!
+#if INT8_SUPPORT
+extern "C" __global__ void GenRandomDataI
+(
+    device_ptr ptr,
+    const UINT64 numElems,
+    const UINT32 seed,
+    const float mean,
+    const float SD,
+    const float nonZeroPct
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+    UINT32 randomState;
+
+    InitRandomState(seed + idx, &randomState);
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+        if (nonZeroPct < 100.0 &&
+            GetRandomFloat(&randomState, 0.0, 100.0) >= nonZeroPct)
+        {
+            GetPtr<INT08*>(ptr)[i] = 0x0;
+        }
+        else
+        {
+            UINT32 tempRndValue = GetRandomRange(&randomState, 0x00, 0xFF);
+            GetPtr<INT08*>(ptr)[i] = static_cast<INT08>(tempRndValue);
+        }
+    }
+}
+#endif
+
+//-----------------------------------------------------------------------------
+//! \brief Generate Random data
+//!
+//! \param ptr : Pointer to where random nos. will be stored
+//!
+//! \param numElems : Number of elements in buffer pSrc/pDst
+//!
+//! \param seed : Initial seed value for rand no. generation
+//!
+#if IMMA_SUPPORT
+extern "C" __global__ void GenRandomDataIMMA
+(
+    device_ptr ptr,
+    const UINT64 numElems,
+    const UINT32 seed,
+    const float mean,
+    const float SD,
+    const float nonZeroPct
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+    UINT32 randomState;
+    float oldRandomValue = 0;
+    bool useOldValue = false;
+
+    InitRandomState(seed + idx, &randomState);
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+        if (nonZeroPct < 100.0 &&
+            GetRandomFloat(&randomState, 0.0, 100.0) >= nonZeroPct)
+        {
+            GetPtr<INT08*>(ptr)[i] = 0x0;
+        }
+        else
+        {
+            float tempRndValue = GetRandomFloatMeanSD(&randomState, mean, SD, &oldRandomValue, &useOldValue);
+            GetPtr<INT08*>(ptr)[i] = static_cast<INT08>(tempRndValue);
+        }
+    }
+}
+#endif
+
+//-----------------------------------------------------------------------------
+//! \brief Generate Random data
+//!
+//! \param ptr : Pointer to where random nos. will be stored
+//!
+//! \param numElems : Number of elements in buffer pSrc/pDst
+//!
+//! \param seed : Initial seed value for rand no. generation
+//!
+#if HALF_SUPPORT
+extern "C" __global__ void GenRandomDataH
+(
+    device_ptr ptr,
+    const UINT64 numElems,
+    const UINT32 seed,
+    const float mean,
+    const float SD,
+    const float nonZeroPct
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+    UINT32 randomState;
+    float oldRandomValue = 0;
+    bool useOldValue = false;
+
+    InitRandomState(seed + idx, &randomState);
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+        if (nonZeroPct < 100.0 &&
+            GetRandomFloat(&randomState, 0.0, 100.0) >= nonZeroPct)
+        {
+            GetPtr<half*>(ptr)[i] = __float2half(0.0f);
+        }
+        else
+        {
+            float tempRndValue = GetRandomFloatMeanSD(&randomState, mean, SD, &oldRandomValue, &useOldValue);
+            GetPtr<half*>(ptr)[i] = __float2half(tempRndValue);
+        }
+    }
+}
+#endif
+
+#if BF16_SUPPORT
+extern "C" __global__ void GenRandomDataBF16
+(
+    device_ptr ptr,
+    const UINT64 numElems,
+    const UINT32 seed,
+    const float mean,
+    const float SD,
+    const float nonZeroPct
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+    UINT32 randomState;
+    float oldRandomValue = 0;
+    bool useOldValue = false;
+
+    InitRandomState(seed + idx, &randomState);
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+        if (nonZeroPct < 100.0 &&
+            GetRandomFloat(&randomState, 0.0, 100.0) >= nonZeroPct)
+        {
+            GetPtr<UINT16*>(ptr)[i] = 0x0;
+        }
+        else
+        {
+            const float tempRndValue =
+                GetRandomFloatMeanSD(&randomState, mean, SD, &oldRandomValue, &useOldValue);
+
+            // To colwert from FP32 -> BF16, use the upper 16 bits
+            GetPtr<UINT16*>(ptr)[i] =
+                static_cast<UINT16>(__float_as_uint(tempRndValue) >> 16);
+        }
+    }
+}
+#endif
+
+extern "C" __global__ void GenRandomDataF
+(
+    device_ptr ptr,
+    const UINT64 numElems,
+    const UINT32 seed,
+    const float mean,
+    const float SD,
+    const float nonZeroPct
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+    UINT32 randomState;
+    float oldRandomValue = 0;
+    bool useOldValue = false;
+
+    InitRandomState(seed + idx, &randomState);
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+        if (nonZeroPct < 100.0 &&
+            GetRandomFloat(&randomState, 0.0, 100.0) >= nonZeroPct)
+        {
+            GetPtr<float*>(ptr)[i] = 0.0f;
+        }
+        else
+        {
+            GetPtr<float*>(ptr)[i] =
+                GetRandomFloatMeanSD(&randomState, mean, SD, &oldRandomValue, &useOldValue);
+        }
+    }
+}
+
+extern "C" __global__ void GenRandomDataD
+(
+    device_ptr ptr,
+    const UINT64 numElems,
+    const UINT32 seed,
+    const float mean,
+    const float SD,
+    const float nonZeroPct
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+    UINT32 randomState;
+    double oldRandomValue = 0;
+    bool useOldValue = false;
+
+    InitRandomState(seed + idx, &randomState);
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+        if (nonZeroPct < 100.0 &&
+            GetRandomFloat(&randomState, 0.0, 100.0) >= nonZeroPct)
+        {
+            GetPtr<double*>(ptr)[i] = 0.0;
+        }
+        else
+        {
+            GetPtr<double*>(ptr)[i] =
+                GetRandomDoubleMeanSD(&randomState, (double)mean, (double)SD, &oldRandomValue, &useOldValue);
+        }
+    }
+}
+
+//-----------------------------------------------------------------------------
+//! \brief Generate Constant Data
+//!
+//! \param ptr : Pointer to where random nos. will be stored
+//!
+//! \param numElems : Number of elements in buffer pSrc/pDst
+//!
+//! \param constantData : Constant data that will be filled
+//!
+#if INT8_SUPPORT
+extern "C" __global__ void GenConstantDataI
+(
+    device_ptr ptr,
+    const UINT64 numElems,
+    const float constantData
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+        GetPtr<INT08*>(ptr)[i] = static_cast<INT08>(constantData);
+    }
+}
+#endif
+
+//-----------------------------------------------------------------------------
+//! \brief Generate Constant Data
+//!
+//! \param ptr : Pointer to where random nos. will be stored
+//!
+//! \param numElems : Number of elements in buffer pSrc/pDst
+//!
+//! \param constantData : Constant data that will be filled
+//!
+#if HALF_SUPPORT
+extern "C" __global__ void GenConstantDataH
+(
+    device_ptr ptr,
+    const UINT64 numElems,
+    const float constantData
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+       GetPtr<half*>(ptr)[i] = __float2half(constantData);
+    }
+}
+#endif
+
+#if BF16_SUPPORT
+extern "C" __global__ void GenConstantDataBF16
+(
+    device_ptr ptr,
+    const UINT64 numElems,
+    const float constantData
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+        // To colwert from FP32 -> BF16, use the upper 16 bits
+        GetPtr<UINT16*>(ptr)[i] =
+            static_cast<UINT16>(__float_as_uint(constantData) >> 16);
+    }
+}
+#endif
+
+extern "C" __global__ void GenConstantDataF
+(
+    device_ptr ptr,
+    const UINT64 numElems,
+    const float constantData
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+        GetPtr<float*>(ptr)[i] = constantData;
+    }
+}
+
+extern "C" __global__ void GenConstantDataD
+(
+    device_ptr ptr,
+    const UINT64 numElems,
+    const float constantData
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+        GetPtr<double*>(ptr)[i] = (double)constantData;
+    }
+}
+
+//-----------------------------------------------------------------------------
+//! \brief Generate random metadata matrix for Sparse MMA
+//!
+//! \param ptr : Pointer to matrix of 16 bit metadata for 4:2 compression
+//!
+//! \param numElems : Number of elements in buffer pDst
+//!
+//! \param seed : Initial seed value for rand no. generation
+//!
+#if SPARSE_SUPPORT
+extern "C" __global__ void GenSparseMetadata
+(
+    device_ptr ptr,
+    const UINT64 numElems,
+    const UINT32 seed
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+
+    // Every 4 bit value indicates two indices in a 1 x 4 block
+    // Therefore there are 12 valid values
+    const UINT16 validVals[] = {0x1, 0x2, 0x3, 0x4, 0x6, 0x7, 0x8, 0x9, 0xB, 0xC, 0xD, 0xE};
+    const UINT32 range = (sizeof(validVals) / sizeof(UINT16)) - 1;
+    UINT32 randomState;
+
+    InitRandomState(seed + idx, &randomState);
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+        UINT16 m = 0;
+        for (UINT32 j = 0; j < 4; j++)
+        {
+            m = m << 4;
+            m |= validVals[GetRandomRange(&randomState, 0, range)];
+        }
+        GetPtr<UINT16*>(ptr)[i] = m;
+    }
+}
+#endif
+
+//-----------------------------------------------------------------------------
+//! \brief Scale every element of a matrix by a constant
+//!
+//! \param ptr : Pointer to matrix of INT32 values that will be scaled
+//!
+//! \param numElems : Number of elements in buffer pDst
+//!
+//! \param constantData : Constant data that will be filled
+//!
+#if INT8_SUPPORT
+extern "C" __global__ void ScaleMatrixI
+(
+    device_ptr ptr,
+    const UINT64 numElems,
+    const UINT32 mult
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+
+    for (UINT64 i = idx; i < numElems; i += totalNumThreads)
+    {
+        INT32* pElems = GetPtr<INT32*>(ptr);
+        pElems[i] *= static_cast<INT32>(mult);
+    }
+}
+#endif
+
+// Always assume Alpha=1 and Beta=0
+template<typename T, typename U, UINT64 firstPassNum = 0>
+__device__ void NaiveGemm(device_ptr ptrA, device_ptr ptrB, device_ptr ptrC, UINT32 Msize, UINT32 Nsize, UINT32 Ksize)
+{
+    T* A = GetPtr<T*>(ptrA);
+    T* B = GetPtr<T*>(ptrB);
+    U* C = GetPtr<U*>(ptrC);
+
+    for (UINT64 i = blockIdx.x; i < Msize; i += gridDim.x)
+    {
+        for (UINT64 j = threadIdx.x; j < Nsize; j += blockDim.x)
+        {
+            U sum = 0;
+
+            // Some kernels compute the last <firstPassNum> K indices first
+            // This is as an optimization in case the last tile is partially full
+            for (UINT64 k = Ksize - firstPassNum; k < Ksize; k++)
+            {
+                sum += A[k * Msize + i] * B[k * Nsize + j];
+            }
+
+            for (UINT64 k = 0; k < Ksize - firstPassNum; k++)
+            {
+                sum += A[k * Msize + i] * B[k * Nsize + j];
+            }
+            C[j * Msize + i] = sum;
+        }
+    }
+}
+
+extern "C" __global__ void NaiveSgemm(device_ptr ptrA, device_ptr ptrB, device_ptr ptrC, UINT32 Msize, UINT32 Nsize, UINT32 Ksize)
+{
+    NaiveGemm<float, float>(ptrA, ptrB, ptrC, Msize, Nsize, Ksize);
+}
+
+extern "C" __global__ void NaiveDgemm(device_ptr ptrA, device_ptr ptrB, device_ptr ptrC, UINT32 Msize, UINT32 Nsize, UINT32 Ksize)
+{
+    NaiveGemm<double, double>(ptrA, ptrB, ptrC, Msize, Nsize, Ksize);
+}
+
+#if INT8_SUPPORT
+extern "C" __global__ void NaiveIgemm(device_ptr ptrA, device_ptr ptrB, device_ptr ptrC, UINT32 Msize, UINT32 Nsize, UINT32 Ksize)
+{
+    NaiveGemm<INT08, INT32>(ptrA, ptrB, ptrC, Msize, Nsize, Ksize);
+}
+#endif
+
+#if HALF_SUPPORT
+extern "C" __global__ void NaiveHgemm(device_ptr ptrA, device_ptr ptrB, device_ptr ptrC, UINT32 Msize, UINT32 Nsize, UINT32 Ksize)
+{
+    NaiveGemm<half, half>(ptrA, ptrB, ptrC, Msize, Nsize, Ksize);
+}
+#endif
+
+// __nanosleep is only supported with compute capability 7.0 or higher
+#if SM_VER >= 70
+extern "C" __global__ void InitOclwpyBarrier(UINT32) __launch_bounds__(1, 1);
+extern "C" __global__ void InitOclwpyBarrier(UINT32 barrierCount)
+{
+    init(&g_OclwpyBarrier, barrierCount);
+}
+extern "C" __global__ void OclwpySelectSMs(device_ptr, device_ptr) __launch_bounds__(1, 1);
+extern "C" __global__ void OclwpySelectSMs
+(
+    device_ptr oclwpySMFlagsPtr,
+    device_ptr allBlocksScheduledPtr
+)
+{
+    // Block threads until all LWCA blocks have been scheduled
+    // and are oclwpying SMs
+    g_OclwpyBarrier.arrive_and_wait();
+
+    // Only one thread should notify the host that all block have been scheduled
+    auto allBlocksScheduled =
+        GetAtomicRef<UINT32, lwca::thread_scope_system>(allBlocksScheduledPtr);
+    if (blockIdx.x == 0)
+    {
+        allBlocksScheduled.store(static_cast<UINT32>(true));
+    }
+
+    // Get SMID of current thread
+    UINT32 smid;
+    asm volatile ("mov.u32 %0, %%smid;" : "=r"(smid));
+
+    // atomic_ref to disallow compiler optimization with memory reads
+    // Otherwise, the thread doesn't poll as frequently as we want it to
+    auto shouldOclwpyLwrrSM =
+        GetAtomicRef<UINT32, lwca::thread_scope_system>(allBlocksScheduledPtr, smid);
+
+    // Poll flag on host memory to see if we should continue oclwpying lwrr SM
+    while (shouldOclwpyLwrrSM.load(lwca::memory_order_relaxed))
+    {
+        __nanosleep(OCLWPY_FUNC_POLLING_INTERVAL_NS);
+    }
+}
+#endif

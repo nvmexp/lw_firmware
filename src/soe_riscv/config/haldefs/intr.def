@@ -1,0 +1,67 @@
+# -*- mode: perl; -*-
+
+# INTR SOE Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $intrHal = [
+
+    # defaults for Intr for all interfaces below
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PRE_INIT => [
+            DESCRIPTION    => "Initialization",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        SERVICE => [
+            DESCRIPTION    => "Service",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+        IS_LWLW_IN_RESET => [
+            DESCRIPTION    => "Check if Lwlw is disabled",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => LwU32,
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+        CLEAR_THERMAL_ALERT => [
+            DESCRIPTION    => "Clear thermal alert interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+        CLEAR_THERMAL_OVERT => [
+            DESCRIPTION    => "Clear overt interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $intrHal;

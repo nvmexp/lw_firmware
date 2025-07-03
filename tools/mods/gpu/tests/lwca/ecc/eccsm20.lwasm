@@ -1,0 +1,780 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2012-2021 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+//********************************************************************
+// This file contains the lwca kernel for EccSmTest.
+//
+// The code is written in LWASM because the compiler tends to
+// optimize or rearrange the low-level register accesses, even if
+// written in PTX.  Guides for programming LWASM can be found at:
+//
+// - //sw/compiler/gpgpu/doc/spec/abi/next/abi-fermi.pdf
+// - //sw/compiler/gpgpu/doc/spec/abi/next/abi-kepler.pdf
+// - //sw/compiler/gpgpu/doc/spec/DCI/Maxwell_DCI.txt
+// - //sw/compiler/gpgpu/doc/spec/DCI/Pascal_DCI.txt
+// - https://wiki.lwpu.com/engwiki/index.php/Compiler_and_OCG/Compute_Compiler/ptxas#Dolwments
+// - //hw/class/fermi/SASS/doc/opcodes.htm
+// - //hw/doc/gpu/kepler/kepler/design/IAS/SML1/ISA/opcodes.htm
+// - //hw/doc/gpu/maxwell/maxwell/design/IAS/SM/ISA/opcodes.htm
+//
+// Note1:The assembler needs some help aligning the offsets for the jump tables
+//       used in MovR10RR17,L_MovR0RR7,L_MovRR17R18, & L_MovRR7R8. To do this we 
+//       have to use the .align 32 / align 64 statement. Without these statements
+//       the jump tables are not properly aligned with the offsets sitting in the
+//       constant bank3 data.
+//********************************************************************
+#include "eccdefs.h"
+#define NUM_REGISTERS 24
+
+#if SM_VER == 50
+    .headerflags @"EF_LWDA_SM50 EF_LWDA_PTX_SM(EF_LWDA_SM50)"
+#elif SM_VER == 60
+    .headerflags @"EF_LWDA_SM60 EF_LWDA_PTX_SM(EF_LWDA_SM60) EF_LWDA_64BIT_ADDRESS"
+#elif SM_VER == 62
+    .headerflags @"EF_LWDA_SM62 EF_LWDA_PTX_SM(EF_LWDA_SM62) EF_LWDA_64BIT_ADDRESS"
+#elif SM_VER == 70
+    .headerflags @"EF_LWDA_SM70 EF_LWDA_PTX_SM(EF_LWDA_SM70) EF_LWDA_64BIT_ADDRESS"
+#endif
+
+//--------------------------------------------------------------------
+// Colwenience macros to call functions with arguments.
+//
+// Unless stated otherwise, functions in this file follow the
+// following colwentions:
+// - Arguments are passed in R0, R1, etc.
+// - The return value, if any, is returned in R0.
+// - Registers R0-R3 may used as local storage so that their original
+//   values are lost ("destroyed").
+// - R4 holds a pointer to local memory
+//
+// These macros "push" the arguments in reverse order to make it
+// easier to pass R0 and R1 as arguments.
+//
+#define CALL1(func, arg)        \
+    MOV R0, arg;                \
+    CAL func
+
+#define CALL2(func, arg0, arg1) \
+    MOV R1, arg1;               \
+    MOV R0, arg0;               \
+    CAL func
+
+//--------------------------------------------------------------------
+// Colwenience macros to define a for-loop, with the loop index stored
+// in a local var.  For ease of implementation, this for-loop iterates
+// backward from N to 1, with N already loaded in loopVar, and assumes
+// N > 0.
+//
+#define FOR(label, loopVar)             \
+        SSY label##_1;                  \
+    label##_0:
+
+#define END_FOR(label, loopVar)         \
+        LDL R0, [R4 + loopVar];         \
+        IADD R0.CC, R0, -1;             \
+        STL [R4 + loopVar], R0;         \
+        BRA CC.NE, label##_0;           \
+        SYNC;                           \
+    label##_1:
+
+//--------------------------------------------------------------------
+// Colwenience macros to define an if-then-else statement.
+//
+#define IF(label, var, cmp, value)        \
+        ISETP.cmp.U32 P0, var, value;     \
+        SSY label##_EndIf;                \
+        @!P0 BRA label##_Else;
+
+#define ELSE(label)     \
+        SYNC;           \
+    label##_Else:
+
+#define END_IF(label)   \
+        SYNC;           \
+    label##_EndIf:
+
+//--------------------------------------------------------------------
+// Send a command to the CPU.
+//
+// Usually, we use the SendHostCommand() function to send commands to
+// the CPU.  But during the brief period when checkbits are disabled,
+// we want to avoid writing to registers -- especially the register
+// that we're creating ECC errors on.  So we use this macro while
+// disabling checkbits, and SendHostCommand() everywhere else.
+//
+// label [in]: A unique string used as a prefix for local labels
+// pHostCommand [in]: A register pair containing m_pHostCommand
+// cmd [out]: A register containing the command to send to the CPU
+// arg [out]: A register containing the argument to send to the CPU
+// tmp: A register used for local storage; destroyed.  The only
+//    values that this macro should write to tmp are cmd and
+//    HOST_DONE.
+//
+#define SEND_HOST_COMMAND(label, pHostCommand, cmd, arg, tmp)   \
+        ST.E.WT [pHostCommand + 4], arg;                        \
+        ST.E.WT [pHostCommand], cmd;                            \
+        SSY label##_End;                                        \
+    label##_Loop:                                               \
+        LD.E.CV tmp, [pHostCommand];                            \
+        ISETP.NE.U32 P0, tmp, HOST_DONE;                        \
+        @P0 BRA label##_Loop;                                   \
+        SYNC;                                                   \
+    label##_End:
+
+//----------------------------------------------------------------------
+// Entry point for the eccsm kernel.
+//
+// This kernel runs a loop that inserts one ECC error per warp on
+// each iteration.  That works out to about 400 errors per iteration,
+// since typical GPUs have about 12 SMs and 32 warps per SM.  The
+// algorithm looks like this:
+//
+//      for m_LoopIdx in [0..NUM_LOOPS]:
+//          m_TestThread = random thread in warp
+//          m_TestRegister = random register in thread
+//          m_ErrType = randomly choose 0 (SBE) or 1 (DBE)
+//          m_GoodValue = random 32-bit number
+//          m_BadValue = m_GoodValue with 1 bit (SBE) or 2 bits (DBE) toggled
+//          if (this thread == m_TestThread):
+//              Write m_GoodValue to m_TestRegister
+//              Disable ECC checkbits
+//              Write m_BadValue to m_TestRegister
+//              Enable ECC checkbits
+//              Read m_TestRegister to induce ECC error
+//
+// This kernel mostly uses local memory instead of registers for
+// variables, since the heart of the test tends to trash all the
+// registers.  To avoid extraneous register-writes while checkbits
+// are disabled (which could inject extra ECC errors), the kernel
+// copies the local-memory variables into registers just before
+// checkbits are disabled, and treats those registers as read-only
+// until checkbits are re-enabled.
+//
+.section .text.InjectErrors, "ax", @progbits
+    .sectionflags @"SHF_BARRIERS=1"
+    .sectioninfo @"SHI_REGISTERS=29" // NUM_REGISTERS
+    .align 4
+
+InjectErrors:
+    .global InjectErrors
+    .type InjectErrors, @function
+    .other InjectErrors, @"STO_LWDA_ENTRY STV_DEFAULT"
+
+    // Initialize m_pHostCommand, m_LoopIdx, m_Rng
+    //
+    CAL GetLocalMem;
+    MOV R4, R0;
+    MOV32I R0, 32@lo(HostCommand);
+    MOV32I R1, 32@hi(HostCommand);
+    LD.E.64 R0, [R0];
+    STL.64 [R4 + m_pHostCommand], R0;
+
+    MOV32I R0, 32@lo(NumLoops);
+    MOV32I R1, 32@hi(NumLoops);
+    LD.E R0, [R0];
+    STL [R4 + m_LoopIdx], R0;
+    MOV32I R0, 32@lo(Seed);
+    MOV32I R1, 32@hi(Seed);
+    LD.E R0, [R0];
+    STL [R4 + m_Rng], R0;
+    // m_pHostCommand += warpId * COMMAND_SIZE
+    //
+    CAL GetWarpId;
+    IMUL.U32.U32.LO R2, R0, COMMAND_SIZE;
+    LDL.64 R0, [R4 + m_pHostCommand];
+    IADD R0.CC, R0, R2;
+    IADD.X R1, R1, RZ;
+    STL.64 [R4 + m_pHostCommand], R0;
+
+    // Main loop
+    //
+    FOR (L_InjectErrors_For, m_LoopIdx)
+
+        // Randomly choose what error to insert.
+        //
+        // Implementation: When we write a register with checkbits disabled,
+        // Fermi preserves the old checkbits, but on Kepler and later dGPUs
+        // checkbits are stored in the same RAM as data, resulting in the
+        // checkbits being overwritten with 0. So we can set m_GoodValue to
+        // any value in Fermi, but in Kepler+ we must set it to a value (such
+        // as 0) that has checkbits=0 in order to aclwrately insert
+        // an SBE or DBE.
+        //
+        // On GP10B (T186) the checkbits are in a separate RAM, so we can
+        // set m_GoodValue to any value, like on Fermi, as described in
+        // http://lwbugs/1795584/52.
+        //
+        CALL1(GetRandom, WARP_SIZE);
+        STL [R4 + m_TestThread], R0;
+        // R0-4 are common scratch registers and can't be used as a test register.
+        CALL1(GetRandom, NUM_REGISTERS);
+        IADD R0, R0, 5;
+        STL [R4 + m_TestRegister], R0;
+
+#if (SM_VER == 62)
+        CAL GetRandom32;
+        STL [R4 + m_GoodValue], R0;
+#else
+        STL [R4 + m_GoodValue], RZ;  // Kepler on up fills the checkbits with 0
+#endif
+        
+        CALL1(GetRandom, 2); // 0=SBE, 1=DBE
+        STL [R4 + m_ErrType], R0;
+        CALL1(GetRandomBits, R0);
+        LDL R1, [R4 + m_GoodValue];
+        LOP.XOR R0, R0, R1;
+        STL [R4 + m_BadValue], R0;
+
+        // Inject an error in one thread on each warp.  The counters
+        // can't keep track if we inject more than one error per warp
+        // at a time.
+        //
+        CAL GetThreadId;
+        LDL R1, [R4 + m_TestThread];
+        IF (L_InjectErrors_If0, R0, EQ, R1)
+
+            // Tell the CPU about the error we're about to inject.
+            //
+            CALL2(SendHostCommand, HOST_STORE_THREAD_ID, R0);
+            LDL R0, [R4 + m_ErrType];
+            CALL2(SendHostCommand, HOST_STORE_ERR_TYPE, R0);
+            LDL R0, [R4 + m_GoodValue];
+            CALL2(SendHostCommand, HOST_STORE_VAL, R0);
+
+            // Here's the heart of the test: write a random value to
+            // a register, disable checkbits, toggle 1-2 bits in the
+            // register, re-enable checkbits, and read the register.
+            //
+            // In order to avoid using the register under test for
+            // anything else, this code uses R0-R9 for local storage
+            // if the register under test is R10 on up, and R10-R19
+            // for local storage if the register under test is R7 on
+            // down.
+            //
+            // Also, to avoid injecting extra ECC errors by writing
+            // other registers, this code loads all local-storage
+            // registers before disabling checkbits.  The only
+            // registers that should be written while checkbits are
+            // disaabled are the register under test, and a single
+            // scratch register in R0 or R10 (see previous paragraph).
+            // And during the critical period when checkbits are
+            // being disabled or re-enabled, the only values written
+            // to the scratch register should have checkbits of 0x0
+            // (see eccdefs.h).
+            //
+            LDL R0, [R4 + m_TestRegister];
+            IF (L_InjectErrors_If1, R0, GE, 10)                         
+                LDL.64 R2, [R4 + m_pHostCommand];
+                MOV R5, HOST_DISABLE_CHECKBITS;
+                MOV R6, HOST_ENABLE_CHECKBITS;
+                LDL R7, [R4 + m_TestRegister];
+                LDL R8, [R4 + m_GoodValue];
+                CAL MovRR7R8;                                           
+                LDL R8, [R4 + m_BadValue];
+                MOV R0, HOST_DONE;
+                SEND_HOST_COMMAND(L_InjectErrors_Cmd0, R2, R5, RZ, R0)  
+                CAL MovRR7R8;                                           
+                SEND_HOST_COMMAND(L_InjectErrors_Cmd1, R2, R6, RZ, R0)  
+                CAL MovR0RR7;                                           
+                CALL2(SendHostCommand, HOST_CHECK_VAL, R0);             
+                CAL MovRR7R8; 
+            ELSE (L_InjectErrors_If1)
+                LDL.64 R12, [R4 + m_pHostCommand];
+                MOV R14, R4;
+                MOV R15, HOST_DISABLE_CHECKBITS;
+                MOV R16, HOST_ENABLE_CHECKBITS;
+                LDL R17, [R14 + m_TestRegister];
+                LDL R18, [R14 + m_GoodValue];
+                CAL MovRR17R18;
+                LDL R18, [R14 + m_BadValue];
+                MOV R10, HOST_DONE;
+                SEND_HOST_COMMAND(L_InjectErrors_Cmd2, R12, R15, RZ, R10)
+                CAL MovRR17R18;
+                SEND_HOST_COMMAND(L_InjectErrors_Cmd3, R12, R16, RZ, R10)
+                CAL MovR10RR17;
+                MOV R4, R14;
+                CALL2(SendHostCommand, HOST_CHECK_VAL, R10);
+                CAL MovRR17R18;
+                MOV R4, R14;
+            END_IF (L_InjectErrors_If1)
+            CALL2(SendHostCommand, HOST_CHECK_COUNTS, RZ);
+        ELSE (L_InjectErrors_If0)
+        END_IF (L_InjectErrors_If0)
+    END_FOR (L_InjectErrors_For, m_LoopIdx)
+
+    CALL2(SendHostCommand, GPU_DONE, RZ);
+    EXIT;
+
+//--------------------------------------------------------------------
+// Get a unique id for each (SM,warp), numbered from 0 to num_warps-1
+// R0 [out]: Warp id
+// R1-R2: Destroyed
+//
+GetWarpId:
+    S2R R0, SR_CTAID.X;         // R0 = ctaid.x (SM id)
+    MOV R1, c[0][12];               // See Maxwell_DCI.txt/Pascal_DCI.txt
+    S2R R2, SR_TID.Y;           // R2 = tid.y (warp id)
+    IMUL.U32.U32.LO R0, R0, R1; // return R0 * R1 + R2
+    IADD R0, R0, R2;
+    RET;
+
+//--------------------------------------------------------------------
+// Get the id of the current thread within the warp,
+// from 0 to WARP_SIZE-1.
+// R0 [out]: thread id
+//
+GetThreadId:
+    S2R R0, SR0;
+    RET;
+
+//--------------------------------------------------------------------
+// Get the address of local memory.
+// R0 [out]: Start of local memory (StackPointer - StackSize)
+//
+GetLocalMem:
+    MOV R0, c[0][32];           // See Maxwell_DCI.txt / Pascal_DCI.txt
+    IADD R0, R0, -StackSize; // Return R0 - StackSize
+    RET;
+
+//--------------------------------------------------------------------
+// Update the random-number generator
+// R0 [out]: New RNG state
+//
+UpdateRng:
+    LDL R0, [R4 + m_Rng];
+    IMUL32I.U32.U32.LO R0, R0, 1664525;
+    IADD32I R0, R0, 1013904223;
+    STL [R4 + m_Rng], R0;
+    RET;
+
+//--------------------------------------------------------------------
+// Generate a random number from 0 to N-1
+// R0 [in]: Range of the randomly-generated number
+// R0 [out]: Random number from 0 to R0[in]-1
+// R1: Destroyed
+//
+GetRandom:
+    MOV R1, R0;
+    CAL UpdateRng;
+    IMUL.U32.U32.HI R0, R0, R1;
+    RET;
+
+//--------------------------------------------------------------------
+// Generate a random number from 0 to 0xffffffff
+// R0 [out]: Random 32-bit integer
+// R1: Destroyed
+//
+GetRandom32:
+    CAL UpdateRng;
+    MOV R1, R0;
+    CAL UpdateRng;
+    PRMT R0, R0, 0x7632, R1;
+    RET;
+
+//--------------------------------------------------------------------
+// Return a 32-bit number with 1 or 2 bits set, the rest 0.
+// R0 [in]: 0 = set one bit in the return value, 1 = set two bits
+// R0 [out]: 32-bit number with 1-2 random bits set
+// R1-R2: Destroyed
+//
+GetRandomBits:
+    IF (L_GetRandomBits, R0, EQ, RZ)
+        CALL1(GetRandom, 32);
+        MOV R1, 1;
+        SHL.W R0, R1, R0;
+    ELSE (L_GetRandomBits)
+        CALL1(GetRandom, 32);
+        MOV R2, R0;
+        CALL1(GetRandom, 31);
+        IADD.PO R0, R0, R2;
+        MOV R1, 1;
+        SHL.W R0, R1, R0;
+        SHL.W R2, R1, R2;
+        LOP.OR R0, R0, R2;
+    END_IF (L_GetRandomBits)
+    RET;
+
+//--------------------------------------------------------------------
+// Send a command to the CPU.
+// R0 [in]: The command to send
+// R1 [in]: The argument of the command
+// R1-R3: Destroyed
+//
+SendHostCommand:
+    LDL.64 R2, [R4 + m_pHostCommand];
+    SEND_HOST_COMMAND(L_SendHostCommand, R2, R0, R1, R1)
+    RET;
+
+//--------------------------------------------------------------------
+// Move R8 to the register "pointed" at by R7.
+// R7 [in]: The register number to write
+// R8 [in]: The value to write
+// R0: Destroyed
+//
+MovRR7R8:
+    IMUL.U32.U32.LO R0, R7, 4;
+    // See Note1 at top of file.
+    .align 32 //Maxwell, Pascal, and above align to 32 bytes
+
+    LDC R0, c[ConstBank][R0 +  MovRR7R8_JumpTable@srel];
+    BRX R0;
+    L_MovRR7R8_0:  MOV R0,  R8; RET;
+    L_MovRR7R8_1:  MOV R1,  R8; RET;
+    L_MovRR7R8_2:  MOV R2,  R8; RET;
+    L_MovRR7R8_3:  MOV R3,  R8; RET;
+    L_MovRR7R8_4:  MOV R4,  R8; RET;
+    L_MovRR7R8_5:  MOV R5,  R8; RET;
+    L_MovRR7R8_6:  MOV R6,  R8; RET;
+    L_MovRR7R8_7:  MOV R7,  R8; RET;
+    L_MovRR7R8_8:  MOV R8,  R8; RET;
+    L_MovRR7R8_9:  MOV R9,  R8; RET;
+    L_MovRR7R8_10: MOV R10, R8; RET;
+    L_MovRR7R8_11: MOV R11, R8; RET;
+    L_MovRR7R8_12: MOV R12, R8; RET;
+    L_MovRR7R8_13: MOV R13, R8; RET;
+    L_MovRR7R8_14: MOV R14, R8; RET;
+    L_MovRR7R8_15: MOV R15, R8; RET;
+    L_MovRR7R8_16: MOV R16, R8; RET;
+    L_MovRR7R8_17: MOV R17, R8; RET;
+    L_MovRR7R8_18: MOV R18, R8; RET;
+    L_MovRR7R8_19: MOV R19, R8; RET;
+    L_MovRR7R8_20: MOV R20, R8; RET;
+    L_MovRR7R8_21: MOV R21, R8; RET;
+    L_MovRR7R8_22: MOV R22, R8; RET;
+    L_MovRR7R8_23: MOV R23, R8; RET;
+    L_MovRR7R8_24: MOV R24, R8; RET;
+    L_MovRR7R8_25: MOV R25, R8; RET;
+    L_MovRR7R8_26: MOV R26, R8; RET;
+    L_MovRR7R8_27: MOV R27, R8; RET;
+    L_MovRR7R8_28: MOV R28, R8; RET;
+
+//--------------------------------------------------------------------
+// Move R18 to the register "pointed" at by R17.
+// This function is used during the checkbits-disabled period in
+// which we use R10-R19 for local storage instead of R0-R9.
+//
+// R17 [in]: The register number to write
+// R18 [in]: The value to write
+// R10: Destroyed
+//
+MovRR17R18:
+    IMUL.U32.U32.LO R10, R17, 4;
+    // See Note1 at top of file.
+    .align 32
+    LDC R10, c[ConstBank][R10 + MovRR17R18_JumpTable@srel];
+    BRX R10;
+    L_MovRR17R18_0:  MOV R0,  R18; RET;
+    L_MovRR17R18_1:  MOV R1,  R18; RET;
+    L_MovRR17R18_2:  MOV R2,  R18; RET;
+    L_MovRR17R18_3:  MOV R3,  R18; RET;
+    L_MovRR17R18_4:  MOV R4,  R18; RET;
+    L_MovRR17R18_5:  MOV R5,  R18; RET;
+    L_MovRR17R18_6:  MOV R6,  R18; RET;
+    L_MovRR17R18_7:  MOV R7,  R18; RET;
+    L_MovRR17R18_8:  MOV R8,  R18; RET;
+    L_MovRR17R18_9:  MOV R9,  R18; RET;
+    L_MovRR17R18_10: MOV R10, R18; RET;
+    L_MovRR17R18_11: MOV R11, R18; RET;
+    L_MovRR17R18_12: MOV R12, R18; RET;
+    L_MovRR17R18_13: MOV R13, R18; RET;
+    L_MovRR17R18_14: MOV R14, R18; RET;
+    L_MovRR17R18_15: MOV R15, R18; RET;
+    L_MovRR17R18_16: MOV R16, R18; RET;
+    L_MovRR17R18_17: MOV R17, R18; RET;
+    L_MovRR17R18_18: MOV R18, R18; RET;
+    L_MovRR17R18_19: MOV R19, R18; RET;
+    L_MovRR17R18_20: MOV R20, R18; RET;
+    L_MovRR17R18_21: MOV R21, R18; RET;
+    L_MovRR17R18_22: MOV R22, R18; RET;
+    L_MovRR17R18_23: MOV R23, R18; RET;
+    L_MovRR17R18_24: MOV R24, R18; RET;
+    L_MovRR17R18_25: MOV R25, R18; RET;
+    L_MovRR17R18_26: MOV R26, R18; RET;
+    L_MovRR17R18_27: MOV R27, R18; RET;
+    L_MovRR17R18_28: MOV R28, R18; RET;
+
+//--------------------------------------------------------------------
+// Move the register "pointed" at by R7 to R0.
+// R7 [in]: The register number to read
+// R0 [out]: The value read from the register
+//
+MovR0RR7:
+    IMUL.U32.U32.LO R0, R7, 4;
+    // See Note1 at top of file.
+    .align 32
+    LDC R0, c[ConstBank][R0 + MovR0RR7_JumpTable@srel];
+    BRX R0;
+    L_MovR0RR7_0:  MOV R0, R0;  RET;
+    L_MovR0RR7_1:  MOV R0, R1;  RET;
+    L_MovR0RR7_2:  MOV R0, R2;  RET;
+    L_MovR0RR7_3:  MOV R0, R3;  RET;
+    L_MovR0RR7_4:  MOV R0, R4;  RET;
+    L_MovR0RR7_5:  MOV R0, R5;  RET;
+    L_MovR0RR7_6:  MOV R0, R6;  RET;
+    L_MovR0RR7_7:  MOV R0, R7;  RET;
+    L_MovR0RR7_8:  MOV R0, R8;  RET;
+    L_MovR0RR7_9:  MOV R0, R9;  RET;
+    L_MovR0RR7_10: MOV R0, R10; RET;
+    L_MovR0RR7_11: MOV R0, R11; RET;
+    L_MovR0RR7_12: MOV R0, R12; RET;
+    L_MovR0RR7_13: MOV R0, R13; RET;
+    L_MovR0RR7_14: MOV R0, R14; RET;
+    L_MovR0RR7_15: MOV R0, R15; RET;
+    L_MovR0RR7_16: MOV R0, R16; RET;
+    L_MovR0RR7_17: MOV R0, R17; RET;
+    L_MovR0RR7_18: MOV R0, R18; RET;
+    L_MovR0RR7_19: MOV R0, R19; RET;
+    L_MovR0RR7_20: MOV R0, R20; RET;
+    L_MovR0RR7_21: MOV R0, R21; RET;
+    L_MovR0RR7_22: MOV R0, R22; RET;
+    L_MovR0RR7_23: MOV R0, R23; RET;
+    L_MovR0RR7_24: MOV R0, R24; RET;
+    L_MovR0RR7_25: MOV R0, R25; RET;
+    L_MovR0RR7_26: MOV R0, R26; RET;
+    L_MovR0RR7_27: MOV R0, R27; RET;
+    L_MovR0RR7_28: MOV R0, R28; RET;
+
+//--------------------------------------------------------------------
+// Move the register "pointed" at by R17 to R10.
+// This function is used during the checkbits-disabled period in
+// which we use R10-R19 for local storage instead of R0-R9.
+//
+// R17 [in]: The register number to read
+// R10 [out]: The value read from the register
+//
+MovR10RR17:
+    IMUL.U32.U32.LO R10, R17, 4;
+    // See Note1 at top of file.
+    .align 32
+    LDC R10, c[ConstBank][R10 + MovR10RR17_JumpTable@srel];
+    BRX R10;
+    L_MovR10RR17_0:  MOV R10, R0;  RET;
+    L_MovR10RR17_1:  MOV R10, R1;  RET;
+    L_MovR10RR17_2:  MOV R10, R2;  RET;
+    L_MovR10RR17_3:  MOV R10, R3;  RET;
+    L_MovR10RR17_4:  MOV R10, R4;  RET;
+    L_MovR10RR17_5:  MOV R10, R5;  RET;
+    L_MovR10RR17_6:  MOV R10, R6;  RET;
+    L_MovR10RR17_7:  MOV R10, R7;  RET;
+    L_MovR10RR17_8:  MOV R10, R8;  RET;
+    L_MovR10RR17_9:  MOV R10, R9;  RET;
+    L_MovR10RR17_10: MOV R10, R10; RET;
+    L_MovR10RR17_11: MOV R10, R11; RET;
+    L_MovR10RR17_12: MOV R10, R12; RET;
+    L_MovR10RR17_13: MOV R10, R13; RET;
+    L_MovR10RR17_14: MOV R10, R14; RET;
+    L_MovR10RR17_15: MOV R10, R15; RET;
+    L_MovR10RR17_16: MOV R10, R16; RET;
+    L_MovR10RR17_17: MOV R10, R17; RET;
+    L_MovR10RR17_18: MOV R10, R18; RET;
+    L_MovR10RR17_19: MOV R10, R19; RET;
+    L_MovR10RR17_20: MOV R10, R20; RET;
+    L_MovR10RR17_21: MOV R10, R21; RET;
+    L_MovR10RR17_22: MOV R10, R22; RET;
+    L_MovR10RR17_23: MOV R10, R23; RET;
+    L_MovR10RR17_24: MOV R10, R24; RET;
+    L_MovR10RR17_25: MOV R10, R25; RET;
+    L_MovR10RR17_26: MOV R10, R26; RET;
+    L_MovR10RR17_27: MOV R10, R27; RET;
+    L_MovR10RR17_28: MOV R10, R28; RET;
+
+//--------------------------------------------------------------------
+// Info section
+//
+.section .lw.info, "" ,@"SHT_LWDA_INFO"
+    .align 4
+
+    .byte 4, 17         // EIATTR_FRAME_SIZE
+    .short 8
+    .word index@(InjectErrors)
+    .word  StackSize
+
+    .byte 4, 18         // EIATTR_MIN_STACK_SIZE
+    .short 8
+    .word index@(InjectErrors)
+    .word StackSize
+
+//--------------------------------------------------------------------
+// Kernel parameters
+//
+.section .lw.constant0.InjectErrors, "a", @progbits
+    .align 4
+    .zero 320
+
+
+//--------------------------------------------------------------------
+// Constants
+//
+#if SM_VER < 60
+    .section .lw.constant2.InjectErrors, "a", @progbits
+    .set ConstBank, 2
+#else // constant3 is a global const bank and can't have function scope.
+    .section .lw.constant3, "a", @progbits
+    .set ConstBank, 3
+#endif
+    .align 4
+    MovRR7R8_JumpTable:
+    .word (L_MovRR7R8_0  - L_MovRR7R8_0)
+    .word (L_MovRR7R8_1  - L_MovRR7R8_0)
+    .word (L_MovRR7R8_2  - L_MovRR7R8_0)
+    .word (L_MovRR7R8_3  - L_MovRR7R8_0)
+    .word (L_MovRR7R8_4  - L_MovRR7R8_0)
+    .word (L_MovRR7R8_5  - L_MovRR7R8_0)
+    .word (L_MovRR7R8_6  - L_MovRR7R8_0)
+    .word (L_MovRR7R8_7  - L_MovRR7R8_0)
+    .word (L_MovRR7R8_8  - L_MovRR7R8_0)
+    .word (L_MovRR7R8_9  - L_MovRR7R8_0)
+    .word (L_MovRR7R8_10 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_11 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_12 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_13 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_14 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_15 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_16 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_17 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_18 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_19 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_20 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_21 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_22 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_23 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_24 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_25 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_26 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_27 - L_MovRR7R8_0)
+    .word (L_MovRR7R8_28 - L_MovRR7R8_0)
+
+    MovRR17R18_JumpTable:
+    .word (L_MovRR17R18_0  - L_MovRR17R18_0)
+    .word (L_MovRR17R18_1  - L_MovRR17R18_0)
+    .word (L_MovRR17R18_2  - L_MovRR17R18_0)
+    .word (L_MovRR17R18_3  - L_MovRR17R18_0)
+    .word (L_MovRR17R18_4  - L_MovRR17R18_0)
+    .word (L_MovRR17R18_5  - L_MovRR17R18_0)
+    .word (L_MovRR17R18_6  - L_MovRR17R18_0)
+    .word (L_MovRR17R18_7  - L_MovRR17R18_0)
+    .word (L_MovRR17R18_8  - L_MovRR17R18_0)
+    .word (L_MovRR17R18_9  - L_MovRR17R18_0)
+    .word (L_MovRR17R18_10 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_11 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_12 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_13 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_14 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_15 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_16 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_17 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_18 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_19 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_20 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_21 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_22 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_23 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_24 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_25 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_26 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_27 - L_MovRR17R18_0)
+    .word (L_MovRR17R18_28 - L_MovRR17R18_0)
+
+    MovR0RR7_JumpTable:       
+    .word (L_MovR0RR7_0  - L_MovR0RR7_0)
+    .word (L_MovR0RR7_1  - L_MovR0RR7_0)
+    .word (L_MovR0RR7_2  - L_MovR0RR7_0)
+    .word (L_MovR0RR7_3  - L_MovR0RR7_0)
+    .word (L_MovR0RR7_4  - L_MovR0RR7_0)
+    .word (L_MovR0RR7_5  - L_MovR0RR7_0)
+    .word (L_MovR0RR7_6  - L_MovR0RR7_0)
+    .word (L_MovR0RR7_7  - L_MovR0RR7_0)
+    .word (L_MovR0RR7_8  - L_MovR0RR7_0)
+    .word (L_MovR0RR7_9  - L_MovR0RR7_0)
+    .word (L_MovR0RR7_10 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_11 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_12 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_13 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_14 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_15 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_16 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_17 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_18 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_19 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_20 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_21 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_22 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_23 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_24 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_25 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_26 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_27 - L_MovR0RR7_0)
+    .word (L_MovR0RR7_28 - L_MovR0RR7_0)
+
+    MovR10RR17_JumpTable:
+    .word (L_MovR10RR17_0  - L_MovR10RR17_0)
+    .word (L_MovR10RR17_1  - L_MovR10RR17_0)
+    .word (L_MovR10RR17_2  - L_MovR10RR17_0)
+    .word (L_MovR10RR17_3  - L_MovR10RR17_0)
+    .word (L_MovR10RR17_4  - L_MovR10RR17_0)
+    .word (L_MovR10RR17_5  - L_MovR10RR17_0)
+    .word (L_MovR10RR17_6  - L_MovR10RR17_0)
+    .word (L_MovR10RR17_7  - L_MovR10RR17_0)
+    .word (L_MovR10RR17_8  - L_MovR10RR17_0)
+    .word (L_MovR10RR17_9  - L_MovR10RR17_0)
+    .word (L_MovR10RR17_10 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_11 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_12 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_13 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_14 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_15 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_16 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_17 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_18 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_19 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_20 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_21 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_22 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_23 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_24 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_25 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_26 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_27 - L_MovR10RR17_0)
+    .word (L_MovR10RR17_28 - L_MovR10RR17_0)
+
+//--------------------------------------------------------------------
+// Global variables
+//
+.section .lw.global, "aw", @nobits
+    .align 8
+HostCommand:
+    .global HostCommand
+    .type HostCommand, @object
+    .size HostCommand, 8
+    .zero 8
+NumLoops:
+    .global NumLoops
+    .type NumLoops, @object
+    .size NumLoops, 4
+    .zero 4
+Seed:
+    .global Seed
+    .type Seed, @object
+    .size Seed, 4
+    .zero 4
+
+//--------------------------------------------------------------------
+// Local variables
+//
+    .set m_pHostCommand,  0
+    .set m_Rng,           8
+    .set m_LoopIdx,      12
+    .set m_TestThread,   16
+    .set m_TestRegister, 20
+    .set m_ErrType,      24
+    .set m_GoodValue,    28
+    .set m_BadValue,     32
+    .set StackSize,   0x200

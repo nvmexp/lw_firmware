@@ -1,0 +1,62 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Engines.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    FUBSRC_CORE => [
+
+        FLAGS => ':CORE',             # following are all part of core (non-hal)
+
+        'fub/lw/fub.c',
+        'fub/lw/fubinit.c',
+
+    ],  # FUBSRC_CORE
+
+    FUBSRC_ENGINES => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        FUB =>
+        [
+            CHIPS_SUPPORTED => [ TURING, ],
+                 'fub/turing/fubtu10x.c',
+
+            CHIPS_SUPPORTED => [ TU102, TU104, TU106, ],
+                'fub/turing/fubtu10xonly.c',
+
+            CHIPS_SUPPORTED => [ TU104, ],
+                'fub/turing/fub_auto_qs2_ahesasc.c',
+                'fub/turing/fub_auto_qs2_asb.c',
+                'fub/turing/fub_auto_qs2_lwflash.c',
+                'fub/turing/fub_auto_qs2_imageselect.c',
+                'fub/turing/fub_auto_qs2_hulk.c',
+                'fub/turing/fub_auto_qs2_fwsec.c',
+
+            CHIPS_SUPPORTED => [ TU116, TU117, ],
+                'fub/turing/fubtu116only.c',
+        ],
+
+    ],  # FUBSRC_ENGINES
+
+];   # filesRef
+
+my $platformsRef = [
+
+    # the FUB platform
+    PLATFORM_FUB  => [
+        FUBSRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+];
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

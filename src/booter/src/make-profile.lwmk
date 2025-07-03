@@ -1,0 +1,464 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2013-2021 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD ?= false
+FALCON_ARCH    ?= falcon6
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+LWUPROC        = $(LW_SOURCE)/uproc
+BOOTER_SW      = $(LW_SOURCE)/uproc/booter
+BOOTERCFG      = $(LW_SOURCE)/uproc/booter/config
+RESMAN_ROOT    = $(LW_SOURCE)/drivers/resman
+UPROC_LIBS     = $(LW_SOURCE)/uproc/libs
+UPROC_CMN_SRC  = $(UPROC_LIBS)/cmn
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+include $(BOOTER_SW)/config/booter-profiles.mk
+
+###############################################################################
+# Load common falcon make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LWUPROC)/build/common/lwFalconArch.lwmk
+ifdef CHIP_MANUAL_PATH
+    include $(CHIP_MANUAL_PATH)/lwFalconSignParams.mk
+endif
+
+override LW_TARGET_ARCH = $(FALCON_TOOLS_BUILD)
+override LW_TARGET_OS   = falcon
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Define the output directory paths for the Booter build and all sub-make builds.
+###############################################################################
+
+CHIPNAME   := $(subst booter-load-,,$(BOOTERCFG_PROFILE))
+CHIPNAME   := $(subst booter-reload-,,$(CHIPNAME))
+CHIPNAME   := $(subst booter-unload-,,$(CHIPNAME))
+
+ifeq ($(BOOTER_RELOAD), true)
+    FALCONNAME := lwdec
+else
+    FALCONNAME := sec2
+endif
+
+PROFILE    := $(subst booter-,,$(BOOTERCFG_PROFILE))
+PROFILE    := $(subst -$(CHIPNAME),,$(PROFILE))
+
+OUTPUTDIR := _out/$(FALCONNAME)/$(CHIPNAME)/$(PROFILE)
+
+###############################################################################
+# Setup booter-config make vars and ilwoke booter-config. Use booter-config's
+# makefile.mk to do all the work. The makefile will generate booter-config.mk in
+# the output directory and then include it.
+###############################################################################
+
+BOOTERSRC_ALL           :=
+BOOTERCFG_OPTIONS       :=
+BOOTERCFG_OUTPUTDIR     ?= $(OUTPUTDIR)/config
+BOOTERCFG_RESMAN_ROOT   := $(RESMAN_ROOT)
+BOOTERCFG_BOOTERSW_ROOT := $(BOOTER_SW)/src
+
+include $(BOOTER_SW)/config/makefile.mk
+
+# include the generated list of source files
+ifdef BOOTERCFG_INITIALIZED
+  include $(BOOTERCFG_OUTPUTDIR)/g_sources.mk
+endif
+
+###############################################################################
+# Generate only halgen files
+###############################################################################
+
+.PHONY : gen_only_header
+gen_only_header : $(BOOTERCFG_OUTPUTDIR)/g_sources.mk
+
+
+###############################################################################
+# Include profile-specific make settings to account for profile-specific build
+# options/requirements.
+###############################################################################
+
+-include $(BOOTER_SW)/config/$(BOOTERCFG_PROFILE).mk
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+# Booter includes
+LW_INCLUDES += $(BOOTERSW)/inc
+
+# Uproc external includes
+LW_INCLUDES += $(LW_SOURCE)/uproc/cmn/inc
+LW_INCLUDES += $(UPROC_CMN_SRC)/inc
+LW_INCLUDES += $(UPROC_LIBS)/se/inc
+LW_INCLUDES += $(LWUPROC)/bootloader/inc
+
+# for falcon.h
+LW_INCLUDES += $(UPROC_LIBS)/lwos/dev/inc
+
+# for gsp_fw_wpr_meta.h
+LW_INCLUDES += $(LWUPROC)/os/libos-v2.0.0/include
+
+# RM includes
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc/
+
+# Manual includes
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/swref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/hwref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(MANUAL_PATHS)
+
+# Output includes
+LW_INCLUDES += $(OUTPUTDIR)
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+
+IMG_TARGET      := $(OUTPUTDIR)/g_booteruc_$(PROFILE)_$(CHIPNAME)
+IMG_TARGET_DBG  := $(OUTPUTDIR)/g_booteruc_$(PROFILE)_$(CHIPNAME)_dbg
+IMG_TARGET_PROD := $(OUTPUTDIR)/g_booteruc_$(PROFILE)_$(CHIPNAME)_prod
+
+IMG_ELF     := $(IMG_TARGET).out
+IMG_ELF_DBG := $(IMG_TARGET_DBG).out
+IMG_ELF_PROD:= $(IMG_TARGET_PROD).out
+IMG_READELF := $(IMG_TARGET).readelf
+IMG_SECTIONS:= $(IMG_TARGET).sections
+IMG_H       := $(IMG_TARGET).h
+IMG_H_DBG   := $(IMG_TARGET_DBG).h
+IMG_H_PROD  := $(IMG_TARGET_PROD).h
+IMG_BIN     := $(IMG_TARGET).bin
+IMG_OBJDUMP := $(IMG_TARGET).objdump
+IMG_NM      := $(IMG_TARGET).nm
+IMG_MAP     := $(IMG_TARGET).map
+IMG_DT      := $(IMG_TARGET).dt
+IMG_DBGLINE := $(IMG_TARGET).dbgline
+HAL_INFO    := $(OUTPUTDIR)/config/g_booterlib_hal.h
+HAL_INFO    += $(OUTPUTDIR)/config/g_booterlib_private.h
+
+RELEASE_FILES = $(IMG_NM) $(IMG_OBJDUMP) $(IMG_READELF)
+
+ifeq ("$(IS_HS_ENCRYPTED)", "true")
+    RELEASE_FILES += $(IMG_ELF_PROD) $(IMG_H_DBG) $(IMG_H_PROD) $(IMG_SECTIONS) $(IMG_MAP)
+else
+    RELEASE_FILES += $(IMG_ELF) $(IMG_H)
+endif
+
+###############################################################################
+# Application-specific compiler/linker flags
+# Only adding required libraries
+###############################################################################
+
+LDFLAGS += -nodefaultlibs
+LDFLAGS += -lgcc -lfalcon
+LDFLAGS += -T $(BOOTERSW)/build/$(LDSCRIPT)
+
+# Disable jump tables, because they go to RO data section which is not covered under signature check
+CFLAGS += -fno-jump-tables
+
+CFLAGS += -DUPROC_FALCON
+
+ifeq ("$(IS_HS_ENCRYPTED)", "true")
+    CFLAGS += -DIS_HS_ENCRYPTED=1
+else
+    CFLAGS += -DIS_HS_ENCRYPTED=0
+endif
+
+ifeq ($(SSP_ENABLED), true)
+    RANDOM_CANARY_NS := $(shell $(PYTHON) -c 'from random import randint; print(randint(65535,1048576))')
+    CFLAGS += -DIS_SSP_ENABLED
+    CFLAGS += -fstack-protector-all
+    CFLAGS += -DRANDOM_CANARY_NS=$(RANDOM_CANARY_NS)
+endif
+
+ifeq ($(PKC_ENABLED), true)
+    CFLAGS += -DPKC_ENABLED
+    CFLAGS += -DFUSE_VERSION=$(SIGGEN_FUSE_VER)
+    CFLAGS += -DUCODE_ID=$(SIGGEN_UCODE_ID)
+    CFLAGS += -DENGINE_ID=$(SIGGEN_ENGINE_ID)
+endif
+
+ifeq ($(IS_ENHANCED_AES), true)
+    CFLAGS += -DIS_ENHANCED_AES
+    CFLAGS += -DFUSE_VERSION=$(SIGGEN_FUSE_VER)
+    CFLAGS += -DUCODE_ID=$(SIGGEN_UCODE_ID)
+    CFLAGS += -DENGINE_ID=$(SIGGEN_ENGINE_ID)
+endif
+
+ifeq ($(BOOT_FROM_HS_BUILD), true)
+    CFLAGS += -DBOOT_FROM_HS_BUILD
+endif
+
+ifeq ($(BOOT_FROM_HS_FALCON_LWDEC), true)
+    CFLAGS += -DBOOT_FROM_HS_FALCON_LWDEC
+endif
+
+ifeq ($(BOOT_FROM_HS_FALCON_SEC2), true)
+    CFLAGS += -DBOOT_FROM_HS_FALCON_SEC2
+endif
+
+ifeq ($(DISABLE_SE_ACCESSES), true)
+    CFLAGS += -DDISABLE_SE_ACCESSES
+endif
+
+ifeq ($(BOOTER_LOAD), true)
+    CFLAGS += -DBOOTER_LOAD
+endif
+
+ifeq ($(BOOTER_RELOAD), true)
+    CFLAGS += -DBOOTER_RELOAD
+endif
+
+ifeq ($(BOOTER_UNLOAD), true)
+    CFLAGS += -DBOOTER_UNLOAD
+endif
+
+ifeq ($(PRI_SOURCE_ISOLATION_PLM), true)
+    CFLAGS += -DPRI_SOURCE_ISOLATION_PLM
+endif
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(.)); delete $$ELW{PWD}; \
+          print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(BOOTERCFG_PROFILE)]"
+
+ADD_OBJECTS = mulsi.o
+SOURCES     = $(BOOTERSRC_ALL)
+
+###############################################################################
+# Rules for buildig the ELF image and binary files
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+all:: $(IMG_ELF)
+ifeq ($(BOOTER_SKIP_SIGN_RELEASE), false)
+all:: sign release
+endif
+
+###############################################################################
+# Sign the binary. Uses pre-build signing tool (linux only for now)
+###############################################################################
+CFLAGS += -DBOOTER_TU102_UCODE_BUILD_VERSION=$(BOOTER_TU102_UCODE_BUILD_VERSION)
+CFLAGS += -DBOOTER_TU104_UCODE_BUILD_VERSION=$(BOOTER_TU104_UCODE_BUILD_VERSION)
+CFLAGS += -DBOOTER_TU106_UCODE_BUILD_VERSION=$(BOOTER_TU106_UCODE_BUILD_VERSION)
+CFLAGS += -DBOOTER_TU116_UCODE_BUILD_VERSION=$(BOOTER_TU116_UCODE_BUILD_VERSION)
+CFLAGS += -DBOOTER_TU117_UCODE_BUILD_VERSION=$(BOOTER_TU117_UCODE_BUILD_VERSION)
+CFLAGS += -DBOOTER_GA100_UCODE_BUILD_VERSION=$(BOOTER_GA100_UCODE_BUILD_VERSION)
+CFLAGS += -DBOOTER_GA102_UCODE_BUILD_VERSION=$(BOOTER_GA102_UCODE_BUILD_VERSION)
+
+UCODE_BUILD_VERSIONS :=
+
+  ifneq (,$(findstring tu10x, $(CHIPNAME)))
+    UCODE_BUILD_VERSIONS := "\"BOOTER_TU102_UCODE_BUILD_VERSION 0x$(BOOTER_TU102_UCODE_BUILD_VERSION)\;BOOTER_TU104_UCODE_BUILD_VERSION 0x$(BOOTER_TU104_UCODE_BUILD_VERSION)\;BOOTER_TU106_UCODE_BUILD_VERSION 0x$(BOOTER_TU106_UCODE_BUILD_VERSION)\""
+  endif
+ ifneq (,$(findstring tu11x, $(CHIPNAME)))
+    UCODE_BUILD_VERSIONS := "\"BOOTER_TU116_UCODE_BUILD_VERSION 0x$(BOOTER_TU116_UCODE_BUILD_VERSION)\;BOOTER_TU117_UCODE_BUILD_VERSION 0x$(BOOTER_TU117_UCODE_BUILD_VERSION)\""
+  endif
+  ifneq (,$(findstring ga100, $(CHIPNAME)))
+    UCODE_BUILD_VERSIONS := "\"BOOTER_GA100_UCODE_BUILD_VERSION 0x$(BOOTER_GA100_UCODE_BUILD_VERSION)\""
+  endif
+  ifneq (,$(findstring ga10x, $(CHIPNAME)))
+    UCODE_BUILD_VERSIONS := "\"BOOTER_GA102_UCODE_BUILD_VERSION 0x$(BOOTER_GA102_UCODE_BUILD_VERSION)\""
+  endif
+
+SIG_GEN        = $(BOOTERSW)/utilities/siggen/siggen
+SIG_GEN_CFG    = ../build/sign/$(SIGGEN_CFG)
+GEN_CLASS_PL   = $(BOOTERSW)/utilities/gen_class_os.pl
+GEN_CLASS_OUT  = $(IMG_TARGET).h
+SIGN_SCRIPT    = "tmpsign.sh"
+SIG_SCRIPT_EXP = $(foreach CHIP,$(SIGGEN_CHIPS),                                               \
+         "$(COPY) $(RELEASE_PATH)/g_booteruc_$(PROFILE)_$(CHIPNAME)_$(CHIP)_sig.h                        \
+         $(OUTPUTDIR)/g_booteruc_$(PROFILE)_$(CHIPNAME)_$(CHIP)_sig.h; chmod u+w   \
+         $(OUTPUTDIR)/g_booteruc_$(PROFILE)_$(CHIPNAME)_$(CHIP)_sig.h;             \
+         $(SIG_GEN) $(SIG_GEN_CFG) $(IMG_TARGET) $(IMG_TARGET) -app $(OUTPUTDIR)/g_booteruc_$(PROFILE)_$(CHIPNAME)_$(CHIP)_sig.h       \
+         -sig $(OUTPUTDIR)/g_booteruc_$(PROFILE)_$(CHIPNAME)_$(CHIP)_sig.h  -chip $(CHIP)                    \
+         -fuseVer $(SIGGEN_FUSE_VER) -engineId $(SIGGEN_ENGINE_ID) -ucodeId $(SIGGEN_UCODE_ID) \
+         -skipSigPatching -calcPrevNSignatures $$(($(NUM_SIG_PER_UCODE)-1))                    \
+         $(if $(filter $(IS_HS_ENCRYPTED),true), -forceSign -encryptUcode -totAppFilePrefix    \
+             $(RELEASE_PATH)/g_booteruc_$(PROFILE)_$(CHIPNAME) -totAppFilePrefixDH                           \
+             $(RELEASE_PATH)/g_booteruc_$(PROFILE)_$(CHIPNAME)) ;")
+
+RELEASE_FILES += $(foreach CHIP,$(SIGGEN_CHIPS),"$(OUTPUTDIR)/g_booteruc_$(PROFILE)_$(CHIPNAME)_$(CHIP)_sig.h")
+
+ifeq ("$(SIGGEN_CSG_PROD_SIGNING)", "true")
+    CSG_ARCHIVE = $(BOOTERCFG_PROFILE)_CSG_SIGNING_ARCHIVE
+    CSG_DIR = $(OUTPUTDIR)/$(CSG_ARCHIVE)
+    CSG_POST_SIGN_SCRIPT = "csg_post_sign.sh"
+    # CSG_SIGGEN_PROD_PARAMS is same as the SIG_SCRIPT_EXP above except for some file paths. 
+    CSG_SIGGEN_PROD_PARAMS = "./$(notdir $(SIG_GEN_CFG))                                             \
+             $(IMG_TARGET) $(IMG_TARGET) -app $(OUTPUTDIR)/g_booteruc_$(PROFILE)_$(CHIPNAME)_$(SIGGEN_CHIPS)_sig.h \
+             -sig $(OUTPUTDIR)/g_booteruc_$(PROFILE)_$(CHIPNAME)_$(SIGGEN_CHIPS)_sig.h  -chip $(SIGGEN_CHIPS)      \
+             -fuseVer $(SIGGEN_FUSE_VER) -engineId $(SIGGEN_ENGINE_ID) -ucodeId $(SIGGEN_UCODE_ID)   \
+             -skipSigPatching -calcPrevNSignatures $$(($(NUM_SIG_PER_UCODE)-1))                      \
+             $(if $(filter $(IS_HS_ENCRYPTED),true), -forceSign -encryptUcode -totAppFilePrefix      \
+                 ./release/g_booteruc_$(PROFILE)_$(CHIPNAME) -totAppFilePrefixDH                                   \
+                 ./release/g_booteruc_$(PROFILE)_$(CHIPNAME))"
+endif
+
+sign:
+ifeq ("$(SIGGEN_CSG_PROD_SIGNING)", "true")
+	$(MKDIR) $(CSG_DIR)
+	$(MKDIR) -p $(CSG_DIR)/$(OUTPUTDIR) 
+	$(MKDIR) -p $(CSG_DIR)/release 
+	$(ECHO) $(CSG_SIGGEN_PROD_PARAMS) > $(CSG_DIR)/siggen_params.txt
+	$(ECHO) $(BOOTERCFG_PROFILE) > $(CSG_DIR)/profile.txt
+	$(COPY) -f  $(SIG_GEN_CFG) $(CSG_DIR)/
+	$(COPY) -f  $(IMG_TARGET)* $(CSG_DIR)/$(OUTPUTDIR)/
+	$(COPY) -f  $(RELEASE_PATH)/g_booteruc_$(PROFILE)_$(CHIPNAME)_$(SIGGEN_CHIPS)_sig.h $(CSG_DIR)/$(OUTPUTDIR)/g_booteruc_$(PROFILE)_$(CHIPNAME)_$(SIGGEN_CHIPS)_sig.h
+	/bin/chmod u+w $(CSG_DIR)/$(OUTPUTDIR)/g_booteruc_$(PROFILE)_$(CHIPNAME)_$(SIGGEN_CHIPS)_sig.h
+	$(COPY) -f  $(RELEASE_PATH)/g_booteruc_$(PROFILE)_$(CHIPNAME)* $(CSG_DIR)/release/
+	/bin/tar -cf $(OUTPUTDIR)/$(CSG_ARCHIVE).tar -C $(OUTPUTDIR) $(CSG_ARCHIVE)
+	/bin/gzip $(OUTPUTDIR)/$(CSG_ARCHIVE).tar
+ifeq ("$(IS_HS_ENCRYPTED)", "true")
+	$(ECHO) "$(PERL) $(GEN_CLASS_PL) -dump app_os_images -hdr $(IMG_H_DBG) -bin $(IMG_ELF_DBG) -chip $(CHIPNAME) -version $(UCODE_BUILD_VERSIONS)" >> $(CSG_POST_SIGN_SCRIPT)
+	$(ECHO) "$(PERL) $(GEN_CLASS_PL) -dump app_os_images -hdr $(IMG_H_PROD) -bin $(IMG_ELF_PROD) -chip $(CHIPNAME) -version $(UCODE_BUILD_VERSIONS)" >> $(CSG_POST_SIGN_SCRIPT)
+else
+	$(ECHO) "$(PERL) $(GEN_CLASS_PL) -dump app_os_images -hdr $(IMG_H) -bin $(IMG_ELF) -chip $(CHIPNAME) -version $(UCODE_BUILD_VERSIONS)" >> $(CSG_POST_SIGN_SCRIPT)
+endif
+else
+	$(ECHO) $(SIG_SCRIPT_EXP) >> $(SIGN_SCRIPT)
+ifeq ("$(IS_HS_ENCRYPTED)", "true")
+	$(ECHO) "$(PERL) $(GEN_CLASS_PL) -dump app_os_images -hdr $(IMG_H_DBG) -bin $(IMG_ELF_DBG) -chip $(CHIPNAME) -version $(UCODE_BUILD_VERSIONS)" >> $(SIGN_SCRIPT)
+	$(ECHO) "$(PERL) $(GEN_CLASS_PL) -dump app_os_images -hdr $(IMG_H_PROD) -bin $(IMG_ELF_PROD) -chip $(CHIPNAME) -version $(UCODE_BUILD_VERSIONS)" >> $(SIGN_SCRIPT)
+else
+	$(ECHO) "$(PERL) $(GEN_CLASS_PL) -dump app_os_images -hdr $(IMG_H) -bin $(IMG_ELF) -chip $(CHIPNAME) -version $(UCODE_BUILD_VERSIONS)" >> $(SIGN_SCRIPT)
+endif
+endif
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(LW_SOURCE)/uproc/build/scripts/release-imgs-if-changed.pl
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_ARGS += --output-prefix $(BUILD_PROJECT_NAME)
+
+ifeq ("$(IS_HS_ENCRYPTED)", "true")
+    RELEASE_IMG_ARGS += --image     $(IMG_ELF_PROD)
+else
+    RELEASE_IMG_ARGS += --image     $(IMG_ELF)
+endif
+
+RELEASE_IMG_ARGS += --p4            $(P4)
+
+RELEASE_IMG_ARGS += --release-path $(RELEASE_PATH)
+
+RELEASE_IMG_ARGS += --release-files            \
+  $(subst $(SPACE),$(COMMA),$(RELEASE_FILES))
+
+# unless disabled, make sure the environment is fresh before installing
+ifneq ("$(NO_CHECK_BUILD)","true")
+  .PHONY: checkbuild
+  install: checkbuild
+endif
+
+release: $(IMG_ELF)
+ifeq ("$(SIGGEN_CSG_PROD_SIGNING)", "true")
+	$(ECHO) $(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)  >> $(CSG_POST_SIGN_SCRIPT)
+else	
+	$(ECHO) $(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)  >> $(SIGN_SCRIPT)
+endif	
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files is the prerequisite
+# for this rule.
+###############################################################################
+$(IMG_ELF): $(OBJECTS) $(BOOTERSW)/build/$(LDSCRIPT)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(CFLAGS) $(ADD_OBJECTS) $(OBJECTS) -o $(IMG_ELF) $(LDFLAGS)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_READELF)
+	$(OBJDUMP) -d    $(IMG_ELF) >> $(IMG_OBJDUMP)
+	$(OBJDUMP) -S -d $(IMG_ELF) >> $(IMG_OBJDUMP).source
+	$(DUMPEXEC) -img $(IMG_ELF) -b $(IMG_ELF)
+	$(NM)      -S -n $(IMG_ELF) >> $(IMG_NM)
+	$(ECHO) $(NM)      $(IMG_ELF)       > $(IMG_MAP)
+	$(NM)      $(IMG_ELF)       >> $(IMG_MAP)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_READELF))
+	$(READELF) --all $(IMG_ELF) >> $(IMG_READELF)
+	$(READELF) -S $(IMG_ELF) >> $(IMG_SECTIONS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(IMG_ELF) >> $(IMG_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(IMG_ELF)
+
+###############################################################################
+# Rule to run ifdef_checker script and fail the build if wrong ifdef is used
+###############################################################################
+
+.PHONY: check_ifdef
+$(OBJECTS): | check_ifdef
+
+IFDEF_CHECKER_SCRIPT       = $(LWUPROC)/utilities/ifdef_checker.pl
+IFDEF_CHECKER_SCRIPT_ARGS += --dir 'booter'
+IFDEF_CHECKER_SCRIPT_ARGS += --LWUPROC '$(LWUPROC)'
+
+check_ifdef:
+	$(PERL) $(IFDEF_CHECKER_SCRIPT) $(IFDEF_CHECKER_SCRIPT_ARGS)
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clean_ucode
+clean: clean_ucode

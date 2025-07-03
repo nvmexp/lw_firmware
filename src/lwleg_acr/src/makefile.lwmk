@@ -1,0 +1,96 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2011 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+#
+# Top-level ACR makefile. This makefile is responsible for building the ACR
+# binary including projects it depends on (RTOS, bootloader, etc ...) across
+# all ACR config-profiles.
+#
+
+all: build
+
+###############################################################################
+# Serialize per-profile builds (this does not prevent parallel building within
+# each profile). It should be possible to remove this line but doing so may not
+# translate to any appreciable speedup and it also makes a mess of the output.
+# It is also known to crash intermittently.
+###############################################################################
+
+.NOTPARALLEL:
+
+###############################################################################
+# By default, this makefile will attempt to build all ACRCFG profiles. If this
+# behavior is undesired, the user may override it using the following make-var.
+# By setting the value to "true" only the default ACRCFG profile will be built
+# when this makefile is ilwoked.
+###############################################################################
+
+ACRCFG_PROFILE_DEFAULT_ONLY ?= "false"
+
+###############################################################################
+# Set ACRCFG_PROFILES to the list of ACRCFG profiles to build. The value is set
+# in one of three ways depending on defaults and user-overrides (if any).
+#
+# 1. Sourcing acr-profiles.mk to get the full list of profiles (default)
+# 2. If ACRCFG_PROFILE_DEFAULT_ONLY is defined and set to "true", build only
+#    the default ACRCFG profile. See above for more information.
+# 3. If ACRCFG_PROFILE is set on the command-line or as an elwvar, build that
+#    profile only.
+#
+# Setting ACRCFG_PROFILES in the shell or on the command-line will override the
+# profile(s) returned by the first two options above. ACRCFG_PROFILE trumps 
+# everything.
+###############################################################################
+
+ACRCFG_PROFILES ?=
+
+ifndef ACRCFG_PROFILE
+  ifeq ("$(strip $(ACRCFG_PROFILES))", "")
+    ifneq ("$(ACRCFG_PROFILE_DEFAULT_ONLY)","true")
+      include $(LW_SOURCE)/uproc/tegra_acr/config/acr-profiles.mk
+      override ACRCFG_PROFILES = $(ACRCFG_PROFILES_ALL)
+    else
+      override ACRCFG_PROFILES = acr_pmu-gm20b_load
+    endif
+  endif
+else
+  ACRCFG_PROFILES = $(ACRCFG_PROFILE)
+endif
+
+###############################################################################
+# Create submake build/clean/clobber targets for profiles being built.
+###############################################################################
+
+PROFILES.build   = $(ACRCFG_PROFILES:=.build)
+PROFILES.clean   = $(ACRCFG_PROFILES:=.clean)
+PROFILES.clobber = $(ACRCFG_PROFILES:=.clobber)
+
+###############################################################################
+# Targets/Rules
+###############################################################################
+
+.PHONY: PROFILES.build   build
+.PHONY: PROFILES.clean   clean
+.PHONY: PROFILES.clobber clobber
+
+build::   $(PROFILES.build)
+clean::   $(PROFILES.clean)
+clobber:: $(PROFILES.clobber)
+
+$(PROFILES.build):
+	$(MAKE) -f make-profile.lwmk ACRCFG_PROFILE=$(basename $@) build
+
+$(PROFILES.clean):
+	$(MAKE) -f make-profile.lwmk ACRCFG_PROFILE=$(basename $@) clean
+
+$(PROFILES.clobber):
+	$(MAKE) -f make-profile.lwmk ACRCFG_PROFILE=$(basename $@) clobber
+

@@ -1,0 +1,69 @@
+OUT_DIR=$(shell pwd)
+
+# Default to debug build
+BUILD_CFG ?= debug
+
+E=\e
+
+# Toolchain setup
+TOOLCHAIN_BIN=$(LW_TOOLS)/riscv/toolchain/linux/release/20190625/bin
+CC=$(TOOLCHAIN_BIN)/riscv64-elf-gcc
+LD=$(TOOLCHAIN_BIN)/riscv64-elf-ld
+OBJCOPY=$(TOOLCHAIN_BIN)/riscv64-elf-objcopy
+
+# Compilation flags
+CFLAGS_BASE+=-fno-common -fno-merge-constants -I. -I$(LW_SOURCE) -I$(LW_SOURCE)/sdk/lwpu/inc -I$(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc -I$(LIBOS_SOURCE)
+COMMON_CFLAGS=$(CFLAGS_BASE) -mabi=lp64 -fno-tree-loop-distribute-patterns -ffreestanding -march=rv64im -nostdlib  -I$(LIBOS_SOURCE)/include -falign-functions=4 -falign-labels=4 -mcmodel=medlow
+FIRMWARE_CFLAGS=$(COMMON_CFLAGS) -Os -DGCC_CODE_QUALITY_WAR
+TASK_CFLAGS=$(COMMON_CFLAGS) -g -gdwarf-2 -Os -ffunction-sections -fdata-sections -fno-omit-frame-pointer 
+
+TASK_ELFS=<%TASK_ELFS%>
+
+# For linker OOM errors
+define OOM_BANNER
+  ___        _            __   __  __
+ / _ \ _   _| |_    ___  / _| |  \/  | ___ _ __ ___   ___  _ __ _   _
+| | | | | | | __|  / _ \| |_  | |\/| |/ _ \ '_ ` _ \ / _ \| '__| | | |
+| |_| | |_| | |_  | (_) |  _| | |  | |  __/ | | | | | (_) | |  | |_| |
+ \___/ \__,_|\__|  \___/|_|   |_|  |_|\___|_| |_| |_|\___/|_|   \__, |
+                                                                |___/
+
+We recommend at least 12GB of RAM.
+Please ensure that "swapon" lists at least 20GB of swap space.
+
+endef
+export OOM_BANNER
+
+default: firmware.elf.stripped firmware_log.elf
+
+<%TASK_ELF_RULES%>
+
+# Ensure the kernel has been compiled
+KERNEL=$(OUT_DIR)/kernel/kernel.a
+
+FORCE:
+
+$(KERNEL): FORCE
+	@$(MAKE) -C $(LIBOS_SOURCE)/kernel PREFIX=$(PREFIX) BUILD_CFG=$(BUILD_CFG) LIBOS_SOURCE=$(LIBOS_SOURCE) OUT_DIR=$(OUT_DIR)/kernel
+
+# Force the KERNEL makefile to always run (since we do not have the kernel depencies)
+
+assemble.ld.out: assemble.ld
+	@printf  " [ %-28s ] $E[91m$E[1m%-14s$E[39m$E[0m  %s\n" "$(PREFIX)" " PREPROCESS" "assemble.ld"
+	@$(CC) -E -x c -I$(LIBOS_SOURCE)/include -I$(LIBOS_SOURCE)/kernel assemble.ld | grep -v '^#' > assemble.ld.out
+
+firmware.elf: $(TASK_ELFS) assemble.ld.out $(KERNEL)
+	@printf  " [ %-28s ] $E[91m$E[1m%-14s$E[39m$E[0m  %s\n" "$(PREFIX)" " LD" "assemble.ld.out"
+	@$(CC) -w -Wl,--whole-archive $(FIRMWARE_CFLAGS) $(KERNEL) $(TASK_ELFS) -I$(LW_SOURCE)/drivers/common/inc/swref/turing/tu102 -I$(LW_SOURCE)/drivers/common/inc/hwref/turing/tu102 -o $@ -Wl,--script=assemble.ld.out -Wl,--gc-sections -Wl,--no-relax 
+
+# Create firmware image
+firmware.elf.stripped: firmware.elf
+# Remove section names and logging information from ELF
+	@printf  " [ %-28s ] $E[91m$E[1m%-14s$E[39m$E[0m  %s\n" "$(PREFIX)" " STRIP" "firmware.elf"
+	@$(OBJCOPY) --no-change-warnings -S -R .logging firmware.elf firmware.elf.stripped
+
+# Create ELF file with just logging data and sections required for symbol resolver.  Used by CPU-side log decoders.
+firmware_log.elf: firmware.elf
+	@printf  " [ %-28s ] $E[91m$E[1m%-14s$E[39m$E[0m  %s\n" "$(PREFIX)" " LOG-STRIP" "firmware.elf"
+	@$(OBJCOPY) --no-change-warnings --dump-section .logging=firmware.logging --dump-section .debug_aranges=firmware.debug_aranges --dump-section .debug_line=firmware.debug_line --dump-section .debug_str=firmware.debug_str --extract-symbol firmware.elf firmware_log.elf 
+	@$(OBJCOPY) --no-change-warnings --update-section .logging=firmware.logging --update-section .debug_aranges=firmware.debug_aranges --update-section .debug_line=firmware.debug_line --update-section .debug_str=firmware.debug_str -w --strip-symbol="libos_pvt_*" --strip-symbol="rm_pvt_*" firmware_log.elf 

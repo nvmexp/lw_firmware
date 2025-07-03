@@ -1,0 +1,116 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2018 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "instrpulse.h"
+
+extern "C" __global__ void AcquireLocks(InstrPulseParams params)
+{
+    UINT32* pGpcLocks = GetPtr<UINT32*>(params.gpcLocksPtr);
+    UINT32* pSmid2Gpc = GetPtr<UINT32*>(params.smidToGpcPtr);
+
+    // Only one thread per SM should be running
+    if (threadIdx.x != 0)
+    {
+        return;
+    }
+
+    // Look up which GPC we belong to
+    UINT32 smid;
+    asm volatile ("mov.u32 %0, %%smid;" : "=r"(smid));
+    UINT32 gpc = pSmid2Gpc[smid];
+
+    // Try to grab the GPC lock
+    atomicCAS(&pGpcLocks[gpc], LOCK_INIT, smid);
+}
+
+extern "C" __global__ void InstructionPulse(InstrPulseParams params)
+{
+#if (SM_VER < 75)
+    UINT32 tmp[8];
+#else
+    UINT32 tmp[5];
+#endif
+    UINT32* pGpcLocks = GetPtr<UINT32*>(params.gpcLocksPtr);
+    UINT32* pSmid2Gpc = GetPtr<UINT32*>(params.smidToGpcPtr);
+
+    // Only one thread per SM should be running
+    if (threadIdx.x != 0)
+    {
+        return;
+    }
+
+    // Look up which GPC we belong to
+    UINT32 smid;
+    asm volatile ("mov.u32 %0, %%smid;" : "=r"(smid));
+    UINT32 gpc = pSmid2Gpc[smid];
+
+    // Exit early if a thread's SM wasn't the one to acquire the per-GPC lock
+    if (pGpcLocks[gpc] != smid)
+    {
+        return;
+    }
+
+    volatile const UINT64 initClk = clock64();
+
+    // Run each kernel for at least RunClks
+    while (clock64() - initClk < params.runClks)
+    {
+        // Run HMMA instructions for pulseClks clock cycles
+        volatile const UINT64 pulseStart = clock64();
+        do
+        {
+            // Perform a single HMMA operation (C = A * B + C)
+            // 
+            // Results are UNPREDICTABLE when running on a single thread, but we
+            // don't care since we aren't checking the result.
+#if (SM_VER < 75)
+            asm volatile ("_mma.m8n8k4.row.col.f16.f16 "
+                          "{%0, %1, %2, %3}," // Result
+                          "{%4, %5},"         // A
+                          "{%6, %7},"         // B
+                          "{%0, %1, %2, %3};" // C
+                          :
+                          "+r"(tmp[0]), "+r"(tmp[1]), "+r"(tmp[2]), "+r"(tmp[3])
+                          :
+                          "r"(tmp[4]), "r"(tmp[5]), "r"(tmp[6]), "r"(tmp[7])
+                          :
+                          "memory");
+#else
+            asm volatile ("_mma.m16n8k8.row.col.f16.f16 "
+                          "{%0, %1}," // Result
+                          "{%2, %3}," // A
+                          "{%4},"     // B
+                          "{%0, %1};" // C
+                          :
+                          "+r"(tmp[0]), "+r"(tmp[1])
+                          :
+                          "r"(tmp[2]), "r"(tmp[3]), "r"(tmp[4])
+                          :
+                          "memory");
+#endif
+        }
+        while (clock64() - pulseStart < params.pulseClks);
+
+        // Wait for delayClks clock cycles
+        volatile const UINT64 delayStart = clock64();
+        while (clock64() - delayStart < params.delayClks);
+    }
+
+    // This code never exelwtes, but we need it here so that tmp and the HMMA instruction
+    // don't get optimized out (Bug 1775315)
+    if (params.gpcLocksPtr == 0)
+    {
+        for (UINT32 i = 0; i < sizeof(tmp) / sizeof(tmp[0]); i++)
+        {
+            asm volatile ("st.global.cg.u32 [%0], %1;" : : "l"(params.gpcLocksPtr), "r"(tmp[i]) : "memory" );
+        }
+    }
+}

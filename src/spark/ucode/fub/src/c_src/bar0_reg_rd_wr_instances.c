@@ -1,0 +1,43 @@
+#define IN_ADA_BODY
+#include "bar0_reg_rd_wr_instances.h"
+
+typedef dev_master__lw_pmc_boot_42_register bar0_reg_rd_wr_instances__bar0_reg_rd32_boot42GP200__generic_register;
+extern void bar0_reg_rd_wr_instances__bar0_reg_rd32_boot42(bar0_reg_rd_wr_instances__bar0_reg_rd32_boot42GP200__generic_register *reg, lw_types__reg_addr_types__bar0_addr addr);
+#ifdef IN_ADA_BODY
+void bar0_reg_rd_wr_instances__bar0_reg_rd32_boot42(bar0_reg_rd_wr_instances__bar0_reg_rd32_boot42GP200__generic_register *reg, lw_types__reg_addr_types__bar0_addr addr) {
+  lw_types__lwu32 val;
+  typedef lw_types__Tlwu32B bar0_reg_rd_wr_instances__bar0_reg_rd32_boot42__to_input_typeGP2240__source;
+  typedef dev_master__lw_pmc_boot_42_register bar0_reg_rd_wr_instances__bar0_reg_rd32_boot42__to_input_typeGP2240__target;
+
+  reg_rd_wr_bar0_tu10x__bar0_reg_rd32_private(&val, addr);
+  *((lw_types__lwu32 *)&(*reg)) = val;
+  return;
+}
+#endif /* IN_ADA_BODY */
+typedef dev_fuse__lw_fuse_opt_fuse_ucode_gfw_rev_register bar0_reg_rd_wr_instances__bar0_reg_rd32_fuse_opt_fuseGP311__generic_register;
+extern void bar0_reg_rd_wr_instances__bar0_reg_rd32_fuse_opt_fuse(bar0_reg_rd_wr_instances__bar0_reg_rd32_fuse_opt_fuseGP311__generic_register *reg, lw_types__reg_addr_types__bar0_addr addr);
+#ifdef IN_ADA_BODY
+void bar0_reg_rd_wr_instances__bar0_reg_rd32_fuse_opt_fuse(bar0_reg_rd_wr_instances__bar0_reg_rd32_fuse_opt_fuseGP311__generic_register *reg, lw_types__reg_addr_types__bar0_addr addr) {
+  lw_types__lwu32 val;
+  typedef lw_types__Tlwu32B bar0_reg_rd_wr_instances__bar0_reg_rd32_fuse_opt_fuse__to_input_typeGP2240__source;
+  typedef dev_fuse__lw_fuse_opt_fuse_ucode_gfw_rev_register bar0_reg_rd_wr_instances__bar0_reg_rd32_fuse_opt_fuse__to_input_typeGP2240__target;
+
+  reg_rd_wr_bar0_tu10x__bar0_reg_rd32_private(&val, addr);
+  *((lw_types__lwu32 *)&(*reg)) = val;
+  return;
+}
+#endif /* IN_ADA_BODY */
+typedef dev_fpf__lw_fpf_opt_fuse_ucode_gfw_rev_register bar0_reg_rd_wr_instances__bar0_reg_rd32_fpf_opt_fuseGP451__generic_register;
+extern void bar0_reg_rd_wr_instances__bar0_reg_rd32_fpf_opt_fuse(bar0_reg_rd_wr_instances__bar0_reg_rd32_fpf_opt_fuseGP451__generic_register *reg, lw_types__reg_addr_types__bar0_addr addr);
+#ifdef IN_ADA_BODY
+void bar0_reg_rd_wr_instances__bar0_reg_rd32_fpf_opt_fuse(bar0_reg_rd_wr_instances__bar0_reg_rd32_fpf_opt_fuseGP451__generic_register *reg, lw_types__reg_addr_types__bar0_addr addr) {
+  lw_types__lwu32 val;
+  typedef lw_types__Tlwu32B bar0_reg_rd_wr_instances__bar0_reg_rd32_fpf_opt_fuse__to_input_typeGP2240__source;
+  typedef dev_fpf__lw_fpf_opt_fuse_ucode_gfw_rev_register bar0_reg_rd_wr_instances__bar0_reg_rd32_fpf_opt_fuse__to_input_typeGP2240__target;
+
+  reg_rd_wr_bar0_tu10x__bar0_reg_rd32_private(&val, addr);
+  *((lw_types__lwu32 *)&(*reg)) = val;
+  return;
+}
+#endif /* IN_ADA_BODY */
+

@@ -1,0 +1,82 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2017-2018 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "lwlinkp2pbandwidth.h"
+#include "lwda_runtime_api.h" // located in the LWCA toolkit
+
+// Obtains a pointer to device memory from a host-opaque type
+__device__ void* GetPtr(device_ptr ptr)
+{
+    return reinterpret_cast<void*>(static_cast<size_t>(ptr));
+}
+
+using namespace LwLinkP2PBandwidth;
+
+extern "C" __global__ void P2PFill(const LwLinkP2PBandwidthInput input)
+{
+    // Pointer to memory.  Each thread will operate on a single uint4
+    UINT64 uint4Perblock = input.uint4PerThread * blockDim.x;
+    uint4* pP2PMemStart  = static_cast<uint4*>(GetPtr(input.p2pMemory));
+    uint4* pTargetMem;
+
+    for (UINT32 iter = 0; iter < input.iterations; iter++)
+    {
+        pTargetMem = pP2PMemStart + uint4Perblock * blockIdx.x + threadIdx.x;
+        for (UINT32 i = 0 ; i < input.uint4PerThread; i++, pTargetMem += blockDim.x)
+        {
+            *pTargetMem = uint4{static_cast<UINT32>((uint4Perblock * 16 * blockIdx.x) + i * threadIdx.x + i + 3),
+                                static_cast<UINT32>((uint4Perblock * 16 * blockIdx.x) + i * threadIdx.x + i + 2),
+                                static_cast<UINT32>((uint4Perblock * 16 * blockIdx.x) + i * threadIdx.x + i + 1),
+                                static_cast<UINT32>((uint4Perblock * 16 * blockIdx.x) + i * threadIdx.x + i)};
+        }
+    }
+}
+
+extern "C" __global__ void P2PWrites(const LwLinkP2PBandwidthInput input)
+{
+
+    // Pointer to memory.  Each thread will operate on a single uint4
+    UINT64 uint4Perblock = input.uint4PerThread * blockDim.x;
+    uint4* pP2PMemStart   = static_cast<uint4*>(GetPtr(input.p2pMemory));
+    uint4* pWriteSrcStart = static_cast<uint4*>(GetPtr(input.localMemory));
+    uint4* pP2PWriteDstMem;
+    uint4* pWriteSrcMem;
+
+    for (UINT32 iter = 0; iter < input.iterations; iter++)
+    {
+        pP2PWriteDstMem = pP2PMemStart + uint4Perblock * blockIdx.x + threadIdx.x;
+        pWriteSrcMem    = pWriteSrcStart + uint4Perblock * blockIdx.x + threadIdx.x;
+        for (UINT32 i = 0 ; i < input.uint4PerThread; i++, pP2PWriteDstMem += blockDim.x, pWriteSrcMem += blockDim.x)
+        {
+            *pP2PWriteDstMem = *pWriteSrcMem;
+        }
+    }
+}
+
+extern "C" __global__ void P2PReads(const LwLinkP2PBandwidthInput input)
+{
+    // Pointer to memory.  Each thread will operate on a single uint4
+    UINT64 uint4Perblock = input.uint4PerThread * blockDim.x;
+    uint4* pP2PMemStart   = static_cast<uint4*>(GetPtr(input.p2pMemory));
+    uint4* pReadDestStart = static_cast<uint4*>(GetPtr(input.localMemory));
+    uint4* pP2PReadSrcMem;
+    uint4* pReadDstMem;
+
+    for (UINT32 iter = 0; iter < input.iterations; iter++)
+    {
+        pP2PReadSrcMem = pP2PMemStart + uint4Perblock * blockIdx.x + threadIdx.x;
+        pReadDstMem    = pReadDestStart + uint4Perblock * blockIdx.x + threadIdx.x;
+        for (UINT32 i = 0 ; i < input.uint4PerThread; i++, pP2PReadSrcMem += blockDim.x, pReadDstMem += blockDim.x)
+        {
+            *pReadDstMem = *pP2PReadSrcMem;
+        }
+    }
+}

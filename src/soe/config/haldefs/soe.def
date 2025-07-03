@@ -1,0 +1,339 @@
+# -*- mode: perl; -*-
+
+# SOE Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $soeHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PRE_INIT => [
+            DESCRIPTION    => "SOE chip specific initialization",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _LR10         => [ ALL, ],
+
+        ],
+
+        ENABLE_EMEM_APERTURE => [
+            DESCRIPTION    => "Initialize the EMEM aperture",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        READ_CMD_QUEUE_HEAD => [
+            DESCRIPTION    => "Read command queue head register",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "LwU32 queueIndex",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _LR10         => [ ALL, ],
+        ],
+
+        READ_CMD_QUEUE_TAIL => [
+            DESCRIPTION    => "Read command queue tail register",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "LwU32 queueIndex",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+        WRITE_CMD_QUEUE_HEAD => [
+            DESCRIPTION    => "Write command queue head register",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 queueIndex, LwU32 val",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_cmdmgmt", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+        WRITE_CMD_QUEUE_TAIL => [
+            DESCRIPTION    => "Write command queue tail register",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 queueIndex, LwU32 val",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+        QUEUE_RM_HEAD_GET => [
+            DESCRIPTION    => "Retrieve RM (MSG) queue head register",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB".
+                              ":GEN_FNPTR_DEFINE", # generate soeQueueRmHeadGet_HAL_FNPTR
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+        QUEUE_RM_HEAD_SET => [
+            DESCRIPTION    => "Update RM (MSG) queue head register and trigger interrupt to host",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 head",
+            FLAGS          => ":NO_STUB".
+                              ":GEN_FNPTR_DEFINE", # generate soeQueueRmHeadSet_HAL_FNPTR
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+        QUEUE_RM_TAIL_GET => [
+            DESCRIPTION    => "Retrieve RM (MSG) queue tail register",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB".
+                              ":GEN_FNPTR_DEFINE", # generate soeQueueRmTailGet_HAL_FNPTR
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+        QUEUE_RM_INIT => [
+            DESCRIPTION    => "Initializes the head and tail pointers of the RM (MSG) queue",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 start",
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_cmdmgmt", "__FUNC__")',
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+        FLCN_PRIV_LEVEL_SET => [
+            DESCRIPTION    => "Set the falcon privilege level",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 privLevelExt, LwU8 privLevelCsb",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _LR10         => [ ALL, ],
+        ],
+
+        BAR0_REG_WR_32_NON_POSTED => [
+            DESCRIPTION    => "Write a 32-bit value to a BAR0 address and wait for completion",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 addr, LwU32 val",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => FLCN_PRIV_LEVEL_SET,
+        ],
+
+        BAR0_ERR_CHK_REG_WR_32_NON_POSTED => [
+            DESCRIPTION    => "Write a 32-bit value to a BAR0 address, wait for completion, and check for priv errors",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 addr, LwU32 val",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        CSB_ERR_CHK_REG_WR_32_NON_POSTED => [
+            DESCRIPTION    => "Write a 32-bit value to a CSB address and check for priv errors",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 addr, LwU32 val",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        BAR0_REG_RD_32 => [
+            DESCRIPTION    => "Read a BAR0 address",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "LwU32 addr",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => FLCN_PRIV_LEVEL_SET,
+        ],
+
+        BAR0_ERR_CHK_REG_RD_32 => [
+            DESCRIPTION    => "Read a BAR0 address, wait for completion, and check for priv errors",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 addr, LwU32 *pVal",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        CSB_ERR_CHK_REG_RD_32 => [
+            DESCRIPTION    => "Read a CSB addres and check for priv errors",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 addr, LwU32 *pVal",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        FALC_DEBUG_INIT => [
+            DESCRIPTION    => "Initialize the register used by falc_debug",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => READ_CMD_QUEUE_HEAD,
+        ],
+
+        DMA_NACK_CHECK_AND_CLEAR => [
+            DESCRIPTION    => "Returns whether a VA MMU fault caused a DMA NACK, and clears the NACK bit",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => LW_FALSE,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        RAISE_PRIV_LEVEL_MASKS => [
+            DESCRIPTION    => "Raise the privlevel mask for secure reset",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        LOWER_PRIV_LEVEL_MASKS => [
+            DESCRIPTION    => "Lower the privlevel mask for secure reset",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        SETUP_PRIV_LEVEL_MASKS => [
+            DESCRIPTION    => "Setup the Priv Level Masks for L0 access",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        SETUP_PROD_VALUES => [
+            DESCRIPTION    => "Setup Prod values for registers that need LS access",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _LR10         => [ TU102, ],
+            _LS10         => [ ALL, -TU102, ],
+        ],
+
+        SETUP_NXBAR_PRIV_LEVEL_MASKS => [
+            DESCRIPTION    => "Setup the PLMs for NXBAR registers for L0 access",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _LR10         => [ TU102, ],
+            _STUB         => [ ALL, -TU102, ],
+        ],
+
+        SETUP_NXBAR_PROD_VALUES => [
+            DESCRIPTION    => "Setup Prod values for Nxbar registers that need LS access",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _LR10         => [ TU102, ],
+            _STUB         => [ ALL, -TU102, ],
+        ],
+
+        INIT_PRIV_RING => [
+            DESCRIPTION    => "Initialize Priv Ring",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ TU102, ],
+            _LS10         => [ ALL, -TU102, ],
+        ],
+
+        DMA_WRITE_TO_SYSMEM=> [
+            DESCRIPTION    => "Performs a DMA write to sysmem",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'void *pBuf, RM_FLCN_U64 dmaHandle, LwU32 dmaOffset, LwU32 bufSize',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        DMA_READ_FROM_SYSMEM=> [
+            DESCRIPTION    => "Performs a DMA read from sysmem",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'void *pBuf, RM_FLCN_U64 dmaHandle, LwU32 dmaOffset, LwU32 bufSize',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        DMA_SET_SYS_ADDR=> [
+            DESCRIPTION    => "Set DMA sysmem address",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'RM_FLCN_U64 dmaHandle, RM_FLCN_MEM_DESC *pMemDesc',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ TU102, ],
+            _LS10         => [ ALL, -TU102, ],
+        ],
+
+        READ_GPU_POSITION_ID => [
+            DESCRIPTION    => "Returns GPU position Id based on GPIO's",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+        
+        VERIFY_CHIP        => [
+            DESCRIPTION    => "Ensure this ucode is running on the correct chip/falcon",
+            RETURN_TYPE    => LwBool,
+            STUB_RETURNS   => FALSE,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        GET_ENGINE_LOOKUP   => [
+            DESCRIPTION    => "Get chip specific engine lookup tables",
+            RETURN_TYPE    => "struct engine_tables*",
+            STUB_RETURNS   => NULL,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ TU102, ],
+            _LS10         => [ ALL, -TU102],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $soeHal;

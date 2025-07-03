@@ -1,0 +1,261 @@
+; If you update this file, you must also update the checked-in mods.lib import libraries.
+;
+; Newly added functions also needs to be added to drvexport.cpp so they can be exported
+; and seen by external tests.
+
+EXPORTS
+    ModsDrvLoadLibrary
+    ModsDrvLwGetExportTable
+    ModsDrvInterpretModsRC
+
+    ModsDrvBreakPoint
+    ModsDrvBreakPointWithReason
+    ModsDrvBreakPointWithErrorInfo
+    ModsDrvPrintString
+    ModsDrvIsrPrintString
+    ModsDrvFlushLogFile
+    ModsDrvPrintf
+    ModsDrvVPrintf
+    ModsDrvSetGpuId
+    ModsDrvSetSwitchId
+
+    ModsDrvLogError
+    ModsDrvLogInfo
+    ModsDrvFlushLog
+
+    ModsDrvAlloc
+    ModsDrvCalloc
+    ModsDrvRealloc
+    ModsDrvFree
+    ModsDrvAlignedMalloc
+    ModsDrvAlignedFree
+    ModsDrvExecMalloc
+    ModsDrvExecFree
+
+    ModsDrvCreateThread
+    ModsDrvJoinThread
+    ModsDrvGetLwrrentThreadId
+    ModsDrvExitThread
+    ModsDrvYield
+    ModsDrvTlsAlloc
+    ModsDrvTlsFree
+    ModsDrvTlsGet
+    ModsDrvTlsSet
+    ModsDrvAllocMutex
+    ModsDrvFreeMutex
+    ModsDrvAcquireMutex
+    ModsDrvTryAcquireMutex
+    ModsDrvReleaseMutex
+    ModsDrvIsMutexOwner
+    ModsDrvAllocCondition
+    ModsDrvFreeCondition
+    ModsDrvWaitCondition
+    ModsDrvWaitConditionTimeout
+    ModsDrvSignalCondition
+    ModsDrvBroadcastCondition
+    ModsDrvAllocEvent
+    ModsDrvAllocEventAutoReset
+    ModsDrvAllocSystemEvent
+    ModsDrvFreeEvent
+    ModsDrvResetEvent
+    ModsDrvSetEvent
+    ModsDrvWaitOnEvent
+    ModsDrvWaitOnMultipleEvents
+    ModsDrvHandleResmanEvent
+    ModsDrvGetOsEvent
+    ModsDrvCreateSemaphore
+    ModsDrvDestroySemaphore
+    ModsDrvAcquireSemaphore
+    ModsDrvReleaseSemaphore
+    ModsDrvAllocSpinLock
+    ModsDrvDestroySpinLock
+    ModsDrvAcquireSpinLock
+    ModsDrvReleaseSpinLock
+
+    ModsDrvAtomicRead
+    ModsDrvAtomicWrite
+    ModsDrvAtomicXchg32
+    ModsDrvAtomicCmpXchg32
+    ModsDrvAtomicCmpXchg64
+    ModsDrvAtomicAdd
+
+    ModsDrvFlushCpuCache
+    ModsDrvFlushCpuCacheRange
+    ModsDrvFlushCpuWriteCombineBuffer
+
+    ModsDrvFindPciDevice
+    ModsDrvFindPciClassCode
+    ModsDrvPciInitHandle
+
+    ModsDrvPciGetBarInfo
+    ModsDrvPciGetIRQ
+
+    ModsDrvPciRd08
+    ModsDrvPciRd16
+    ModsDrvPciRd32
+    ModsDrvPciWr08
+    ModsDrvPciWr16
+    ModsDrvPciWr32
+
+    ModsDrvPciEnableAtomics
+    ModsDrvPciFlr
+
+    ModsDrvIoRd08
+    ModsDrvIoRd16
+    ModsDrvIoRd32
+    ModsDrvIoWr08
+    ModsDrvIoWr16
+    ModsDrvIoWr32
+
+    ModsDrvGetSOCDeviceAperture
+    ModsDrvGetPageSize
+    ModsDrvAllocPages
+    ModsDrvAllocPagesForPciDev
+    ModsDrvAllocPagesAligned
+    ModsDrvFreePages
+    ModsDrvMapPages
+    ModsDrvUnMapPages
+    ModsDrvGetPhysicalAddress
+    ModsDrvSetDmaMask
+    ModsDrvDmaMapMemory
+    ModsDrvDmaUnmapMemory
+    ModsDrvGetMappedPhysicalAddress
+    ModsDrvReservePages
+    ModsDrvMapDeviceMemory
+    ModsDrvUnMapDeviceMemory
+    ModsDrvSetMemRange
+    ModsDrvUnSetMemRange
+    ModsDrvSyncForDevice
+    ModsDrvSyncForCpu
+    ModsDrvGetCarveout
+    ModsDrvGetVPR
+    ModsDrvGetGenCarveout
+    ModsDrvCallACPIGeneric
+    ModsDrvLWIFMethod
+
+    ModsDrvCpuIsCPUIDSupported
+    ModsDrvCpuCPUID
+
+    ModsDrvReadRegistryDword
+    ModsDrvGpuReadRegistryDword
+    ModsDrvReadRegistryString
+    ModsDrvGpuReadRegistryString
+    ModsDrvReadRegistryBinary
+    ModsDrvGpuReadRegistryBinary
+    ModsDrvPackRegistry
+
+    ModsDrvPause
+    ModsDrvDelayUS
+    ModsDrvDelayNS
+    ModsDrvSleep
+    ModsDrvGetTimeNS
+    ModsDrvGetTimeUS
+    ModsDrvGetTimeMS
+
+    ModsDrvGetLwrrentIrql
+    ModsDrvRaiseIrql
+    ModsDrvLowerIrql
+    ModsDrvHookIRQ
+    ModsDrvUnhookIRQ
+    ModsDrvHookInt
+    ModsDrvUnhookInt
+
+    ModsDrvMemRd08
+    ModsDrvMemRd16
+    ModsDrvMemRd32
+    ModsDrvMemRd64
+    ModsDrvMemWr08
+    ModsDrvMemWr16
+    ModsDrvMemWr32
+    ModsDrvMemWr64
+    ModsDrvMemCopy
+    ModsDrvMemSet
+
+    ModsDrvSimChiplibLoaded
+    ModsDrvClockSimulator
+    ModsDrvGetSimulatorTime
+    ModsDrvGetSimulationMode
+    ModsDrvSimEscapeWrite
+    ModsDrvSimEscapeRead
+    ModsDrvSimGpuEscapeWrite
+    ModsDrvSimGpuEscapeRead
+    ModsDrvSimGpuEscapeWriteBuffer
+    ModsDrvSimGpuEscapeReadBuffer
+
+    ModsDrvAmodAllocChannelDma
+    ModsDrvAmodAllocChannelGpFifo
+    ModsDrvAmodFreeChannel
+    ModsDrvAmodAllocContextDma
+    ModsDrvAmodAllocObject
+    ModsDrvAmodFreeObject
+
+    ModsDrvRegRd32
+    ModsDrvRegWr32
+    ModsDrvLogRegRd
+    ModsDrvLogRegWr
+
+    ModsDrvGetNTPTime
+
+    ModsDrvGpuRegWriteExcluded
+    ModsDrvAddGpuSubdevice
+    ModsDrvGpuPreVBIOSSetup
+    ModsDrvGpuPostVBIOSSetup
+    ModsDrvGetVbiosFromLws
+    ModsDrvGpuDisplaySelected
+    ModsDrvGpuGrIntrHook
+    ModsDrvGpuDispIntrHook
+    ModsDrvGpuRcCheckCallback
+    ModsDrvGpuRcCallback
+    ModsDrvGpuStopEngineScheduling
+    ModsDrvGpuCheckEngineScheduling
+
+    ModsDrvHandleRmPolicyManagerEvent
+
+    ModsDrvClockGetHandle
+    ModsDrvClockEnable
+    ModsDrvClockSetRate
+    ModsDrvClockGetRate
+    ModsDrvClockSetParent
+    ModsDrvClockGetParent
+    ModsDrvClockReset
+
+    ModsDrvGpioEnable
+    ModsDrvGpioRead
+    ModsDrvGpioWrite
+    ModsDrvGpioSetDirection
+    ModsDrvI2CRead
+    ModsDrvI2CWrite
+
+    ModsDrvTegraSetGpuVolt
+    ModsDrvTegraGetGpuVolt
+    ModsDrvTegraGetGpuVoltInfo
+    ModsDrvTegraGetChipInfo
+
+    ModsDrvGetFakeProcessID
+
+    ModsDrvGetFbConsoleInfo
+
+    ModsDrvSetupDmaBase
+    ModsDrvGetGpuDmaBaseAddress
+    ModsDrvGetPpcTceBypassMode
+    ModsDrvGetAtsTargetAddressRange
+    ModsDrvGetForcedLwLinkConnections
+    ModsDrvGetForcedC2CConnections
+
+    ModsDrvVirtualAlloc
+    ModsDrvVirtualFree
+    ModsDrvVirtualProtect
+    ModsDrvVirtualMadvise
+
+    ModsDrvIsLwSwitchPresent
+
+    ModsDrvSetLwLinkSysmemTrained
+
+    ModsDrvGetLwLinkLineRate
+
+    ModsDrvAllocPagesIlwPR
+    ModsDrvTestApiGetContext
+    ModsDrvReadPFPciConfigIlwF
+    
+    ModsDrvReadTarFile
+    ModsDrvGetOperatingSystem

@@ -1,0 +1,31 @@
+sub process_args {
+    my ($mdiag_args, $test_args, $target, $trace, $javascript) = @_;
+#print {STDOUT} "\nInitial mdiag args:$mdiag_args\n";
+    $mdiag_args =~ s/\-disable_video\b//g;
+    $mdiag_args =~ s/\-disable_bsp\b//g;
+    $mdiag_args =~ s/\-disable_vp\b//g;
+    $mdiag_args =~ s/\-disable_mpeg\b//g;
+    $mdiag_args =~ s/\-disable_display\b//g;
+    $mdiag_args =~ s/\-disable_msenc\b//g;
+    $mdiag_args =~ s/\-devid_check_ignore\b//g;
+    $mdiag_args =~ s/\-chipargs -noinstance_[a-zA-Z0-9,=]+\b//g;
+    $mdiag_args =~ s/\-chipargs -drop_pmgr_pri_accesses\b//g;
+    $mdiag_args =~ s/\-pmu_bootstrap_mode 1\b//g;
+    $mdiag_args =~ s/\-exelwte_rm_devinit_on_pmu 0\b//g;
+    $mdiag_args =~ s/\-floorsweep display_disable:1\b//g;
+    $mdiag_args =~ s/\-use_1to4_comptagline_allocation\b//g;
+    $mdiag_args =~ s/\-utl_library_path \S+\b//g;
+    $mdiag_args =~ s/%\(DEFAULT_CE_PCE_MAP_BUG_2865302\)//g;
+    $mdiag_args =~ s/\-use_page_table_v3//g;
+    $mdiag_args =~ s/\-chipargs -useVirtualization//g;
+    $mdiag_args =~ s/\-floorsweep [a-zA-Z0-9,=_:]+\b//g;
+    $mdiag_args =~ s/\-ce_pce_map \S+\b//g;
+    $mdiag_args =~ s/\-ce_pce_map[1-2] \S+\b//g;
+    $mdiag_args =~ s/\-ce_grce_shared \S+\b//g;
+
+#   trim trailing whitespace chars.
+    $mdiag_args =~ s/\s+$//;
+
+#print {STDOUT} "\nFinal mdiag args:$mdiag_args\n";
+    return($mdiag_args, $test_args);
+}

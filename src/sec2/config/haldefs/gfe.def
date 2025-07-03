@@ -1,0 +1,33 @@
+# -*- mode: perl; -*-
+
+# GFE Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $gfeHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_gfe", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        READ_DEVICE_INFO => [
+            DESCRIPTION    => "Read the ECID info from the device",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => 'gfe_devInfo *pDevinfo',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_gfe", "__FUNC__")',
+
+            _GP10X         => [ GP10X_and_later, -HOPPER_and_later, ],
+            _GH100         => [ HOPPER_and_later, ],
+            _STUB          => [ pre_GP10X, ],
+        ],
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $gfeHal;
+

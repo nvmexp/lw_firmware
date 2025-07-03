@@ -1,0 +1,536 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2008-2021 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "lwda_runtime_api.h"
+#include "lwdamext.h"
+
+struct ThreadRecord
+{
+    UINT32 reads;
+    UINT32 writes;
+    UINT32 errors;
+    UINT32 error_limit;
+    ThreadErrors *pErrors;
+    ErrorDescriptor *pErrorDesc;
+};
+
+__constant__ CommandData CommandBuffer[CONST_MAX_COMMAND];
+__constant__ BoxData BoxBuffer[CONST_MAX_BOXES];
+
+__device__ unsigned GetThreadCount()
+{
+    return gridDim.x * blockDim.x;
+}
+
+__device__ unsigned GetThreadIdx()
+{
+    return blockIdx.x * blockDim.x + threadIdx.x;
+}
+
+__device__ void InitThreadRecord(const KernelInput &input, ThreadRecord &rec)
+{
+    const UINT08 *pErrors = (UINT08 *)input.output + GetThreadIdx() *
+        (sizeof(ThreadErrors) + sizeof(ErrorDescriptor) * input.maxerrors);
+
+    rec.reads       = 0;
+    rec.writes      = 0;
+    rec.errors      = 0;
+    rec.error_limit = input.maxerrors;
+    rec.pErrors     = (ThreadErrors *)pErrors;
+    rec.pErrorDesc  = (ErrorDescriptor *)(pErrors + sizeof(ThreadErrors));
+}
+
+__device__ void UpdateThreadRecord(const KernelInput &input, ThreadRecord &rec)
+{
+    rec.pErrors->reads  = rec.reads;
+    rec.pErrors->writes = rec.writes;
+    rec.pErrors->errors = rec.errors;
+}
+
+__device__ void FillErrorDescriptor(ErrorDescriptor *desc, UINT32 bitcount,
+        UINT32 expected, UINT32 actual, UINT32 read1, UINT32 read2, UINT64 addr)
+{
+    desc->bitcount = bitcount;
+    desc->actual   = actual;
+    desc->expected = expected;
+    desc->read1    = read1;
+    desc->read2    = read2;
+    desc->address  = addr;
+    desc->checksum = Checksum((UINT08 *)desc, CHECKSUM_SIZE);
+}
+
+__device__ void MemoryError(ThreadRecord &thrd, UINT08 expect, UINT08 actual, 
+                            volatile UINT08 * ptr)
+{
+    ErrorDescriptor *desc = &thrd.pErrorDesc[thrd.errors++];
+    if(thrd.errors <= thrd.error_limit)
+        FillErrorDescriptor(desc,  8, expect, actual, *ptr, *ptr, (UINT64)ptr);
+}
+
+__device__ void MemoryError(ThreadRecord &thrd, UINT16 expect, UINT16 actual, 
+                            volatile UINT16 *ptr)
+{
+    ErrorDescriptor *desc = &thrd.pErrorDesc[thrd.errors++];
+    if(thrd.errors <= thrd.error_limit)
+        FillErrorDescriptor(desc, 16, expect, actual, *ptr, *ptr, (UINT64)ptr);
+}
+
+__device__ void MemoryError(ThreadRecord &thrd, UINT32 expect, UINT32 actual, 
+                            volatile UINT32 *ptr)
+{
+    ErrorDescriptor *desc = &thrd.pErrorDesc[thrd.errors++];
+    if(thrd.errors <= thrd.error_limit)
+        FillErrorDescriptor(desc, 32, expect, actual, *ptr, *ptr, (UINT64)ptr);
+}
+
+// treat the upper and lower 32 bits as separate errors for 64 bit operations
+__device__ void MemoryError(ThreadRecord &thrd, UINT64 expect, UINT64 actual, 
+                            volatile UINT64 *ptr)
+{
+    UINT64 read1 = *ptr;
+    UINT64 read2 = *ptr;
+
+    if ((UINT32)expect != (UINT32)actual)
+    {
+        ErrorDescriptor *desc = &thrd.pErrorDesc[thrd.errors++];
+        if(thrd.errors <= thrd.error_limit)
+            FillErrorDescriptor(desc, 32, (UINT32)expect, (UINT32)actual,
+                                (UINT32)read1, (UINT32)read2, (UINT64)ptr);
+    }
+    if ((expect >> 32) != (actual >> 32))
+    {
+        ErrorDescriptor *desc = &thrd.pErrorDesc[thrd.errors++];
+        if(thrd.errors <= thrd.error_limit)
+            FillErrorDescriptor(desc, 32, (UINT32)(expect >> 32), 
+                                (UINT32)(actual >> 32), (UINT32)(read1 >> 32), 
+                                (UINT32)(read2 >> 32), (UINT64)ptr + 4);
+    }
+}
+
+template <typename T> __device__ void ReadMemory
+(
+    ThreadRecord &thrd, 
+    const CommandData &cmd, 
+    volatile T *ptr
+)
+{
+    T expected;
+    switch (cmd.op_mode)
+    {
+        case OPMODE_IMMEDIATE:   expected = static_cast<T>(cmd.value); break;
+        case OPMODE_ADDRESS:     expected = static_cast<T>((UINT64)ptr); break;
+        case OPMODE_ADDRESS_ILW: expected = ~static_cast<T>((UINT64)ptr); break;
+        case OPMODE_SKIP:        return;
+    }
+
+    T actual = *ptr;
+    if(actual != expected)
+        MemoryError(thrd, expected, actual, ptr);
+
+    ++thrd.reads;
+}
+
+// The LDG kepler instruction reads via texture-cache and is incoherent
+// relative to normal stores (cache is not ilwalidated by L2).
+// This may or not improve perf here, but it does exercise different HW.
+//
+// Note that ReadMemoryLdg won't show results of writes to the same address
+// by the same kernel launch!  Don't do read-after-write with this function,
+// it will show stale data from texture cache.
+// The next kernel launch gets a clean texture-cache and will show results
+// of the previous launch.
+__device__ UINT08 Ldg(volatile UINT08 * ptr)
+{
+    unsigned int temp;
+    asm("ld.global.nc.u8 %0, [%1];" :"=r"(temp) :"l"(ptr));
+    return static_cast<UINT08>(temp);
+}
+__device__ UINT16 Ldg(volatile UINT16 * ptr)
+{
+    unsigned int temp;
+    asm("ld.global.nc.u16 %0, [%1];" :"=r"(temp) :"l"(ptr));
+    return static_cast<UINT16>(temp);
+}
+__device__ UINT32 Ldg(volatile UINT32 * ptr)
+{
+    unsigned int temp;
+    asm("ld.global.nc.u32 %0, [%1];" :"=r"(temp) :"l"(ptr));
+    return temp;
+}
+__device__ UINT64 Ldg(volatile UINT64 * ptr)
+{
+    unsigned long long int temp;
+    asm("ld.global.nc.u64 %0, [%1];" :"=l"(temp) :"l"(ptr));
+    return temp;
+}
+
+template <typename T> __device__ void ReadMemoryLdg
+(
+    ThreadRecord &thrd, 
+    const CommandData &cmd, 
+    volatile T *ptr
+)
+{
+    T expected;
+    switch (cmd.op_mode)
+    {
+        case OPMODE_IMMEDIATE:   expected = static_cast<T>(cmd.value); break;
+        case OPMODE_ADDRESS:     expected = static_cast<T>((UINT64)ptr); break;
+        case OPMODE_ADDRESS_ILW: expected = ~static_cast<T>((UINT64)ptr); break;
+        case OPMODE_SKIP:        return;
+    }
+
+    T actual = Ldg(ptr);
+    if(actual != expected)
+        MemoryError(thrd, expected, actual, ptr);
+
+    ++thrd.reads;
+}
+
+template <typename T> __device__ void WriteMemory
+(
+    ThreadRecord &thrd, 
+    const CommandData &cmd, 
+    volatile T *ptr
+)
+{
+    switch (cmd.op_mode)
+    {
+        case OPMODE_IMMEDIATE:   *ptr = static_cast<T>(cmd.value); break;
+        case OPMODE_ADDRESS:     *ptr = static_cast<T>((UINT64)ptr); break;
+        case OPMODE_ADDRESS_ILW: *ptr = ~static_cast<T>((UINT64)ptr); break;
+        case OPMODE_SKIP:        return;
+    }
+
+    ++thrd.writes;
+}
+
+template <typename T>
+__device__ void LinearUp(const KernelInput &input, ThreadRecord &thrd)
+{
+    const UINT32 commands  = input.commands;
+    const UINT32 chunksize = input.chunksize;
+    const UINT32 thrd_off  = GetThreadIdx() * chunksize;
+    UINT08 *start_addr = (UINT08 *)(input.mem_start) + thrd_off;
+
+    T *mem_start = MAX((T *)start_addr, (T *)input.mem_min);
+    T *mem_end   = MIN((T *)(start_addr + chunksize), (T *)input.mem_max) - 1;
+    T *rd_ptr = mem_start, *wr_ptr = mem_start;
+
+    if(mem_start >= mem_end)
+        return;
+
+    UINT32 running = input.runflags;
+    while (running)
+    {
+        int i = 0;
+        if (input.useLdg)
+        {
+            const CommandData &cmd = CommandBuffer[i];
+            if ((running & cmd.runflag) && cmd.op_type == OPTYPE_READ)
+            {
+                // First read op at this address may read via texture-cache.
+                ReadMemoryLdg<T>(thrd, cmd, rd_ptr);
+                if(cmd.increment)
+                {
+                    if(rd_ptr >= mem_end)
+                        running &= ~(1 << OPTYPE_READ);
+                    ++rd_ptr;
+                }
+                i++;
+            }
+        }
+        for (/**/; i < commands; ++i)
+        {
+            const CommandData &cmd = CommandBuffer[i];
+            if (!(running & cmd.runflag))
+                continue;
+
+            if (cmd.op_type == OPTYPE_READ)
+            {
+                ReadMemory<T>(thrd, cmd, rd_ptr);
+                if(cmd.increment)
+                {
+                    if(rd_ptr >= mem_end)
+                        running &= ~(1 << OPTYPE_READ);
+                    ++rd_ptr;
+                }
+            }
+            else
+            {
+                WriteMemory<T>(thrd, cmd, wr_ptr);
+                if(cmd.increment)
+                {
+                    if(wr_ptr >= mem_end)
+                        running &= ~(1 << OPTYPE_WRITE);
+                    ++wr_ptr;
+                }
+            }
+        }
+    }
+}
+
+template <typename T>
+__device__ void LinearDown(const KernelInput &input, ThreadRecord &thrd)
+{
+    const UINT32 commands  = input.commands;
+    const UINT32 chunksize = input.chunksize;
+    const UINT32 thrd_off  = GetThreadIdx() * chunksize;
+    UINT08 *start_addr = (UINT08 *)(input.mem_start) + thrd_off;
+
+    T *mem_start = MAX((T *)start_addr, (T *)input.mem_min);
+    T *mem_end   = MIN((T *)(start_addr + chunksize), (T *)input.mem_max) - 1;
+    T *rd_ptr = mem_end, *wr_ptr = mem_end;
+
+    if(mem_start >= mem_end)
+        return;
+
+    UINT32 running = input.runflags;
+    while (running)
+    {
+        int i = 0;
+        if (input.useLdg)
+        {
+            const CommandData &cmd = CommandBuffer[i];
+            if ((running & cmd.runflag) && cmd.op_type == OPTYPE_READ)
+            {
+                // First read op at this address may read via texture-cache.
+                ReadMemoryLdg<T>(thrd, cmd, rd_ptr);
+                if(cmd.increment)
+                {
+                    if(rd_ptr <= mem_start)
+                        running &= ~(1 << OPTYPE_READ);
+                    --rd_ptr;
+                }
+                i++;
+            }
+        }
+        for (/**/; i < commands; ++i)
+        {
+            const CommandData &cmd = CommandBuffer[i];
+            if (!(running & cmd.runflag))
+                continue;
+
+            if (cmd.op_type == OPTYPE_READ)
+            {
+                ReadMemory<T>(thrd, cmd, rd_ptr);
+                if(cmd.increment)
+                {
+                    if(rd_ptr <= mem_start)
+                        running &= ~(1 << OPTYPE_READ);
+                    --rd_ptr;
+                }
+            }
+            else
+            {
+                WriteMemory<T>(thrd, cmd, wr_ptr);
+                if(cmd.increment)
+                {
+                    if(wr_ptr <= mem_start)
+                        running &= ~(1 << OPTYPE_WRITE);
+                    --wr_ptr;
+                }
+            }
+        }
+    }
+}
+
+template <typename T>
+__device__ void BoxUp(const KernelInput &input, ThreadRecord &thrd)
+{
+    const UINT32 commands = input.commands;
+    const UINT32 pitch    = input.resx;
+    const UINT32 max_box  = input.boxcount;
+
+    T *rd_ptr, *wr_ptr;
+    UINT32 rd_xpos, rd_ypos, wr_xpos, wr_ypos;
+    UINT32 box_id = GetThreadIdx();
+
+    while (box_id < max_box)
+    {
+        const BoxData &box = BoxBuffer[box_id];
+        rd_ptr = wr_ptr = (T *)box.offset;
+        rd_xpos = rd_ypos = wr_xpos = wr_ypos = 0;
+
+        UINT32 running = input.runflags;
+        while (running)
+        {
+            for (UINT32 i = 0; i < commands; ++i)
+            {
+                const CommandData &cmd = CommandBuffer[i];
+                if (!(running & cmd.runflag))
+                    continue;
+
+                if (cmd.op_type == OPTYPE_READ)
+                {
+                    ReadMemory<T>(thrd, cmd, rd_ptr);
+
+                    ++rd_ptr;
+                    if (++rd_xpos >= BOX_WIDTH)
+                    {
+                        rd_xpos = 0;
+                        if (++rd_ypos >= BOX_HEIGHT)
+                            running &= ~(1 << OPTYPE_READ);
+                        rd_ptr = (T *)box.offset + rd_ypos * pitch;
+                    }
+                }
+                else
+                {
+                    WriteMemory<T>(thrd, cmd, wr_ptr);
+
+                    ++wr_ptr;
+                    if (++wr_xpos >= BOX_WIDTH)
+                    {
+                        wr_xpos = 0;
+                        if (++wr_ypos >= BOX_HEIGHT)
+                            running &= ~(1 << OPTYPE_WRITE);
+                        wr_ptr = (T *)box.offset + wr_ypos * pitch;
+                    }
+                }
+            }
+        }
+        box_id += GetThreadCount();
+    }
+}
+
+template <typename T>
+__device__ void BoxDown(const KernelInput &input, ThreadRecord &thrd)
+{
+    const UINT32 commands = input.commands;
+    const UINT32 max_box  = input.boxcount;
+    const UINT32 pitch    = input.resx;
+    const UINT32 span     = BOX_WIDTH - 1;
+
+    T *rd_ptr, *wr_ptr;
+    UINT32 rd_xpos, rd_ypos, wr_xpos, wr_ypos;
+    UINT32 box_id = GetThreadIdx();
+
+    while (box_id < max_box)
+    {
+        const BoxData box = BoxBuffer[box_id];
+        const UINT32 off_max = (BOX_HEIGHT - 1) * pitch + span;
+
+        rd_ptr = wr_ptr = (T *)box.offset + off_max;
+        rd_xpos = wr_xpos = BOX_WIDTH - 1;
+        rd_ypos = wr_ypos = BOX_HEIGHT - 1;
+
+        UINT32 running = input.runflags;
+        while (running)
+        {
+            for (UINT32 i = 0; i < commands; ++i)
+            {
+                const CommandData &cmd = CommandBuffer[i];
+                if (!(running & cmd.runflag))
+                    continue;
+
+                if (cmd.op_type == OPTYPE_READ)
+                {
+                    ReadMemory<T>(thrd, cmd, rd_ptr);
+
+                    --rd_ptr;
+                    if (rd_xpos <= 0)
+                    {
+                        if (rd_ypos <= 0)
+                            running &= ~(1 << OPTYPE_READ);
+
+                        --rd_ypos;
+                        rd_xpos = BOX_WIDTH;
+                        rd_ptr = (T *)box.offset + rd_ypos * pitch + span;
+                    }
+                    --rd_xpos;
+                }
+                else
+                {
+                    WriteMemory<T>(thrd, cmd, wr_ptr);
+
+                    --wr_ptr;
+                    if (wr_xpos <= 0)
+                    {
+                        if (wr_ypos <= 0)
+                            running &= ~(1 << OPTYPE_WRITE);
+
+                        --wr_ypos;
+                        wr_xpos = BOX_WIDTH;
+                        wr_ptr = (T *)box.offset + wr_ypos * pitch + span;
+                    }
+                    --wr_xpos;
+                }
+            }
+        }
+        box_id += GetThreadCount();
+    }
+
+}
+
+extern "C" __global__ void LinearTest(const KernelInput input)
+{
+    const UINT32 memsize   = input.memsize;
+    const UINT32 direction = input.ascending;
+
+    ThreadRecord thrd;
+    InitThreadRecord(input, thrd);
+
+    if (direction)
+    {
+        switch (memsize)
+        {
+            case 1: LinearUp<UINT08>(input, thrd); break;
+            case 2: LinearUp<UINT16>(input, thrd); break;
+            case 4: LinearUp<UINT32>(input, thrd); break;
+            case 8: LinearUp<UINT64>(input, thrd); break;
+        }
+    }
+    else
+    {
+        switch (memsize)
+        {
+            case 1: LinearDown<UINT08>(input, thrd); break;
+            case 2: LinearDown<UINT16>(input, thrd); break;
+            case 4: LinearDown<UINT32>(input, thrd); break;
+            case 8: LinearDown<UINT64>(input, thrd); break;
+        }
+    }
+
+    UpdateThreadRecord(input, thrd);
+}
+
+extern "C" __global__ void BoxTest(const KernelInput input)
+{
+    const UINT32 memsize   = input.memsize;
+    const UINT32 direction = input.ascending;
+
+    ThreadRecord thrd;
+    InitThreadRecord(input, thrd);
+
+    if (direction)
+    {
+        switch (memsize)
+        {
+            case 1: BoxUp<UINT08>(input, thrd); break;
+            case 2: BoxUp<UINT16>(input, thrd); break;
+            case 4: BoxUp<UINT32>(input, thrd); break;
+            case 8: BoxUp<UINT64>(input, thrd); break;
+        }
+    }
+    else
+    {
+        switch (memsize)
+        {
+            case 1: BoxDown<UINT08>(input, thrd); break;
+            case 2: BoxDown<UINT16>(input, thrd); break;
+            case 4: BoxDown<UINT32>(input, thrd); break;
+            case 8: BoxDown<UINT64>(input, thrd); break;
+        }
+    }
+
+    UpdateThreadRecord(input, thrd);
+}
+

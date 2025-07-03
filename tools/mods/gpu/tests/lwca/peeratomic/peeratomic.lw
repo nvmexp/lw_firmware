@@ -1,0 +1,66 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2015-2022 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "peeratomic.h"
+#include "lwda_runtime_api.h" // located in the LWCA toolkit
+
+using namespace PeerAtomic;
+
+// Obtains a pointer to device memory from a host-opaque type
+__device__ void* GetPtr(device_ptr ptr)
+{
+    return reinterpret_cast<void*>(static_cast<size_t>(ptr));
+}
+
+//returns realtime clock in nanoseconds
+__device__ UINT64 mytimer() {
+  UINT64 rv;
+  asm volatile ( "mov.u64 %0, %%globaltimer;" : "=l"(rv) :: "memory");
+  return rv;
+}
+
+extern "C" __global__ void PeerAtomicInc(const PeerAtomicInput input)
+{
+    // Pointer to memory.  Each thread will operate on a single u32
+    UINT32 * pTestMem   = static_cast<UINT32*>(GetPtr(input.testMemory)) + threadIdx.x;
+    UINT32 * pLocalSem  = static_cast<UINT32 *>(GetPtr(input.localSem));
+    volatile UINT32 * pPeerSem  = static_cast<volatile UINT32 *>(GetPtr(input.peerSem));
+    UINT64 endTime  = mytimer() + input.startTimeoutNs;
+
+    // Write the semaphore on the local device (i.e. the device running the
+    // actual kernel).  The kernel running on the peer device will poll this 
+    // location until it is set correctly to ensure that both devices start the
+    // atomic loop at the same time
+    *pLocalSem = SEMA_PROCEED;
+    while (((*pPeerSem) != SEMA_PROCEED) && (mytimer() < endTime))
+    {
+#if (SM_VER > 60)
+        __nanosleep(10);
+#endif
+    }
+
+    __syncthreads();
+
+    if ((*pPeerSem) != SEMA_PROCEED)
+        return;
+
+    asm (".reg .u32 t1;");
+    for (UINT32 i = 0 ; i < input.loops; i++)
+    {
+#if (SM_VER == 60)
+        asm volatile ("atom.add.u32 t1, [%0], 1;" :: "l"(pTestMem));
+        asm volatile ("red.add.u32 [%0], 1;" :: "l"(pTestMem));
+#else
+        asm volatile ("atom.global.sys.add.u32 t1, [%0], 1;" :: "l"(pTestMem));
+        asm volatile ("red.global.sys.add.u32 [%0], 1;" :: "l"(pTestMem));
+#endif
+    }
+}

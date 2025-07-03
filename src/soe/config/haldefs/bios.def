@@ -1,0 +1,33 @@
+# -*- mode: perl; -*-
+
+# BIOS SOE Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $biosHal = [
+
+    # defaults for BIOS for all interfaces below
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PRE_INIT => [
+            DESCRIPTION    => "Initialization",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _LR10          => [ TU102, ],
+            _STUB          => [ ALL, -TU102, ],
+        ],
+        
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $biosHal;

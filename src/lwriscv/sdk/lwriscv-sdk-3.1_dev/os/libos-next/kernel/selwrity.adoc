@@ -1,0 +1,25 @@
+# Security Strategies
+
+## Integer overflow strategy
+
+Completed security checks:
+    softmmu_core.c   
+    memorypool.c 
+
+### OVERFLOW-ADD-1. Alternate inclusive range traversal  
+
+Never use a plain for loop to iterate with a stride greater than one.
+Inclusive range traversals are possible that avoid the explicit
+__builtin_add_overflow check, however this is the simplest construction
+to read.
+
+```
+while (first <= last)
+{
+    KernelPrintf("hit: %llx", first);
+
+    if (__builtin_add_overflow(first, LIBOS_CONFIG_PAGESIZE, &first))
+        break;
+}
+```
+

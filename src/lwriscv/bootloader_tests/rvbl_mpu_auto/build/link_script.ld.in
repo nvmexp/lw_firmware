@@ -1,0 +1,104 @@
+/* _LWRM_COPYRIGHT_BEGIN_
+ *
+ * Copyright 2017-2018 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * _LWRM_COPYRIGHT_END_
+ */
+
+OUTPUT_ARCH("riscv")
+ENTRY(_start)
+
+__STACK_SIZE = 0x1000;
+
+PHDRS
+{
+        text    PT_LOAD;
+        rodata  PT_LOAD;
+        data    PT_LOAD;
+}
+
+MEMORY
+{
+        mem             : ORIGIN = 0x100000000, LENGTH = 0x00100000
+
+        real_mem        : ORIGIN = 0xFF00000000000000, LENGTH = 0x00100000
+}
+
+SECTIONS
+{
+        __real_mem_ptr = ORIGIN(real_mem);
+
+        /* Read-only sections */
+        __text_section_physaddr = __real_mem_ptr;
+        .text : AT(__text_section_physaddr) ALIGN(4K)
+        {
+                __TEXT_START = .;
+                *(.text*)
+                *(.gnu.linkonce.t.*)
+
+                . = ALIGN(4K);
+                __TEXT_END = .;
+        } >mem :text
+        __real_mem_ptr += SIZEOF(.text);
+
+        __rodata_section_physaddr = __real_mem_ptr;
+        .rodata : AT(__rodata_section_physaddr) ALIGN(4K)
+        {
+                __RODATA_START = .;
+                *(.rdata*)
+                *(.rodata*)
+                *(.gnu.linkonce.r.*)
+
+                . = ALIGN(4K);
+                __RODATA_END = .;
+        } >mem :rodata
+        __real_mem_ptr += SIZEOF(.rodata);
+
+        /* Initialized read/write sections */
+        __data_section_physaddr = __real_mem_ptr;
+        .data : AT(__data_section_physaddr) ALIGN(4K)
+        {
+                __DATA_START = .;
+                *(.data.front)
+                *(.data*)
+                *(.gnu.linkonce.d.*)
+
+                . = ALIGN(4K);
+                __DATA_END = .;
+        } >mem :data
+        __real_mem_ptr += SIZEOF(.data);
+
+        /* Uninitialized read/write sections */
+        __bss_section_physaddr = __real_mem_ptr;
+        .bss : AT(__bss_section_physaddr) ALIGN(4K)
+        {
+                __BSS_START = .;
+                *(.bss.front)
+                *(.bss*)
+                *(.sbss*)
+                *(.gnu.linkonce.b.*)
+                *(COMMON)
+
+                . = ALIGN(4K);
+                __BSS_END = .;
+        } >mem
+        __real_mem_ptr += SIZEOF(.bss);
+
+        __stack_section_physaddr = __real_mem_ptr;
+        .stack : AT(__stack_section_physaddr) ALIGN(4K)
+        {
+                __STACK_START = .;
+                . += __STACK_SIZE;
+                . = ALIGN(4K);
+                __STACK_END = .;
+        } >mem
+        __real_mem_ptr += SIZEOF(.stack);
+
+        .LWPU.mpu_info : ALIGN(0x10)
+        {
+                *(.LWPU.mpu_info)
+        }
+}

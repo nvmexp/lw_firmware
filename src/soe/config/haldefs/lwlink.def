@@ -1,0 +1,90 @@
+# -*- mode: perl; -*-
+
+# LWLINK SOE Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $lwlinkHal = [
+
+    # defaults for Lwlink for all interfaces below
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PRE_INIT => [
+            DESCRIPTION    => "Initialization",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _LR10         => [ TU102, ],
+            _LS10         => [ ALL, -TU102, ],
+
+        ],
+
+        SERVICE => [
+            DESCRIPTION    => "Service",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+        
+        FORCE_SLM_ALL => [
+            DESCRIPTION    => "Force SLM on or off on all links",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => LwBool,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            ONLY_IF        => 'SOE_LWLINK_SLM',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            _LR10         => [ TU102, ],
+            _STUB         => [ ALL, -TU102 ],
+        ],
+
+        IS_LINK_IN_RESET => [
+            DESCRIPTION    => "Checks if Link are in Reset",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => LwU32,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _LR10         => [ ALL, ],
+        ],
+
+        SEND_MINION_SECCMD => [
+            DESCRIPTION    => "Send Secure Command to Minion",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 seccmdType, LwU32 minionInstance, union seccmd_args *args",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            ONLY_IF        => 'SOE_MINION_SECCMD',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            _LS10         => [ ALL, -TU102, ],
+            _STUB         => [ TU102, ],
+        ],
+
+        GET_SECCMD_THERMAL_STATUS => [
+            DESCRIPTION    => "Get Thermal Slowdown status for SECCMD",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 minionInstance, struct seccmd_thermal_status *args",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            ONLY_IF        => 'SOE_MINION_SECCMD',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            _LS10         => [ ALL, -TU102, ],
+            _STUB         => [ TU102, ],
+        ],
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $lwlinkHal;

@@ -1,0 +1,170 @@
+#include <liblwriscv/g_lwriscv_config.h>
+
+OUTPUT_ARCH("riscv")
+ENTRY(partition_dispatcher)
+
+imem_sk_size        = SEPKERN_IMEM_LIMIT; // 4K
+dmem_sk_size        = SEPKERN_DMEM_LIMIT; // 4K
+
+imem_shared_size    = LIBLWRISCV_IMEM_SIZE;
+dmem_shared_ro_size = LIBLWRISCV_DMEM_RO_SIZE;
+
+imem_rtos_size      = 4K; // RTOS springboard
+dmem_rtos_size      = 2K;
+
+dmem_print_size     = DEBUG_BUFFER_SIZE;
+
+#ifdef PMU_TEGRA_ACR_PARTITION
+imem_tegra_acr_size    = TEGRA_ACR_IMEM_SIZE;
+dmem_tegra_acr_size    = TEGRA_ACR_DMEM_SIZE;
+dmem_tegra_acr_ro_size = TEGRA_ACR_DMEM_RO_SIZE;
+
+imem_shared_offs = imem_tegra_acr_size;
+dmem_shared_offs = dmem_tegra_acr_ro_size + dmem_tegra_acr_size;
+#else  // PMU_TEGRA_ACR_PARTITION
+imem_shared_offs = 0;
+dmem_shared_offs = 0;
+#endif // PMU_TEGRA_ACR_PARTITION
+
+
+MEMORY {
+    // DO NOT REORDER THOSE REGIONS OR BAD THINGS WILL HAPPEN
+    imem_sk           (x) : ORIGIN = 0x0000000000100000,                                            LENGTH = imem_sk_size
+#ifdef PMU_TEGRA_ACR_PARTITION
+    // ACR sections go after SK sections, it's easy to cover them, shared and SK with one IOPMP entry per IMEM/DMEM
+    imem_tegra_acr    (x) : ORIGIN = ORIGIN(imem_sk) + imem_sk_size,                                LENGTH = imem_tegra_acr_size
+#endif // PMU_TEGRA_ACR_PARTITION
+    imem_shared       (x) : ORIGIN = ORIGIN(imem_sk) + imem_sk_size + imem_shared_offs,             LENGTH = imem_shared_size
+    imem_rtos         (x) : ORIGIN = ORIGIN(imem_shared) + imem_shared_size,                        LENGTH = imem_rtos_size
+
+
+    dmem_sk          (rw) : ORIGIN = 0x0000000000180000,                                            LENGTH = dmem_sk_size
+#ifdef PMU_TEGRA_ACR_PARTITION
+    // ACR sections go after SK sections, it's easy to cover them, shared and SK with one IOPMP entry per IMEM/DMEM
+    dmem_tegra_acr_ro (r) : ORIGIN = ORIGIN(dmem_sk) + dmem_sk_size,                                LENGTH = dmem_tegra_acr_ro_size
+    dmem_tegra_acr   (rw) : ORIGIN = ORIGIN(dmem_tegra_acr_ro) + dmem_tegra_acr_ro_size,            LENGTH = dmem_tegra_acr_size
+#endif // PMU_TEGRA_ACR_PARTITION
+    dmem_shared_ro    (r) : ORIGIN = ORIGIN(dmem_sk) + dmem_sk_size + dmem_shared_offs,             LENGTH = dmem_shared_ro_size
+    dmem_rtos        (rw) : ORIGIN = ORIGIN(dmem_shared_ro) + dmem_shared_ro_size,                  LENGTH = dmem_rtos_size
+
+
+    dmem_print       (rw) : ORIGIN = ORIGIN(dmem_sk) + PMU_DMEM_SIZE - dmem_print_size,             LENGTH = dmem_print_size
+}
+
+ASSERT(ORIGIN(imem_rtos) + LENGTH(imem_rtos) <= 0x100000 + PMU_IMEM_SIZE, "Ran out of IMEM");
+ASSERT(ORIGIN(dmem_rtos) + LENGTH(dmem_rtos) <= ORIGIN(dmem_print), "Ran out of DMEM");
+ASSERT(ORIGIN(dmem_print) + LENGTH(dmem_print) == 0x180000 + PMU_DMEM_SIZE, "Print buffer is not at the end of DMEM");
+
+SECTIONS
+{
+
+////////////////////////////////////////////////////////////////////////////////
+// Partition code
+////////////////////////////////////////////////////////////////////////////////
+
+#ifdef PMU_TEGRA_ACR_PARTITION
+  .partition_tegra_acr_code :
+  {
+    KEEP(*libpart_tegra_acr.a:(.text.partition_tegra_acr_entry))
+    . = ALIGN(8);
+    KEEP(*libpart_tegra_acr.a:(.text.partition_tegra_acr_trap_handler))
+    *libpart_tegra_acr.a:(.text*)
+    *(.imem_acr*)
+    *(.imem_resident*)
+    *(.imem_libAcr*)
+    *(.kernel_code*)
+    . = ALIGN(0x100);
+  } > imem_tegra_acr
+#endif // PMU_TEGRA_ACR_PARTITION
+
+  .partition_shared_code :
+  {
+    KEEP(*libpart_shared.a:(.text.partition_dispatcher))
+    *liblwriscv.a:*(.text*)
+    . = ALIGN(0x100);
+  } > imem_shared
+
+  .partition_rtos_code :
+  {
+    KEEP(*libpart_rtos.a:(.text.partition_rtos_entry))
+    . = ALIGN(8);
+    KEEP(*libpart_rtos.a:(.text.partition_rtos_trap_handler))
+    *libpart_rtos.a:(.text*)
+    . = ALIGN(0x100);
+  } > imem_rtos
+
+  PROVIDE(__fmc_imem_size = . - ORIGIN(imem_sk));
+
+////////////////////////////////////////////////////////////////////////////////
+// DATA
+////////////////////////////////////////////////////////////////////////////////
+
+#ifdef PMU_TEGRA_ACR_PARTITION
+  .partition_tegra_acr_rodata :
+  {
+    *libpart_tegra_acr.a:(.rodata* .srodata*)
+    *libAcrCmn.a:(.rodata* .srodata*)
+    . = ALIGN(0x100);
+  } > dmem_tegra_acr_ro
+
+  .partition_tegra_acr_data :
+  {
+    _partition_tegra_acr_stack_bottom = . ;
+    . += 1024 ;
+    . = ALIGN(0x10); // stack alignment
+    _partition_tegra_acr_stack_top = . ;
+    // If stack overflows, we get a PMP error. Hopefully stack can't underflow.
+
+    *libpart_tegra_acr.a:(.sdata* .partition_context)
+    *libpart_tegra_acr.a:*pmu_acr.o(.data*)
+    *liblwriscv.a:*ssp.o(.data* .sdata*) // This is fine to isolate to tegra_acr. RTOS springboard doesn't use ssp.
+    *liblwriscv.a:*scp*.o(.data* .sdata*) // ...RTOS springboard doesn't use SCP either
+
+    . = ALIGN(256); // for alignedData256
+    *libpart_tegra_acr.a:*pmu_acr.o(.alignedData256.*)
+
+    *libpart_tegra_acr.a:(.bss* .sbss*)
+    *liblwriscv.a:*ssp.o(.bss* .sbss*)
+    *liblwriscv.a:*scp*.o(.bss* .sbss*)
+
+    . = ALIGN(0x100);
+  } > dmem_tegra_acr
+#endif // PMU_TEGRA_ACR_PARTITION
+
+  .partition_shared_rodata :
+  {
+    *liblwriscv.a:*(.rodata* .srodata*)
+    *libpart_rtos.a:(.rodata* .srodata*) // RTOS rodata bundled with shared
+    . = ALIGN(0x100);
+  } > dmem_shared_ro
+
+  .partition_rtos_data :
+  {
+    _partition_rtos_stack_bottom = . ;
+    . = ALIGN(0x10); // stack alignment
+    . += 512 ;
+    _partition_rtos_stack_top = . ;
+
+    *libpart_rtos.a:(.data* .sdata* .partition_context)
+    *libpart_rtos.a:(.bss* .sbss*)
+
+    . = ALIGN(0x100);
+  } > dmem_rtos
+
+  PROVIDE(__fmc_dmem_size = . - ORIGIN(dmem_sk));
+
+  .trap_COMMON :
+  {
+    *(COMMON)
+  }
+
+  /DISCARD/ :
+  {
+    *(.comment .debug_*)
+    *(.rela.text.*)
+  }
+}
+
+// Sanity checks that we don't use sections we're not supposed to
+ASSERT(SIZEOF(.trap_COMMON) == 0,
+       "Unexpected data in COMMON section. Add -fno-common to CFLAGS.");

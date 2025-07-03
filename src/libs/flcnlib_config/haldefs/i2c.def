@@ -1,0 +1,220 @@
+# -*- mode: perl; -*-
+
+# I2C Access Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $i2cHal = [
+
+    # per-GPU defaults for I2C for all interfaces below
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2c", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        MUTEX_ACQUIRE => [
+            DESCRIPTION     => "Acquire i2c Mutex",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32  portId, LwBool bAcquire, LwU32 timeoutns",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _GM20X          => [ GM20X, -DISPLAYLESS, ],
+            _GP10X          => [ dPASCAL_and_later, -DISPLAYLESS, ],
+            _T234D          => [ T234D_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, DISPLAYLESS, CHEETAH, -T234D_and_later],
+        ],
+
+        IS_BUS_READY => [
+            DESCRIPTION     => "Check if i2c bus is free to perform a transaction",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 port, LwBool *",
+            STUB_RETURNS    => FLCN_OK,
+
+            _GM20X          => [ GM20x_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, CHEETAH, T234D_and_later, ],
+        ],
+
+        DRIVE => [
+            DESCRIPTION     => "Drive i2c Lines during SW bitbanging",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "I2C_SW_BUS *pBus, LwU32 pos, LwBool bValue",
+
+            _GM20X          => [ GM20x, dPascal, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, dVOLTA_and_later, CHEETAH, T234D_and_later, ],
+        ],
+
+        READ => [
+            DESCRIPTION     => "Read i2c lines durig SW bitbanging",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => "I2C_SW_BUS *pBus, LwU32 pos",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => DRIVE,
+        ],
+
+        INIT_SWI2C => [
+            DESCRIPTION     => "Initialize i2c lines for SW I2C",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "I2C_SW_BUS *pBus",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2cSw", "__FUNC__")',
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        HW_RESET => [
+            DESCRIPTION     => "Reset the HW engine and wait for it to idle",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 port",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2cHw", "__FUNC__")',
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        WAIT_FOR_HW_IDLE => [
+            DESCRIPTION     => "Wait for the HW I2C controller to idle",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 port, LwU32 timeout",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2cHw", "__FUNC__")',
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        RESTORE_MODE => [
+            DESCRIPTION     => "Restore the previous operating mode",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 port, LwU32 bWasBb",
+            STUB_RETURNS    => FLCN_OK,
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        SET_MODE => [
+            DESCRIPTION     => "Set the new operating mode as hardware I2C",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 port, LwBool bSwI2c,  LwBool *pBWasSwI2c",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        HW_SET_SPEED_MODE => [
+            DESCRIPTION     => "Set the speed of the HW I2C controller on a given port",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 port, LwU32 speedMode",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2cHw", "__FUNC__")',
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        SEND_START_VIA_HW => [
+            DESCRIPTION     => "Send a start in manual mode",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 portId",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2cHw", "__FUNC__")',
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        WRITE_BYTE_VIA_HW => [
+            DESCRIPTION     => "Write a byte in manual mode",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 portId, LwU32 data",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2cHw", "__FUNC__")',
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        SEND_STOP_VIA_HW => [
+            DESCRIPTION     => "Send stop in a manual mode",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 portId",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2cHw", "__FUNC__")',
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        SEND_ADDRESS_VIA_HW => [
+            DESCRIPTION     => "Send an address in manual mode",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "I2C_TRANSACTION *pTa, LwBool bSending",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2cHw", "__FUNC__")',
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        HW_SHORT_WRITE => [
+            DESCRIPTION     => "Send a self-contained write command",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "I2C_TRANSACTION *pTa",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2cHw", "__FUNC__")',
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        HW_INIT_CMD_WRITE => [
+            DESCRIPTION     => "Start off a write",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "I2C_TRANSACTION *pTa, I2C_HW_CMD *pCmd",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2cHw", "__FUNC__")',
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        HW_WRITE_NEXT => [
+            DESCRIPTION     => "Write next byte",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "I2C_HW_CMD *pCmd",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2cHw", "__FUNC__")',
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        HW_READ_PREP => [
+            DESCRIPTION     => "Prepare next read command in sequence",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "I2C_HW_CMD *pCmd, LwU32 bytesRemaining",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2cHw", "__FUNC__")',
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        HW_INIT_CMD_READ_WITH_SHORT_INDEX => [
+            DESCRIPTION     => "Send a read with a 0/1-byte index",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "I2C_TRANSACTION *pTa, I2C_HW_CMD *pCmd",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2cHw", "__FUNC__")',
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+        HW_READ_NEXT => [
+            DESCRIPTION     => "Read next byte",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "I2C_TRANSACTION *pTa, I2C_HW_CMD *pCmd",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2cHw", "__FUNC__")',
+
+            LIKE_INTERFACE  => IS_BUS_READY,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $i2cHal;
+

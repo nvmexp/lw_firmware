@@ -1,0 +1,693 @@
+# -*- mode: perl; -*-
+
+# Bus Interface Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $bifHal = [
+
+    DEFAULTS => [
+
+        FLAGS            => ":DIRECT_HAL_CALLS",
+
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        CHANGE_BUS_SPEED => [
+            DESCRIPTION      => "Change bus link speed",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "RM_PMU_BIF_LINK_SPEED speed, RM_PMU_BIF_LINK_SPEED *pResultSpeed, LwU32 *pErrorId",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            _TU10X           => [ dTURING_thru_AD10X, ],
+            _GH100           => [ dHOPPER_and_later, ],
+            _STUB            => [ pre_TURING, ],
+        ],
+
+        GET_BUS_SPEED => [
+            DESCRIPTION      => "Get current bus link speed",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "RM_PMU_BIF_LINK_SPEED *pSpeed",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            LIKE_INTERFACE   => CHANGE_BUS_SPEED,
+        ],
+
+        SET_XP_PL_LINK_RATE => [
+            DESCRIPTION      => "Set XP_PL_LINK_CONFIG_0_MAX_LINK_RATE according to speed",
+            RETURN_TYPE      => LwU32,
+            ARGUMENTS        => "LwU32 xpPlLinkConfig0, RM_PMU_BIF_LINK_SPEED speed",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => ZERO,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            LIKE_INTERFACE   => CHANGE_BUS_SPEED,
+        ],
+
+        LINK_SPEED_CHANGE_ATTEMPT => [
+            DESCRIPTION      => "Attempt to change link speed",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 xpPlLinkConfig0, RM_PMU_BIF_LINK_SPEED speed, LwU32 *pErrorId, LwU32 ltssmLinkReadyTimeoutNs, LwU32 *pLinkReadyTimeTakenNs",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            LIKE_INTERFACE   => CHANGE_BUS_SPEED,
+        ],
+
+        LWLINK_LPWR_LINK_ENABLE => [
+            DESCRIPTION      => "Enable and configure LWLINK links.",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 changeMask, LwU32 newLinks",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+
+            _TU10X           => [ TURING, ],
+            _GA100           => [ dAMPERE, AD10X, ],
+            _STUB            => [ pre_TURING, dHOPPER_and_later ],
+        ],
+
+        UPDATE_TLC_BASE_OFFSETS => [
+            DESCRIPTION      => "Stores the TLC registers",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "",
+            STUB_RETURNS     => FLCN_OK,
+
+            _GA100           => [ dAMPERE, AD10X, ],
+            _STUB            => [ pre_dAMPERE, dHOPPER_and_later ],
+        ],
+
+        LWLINK_TLC_LPWR_SET_ONE => [
+            DESCRIPTION      => "Set the TLC low power setting.",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 linkIdx",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE   => LWLINK_LPWR_LINK_ENABLE,
+        ],
+
+        LWLINK_TLC_LPWR_SET => [
+            DESCRIPTION      => "Set the TLC low power setting.",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 vbiosIdx",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE   => LWLINK_LPWR_LINK_ENABLE,
+        ],
+
+        LWLINK_TLC_LPWR_LINK_INIT => [
+            DESCRIPTION      => "Initialize a newly setup link.",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 linkIdx",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE   => LWLINK_LPWR_LINK_ENABLE,
+        ],
+
+        LWLINK_PWR_MGMT_TOGGLE => [
+            DESCRIPTION      => "Toggle whether 1/8th mode may be set.",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 linkIdx, LwBool bEnable",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE   => LWLINK_LPWR_LINK_ENABLE,
+        ],
+
+        LWLINK_LPWR_SUSPEND => [
+            DESCRIPTION      => "Suspend or resume PMU controlling LWLINK 1/8th mode.",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwBool bSuspend",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE   => LWLINK_LPWR_LINK_ENABLE,
+        ],
+
+        LWLINK_HSHUB_UPDATE => [
+            DESCRIPTION      => "Update the HSHUB config registers",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 config0, LwU32 config1, LwU32 config2, LwU32 config6",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+
+            _TU10X           => [ TURING, ],
+            _STUB            => [ pre_TURING, dAMPERE_and_later, ],
+        ],
+
+        READ_XUSB_TO_PMU_MSGBOX => [
+            DESCRIPTION      => "Read XUSB to PMU message box",
+            RETURN_TYPE      => LwBool,
+            ARGUMENTS        => "LwU8 *pMsgBox",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => LW_FALSE,
+
+            _TU10X           => [ TURING, ],
+            _STUB            => [ ALL, -TURING, ],
+        ],
+
+        WRITE_XUSB_TO_PMU_ACK_REPLY => [
+            DESCRIPTION      => "Write XUSB to PMU ack reply",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU8 reply",
+            FLAGS            => ":STUB_ASSERT",
+
+            LIKE_INTERFACE   => READ_XUSB_TO_PMU_MSGBOX,
+        ],
+
+        READ_PMU_TO_XUSB_ACK_REPLY => [
+            DESCRIPTION      => "Read PMU to XUSB ack reply",
+            RETURN_TYPE      => LwU8,
+            ARGUMENTS        => "",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => ZERO,
+
+            LIKE_INTERFACE   => READ_XUSB_TO_PMU_MSGBOX,
+        ],
+
+        WRITE_PMU_TO_XUSB_MSGBOX => [
+            DESCRIPTION      => "Write PMU to XUSB message box",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 messageBox",
+            FLAGS            => "",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE   => READ_XUSB_TO_PMU_MSGBOX,
+        ],
+
+        CLEAR_PMU_TO_XUSB_MSGBOX => [
+            DESCRIPTION      => "Clear PMU2XUSB msgbox request on timeout",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "",
+            FLAGS            => "",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE   => READ_XUSB_TO_PMU_MSGBOX,
+        ],
+
+        QUERY_XUSB_ISOCH_ACTIVITY => [
+            DESCRIPTION      => "Query isochronous traffic activity on XUSB function",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "",
+            FLAGS            => "",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE   => READ_XUSB_TO_PMU_MSGBOX,
+        ],
+
+        ENABLE_L0S_MASK => [
+            DESCRIPTION      => "Set L0s Mask",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwBool bL0sMaskEnable",
+            STUB_RETURNS     => void,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            _TU10X           => [ dTURING_thru_AD10X, ],
+            _STUB            => [ pre_TURING, dHOPPER_and_later, ],
+        ],
+
+        ENABLE_L1_MASK => [
+            DESCRIPTION      => "Set L1 Mask",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwBool bL1MaskEnable, RM_PMU_BIF_LINK_SPEED genSpeed",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            _TU10X           => [ dTURING_thru_AD10X, ],
+            _GH100           => [ dHOPPER_and_later, ],
+            _STUB            => [ pre_TURING, ],
+        ],
+
+        ENABLE_L1_PLL_POWER_DOWN => [
+            DESCRIPTION      => "Enable/disable L1 PLL power down",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwBool bEnable",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+            STUB_RETURNS     => FLCN_OK,
+
+            _GH100           => [ dHOPPER_and_later, ],
+            _STUB            => [ ALL, -dHOPPER_and_later, ],
+        ],
+
+        ENABLE_L1_CLOCK_PWR_MGMT => [
+            DESCRIPTION      => "Enable/disable L1 Clock power management",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwBool bEnable",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+            STUB_RETURNS     => FLCN_OK,
+
+            LIKE_INTERFACE   => ENABLE_L1_PLL_POWER_DOWN,
+        ],
+
+        L1_LPWR_FEATURE_SETUP => [
+            DESCRIPTION      => "Do PMU side setup for L1 low power features: PLL-PD, CPM",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+            STUB_RETURNS     => FLCN_OK,
+
+            LIKE_INTERFACE   => ENABLE_L1_PLL_POWER_DOWN,
+        ],
+
+        ASPM_WINIDLE_UPDATE => [
+            DESCRIPTION      => "Update the ASPM Winidle field",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwBool bL1MaskEnable",
+            FLAGS            => ":STUB_ASSERT",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            _TU10X           => [ dTURING_thru_AD10X, ],
+            _STUB            => [ pre_TURING, dHOPPER_and_later, ],
+        ],
+
+        WRITE_L1_THRESHOLD => [
+            DESCRIPTION      => "Set L1 threshold",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU8 threshold, LwU8 thresholdFrac, RM_PMU_BIF_LINK_SPEED  genSpeed",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            _TU10X           => [ TURING, GA100, ],
+            _GA10X           => [ dAMPERE, -GA100, AD10X, ],
+            _GH100           => [ dHOPPER_and_later, ],
+            _STUB            => [ pre_TURING, ],
+        ],
+
+        WRITE_L0S_THRESHOLD => [
+            DESCRIPTION      => "Set L0S threshold",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU16 l0sThreshold",
+            FLAGS            => ":STUB_ASSERT",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            _TU10X           => [ dTURING_thru_AD10X, ],
+            _STUB            => [ pre_TURING, dHOPPER_and_later, ],
+        ],
+
+        CHECK_L1_THRESHOLD => [
+            DESCRIPTION      => "Input verification for L1 threshold values",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+            STUB_RETURNS     => FLCN_OK,
+
+            _TU10X           => [ TURING, GA100, ],
+            _GA10X           => [ dAMPERE, -GA100, AD10X, ],
+            _GH100           => [ dHOPPER_and_later, ],
+            _STUB            => [ pre_TURING, ],
+        ],
+
+        L1_SUBSTATES_ENABLE => [
+            DESCRIPTION      => "Enable or disable L1 substates",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwBool bEnable, LwU32 pstateIdx, LwU8 pcieIdx, LwBool bIsPerfChangeInprogress",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            LIKE_INTERFACE   => CHANGE_BUS_SPEED,
+        ],
+
+        UPDATE_LTR_VALUE => [
+            DESCRIPTION      => "Update Latency Tolerance Reporting values",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU16 pexLtrSnoopLatencyValue, LwU8 pexLtrSnoopLatencyScale, LwU16 pexLtrNoSnoopLatencyValue, LwU8 pexLtrNoSnoopLatencyScale",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            _TU10X           => [ dTURING_thru_AD10X, ],
+            _STUB            => [ pre_TURING, dHOPPER_and_later, ],
+        ],
+
+        GET_L1_MASK => [
+            DESCRIPTION      => "Check if L1 is disabled",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwBool *pbL1Disabled",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            _TU10X           => [ dTURING_thru_AD10X, ],
+            _GH100           => [ GH100, ],
+            _STUB            => [ pre_TURING, dHOPPER_and_later, -GH100, ],
+        ],
+
+        GET_L0s_MASK => [
+            DESCRIPTION      => "Check if L0s is disabled",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwBool *pbL0sMaskDisabled",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            _TU10X           => [ dTURING_thru_AD10X, ],
+            _STUB            => [ pre_TURING, dHOPPER_and_later, ],
+        ],
+
+        INIT_MARGINING_INTR => [
+            DESCRIPTION      => "Enable/Disable lane margining interrupts to PMU",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "",
+            FLAGS            => ":STUB_ASSERT",
+
+            _TU10X           => [ dTURING_thru_AD10X, ],
+            _GH100           => [ GH100, GB100, ],
+            _STUB            => [ pre_TURING, dHOPPER_and_later, -GH100, -GB100, ],
+        ],
+
+        DO_LANE_MARGINING => [
+            DESCRIPTION      => "Perform actual step margining",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 laneNum",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            LIKE_INTERFACE   => INIT_MARGINING_INTR,
+        ],
+
+        HANDLE_MARGINING_READY_INTR => [
+            DESCRIPTION      => "Handle Margining-ready interrupt",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 regVal",
+            FLAGS            => ":STUB_ASSERT",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            LIKE_INTERFACE   => INIT_MARGINING_INTR,
+        ],
+
+        HANDLE_MARGINING_ABORT_INTR => [
+            DESCRIPTION      => "Handle Margining-abort interrupt",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 regVal",
+            FLAGS            => ":STUB_ASSERT",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            LIKE_INTERFACE   => INIT_MARGINING_INTR,
+        ],
+
+        HANDLE_MARGIN_COMMAND_INTR => [
+            DESCRIPTION      => "Handle lane specific Margining interrupt",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 regVal",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            LIKE_INTERFACE   => INIT_MARGINING_INTR,
+        ],
+
+        UPDATE_MARGINING_STATUS => [
+            DESCRIPTION      => "Update Margining status register",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU8 laneNum, LwU8 marginType, LwU8 rcvrNum, LwU8 usageModel, LwU8 marginPayload",
+            FLAGS            => ":STUB_ASSERT",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            LIKE_INTERFACE   => INIT_MARGINING_INTR,
+        ],
+
+        START_STEP_MARGINING => [
+            DESCRIPTION      => "Start step margining",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 marginType, LwU8 marginOffset, LwU32 laneSelectMask",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            _TU10X           => [ dTURING_thru_AD10X, -GA100, ],
+            _GA100           => [ GA100, ],
+            _GH100           => [ GH100, ],
+            _STUB            => [ pre_TURING, dHOPPER_and_later, -GH100, ],
+        ],
+
+        STOP_STEP_MARGINING => [
+            DESCRIPTION      => "Stop step margining",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 laneSelectMask, LwBool bResetErrorCount",
+            FLAGS            => ":STUB_ASSERT",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            LIKE_INTERFACE   => START_STEP_MARGINING,
+        ],
+
+        GET_MARGINING_ERROR_COUNT => [
+            DESCRIPTION      => "Get error count for this margining request",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 laneSelectMask, LwU8 *pErrorCount",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            LIKE_INTERFACE   => START_STEP_MARGINING,
+        ],
+
+        CLEAR_ERROR_LOG => [
+            DESCRIPTION      => "Handles Clear Error Log command during Step Margining",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 laneNum",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            LIKE_INTERFACE   => START_STEP_MARGINING,
+        ],
+
+        SERVICE_MARGINING_INTR => [
+            DESCRIPTION      => "ISR routine for handling Margining interrupts",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            LIKE_INTERFACE   => START_STEP_MARGINING,
+        ],
+
+        ENABLE_MARGIN_ERROR_COUNTING => [
+            DESCRIPTION      => "Enable or disable error counting during margining",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 laneNum, LwBool enableErrorCounting",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            _GA100           => [ GA100, ],
+            _GH100           => [ GH100, GB100, ],
+            _STUB            => [ ALL, -GA100, -GH100, -GB100, ],
+        ],
+
+        HANDLE_ERROR_COUNT_EXCD_INTR => [
+            DESCRIPTION      => "Handle Margining error-count-exceeded interrupt",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 regVal",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            LIKE_INTERFACE   => ENABLE_MARGIN_ERROR_COUNTING,
+        ],
+
+        UPDATE_STEP_MARGINING_EXEC_STATUS => [
+            DESCRIPTION      => "Update step margining exelwtion status",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 laneNum, LwU8 execStatus",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            LIKE_INTERFACE   => ENABLE_MARGIN_ERROR_COUNTING,
+        ],
+
+        UPDATE_MARGINING_RDY_STATUS => [
+            DESCRIPTION      => "Update Ready bits in the Margining status register",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwBool bEnableReady",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            _GA100           => [ GA100, ],
+            _STUB            => [ ALL, -GA100, ],
+        ],
+
+        MARGINING_ENABLED => [
+            DESCRIPTION      => "Check if Lane Margining is enabled from fuse, SW etc.",
+            RETURN_TYPE      => LwBool,
+            ARGUMENTS        => "",
+            FLAGS            => "",
+            STUB_RETURNS     => LW_TRUE,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            LIKE_INTERFACE   => UPDATE_MARGINING_RDY_STATUS,
+        ],
+
+        HANDLE_REPORT_MARGINING_COMMAND => [
+            DESCRIPTION      => "Handle report margining command",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU8 laneNum, LwU8 marginType, LwU8 rcvrNum, LwU8 usageModel, LwU8 marginPayload",
+            FLAGS            => ":STUB_ASSERT",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBifMargining", "__FUNC__")',
+
+            _GH100           => [ GH100, ],
+            _STUB            => [ ALL, -GH100, ],
+        ],
+
+        SET_EOM_PARAMETERS => [
+            DESCRIPTION      => "Set EOM parameters.",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 eomMode, LwU8 eomNblks, LwU8 eomNerrs, LwU8 eomBerEyeSel, LwU8 eomPamEyeSel",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_OK,
+
+            _GA100           => [ GA100, ],
+            _GA10X           => [ dAMPERE_thru_dADA, -TEGRA_DGPU_AMPERE, -GA100, -TEGRA_DGPU_ADA, ],
+            _GH100           => [ dHOPPER_and_later, ],
+            _STUB            => [ ALL, -dAMPERE_and_later, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        GET_EOM_STATUS => [
+            DESCRIPTION      => "Run EOM sequence and fill the output buffer with EOM status",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 eomMode, LwU8 eomNblks, LwU8 eomNerrs, LwU8 eomBerEyeSel, LwU8 eomPamEyeSel, LwU32 laneMask, LwU16 *pEomStatus",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_OK,
+
+            _GA10X           => [ dAMPERE_thru_dADA, -TEGRA_DGPU_AMPERE, -GA100, -TEGRA_DGPU_ADA, ],
+            _GH100           => [ dHOPPER_and_later, ],
+            _STUB            => [ ALL, -dAMPERE_and_later, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GA100, ],
+        ],
+
+        DO_LANE_SELECT => [
+            DESCRIPTION      => "Select requested PEX lanes",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 laneMask",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_OK,
+
+            LIKE_INTERFACE   => GET_EOM_STATUS,
+        ],
+
+        POLL_EOM_DONE_STATUS => [
+            DESCRIPTION      => "Poll EOM done status for requested lanes",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 numRequestedLanes, LwU8 firstLaneFromLsb, LwBool bEomDoneStatus, LwU32 timeoutNs",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_OK,
+
+            LIKE_INTERFACE   => GET_EOM_STATUS,
+        ],
+
+        GET_UPHY_DLN_CFG_SPACE => [
+            DESCRIPTION      => "Get UPHY register values",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 regAddress, LwU32 laneSelectMask, LwU16 *pRegValue",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => FLCN_OK,
+
+            _GA100           => [ GA100, ],
+            _GA10X           => [ dAMPERE_thru_dADA, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GH100           => [ dHOPPER_and_later, ],
+            _STUB            => [ ALL, -dAMPERE_and_later, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        BAR0_CONFIG_SPACE_READ => [
+            DESCRIPTION      => "Read BAR0 mirrored config space",
+            RETURN_TYPE      => LwU32,
+            ARGUMENTS        => "LwBool bUseFECS, LwU32 regAddress",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => ZERO,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            _TU10X           => [ dTURING_thru_AD10X, ],
+            _GH100           => [ dHOPPER_and_Later, ],
+            _STUB            => [ pre_TURING, ],
+        ],
+
+        BAR0_CONFIG_SPACE_WRITE => [
+            DESCRIPTION      => "Write BAR0 mirrored config space",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwBool bUseFECS, LwU32 regAddress, LwU32 regValue",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => void,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            LIKE_INTERFACE   => BAR0_CONFIG_SPACE_READ,
+        ],
+
+        SERVICE_MULTIFUNCTION_STATE => [
+            DESCRIPTION     => "Enable/disable Audio device from the PCI tree",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 cmd",
+            STUB_RETURNS    => FLCN_OK,
+
+            # TODO: hopper+ doesn't support XVE. Add a non-XVE impl.
+            _GA10X          => [ dAMPERE_thru_dADA, -GA100, ],
+            _STUB           => [ ALL, -dAMPERE_thru_dADA, GA100, ],
+        ],
+
+        IS_MEM_TUNE_CONTROLLER_PCIE_OVERRIDE_EN => [
+            DESCRIPTION     => "Determine whether memory tuning controller decision needs to be overridden based on active PCIe settings.",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => LW_FALSE,
+
+            # TODO: hopper+ doesn't support XVE. Add a non-XVE impl.
+            _GA10X          => [ dAMPERE_thru_dADA, -GA100, ],
+            _STUB           => [ ALL, -dAMPERE_thru_dADA, GA100, ],
+        ],
+
+        SET_PLL_LOCK_DELAY => [
+            DESCRIPTION     => "Set PLL lock delay",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32",
+            STUB_RETURNS    => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            _TU10X          => [ dTURING_thru_dAMPERE, ],
+            _STUB           => [ ALL, -dTURING_thru_dAMPERE, ],
+        ],
+
+        ENGAGE_ASPM_AGGRESSIVELY_INITIATE_CALLBACK => [
+            DESCRIPTION     => "Initiate callback to engage ASPM L1 aggressively",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwBool bCallback",
+            STUB_RETURNS    => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            _GA10X          => [ dAMPERE_thru_dADA, -GA100, ],
+            _STUB           => [ ALL, -dAMPERE_thru_dADA, GA100, ],
+        ],
+
+        UPDATE_L1_THRESHOLD => [
+            DESCRIPTION     => "Update L1 threshold",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU8 newL1Threshold, LwU8 newL1ThresholdFrac",
+            STUB_RETURNS    => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            _GA10X          => [ dAMPERE_thru_dADA, -GA100, ],
+            _STUB           => [ ALL, -dAMPERE_thru_dADA, GA100, ],
+        ],
+
+        PCIE_POISON_CONTROL_ERR_DATA_CONTROL => [
+            DESCRIPTION     => "Modifies PCIE poison control error data state",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwBool bReportEnable",
+            STUB_RETURNS    => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libBif", "__FUNC__")',
+
+            _GH100          => [ HOPPER_and_later, ],
+            _STUB           => [ pre_HOPPER, ],
+        ],
+
+    ],   # HAL_INTERFACES
+
+];
+
+# return a reference to the Hal definition
+return $bifHal;

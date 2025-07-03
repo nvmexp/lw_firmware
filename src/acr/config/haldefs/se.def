@@ -1,0 +1,123 @@
+# -*- mode: perl; -*-
+
+# SE Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $seHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        ACQUIRE_MUTEX => [
+            DESCRIPTION    => "To acquire SE PKA mutex",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            _GA10X         => [ dAMPERE, -GA100, ],
+            _GH100         => [ ADA_and_later, ],
+            _STUB          => [ ALL, -GA102_and_later, ],
+        ],
+
+        RELEASE_MUTEX => [
+            DESCRIPTION    => "To release PKA mutex",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_MUTEX,
+        ],
+
+        CONTEXT_INI => [
+            DESCRIPTION    => "To initialize SE context",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'SE_PKA_REG *, SE_KEY_SIZE',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ ALL, -GA102_and_later, ],
+        ],
+
+        SET_RSA_OPERATION_KEYS => [
+            DESCRIPTION    => "To set RSA operation keys",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'SE_PKA_REG *, LwU32 *, LwU32 *, LwU32 *, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => CONTEXT_INI,
+        ],
+
+        GET_PKA_OPERAND_BANK_BASE_ADDRESS => [
+            DESCRIPTION    => "To get SE pka operand bank base address",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => CONTEXT_INI,
+        ],
+
+        GET_PKA_OPERAND_BANK_ADDRESS => [
+            DESCRIPTION    => "To get SE pka operand bank address",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'SE_PKA_BANK, LwU32 *, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => CONTEXT_INI,
+        ],
+
+        GET_SPECIFIC_PKA_OPERAND_BANK_OFFSET => [
+            DESCRIPTION    => "To get specific operand bank address offset",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => CONTEXT_INI,
+        ],
+
+        START_PKA_OPERATION_AND_POLL => [
+            DESCRIPTION    => "To trigger PKA operation and poll status until ready; or report time out error",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => CONTEXT_INI,
+        ],
+
+        RSA_SET_PARAMS => [
+            DESCRIPTION    => "To set SE RSA parameters",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'SE_PKA_REG *, SE_RSA_PARAMS_TYPE, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => CONTEXT_INI,
+        ],
+
+        RSA_GET_PARAMS => [
+            DESCRIPTION    => "To get SE RSA parameters",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'SE_PKA_REG *, SE_RSA_PARAMS_TYPE, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => CONTEXT_INI,
+        ],
+    ],
+];
+
+# return a reference to the Hal definition
+return $seHal;

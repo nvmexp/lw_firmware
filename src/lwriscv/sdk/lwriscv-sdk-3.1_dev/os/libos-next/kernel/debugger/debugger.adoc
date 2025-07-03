@@ -1,0 +1,247 @@
+# Task Debugging
+
+It's critical to support Task and Kernel level debugging to support
+our RTOS clients.
+
+While this solution requires a Kernel Server, it should not require
+tight coupling to the core scheduler, MM, or other components.
+
+The initial solution will support debugging the LIBOS kernel services
+(such as the memory manager and transparent messaging).  Later
+implementations may suppor full kernel debugging.
+
+## Motivating Requirements
+
+P0. Must support debugging code mapped RO in PMP
+P1. Should support kernel debugging
+P1. Should support memory breakpoints
+P2. Footprint of debugger stub should be minimal
+P2. Should support software breakpoints
+    (This requires RW IOPMP or RW PMP mappings for code.
+     We should not rely on this for production debug in Blackwell.)
+
+There are many more requirements, but these are the ones
+that drive the hardware requirements.
+
+## Summary of Hardware Requirement
+
+P0. Configurable Trigger Unit ownership [HWICD vs SW Debugger]
+P0. Dedicated interrupt bit and scratch register for debugger
+P0. Trigger interrupt should have defined priority relative to other
+    events such as Timer and Page Fault.
+
+## Major Components
+
+A debugger is composed of three major components.  
+
+- Communication
+- Single Step Engine
+- Trigger Unit (hardware breakpoints)
+
+## Component. Single Step Engine
+
+Reliable single step engines are a challenging problem for HW.
+
+Processor errata with stepping over certain classes of instructions
+is common.  For instance, early Opterons would branch to a nearly
+random address if you did single-step in kernel mode over a specific
+unusual load instruction.  Our own peregrines will step over a block
+of CSRs as well. 
+
+Most importantly, we cannot single step in S-mode for an in-kernel
+debugger.  This is due to the design that single-step exceptions
+for S-mode must be handled in M-mode.
+
+Based on these challenges, a software design is the safest solution.
+
+def SingleStep():
+    -- Decode instruction using libriscv.c
+    if branch instruction:
+        Set trigger on target PC
+    Set trigger on next PC
+    Run()
+
+## Component. Trigger Unit
+
+Peregrine already has a trigger unit for the ICD.
+
+We're proposing adding a global machine mode CSR to configure
+the owner of the Trigger unit to either HWICD, or Supervisor.
+
+Case 0. HWICD is off by default
+    - SK would configure Trigger.Owner = Supervisor
+    
+Case 1. HWICD is enabled by default
+    - LIBOS would call SK to disable the HWICD and set Trigger.Owner = Supervisor
+
+Requirements:
+    - Fast mass disable / clear for SK seperation kernel switch
+    - At least 8 triggers
+    - Each trigger is a NAPOT page with bits for R, W, X
+    - Hitting the trigger generates a unique supervisor mode interrupt
+    - Memory breakpoint
+    - Exelwtion breakpoint
+
+### Define Priority for Trigger
+
+We need a clear specification of what happens when a single
+instruction has multiple events.
+
+#### Priority(Trigger) > Priority(PageFault)
+For instance, if I hit a trigger on a store instruction that
+is about to access a bad MPU page, we should document that
+trigger takes priority.
+
+#### Priority(Trigger) < Priority(Timer)
+
+Similarly, if I trigger on an instruction at the same time as
+as a timer interrupt, the timer interrupt should take precedence.
+
+Failure to do so could lead to a task never being context
+switched away from during repeated single-steps.  
+
+## Component. Communication
+
+We build a synchronous RPC model built on top of a single CPU->Peregrine interrupt and 
+the DEBUGINFO register.  The CPU is the initiator and controls when Send and Recv operations
+start and stop.  CPU can wait for events from the peregrine side through the WaitForEvent
+signal (this state is cancelable through an interrupt).
+
+### Messages
+
+Remember: All messages are from CPU->Peregrine
+
+Capabilities()
+    Requests information on the debugger stub running on Peregrine.
+
+Tasks()
+    Returns the list of tasks lwrrently running by task-id.
+
+TaskAttach()
+    Attaches the debugger to the task.  We'll hold a reference
+    count on the task object to prevent the Task object
+    from being destroyed.
+
+TaskSubscribe(EventMask)
+    Control which events from the task we care about.
+    EventMask = {EventBreakpoint, EventTaskSpawn, EventTaskExit, EventDebugPrint, ..}
+
+TaskDetach()
+    Clears any subscriptions and detaches from the task.
+    Reference count will be dropped.
+
+TaskReadVirtualMemory(TaskId, VirtualAddress, size, buffer)
+    Reads memory from a task.
+
+TaskWriteVirtualMemory(TaskId, VirtualAddress, size, buffer)
+    Write memory from a task.
+
+BreakpointSet(TaskId, Slot, Address, size, R|W|X)
+    Sets a breakpoint on the Peregrine.
+
+BreakpointClear(TaskId, Slot)
+
+TaskStateGet()
+    Returns the current state of the task (e.g. LibosTaskState)
+    Includes: GPRs, running/stopped, fault reason, etc.
+
+TaskStateSet()
+    Overwrites the LibosTaskState with the provided state.
+    Allows changing any GPR.
+
+Run(TaskId)
+    Returns a task to the running state.
+    Note: If the task crashes due to an invalid pointer access,
+          breakpoint, ebreak, etc this will re-issue the faulting
+          instruction.
+
+Stop(TaskId)
+    Stops a running task. 
+
+Step(TaskId)
+    Single steps a running task. 
+
+AsyncGetEvent()
+    Informs peregrine we're ready for the next event
+
+PollEvent(out EventMask)
+    CPU periodically calls this to see if the previously issued 
+    AsyncGetEvent() is complete.
+
+    EventMask = {EventBreakpoint, EventTaskSpawn, EventTaskExit, EventDebugPrint, ..}
+
+CancelGetEvent()
+    Cancels the last get event to the peregrine.  
+    @note: We raise an interrupt to the Peregrine and wait for the ACK.
+           This returns the bus to CPU control.
+
+
+                  
+
+### Message Passing Protocol
+The expectation is that the CPU will poll and the peregrine will response through interrupts.
+This is based on the assumption that the client is LWWATCH.
+
+Send(payload, size):
+    Sends a message from the CPU to the debugger.
+    Breaks large messages into 3 byte chunks
+    for transmisison over the DEBUGINFO register.
+
+    31     29  25  24  23                       0
+    ---------------------------------------------
+    |  State |  Size |       Payload             |
+    ---------------------------------------------
+
+
+    Example:
+        Send({0x01,0x02,x03,0x04,0x05,0x06}, 6)
+        Precondition: DEBUGINFO.State = Ack
+        CPU: writes DEBUGINFO as {header:{State=Send, Size=3}, , 0x01, 0x02, 0x03}
+        CPU: raises interrupt to peregrine
+        CPU: waits for Peregrine to set DEBUGIFO to {header: {State=Ack}}
+        CPU: writes DEBUGINFO as {header: State={SendComplete,Size=3}, Sequence=0, 0x01, 0x02, 0x03}
+        CPU: raises interrupt to peregrine
+        CPU: waits for Peregrine to set DEBUGIFO to {header: {State=Ack}}
+
+Recv(payload, size):
+    Notifies the Peregrine we're ready to accept the reply data from the last Send.
+        Precondition: DEBUGINFO.State = Ack
+        CPU: writes DEBUGINFO as {header:{State=Recv, Size=3}}
+        CPU: raises interrupt to peregrine
+        CPU: waits for Peregrine to set DEBUGIFO to {header: {State=RecvReply, Size =3}, {0x01, 0x02, 0x03}}
+        CPU: writes DEBUGINFO as {header:{State=RecvContinue, Size=3}}
+        CPU: raises interrupt to peregrine
+        CPU: waits for Peregrine to set DEBUGIFO to {header: {State=Ack, Size =3}, {0x04, 0x05, 0x06}}
+
+WaitForEvent():
+    Notifies the peregrine that we're waiting for an event from them.  The Peregrine
+    will not ack until an event is ready.
+
+        Precondition: DEBUGINFO.State = Ack
+
+    Case 0. We want for an event (like hitting a breakpoint)
+        CPU: writes DEBUGINFO as {header:{State=WaitForEvent}}
+        ...
+        an event is triggered on Peregrine
+        ..
+        CPU: waits for DEBUGINFO to read {header:{State=Ack}}
+        
+
+    Case 1. We wait for an event, but then cancel.
+        CPU: writes DEBUGINFO as {header:{State=WaitForEvent}}
+        ...
+        no event triggered, but CPU needs to cancel to send another mesage
+        ...
+        CPU: Raises interrupt to Peregrine
+        CPU: Waits for state = {header:{State=EventTriggered}}
+        
+
+Packet State:
+    Send              - CPU is streaming data to the peregrine.                
+    SendComplete      - This is the last packet of the send.
+    Ack               - Peregrine is returning control of the bus to 
+                        the CPU.  This may contain the final payload.
+    Recv              - CPU is requesting data from the peregrine
+    RecvReply         - Peregrine is replying to Recv with data
+
+

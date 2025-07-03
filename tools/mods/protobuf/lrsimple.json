@@ -1,0 +1,49 @@
+{
+    "config" :
+    {
+        "topology_architecture" : "limerock"
+    },
+    "node0" :
+    {
+        "type" : "node",
+        "ip"   : "ipaddr"   
+    },
+    "gpu0" :
+    {
+        "type"             : "gpu",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "target_id"        : 0,
+        "gpa_base"         : 0,
+        "fla_base"         : 1,
+        "requester_base"   : 0,
+        "max_ports"        : 12
+    },
+    "switch0" :
+    {
+        "type"             : "switch",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "max_ports"        : 36,
+        "ports"            : 
+            [
+                { "port"        : 16,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 0,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 17 ] }
+                      ]
+                },
+                { "port"        : 17,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 17,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 16 ] }
+                      ]
+                }
+            ]
+    }
+}
+

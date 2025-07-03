@@ -1,0 +1,129 @@
+
+
+struct ProxyPort : Port
+{
+    LwU16 globalId;             // ID used in the interpartition IPC
+}
+
+struct GlobalPort
+{
+    // Security data
+    LwU64 partitionsAllowedToSend;
+    LwU64 partitionsAllowedToRecv;
+}
+
+// readonly data 
+GlobalPort globalPorts[globalPortCount];
+
+
+// Single R/W page visible to all partitions
+struct globalPage
+{
+    struct globalPortState
+    {
+        LwU64 outstandingSenders;
+        LwU64 outstandingReceivers;
+    } globalPorts[...];
+    ...
+    // Interpartition messaging
+    LwU32 messageId;
+    LwU32 messageSize;
+    LwU8  messageBody[4096];
+};
+
+Example::
+    ProxyPort X(global-id:0)
+
+    Partition1: async-send(x, ...)
+        globalPage->outstandingSenders |= thisPartitionMask;
+        ... add message to the port's outstanding sends ...
+
+    Partition2: async-recv(x, ...)
+        ... see that there is a pending sender in the mask ...
+        ... see the buffer is ready to receive the data ...
+        ... send an IPC to the other partition ...
+        KernelPartitionIPC('give-me-data', x.global-id)
+            \- partition switch
+            \- decode your message
+            \- look at which partition called him (come from SK)
+               and consult the globalPorts masks
+            \- fill the global page with the data
+            \- switch back
+
+Hack::
+    When you reach the "WFI" in scheduler.c we'll switch to partition+1
+
+Summary::
+ - New "proxy port" type to represent ports in another partition
+ - Secure data pathway for message body 
+ 
+Limitations::
+ - Does not protect against denial of service attacks due to use
+   of global page to store waiter sets.
+ - Caused by PMP entry limitation
+ - No fairness in this incarnation
+
+Methodology::
+ - Global untrusted global page tracks partitions waiting on send/recv's to port
+   (Ideally one page per partition, but limited PMP entries)
+ - Only send data to the target partition when operation can be completed
+   (waiting counterpart)
+
+image::proxy-port.png[,50%,50%]
+
+Algorithm. Send::
+```python
+  # No waiters? Mark ourselves as queued
+  if not proxyPort.waitingRecv:
+    proxyPort.waitingSend |= 1ULL << thisPartition
+  else:
+    # Tell target partition to copy data into recv buffer
+    PartitionIpc(anyBit(proxyPort.waitingRecv), [
+        :ActionSend,  # Target partition should switch back immediately
+        proxyPort, 
+        messageBody])
+    
+    CompleteSend()
+```
+   
+Algorithm. Recv::
+```python
+  # No waiters? Mark ourselves as queued
+  if not proxyPort.waitingSend:
+    proxyPort.waitingRecv |= 1ULL << thisPartition
+  else:
+    # Tell target partition to give us the data
+    message = PartitionIpc(anyBit(proxyPort.waitingRecv), [
+        :ActionRecv,  # Target partition should switch back immediately
+        proxyPort])
+
+    # @note: SK must provide the calling partition in a register    
+    CompleteRecv(message.sender, message.body)
+```
+   
+
+Thoughts::
+ - Excessive context switches will be reduced in a later milestone
+ - Works with synchronous and async messaging
+ - Init partition maintains the global proxy port page
+ - Slave partitions call init partition to create/map proxy ports
+ - Slave partitions store a bitmap per proxy-port tracking allowed senders/receivers
+   (partition mask)
+ 
+
+Future::
+ - Reduce context switches by having transferrable pages
+   (see later milestone)
+
+
+Items::
+    Item 0. Kernel IPC
+        
+        void LIBOS_NORETURN KernelPartitionIPC(LwU32 partitionId, LwU32 messageId, void * payload, LwU32 size, void (*continuation)());
+            \- Save the MPU (hack)
+            \- Set global variable = continuation and check in init.c before returning to the task
+            \- Copy into global page + switch partition
+
+    Item 1. Manifest 
+        \- How do you declare a global port
+        \- How do you build at compile time the security (bitmap of allowed sends/receivers)

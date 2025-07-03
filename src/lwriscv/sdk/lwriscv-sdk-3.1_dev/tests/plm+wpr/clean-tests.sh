@@ -1,0 +1,159 @@
+#!/bin/bash
+# Script to clean the PLM/WPR test application.
+#  Usage: clean-tests.sh [profile]
+#  Examples: clean-tests.sh gh100
+#            clean-tests.sh
+
+###############################################################################
+## Setup
+
+# Exit immediately if any command fails.
+set -e
+
+# Save all output to file.
+exec > >(tee -i clean-tests.log) 2>&1
+
+# Set exception handler to explicitly report failures to the user.
+function handleError() {
+    ERRORCODE=$?
+
+    echo "================================================================="
+    echo " Clean script has failed ($ERRORCODE). See clean-tests.log. "
+    echo "================================================================="
+}
+trap handleError EXIT
+
+###############################################################################
+## Constants
+
+# Directory containing all test files.
+export TEST_ROOT=`pwd`
+
+# Directory to which output files should be installed.
+export TEST_OUTPUT_ROOT=${TEST_ROOT}/bin
+
+# Directory containing all LWRISCV SDK profiles.
+export DIR_SDK_PROFILE=${TEST_ROOT}/../../profiles
+
+# Root directory for liblwriscv.
+LIBLWRISCV_DIR=${TEST_ROOT}/../../liblwriscv
+
+###############################################################################
+## Helper Functions
+
+function cleanDir() {
+    if [ -d "$1" ]; then
+        echo rm -r "$1"
+        rm -r "$1"
+    fi
+}
+
+###############################################################################
+## Input and Validation
+
+# Display usage information if number of arguments is incorrect.
+if [ $# -gt 1 ]; then
+    echo "Usage: $0 [profile]"
+    echo "Example: $0 gh100"
+    exit 1
+fi
+
+# Determine profiles to clean.
+if [ $# -eq 1 ]; then
+    # Clean only the profile specified in the first argument, if provided.
+    TEST_PROFILE_FILES=${TEST_ROOT}/profile-${1}.elw
+
+    # Ensure specified profile exists.
+    if [ ! -f ${TEST_PROFILE_FILES} ]; then
+        echo "Error: No build profile found for ${1} in ${TEST_ROOT}!"
+        exit 2
+    fi
+else
+    # Otherwise, clean all profiles.
+    TEST_PROFILE_FILES=${TEST_ROOT}/profile-*.elw
+fi
+
+###############################################################################
+## Clean
+
+# Clean each profile in the profile list.
+for profile_file in $( ls ${TEST_PROFILE_FILES} ); do
+    # Mark start of clean process.
+    echo   "================================================================="
+    printf "=      Cleaning %-45s   =\n" "$(basename ${profile_file})"
+    echo   "================================================================="
+
+    # Clear environment from previous profile.
+    unset CHIP ENGINES EXTRA_MAKES
+
+    # Source build parameters for the current profile.
+    source ${profile_file}
+
+    # Validate build parameters.
+    if [ -z "${CHIP}" ]; then
+        echo "Error: Build profile ${profile_file} is not valid (missing CHIP)!"
+        exit 3
+    fi
+
+    if [ -z "${ENGINES}" ]; then
+        echo "Error: Build profile ${profile_file} is not valid (missing ENGINES)!"
+        exit 4
+    fi
+
+    # Add profile as makefile dependency.
+    export EXTRA_MAKES=${profile_file}
+
+    # Clean each engine specified by the current build profile.
+    for engine in ${ENGINES}; do
+        # Export the current engine name.
+        export ENGINE=${engine}
+
+        # Obtain path to the corresponding liblwriscv profile (basic profile).
+        LIBLWRISCV_PROFILE=basic-${CHIP}-${ENGINE}.liblwriscv
+
+        # Mark start of liblwriscv clean.
+        echo   "================================================================="
+        printf "=      Cleaning %-45s   =\n" "${LIBLWRISCV_PROFILE}"
+        echo   "================================================================="
+
+        # Set liblwriscv build parameters.
+        export LIBLWRISCV_PROFILE_FILE=${DIR_SDK_PROFILE}/${LIBLWRISCV_PROFILE}.mk
+        export LIBLWRISCV_INSTALL_DIR=${TEST_OUTPUT_ROOT}/sdk-${CHIP}-${ENGINE}.bin
+        export LIBLWRISCV_BUILD_DIR=${TEST_OUTPUT_ROOT}/sdk-${CHIP}-${ENGINE}.build
+
+        # Ensure selected liblwriscv profile exists before trying to clean it.
+        if [ ! -f ${LIBLWRISCV_PROFILE_FILE} ]; then
+            echo "Error: Liblwriscv profile ${LIBLWRISCV_PROFILE} not found in ${DIR_SDK_PROFILE}!"
+            exit 5
+        fi
+
+        # Clean liblwriscv.
+        make -C ${LIBLWRISCV_DIR} clean
+
+        # Additional clean-up steps (liblwriscv clean target is not fully implemented).
+        cleanDir "${LIBLWRISCV_INSTALL_DIR}"
+        cleanDir "${LIBLWRISCV_BUILD_DIR}"
+
+        # Obtain fully-qualified name of the current test profile.
+        export TEST_PROFILE=plm+wpr-${CHIP}-${ENGINE}
+
+        # Mark start of test clean.
+        echo   "================================================================="
+        printf "=      Cleaning %-45s   =\n" "${TEST_PROFILE}"
+        echo   "================================================================="
+
+        # Clean test application.
+        make -C ${TEST_ROOT} clean
+    done
+done
+
+###############################################################################
+## Wrap-Up
+
+# Uninstall trap handler.
+trap - EXIT
+
+# Finished.
+echo "================================================================="
+echo " Clean script has finished "
+echo "================================================================="

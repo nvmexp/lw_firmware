@@ -1,0 +1,979 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2021-2022 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+override LW_TARGET_OS := riscv
+
+# if some configurations are not specified, assume defaults
+# TODO : move UPROC_ARCH and LW_PROJ
+UPROC_ARCH      ?= lwriscv
+LW_PROJ         ?= $(PROJ)
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD            ?= false
+NO_RELEASE                ?= false
+FREEABLE_HEAP             ?= true
+TASK_RESTART              ?= false
+EMEM_SUPPORTED            ?= true
+LIBS_A                    ?=
+FALCON_TOOLS              ?=
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+LWUPROC               = $(LW_SOURCE)/uproc
+LWRISCV               = $(LWUPROC)/lwriscv
+SOE_SW                = $(LWUPROC)/soe_riscv
+SOE_SW_SRC            = $(LWUPROC)/soe_riscv/src
+SOE_CFG               = $(SOE_SW)/config
+SOE_BUILD             = $(SOE_SW)/build
+SOE_SIGN_CFG          = $(SOE_BUILD)/sign
+BUILD_SCRIPTS         = $(LWUPROC)/build/scripts
+RESMAN_ROOT           = $(LW_SOURCE)/drivers/resman
+BST_SRC               = $(LWUPROC)/$(UPROC_ARCH)/bootstub/src
+MEMMAP_PATH           = $(LW_SOURCE)/drivers/lwswitch/common/inc/soe
+BAR0_DEFS_PATH        = $(SOE_SW)/inc
+LIB_UPROC_LWOS_SRC    = $(LWUPROC)/libs/lwos/$(LWOS_VERSION)
+LIB_UPROC_CMN_SRC     = $(LWUPROC)/libs/cmn
+# RISCV libraries
+DRIVERS_SRC           = $(LWRISCV)/drivers/src
+SHLIB_SRC             = $(LWRISCV)/shlib/src
+SYSLIB_SRC            = $(LWRISCV)/syslib/src
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target
+# architecture, the linker-script to use, the manual directory, etc ...).
+###############################################################################
+
+SOECFG_PROFILE ?= soe-$(LW_PROJ)
+include $(SOE_CFG)/soe-profiles.mk
+
+# Run Common Configurations First
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+# Get the compiler toolchain version
+CC_TOOLCHAIN_VERSION := $(shell $(CC) -dumpversion)
+
+###############################################################################
+# Override defaults (if needed)
+###############################################################################
+
+# Override print level
+ifdef LWRISCV_DEBUG_PRINT_LEVEL_OVERRIDE
+  LWRISCV_DEBUG_PRINT_LEVEL = $(LWRISCV_DEBUG_PRINT_LEVEL_OVERRIDE)
+endif
+
+###############################################################################
+# RTOS Configuration
+###############################################################################
+
+include $(LWUPROC)/build/common/lwRtosVersion.lwmk
+
+RTOS_SRC  = $(LW_RTOS_SRC)
+
+###############################################################################
+# Export a flag to inform which ucode is being built.
+###############################################################################
+SOE_RTOS = 1
+SOE_CSB_ACCESS = 1
+SOE_BUILDING_SE = 1
+
+###############################################################################
+# Load common Riscv make vars.
+###############################################################################
+
+include $(LWUPROC)/build/common/lwRiscvArch.lwmk
+
+###############################################################################
+# Additional defines to provide to the compiler and assembler.
+###############################################################################
+
+LW_DEFINES += __$(UPROC_ARCH)__
+
+###############################################################################
+# Define the output directory paths for the SOE build and all sub-make builds.
+###############################################################################
+
+OUTPUTDIR     := _out/$(subst soe-,,$(SOECFG_PROFILE))
+SOE_OUTPUTDIR := $(OUTPUTDIR)
+SUBMAKE_ASMFLAGS += -I$(OUTPUTDIR)
+
+###############################################################################
+# Setup soe-config make vars and ilwoke soe-config. Use soe-config's
+# makefile.mk to do all the work. The makefile will generate soe-config.mk in
+# the output directory and then include it.
+###############################################################################
+
+SOESRC_ALL          :=
+SOECFG_OPTIONS      :=
+SOECFG_OUTPUTDIR    ?= $(OUTPUTDIR)/config
+
+include $(SOE_CFG)/makefile.mk
+
+# include the generated list of source files
+ifdef SOECFG_INITIALIZED
+  include $(SOECFG_OUTPUTDIR)/g_sources.mk
+endif
+
+###############################################################################
+# Include profile-specific make settings to account for profile-specific build
+# options/requirements.
+###############################################################################
+
+-include $(SOE_CFG)/$(SOECFG_PROFILE).mk
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+# For vairable used by only one particular submake, the var should be passed
+# through $(1)_MAKE_ARGS, e.g. LDR_MAKE_ARG for submake LDR.  Here it should
+# only exports common variables used by multiple submake builds.
+
+export LWRISCV_MPU_DUMP_ENABLED
+export LWRISCV_MTIME_TICK_SHIFT
+export UPROC_ARCH
+export FALCON_ARCH
+export LW_TARGET_ARCH
+export LW_TARGET_OS
+export LW_PROJ
+export FPU_SUPPORTED
+export MANUAL_PATHS
+export MEMMAP_PATH
+export BAR0_DEFS_PATH
+export SOE_RTOS
+export FREEABLE_HEAP
+export TASK_RESTART
+export RTOS_VERSION
+export LWOS_VERSION
+export EMEM_SUPPORTED
+export IS_SSP_ENABLED
+export IMEM_ON_DEMAND_PAGING
+export SOECFG_PROFILE
+export DRIVERSCFG_PROFILE
+export SYSLIBCFG_PROFILE
+export SHLIBCFG_PROFILE
+export OS_CALLBACKS
+export HS_OVERLAYS_ENABLED
+export SELWRITY_ENGINE
+export DMEM_VA_SUPPORTED
+export MRU_OVERLAYS
+export SOE_OUTPUTDIR
+export SUBMAKE_CFLAGS
+export SUBMAKE_ASMFLAGS
+export ODP_ENABLED
+export LWRISCV_CORE_DUMP
+export LWRISCV_DEBUG_PRINT_LEVEL
+export LWRISCV_SYMBOL_RESOLVER
+export LWRISCV_MPU_DIRTY_BIT
+export LWRISCV_MPU_FBHUB_ALLOWED
+export USE_SCPLIB
+export SCHEDULER_ENABLED
+export DMEM_END_CARVEOUT_SIZE
+export DMESG_BUFFER_SIZE
+export USE_CSB
+export USE_CBB
+export LWRISCV_PARTITION_SWITCH
+export ELF_IN_PLACE
+export ELF_IN_PLACE_FULL_IF_NOWPR
+export ELF_IN_PLACE_FULL_ODP_COW
+export FALCON_TOOLS
+export LWRISCV_PRINT_RAW_MODE
+export NEW_WPR_BLOBS
+
+###############################################################################
+# Submake Configuration
+#
+# This makefile builds libraries and tools that are shared with other projects.
+# Many of these builds may be lwstomized based on the needs of the project
+# building it. It is therefore necessary to ensure isolation between the
+# projects. Isolation is also required to allow for parallelization of project
+# builds.
+#
+# Isolation is achieved by ensuring that all build output is kept separate
+# between the projects. Ideally, output could all be redirected to a path
+# defined within the SOE's/project's output directory. However, the common
+# lwmake rules require that each submake target's output directory be contained
+# within that target's source directory. As a result, the only way to ensure
+# isolation is by establishing proper namespacing within each submake target's
+# local output directory.
+###############################################################################
+
+SUBMAKE_NAMESPACE := soe
+SUBMAKE_OUTPUTDIR := \
+  _out/$(SUBMAKE_NAMESPACE)/$(LW_PROJ)_$(UPROC_ARCH)_$(LW_BUILD_TYPE)
+
+SUBMAKE_DEPS :=
+
+###############################################################################
+# Bootstub Configuration
+###############################################################################
+
+BST_BIN         := $(BST_SRC)/$(SUBMAKE_OUTPUTDIR)/g_soe_rvbs_$(RVBS_PROFILE).bin
+
+BST_MAKE_ARGS   := BSCFG_PROFILE=soe_rvbs_$(RVBS_PROFILE)
+
+SUBMAKE_TARGETS += BST
+$(BST_BIN): build.submake.BST ;
+SUBMAKE_DEPS += $(BST_BIN)
+
+
+###############################################################################
+# RTOS Configuration
+###############################################################################
+
+include $(LWUPROC)/build/common/lwRtosVersion.lwmk
+
+RTOS_SRC  = $(LW_RTOS_SRC)
+LIB_RTOS := $(RTOS_SRC)/$(SUBMAKE_OUTPUTDIR)/$(LW_RTOS_LIB_FILENAME)
+
+SUBMAKE_TARGETS += RTOS
+$(LIB_RTOS): build.submake.RTOS ;
+SUBMAKE_DEPS += $(LIB_RTOS)
+
+###############################################################################
+# Uproc Common Library
+###############################################################################
+
+LIB_UPROC_CMN := $(LIB_UPROC_CMN_SRC)/$(SUBMAKE_OUTPUTDIR)/libUprocCmn.a
+
+SUBMAKE_TARGETS += LIB_UPROC_CMN
+$(LIB_UPROC_CMN): build.submake.LIB_UPROC_CMN ;
+SUBMAKE_DEPS += $(LIB_UPROC_CMN)
+
+###############################################################################
+# Uproc LWOS Library
+###############################################################################
+
+LIB_UPROC_LWOS := $(LIB_UPROC_LWOS_SRC)/$(SUBMAKE_OUTPUTDIR)/libUprocLwos.a
+
+SUBMAKE_TARGETS += LIB_UPROC_LWOS
+$(LIB_UPROC_LWOS): build.submake.LIB_UPROC_LWOS ;
+SUBMAKE_DEPS += $(LIB_UPROC_LWOS)
+
+
+###############################################################################
+# Drivers
+###############################################################################
+LIB_DRIVERS := $(DRIVERS_SRC)/$(SUBMAKE_OUTPUTDIR)/libDrivers.a
+
+DRIVERS_MAKE_ARGS := DRIVERSCFG_PROFILE=drivers-ls10
+
+SUBMAKE_TARGETS += DRIVERS
+$(LIB_DRIVERS): build.submake.DRIVERS ;
+SUBMAKE_DEPS += $(LIB_DRIVERS)
+
+###############################################################################
+# Monitor
+###############################################################################
+RVMKIMG_PARAMS   :=
+
+MONITOR_PREFIX := g_fmc_soe_$(SEPKERNCFG_PROFILE)
+MONITOR_DATA_RAW := $(SOE_SW)/fmc/bin/$(MONITOR_PREFIX).data
+MONITOR_CODE_RAW := $(SOE_SW)/fmc/bin/$(MONITOR_PREFIX).text
+MANIFEST_RAW     := $(SOE_SW)/fmc/bin/$(MONITOR_PREFIX).manifest
+
+###############################################################################
+# Shlib
+###############################################################################
+LIB_SHLIB := $(SHLIB_SRC)/$(SUBMAKE_OUTPUTDIR)/libShlib.a
+
+SUBMAKE_TARGETS += SHLIB
+$(LIB_SHLIB): build.submake.SHLIB ;
+SUBMAKE_DEPS += $(LIB_SHLIB)
+
+###############################################################################
+# Syslib
+###############################################################################
+LIB_SYSLIB := $(SYSLIB_SRC)/$(SUBMAKE_OUTPUTDIR)/libSyslib.a
+
+SUBMAKE_TARGETS += SYSLIB
+$(LIB_SYSLIB): build.submake.SYSLIB ;
+SUBMAKE_DEPS += $(LIB_SYSLIB)
+
+###############################################################################
+# Additional libraries to link against
+###############################################################################
+
+LIBDIRS += $(RTOS_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(LIB_UPROC_LWOS_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(LIB_UPROC_CMN_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(SHLIB_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(SYSLIB_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(DRIVERS_SRC)/$(SUBMAKE_OUTPUTDIR)
+# libraries should be placed in an order for linker to resolve dependencies.
+# Dependent library should be placed first
+LIBS    += $(LW_RTOS_LIB)
+ifeq  ($(USE_SCPLIB),true)
+  LIBS += SCP
+endif
+LIBS    += UprocLwos  UprocCmn
+LIBS    += Shlib
+LIBS    += Syslib
+LIBS    += Drivers
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(LWUPROC)/libs/lwos/$(LWOS_VERSION)/inc
+LW_INCLUDES += $(SOE_SW)/inc
+LW_INCLUDES += $(SOE_SW)/src
+LW_INCLUDES += $(LW_RTOS_INCLUDES)
+LW_INCLUDES += $(SOE_SW)/inc
+LW_INCLUDES += $(LWUPROC)/libs/cmn/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/swref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/hwref
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/lwswitch/common/inc
+LW_INCLUDES += $(RESMAN_ROOT)/kernel/inc
+LW_INCLUDES += $(MEMMAP_PATH)
+LW_INCLUDES += $(BAR0_DEFS_PATH)
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/scp/inc
+
+LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/inc
+
+# Libs
+LW_INCLUDES += $(DRIVERS_SRC)/../inc
+LW_INCLUDES += $(SHLIB_SRC)/../inc
+LW_INCLUDES += $(SYSLIB_SRC)/../inc
+
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(MEMMAP_PATH)
+LW_INCLUDES += $(SOE_SW_SRC)/$(SOE_OUTPUTDIR)
+# For RPC
+LW_INCLUDES += $(SOE_SW)/fmc/inc
+
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+LDSCRIPT            := $(OUTPUTDIR)/g_sections.ld
+
+IMG_PREFIX          := g_soeriscvuc_$(PROJ)
+IMG_TARGET          := $(OUTPUTDIR)/$(IMG_PREFIX)
+
+ELF_TARGET          := $(IMG_TARGET)
+ELF_FILE            := $(ELF_TARGET).elf
+ELF_NO_SYM          := $(ELF_TARGET)_nosym.elf
+ELF_OBJDUMP         := $(ELF_TARGET).objdump
+ELF_NM              := $(ELF_TARGET).nm
+ELF_MAP             := $(ELF_TARGET).map
+ELF_DBGLINE         := $(ELF_TARGET).dbgline
+ELF_READELF         := $(ELF_TARGET).readelf
+ELF_SECTIONS        := $(ELF_TARGET).sections
+ELF_STATS_TXT       := $(ELF_TARGET).stats.txt
+
+ELF_TEXT            := $(ELF_TARGET).text
+ELF_DATA            := $(ELF_TARGET).data
+IMG_TEXT            := $(IMG_TARGET)_text.bin
+IMG_DATA            := $(IMG_TARGET)_data.bin
+FMC_TEXT            := $(IMG_TEXT).encrypt.bin
+FMC_DATA            := $(IMG_DATA).encrypt.bin
+MAN_TEMP            := $(IMG_TARGET)_manifest.bin
+MAN_OUT             := $(MAN_TEMP).encrypt.bin.out.bin
+COMBINED_PREFIX     := $(IMG_PREFIX)_combined
+FMC_COMB            := $(OUTPUTDIR)/$(COMBINED_PREFIX)_image.bin
+FMC_DESC            := $(OUTPUTDIR)/$(COMBINED_PREFIX)_desc.bin
+FMC_DESC_H          := $(OUTPUTDIR)/$(COMBINED_PREFIX)_desc.h
+FMC_H               := $(OUTPUTDIR)/$(COMBINED_PREFIX).h
+
+RELEASE_FILES            = $(ELF_FILE) $(ELF_NM) $(ELF_OBJDUMP) $(ELF_READELF) \
+                           $(FMC_H) $(FMC_COMB) $(FMC_TEXT) $(FMC_DATA) $(MAN_OUT)
+RESTRICTED_RELEASE_FILES =
+
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+ifeq ($(LW_TARGET_OS),falcon)
+    CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+    CFLAGS += -DUPROC_RISCV
+endif
+
+SUBMAKE_CONFIG_FLAGS += -DSOE_RTOS
+SUBMAKE_CONFIG_FLAGS += -DSOE_CSB_ACCESS
+
+ifeq ($(DMEM_VA_SUPPORTED),"true")
+    CFLAGS += -DDMEM_VA_SUPPORTED
+endif
+
+ifeq ($(MRU_OVERLAYS),"true")
+    CFLAGS += -DMRU_OVERLAYS
+endif
+
+ifeq ($(FREEABLE_HEAP),true)
+    CFLAGS += -DFREEABLE_HEAP
+endif
+
+ifeq ($(EMEM_SUPPORTED),true)
+    CFLAGS += -DEMEM_SUPPORTED
+endif
+
+ifeq ($(TASK_RESTART),true)
+    CFLAGS += -DTASK_RESTART
+endif
+
+ifeq ($(USE_SCPLIB),true)
+    CFLAGS += -DUSE_SCPLIB
+endif
+
+ifeq ($(IS_SSP_ENABLED),true)
+    SUBMAKE_CFLAGS += -fstack-protector-all -Wstack-protector --param ssp-buffer-size=4
+    SUBMAKE_CFLAGS += -DIS_SSP_ENABLED
+#    RANDOM_CANARY  := $(shell $(PERL) -e 'printf "%.0f",int(rand(18446744073709551616))')
+#    SUBMAKE_CFLAGS += -DRANDOM_CANARY=$(RANDOM_CANARY)
+    SUBMAKE_CFLAGS += -DRANDOM_CANARY=17152294236893282304U
+    SUBMAKE_CFLAGS += -fstack-clash-protection
+
+    SUBMAKE_ASMFLAGS += -DIS_SSP_ENABLED
+endif
+
+ifeq ($(LWRISCV_MPU_DUMP_ENABLED), true)
+  SUBMAKE_CFLAGS += -DLWRISCV_MPU_DUMP_ENABLED=1
+else
+  SUBMAKE_CFLAGS += -DLWRISCV_MPU_DUMP_ENABLED=0
+endif
+
+OS_CALLBACKS = true
+ifeq ($(OS_CALLBACKS),true)
+    CFLAGS += -DOS_CALLBACKS
+endif
+
+ifdef LWRISCV_MTIME_TICK_SHIFT
+SUBMAKE_CFLAGS += -DLWRISCV_MTIME_TICK_SHIFT=$(LWRISCV_MTIME_TICK_SHIFT)
+endif
+
+ifeq ($(LWRISCV_CORE_DUMP), true)
+    SUBMAKE_CFLAGS   += -DLWRISCV_CORE_DUMP=1
+else
+    SUBMAKE_CFLAGS   += -DLWRISCV_CORE_DUMP=0
+endif
+
+ifeq ($(LWRISCV_PARTITION_SWITCH), true)
+  SUBMAKE_CONFIG_FLAGS += -DLWRISCV_PARTITION_SWITCH=1
+else
+  SUBMAKE_CONFIG_FLAGS += -DLWRISCV_PARTITION_SWITCH=0
+endif
+
+SUBMAKE_CFLAGS   += -DLWRISCV_DEBUG_PRINT_LEVEL=$(LWRISCV_DEBUG_PRINT_LEVEL)
+
+ifeq ($(LWRISCV_SYMBOL_RESOLVER), true)
+    SUBMAKE_CFLAGS   += -DLWRISCV_SYMBOL_RESOLVER=1
+else
+    SUBMAKE_CFLAGS   += -DLWRISCV_SYMBOL_RESOLVER=0
+endif
+
+ifeq ($(LWRISCV_MPU_DIRTY_BIT),true)
+  SUBMAKE_CFLAGS += -DLWRISCV_MPU_DIRTY_BIT
+endif
+
+ifeq ($(LWRISCV_MPU_FBHUB_ALLOWED),true)
+  SUBMAKE_CFLAGS += -DLWRISCV_MPU_FBHUB_ALLOWED=1
+else
+  SUBMAKE_CFLAGS += -DLWRISCV_MPU_FBHUB_ALLOWED=0
+endif
+
+ifeq ($(ELF_IN_PLACE_FULL_ODP_COW), true)
+  SUBMAKE_CFLAGS += -DELF_IN_PLACE_FULL_ODP_COW=1
+else
+  SUBMAKE_CFLAGS += -DELF_IN_PLACE_FULL_ODP_COW=0
+endif
+
+ifeq ($(LWRISCV_PRINT_RAW_MODE), true)
+  SUBMAKE_CFLAGS += -DLWRISCV_PRINT_RAW_MODE=1
+else
+  SUBMAKE_CFLAGS += -DLWRISCV_PRINT_RAW_MODE=0
+endif
+
+ifeq ($(SCHEDULER_ENABLED), true)
+    SUBMAKE_CFLAGS += -DSCHEDULER_ENABLED=1
+else
+    SUBMAKE_CFLAGS += -DSCHEDULER_ENABLED=0
+endif
+
+ifeq ($(USE_CSB), true)
+    SUBMAKE_CFLAGS += -DUSE_CSB=1
+else
+    SUBMAKE_CFLAGS += -DUSE_CSB=0
+endif
+
+ifeq ($(USE_CBB), true)
+    SUBMAKE_CFLAGS += -DUSE_CBB=1
+else
+    SUBMAKE_CFLAGS += -DUSE_CBB=0
+endif
+
+ifeq ("$(ODP_ENABLED)","true")
+    CFLAGS += -DODP_ENABLED
+endif
+
+ifeq ($(FPU_SUPPORTED),true)
+    CFLAGS += -DFPU_SUPPORTED=$(FPU_SUPPORTED)
+    ASMFLAGS += -DFPU_SUPPORTED=$(FPU_SUPPORTED)
+endif
+
+
+SUBMAKE_CFLAGS += -Wformat -Wformat-security
+SUBMAKE_CFLAGS += -Wall -Werror -Wextra
+# Following warning have been disabled since there issue seen in common libarires used
+# by soe ucode.
+SUBMAKE_CFLAGS += -Wno-unused-parameter -Wno-implicit-fallthrough -Wno-sign-colwersion -Wno-colwersion
+SUBMAKE_CFLAGS += -Wno-maybe-uninitialized
+SUBMAKE_CFLAGS += -D_FORTIFY_SOURCE=2
+SUBMAKE_CFLAGS += -fno-jump-tables
+SUBMAKE_CFLAGS += -DSAFERTOS -fdiagnostics-color=always
+SUBMAKE_CFLAGS += -fomit-frame-pointer -fno-strict-aliasing -mcmodel=medany -fPIE
+SUBMAKE_CFLAGS += -Os -g  -pipe
+ifneq ("$(CC_TOOLCHAIN_VERSION)", $(TOOLCHAIN_VERSION))
+  # Following flags are ignored by compiler 8.2.0
+  # PIE is not supported at all by this compiler
+  SUBMAKE_CFLAGS += -Wl,-z,now
+  SUBMAKE_CFLAGS += -Wl,-z,relro
+endif
+
+CFLAGS  += -nostartfiles -nostdlib
+CFLAGS  += -Og -g -pipe
+CFLAGS  += $(SUBMAKE_CFLAGS)
+CFLAGS  += -DSOE_LS_UCODE_VERSION=$(LS_UCODE_VERSION)
+
+LDFLAGS += -L $(OUTPUTDIR) -fdiagnostics-color=always
+LDFLAGS += -T $(LDSCRIPT)
+LDFLAGS += $(addprefix -L,$(LIBDIRS))
+LIBS += gcc
+LDFLAGS += -Wl,--start-group $(addprefix -l,$(LIBS)) $(LIBS_A) -Wl,--end-group -Os -g
+
+SUBMAKE_CFLAGS   += $(SUBMAKE_CONFIG_FLAGS)
+SUBMAKE_ASMFLAGS += $(SUBMAKE_CONFIG_FLAGS)
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+
+GEN_SECTIONS_SOURCE := $(OUTPUTDIR)/config/g_sections_data.c
+GEN_SECTIONS_OBJ    := $(OUTPUTDIR)/$(OUTPUTDIR)/config/g_sections_data.o
+
+SOURCES := $(SOESRC_ALL) $(GEN_SECTIONS_SOURCE)
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(..)); delete $$ELW{PWD}; \
+                  print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Run Ifdef checked script and fail the build in case wrong ifdef is used.
+################################################################################
+
+IFDEF_CHECKER_SCRIPT       = $(LWUPROC)/utilities/ifdef_checker.pl
+IFDEF_CHECKER_SCRIPT_ARGS += --dir 'soe_riscv'
+IFDEF_CHECKER_SCRIPT_ARGS += --LWUPROC '$(LWUPROC)'
+check_ifdef: $(FMC_H)
+	$(PERL) $(IFDEF_CHECKER_SCRIPT) $(IFDEF_CHECKER_SCRIPT_ARGS)
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(SOECFG_PROFILE)]"
+
+
+###############################################################################
+# Generated header files
+###############################################################################
+
+GEN_PROFILE_HEADER  := $(OUTPUTDIR)/config/g_profile.h
+GEN_TASKS_HEADER    := $(OUTPUTDIR)/config/g_tasks.h
+GEN_SECTIONS_HEADER := $(OUTPUTDIR)/config/g_sections_riscv.h
+
+GEN_HEADERS :=
+# Disabled until the source file is ready
+#GEN_HEADERS += $(GEN_TASKS_HEADER)
+GEN_HEADERS += $(GEN_PROFILE_HEADER)
+GEN_HEADERS += $(GEN_SECTIONS_HEADER)
+
+$(OBJECTS): $(GEN_HEADERS)
+
+###############################################################################
+# Load lwConfig to generate guardword list and also for using the guardword
+# scanner later
+###############################################################################
+
+# TODO
+CHECK_GUARDWORD = $(OUTPUTDIR)/_guardwordCheck
+
+###############################################################################
+# Additional dependencies of the ELF image
+###############################################################################
+
+$(ELF_FILE): $(SUBMAKE_DEPS)
+
+###############################################################################
+# Define a utility macro for ilwoking make (submake) on any external libraries
+# or utilities that this build depends upon. The macro will establish the
+# targets and dependencies between the builds, override the output directory
+# of the submake build, and pass any other (optional) make arguments to the
+# submake build.
+#
+# Arguments:
+#     $(1) - name of the submake build
+#
+# The name supplied is used to define the the name of target for the build.
+# This macro will also use the name to construct the name of make-var
+# containing the path to the submake build's source directory. The caller is
+# responsible for defining this make-var. For an example, if $(1) is set to
+# 'FOO', this macro requires that the make-var 'FOO_SRC' be defined and that it
+# points to the source directory where the makefile for the project is located.
+# It may sometimes be desired to pass additional arguments/overrides on the
+# submake build command-line. In such cases, the caller may define a similarly
+# named make-var suffixed with _MAKE_ARGS and assign to it the list of
+# arguments that should be passed to the build. This is optional, if the make-
+# var is not defined, no additional arguments will be supplied.
+###############################################################################
+
+# TODO : remove MAKECMDGOALS
+MAKECMDGOALS ?= build
+define SUBMAKE_DEFINITION
+  .PHONY: build.submake.$(1) clean.submake.$(1) clobber.submake.$(1)
+
+  build: build.submake.$(1)
+  clean: clean.submake.$(1)
+  clobber: clobber.submake.$(1)
+
+  $(1)_MAKE_ARGS ?=
+
+  build.submake.$(1) clean.submake.$(1) clobber.submake.$(1):
+	  @$$(MAKE) -C $$($(1)_SRC) -f makefile.lwmk \
+        OUTPUTDIR=$$(SUBMAKE_OUTPUTDIR)          \
+        UPROC_ARCH=$$(UPROC_ARCH)                \
+        $$($(1)_MAKE_ARGS)                       \
+        $$(MAKECMDGOALS)
+
+  build.submake.$(1): $$(GEN_SECTIONS_SOURCE) $$(GEN_SECTIONS_OBJ) $$(GEN_SECTIONS_HEADER) $$(GEN_PROFILE_HEADER)
+endef
+
+###############################################################################
+# Create the target/rule definitions for each submake target
+###############################################################################
+
+$(foreach target, $(SUBMAKE_TARGETS), \
+  $(eval $(call SUBMAKE_DEFINITION,$(strip $(target)))))
+
+###############################################################################
+# Relink the image if any file in LINK_DEPS is changed
+###############################################################################
+
+LINK_DEPS += $(LDSCRIPT)
+LINK_DEPS += $(OBJECTS)
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files is the prerequisite
+# for this rule.
+###############################################################################
+$(ELF_FILE): check_toolchain_version $(LINK_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) -D_FORTIFY_SOURCE=2 $(CFLAGS) $(OBJECTS) -o $(ELF_FILE) $(LDFLAGS)
+
+# Not only .readelf, this recipe generates all debugging releated files, including
+# .nm, .objdump, .objdump.source... etc.
+$(ELF_READELF): $(ELF_FILE)
+	$(ECHO) "AppVersion: $(APP_P4_CL). Process elf to get OBJDUMP." > $(ELF_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL). Process elf to get OBJDUMP." > $(ELF_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL). Process elf to get NM." > $(ELF_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(ELF_READELF)
+	$(OBJDUMP) -d    $(ELF_FILE) >> $(ELF_OBJDUMP)
+	$(OBJDUMP) -S -d $(ELF_FILE) >> $(ELF_OBJDUMP).source
+	$(NM)      -S -n $(ELF_FILE) >> $(ELF_NM)
+	$(OBJDUMP) -d    $(ELF_FILE) >> $(ELF_OBJDUMP)
+	$(OBJDUMP) -S -d $(ELF_FILE) >> $(ELF_OBJDUMP).source
+	$(NM)      -S -n $(ELF_FILE) >> $(ELF_NM)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(ELF_READELF))
+	$(READELF) --all $(ELF_FILE) >> $(ELF_READELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(ELF_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(ELF_FILE) >> $(ELF_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(ELF_FILE)
+	$(NM)      $(ELF_FILE) >> $(ELF_MAP)
+	$(READELF) -S -W $(ELF_FILE) > $(ELF_SECTIONS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(ELF_STATS_TXT))
+	$(PERL) $(BUILD_SCRIPTS)/riscv-stats-gen.pl $(ELF_TARGET) $(ELF_STATS_TXT)
+
+###############################################################################
+# Create the binary in OUTPUTDIR
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+all: $(FMC_COMB) check_ifdef
+
+# AM-TODO: Move to lwRiscvHost.mk
+STRIP        = $(LWRISCV_TOOLS)/bin/$(LWRISCV_PREFIX)strip
+
+###############################################################################
+# New Rules for Offline-Extracted Image
+###############################################################################
+
+LWRISCVX_SDK_ROOT ?= $(P4ROOT)/sw/lwriscv/main
+SIGGEN ?= $(LWRISCVX_SDK_ROOT)/tools/siggen_manifest
+
+RVMKFMC_PARAMS := \
+    --profile           $(SOECFG_PROFILE)           \
+    --monitorCode       $(MONITOR_CODE_RAW)         \
+    --monitorData       $(MONITOR_DATA_RAW)         \
+    --stubCode          $(BST_BIN)                  \
+    --elfFile           $(ELF_FILE)                 \
+    --retSection        .kernelCode                 \
+    --objCopy           $(OBJCOPY)                  \
+    --appCode           $(ELF_TEXT)                 \
+    --appData           $(ELF_DATA)                 \
+    --outCode           $(IMG_TEXT)                 \
+    --outData           $(IMG_DATA)
+RVMKFMC_DEPS := \
+    $(MONITOR_CODE_RAW) $(MONITOR_DATA_RAW) $(BST_BIN) $(ELF_FILE) \
+    $(SOE_BUILD)/Profiles.pm
+
+# Produces $(IMG_TEXT) $(IMG_DATA)
+$(IMG_TEXT): $(RVMKFMC_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) creating FMC files
+	$(PERL) -I$(SOE_BUILD) -I$(BUILD_SCRIPTS) \
+    -I$(LW_SOURCE)/drivers/common/chip-config \
+    $(BUILD_SCRIPTS)/mkimage/rvmkfmc.pl $(RVMKFMC_PARAMS)
+
+# Produces $(FMC_TEXT) $(FMC_DATA) $(MAN_OUT)
+$(FMC_TEXT): $(IMG_TEXT) $(MANIFEST_RAW)
+	$(COPY) $(MANIFEST_RAW) $(MAN_TEMP)
+	$(SIGGEN) -manifest $(MAN_TEMP) -code $(IMG_TEXT) -data $(IMG_DATA) -chip $(SIGGEN_CHIP) -mode 0
+
+RVMKIMG_PARAMS := \
+    --fmcCode           $(FMC_TEXT)         \
+    --fmcData           $(FMC_DATA)         \
+    --manifest          $(MAN_OUT)          \
+    --outFilePrefix     $(COMBINED_PREFIX)  \
+    --outDir            $(OUTPUTDIR)        \
+    --appVersion        $(APP_P4_CL)        \
+    --useMonitor
+# Only use $(FMC_TEXT) as dependency since it's the target for the rule that produces
+# all 3 files we need. To clean all this up, we can change this to use &: rules once
+# make 4.3 has proper support in our build elwironments.
+RVMKIMG_DEPS := $(FMC_TEXT)
+
+# Produces $(FMC_COMB) $(FMC_DESC) $(FMC_DESC_H)
+$(FMC_COMB): $(RVMKIMG_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) creating combined image and descriptor
+	$(PERL) $(BUILD_SCRIPTS)/mkimage/rvmkimg.pl  $(RVMKIMG_PARAMS)
+
+###############################################################################
+# Generate header file from combined binaries
+################################################################################
+
+GEN_IMG_H_SCRIPT = $(SOE_SW)/utilities/gen_img_h.pl
+$(FMC_H): $(FMC_COMB)
+	$(PERL) $(GEN_IMG_H_SCRIPT) $(FMC_COMB)
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+ASMFLAGS += $(CFLAGS)
+ASMFLAGS += $(SUBMAKE_ASMFLAGS)
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon/riscv
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clean_ucode
+clean: clean_ucode
+
+clobber_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clobber_ucode
+clobber: clobber_ucode
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(BUILD_SCRIPTS)/release-imgs-if-changed.pl
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_ARGS += --output-prefix $(BUILD_PROJECT_NAME)
+RELEASE_IMG_ARGS += --image         $(FMC_COMB)
+RELEASE_IMG_ARGS += --p4            $(P4)
+# Specifying this allows symbol changes to be properly released
+RELEASE_IMG_ARGS += --symbols       $(ELF_NM)
+
+RELEASE_PATH = ../../../drivers/lwswitch/kernel/inc/soe/bin
+
+RELEASE_IMG_ARGS += --release-path $(RELEASE_PATH)
+
+RELEASE_IMG_ARGS += --release-files            \
+  $(subst $(SPACE),$(COMMA),$(RELEASE_FILES))
+
+
+#
+# Trigger the process by adding a phony prerequisite to 'all' called 'install'.
+# The rule to rebuild that target will perform the install process and will copy
+# the files to the RM if necessary.
+# Skip this process if the user has requested that files NOT be installed via
+# NO_INSTALL=true.
+#
+ifneq ("$(NO_RELEASE)","true")
+  .PHONY: install
+  all: install
+endif
+
+# unless disabled, make sure the environment is fresh before installing
+ifneq ("$(NO_CHECK_BUILD)","true")
+  .PHONY: checkbuild
+  install: checkbuild
+endif
+
+install: $(FMC_H) $(FMC_COMB) $(ELF_READELF)
+	$(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)
+
+###############################################################################
+# Toolchain version check
+###############################################################################
+check_toolchain_version:
+ifneq ("$(CC_TOOLCHAIN_VERSION)", $(TOOLCHAIN_VERSION))
+	$(error Toolchain being used $(CC_TOOLCHAIN_VERSION) is not equal to required $(TOOLCHAIN_VERSION))
+endif
+
+###############################################################################
+# Common dependency files for rtos-flcn-script.pl exelwtion
+###############################################################################
+FLCN_SCRIPT_DEPS ?=
+FLCN_SCRIPT_DEPS += $(BUILD_SCRIPTS)/rtos-flcn-script.pl
+FLCN_SCRIPT_DEPS += $(BUILD_SCRIPTS)/impl/TasksImpl.pm
+FLCN_SCRIPT_DEPS += $(BUILD_SCRIPTS)/impl/ProfilesImpl.pm
+FLCN_SCRIPT_DEPS += $(BUILD_SCRIPTS)/impl/SectionsImpl.pm
+
+###############################################################################
+# Rules to genereate header file g_profile.h
+###############################################################################
+
+$(GEN_PROFILE_HEADER): $(SOE_BUILD)/Profiles.pm $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(PERL) -I$(SOE_BUILD) -I$(BUILD_SCRIPTS) \
+        -I$(LW_SOURCE)/drivers/common/chip-config                         \
+        $(BUILD_SCRIPTS)/rtos-flcn-script.pl --profile $(SOECFG_PROFILE)  \
+        --lwroot $(LW_SOURCE) --perl $(PERL) --arch riscv                 \
+        --gen-profile-header --outfile $(GEN_PROFILE_HEADER)
+
+
+###############################################################################
+# Rules to genereate header file g_tasks.h
+###############################################################################
+
+$(GEN_TASKS_HEADER): $(SOE_BUILD)/Tasks.pm $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(PERL) -I$(SOE_BUILD) -I$(BUILD_SCRIPTS) \
+        -I$(LW_SOURCE)/drivers/common/chip-config                         \
+        $(BUILD_SCRIPTS)/rtos-flcn-script.pl --profile $(SOECFG_PROFILE)  \
+        --lwroot $(LW_SOURCE) --perl $(PERL) --arch riscv                 \
+        --gen-ostask-header --outfile $(GEN_TASKS_HEADER)
+
+###############################################################################
+# Rule to generate the linker script for current profile
+###############################################################################
+LDGEN_TEMPLATE := $(LWUPROC)/build/templates/gt_sections_riscv.ld
+GEN_SECTIONS_HEADER_TEMPLATE := $(LWUPROC)/build/templates/gt_sections_riscv.h
+
+LDGEN_SCRIPT    = $(BUILD_SCRIPTS)/rtos-flcn-script.pl \
+                    --gen-ldscript \
+                    --gen-dmem-end-carveout=$(DMEM_END_CARVEOUT_SIZE) \
+                    --gen-dmesg-buffer=$(DMESG_BUFFER_SIZE)
+
+ifeq ($(LWRISCV_PARTITION_SWITCH), true)
+  LDGEN_SCRIPT += --gen-identity-mapped-sections
+endif
+
+ifeq ($(ELF_IN_PLACE_FULL_ODP_COW), true)
+  LDGEN_ARGS += --elf-in-place-odp-cow
+endif
+
+LDGEN_INCLUDES += -I$(SOE_BUILD)
+LDGEN_INCLUDES += -I$(LW_SOURCE)/drivers/common/chip-config
+LDGEN_INCLUDES += -I$(BUILD_SCRIPTS)
+
+LDGEN_DEPS     += $(SOE_BUILD)/Profiles.pm
+LDGEN_DEPS     += $(SOE_BUILD)/RiscvSectionsCode.pm
+LDGEN_DEPS     += $(SOE_BUILD)/RiscvSectionsData.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/GenLdscript.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/GenLdscriptRiscv.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfInputSectionImem.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfOutputSectionImem.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfKeepSectionImem.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfOutputSectionDmem.pm
+LDGEN_DEPS     += $(LDGEN_TEMPLATE)
+LDGEN_DEPS     += $(GEN_SECTIONS_HEADER_TEMPLATE)
+
+RTOSFLCNSCRIPT_ARGS := --lwroot $(LW_SOURCE)
+RTOSFLCNSCRIPT_ARGS += --perl $(PERL)
+RTOSFLCNSCRIPT_ARGS += --profile $(SOECFG_PROFILE)
+RTOSFLCNSCRIPT_ARGS += --arch riscv
+
+LDGEN_ARGS     += $(RTOSFLCNSCRIPT_ARGS)
+ifeq ($(ELF_IN_PLACE), true)
+  LDGEN_ARGS   += --elf-in-place
+endif
+LDGEN_ARGS     += --template $(LDGEN_TEMPLATE)
+LDGEN_ARGS     += --outfile $(LDSCRIPT)
+
+$(LDSCRIPT): $(LDGEN_DEPS) $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(PERL) $(LDGEN_INCLUDES) $(LDGEN_SCRIPT) $(LDGEN_ARGS)
+
+SECTIONSRCGEN_SCRIPT    = $(BUILD_SCRIPTS)/rtos-flcn-script.pl --gen-sections-source
+SECTIONSRCGEN_ARGS     += $(RTOSFLCNSCRIPT_ARGS)
+SECTIONSRCGEN_ARGS     += --outfile $(GEN_SECTIONS_SOURCE)
+
+# Rule to generate the sections data
+$(GEN_SECTIONS_SOURCE): $(LDGEN_DEPS) $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(PERL) $(LDGEN_INCLUDES) $(SECTIONSRCGEN_SCRIPT) $(SECTIONSRCGEN_ARGS)
+
+SECTIONHDRGEN_SCRIPT    = $(BUILD_SCRIPTS)/rtos-flcn-script.pl --gen-sections-header
+SECTIONHDRGEN_ARGS     += $(RTOSFLCNSCRIPT_ARGS)
+SECTIONHDRGEN_ARGS     += --template $(GEN_SECTIONS_HEADER_TEMPLATE)
+SECTIONHDRGEN_ARGS     += --outfile $(GEN_SECTIONS_HEADER)
+
+# Rule to generate the sections header
+$(GEN_SECTIONS_HEADER): $(LDGEN_DEPS) $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(PERL) $(LDGEN_INCLUDES) $(SECTIONHDRGEN_SCRIPT) $(SECTIONHDRGEN_ARGS)

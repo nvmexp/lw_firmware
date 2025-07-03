@@ -1,0 +1,2385 @@
+
+/home/scratch.jerzhou_sw/p4/jerzhou_scratch_sw0/sw/lwriscv/release/lwriscv-sdk-3.1_dev/_out.8ymEA/lwdec1-fw-gh100/boot-plugin/g_rv_boot_plugin_lwdec_gh100.elf:     file format elf64-littleriscv
+
+
+Disassembly of section .rv_boot_plugin_overwritable_code:
+
+000000000010a000 <rv_brom_entry>:
+  10a000:	00000297          	auipc	t0,0x0
+  10a004:	00e28293          	addi	t0,t0,14 # 10a00e <halt_core_label>
+  10a008:	30529073          	csrw	mtvec,t0
+  10a00c:	a019                	j	10a012 <normal_path_lable>
+
+000000000010a00e <halt_core_label>:
+  10a00e:	7d805073          	csrwi	0x7d8,0
+
+000000000010a012 <normal_path_lable>:
+  10a012:	014062b7          	lui	t0,0x1406
+  10a016:	c002829b          	addiw	t0,t0,-1024
+  10a01a:	434d                	li	t1,19
+  10a01c:	0062a023          	sw	t1,0(t0) # 1406000 <__stack_end+0x127ca00>
+  10a020:	014042b7          	lui	t0,0x1404
+  10a024:	d002829b          	addiw	t0,t0,-768
+  10a028:	43a1                	li	t2,8
+  10a02a:	0002a303          	lw	t1,0(t0) # 1404000 <__stack_end+0x127aa00>
+  10a02e:	00737333          	and	t1,t1,t2
+  10a032:	00730963          	beq	t1,t2,10a044 <setup_error_trap_handler_label>
+  10a036:	014da2b7          	lui	t0,0x14da
+  10a03a:	8002829b          	addiw	t0,t0,-2048
+  10a03e:	4305                	li	t1,1
+  10a040:	0062a023          	sw	t1,0(t0) # 14da000 <__stack_end+0x1350a00>
+
+000000000010a044 <setup_error_trap_handler_label>:
+  10a044:	00002297          	auipc	t0,0x2
+  10a048:	c3428293          	addi	t0,t0,-972 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10a04c:	30529073          	csrw	mtvec,t0
+  10a050:	4081                	li	ra,0
+  10a052:	4101                	li	sp,0
+  10a054:	4181                	li	gp,0
+  10a056:	4201                	li	tp,0
+  10a058:	4281                	li	t0,0
+  10a05a:	4301                	li	t1,0
+  10a05c:	4381                	li	t2,0
+  10a05e:	4401                	li	s0,0
+  10a060:	4481                	li	s1,0
+  10a062:	4501                	li	a0,0
+  10a064:	4581                	li	a1,0
+  10a066:	4601                	li	a2,0
+  10a068:	4681                	li	a3,0
+  10a06a:	4701                	li	a4,0
+  10a06c:	4781                	li	a5,0
+  10a06e:	4801                	li	a6,0
+  10a070:	4881                	li	a7,0
+  10a072:	4901                	li	s2,0
+  10a074:	4981                	li	s3,0
+  10a076:	4a01                	li	s4,0
+  10a078:	4a81                	li	s5,0
+  10a07a:	4b01                	li	s6,0
+  10a07c:	4b81                	li	s7,0
+  10a07e:	4c01                	li	s8,0
+  10a080:	4c81                	li	s9,0
+  10a082:	4d01                	li	s10,0
+  10a084:	4d81                	li	s11,0
+  10a086:	4e01                	li	t3,0
+  10a088:	4e81                	li	t4,0
+  10a08a:	4f01                	li	t5,0
+  10a08c:	4f81                	li	t6,0
+  10a08e:	0007f117          	auipc	sp,0x7f
+  10a092:	57210113          	addi	sp,sp,1394 # 189600 <__stack_end>
+  10a096:	7dd3d073          	csrwi	0x7dd,7
+  10a09a:	0007f517          	auipc	a0,0x7f
+  10a09e:	16650513          	addi	a0,a0,358 # 189200 <_DATA_OFFSET>
+  10a0a2:	0007f597          	auipc	a1,0x7f
+  10a0a6:	55e58593          	addi	a1,a1,1374 # 189600 <__stack_end>
+  10a0aa:	f6b572e3          	bgeu	a0,a1,10a00e <halt_core_label>
+  10a0ae:	00053023          	sd	zero,0(a0)
+  10a0b2:	00053423          	sd	zero,8(a0)
+  10a0b6:	00053823          	sd	zero,16(a0)
+  10a0ba:	00053c23          	sd	zero,24(a0)
+  10a0be:	02053023          	sd	zero,32(a0)
+  10a0c2:	02053423          	sd	zero,40(a0)
+  10a0c6:	02053823          	sd	zero,48(a0)
+  10a0ca:	02053c23          	sd	zero,56(a0)
+  10a0ce:	04050513          	addi	a0,a0,64
+  10a0d2:	0001                	nop
+  10a0d4:	0001                	nop
+  10a0d6:	fcb56ce3          	bltu	a0,a1,10a0ae <setup_error_trap_handler_label+0x6a>
+  10a0da:	4501                	li	a0,0
+  10a0dc:	4581                	li	a1,0
+  10a0de:	5730106f          	j	10be50 <_ada_rv_boot_plugin>
+	...
+
+000000000010a0e4 <rv_boot_plugin_selwre_boot__init_device_phase>:
+  10a0e4:	3ff00793          	li	a5,1023
+  10a0e8:	0af51f63          	bne	a0,a5,10a1a6 <rv_boot_plugin_selwre_boot__init_device_phase+0xc2>
+  10a0ec:	014d9637          	lui	a2,0x14d9
+  10a0f0:	70062703          	lw	a4,1792(a2) # 14d9700 <__stack_end+0x1350100>
+  10a0f4:	000406b7          	lui	a3,0x40
+  10a0f8:	f0068593          	addi	a1,a3,-256 # 3ff00 <_IMEM_SIZE+0x33f00>
+  10a0fc:	0007079b          	sext.w	a5,a4
+  10a100:	8fed                	and	a5,a5,a1
+  10a102:	0127571b          	srliw	a4,a4,0x12
+  10a106:	06b79863          	bne	a5,a1,10a176 <rv_boot_plugin_selwre_boot__init_device_phase+0x92>
+  10a10a:	f0568793          	addi	a5,a3,-251
+  10a10e:	0127171b          	slliw	a4,a4,0x12
+  10a112:	8f5d                	or	a4,a4,a5
+  10a114:	2701                	sext.w	a4,a4
+  10a116:	70e62023          	sw	a4,1792(a2)
+  10a11a:	4581                	li	a1,0
+  10a11c:	01404337          	lui	t1,0x1404
+  10a120:	5e7d                	li	t3,-1
+  10a122:	014d98b7          	lui	a7,0x14d9
+  10a126:	16fd                	addi	a3,a3,-1
+  10a128:	fffc0eb7          	lui	t4,0xfffc0
+  10a12c:	60032783          	lw	a5,1536(t1) # 1404600 <__stack_end+0x127b000>
+  10a130:	8b89                	andi	a5,a5,2
+  10a132:	ebcd                	bnez	a5,10a1e4 <rv_boot_plugin_selwre_boot__init_device_phase+0x100>
+  10a134:	0bc59663          	bne	a1,t3,10a1e0 <rv_boot_plugin_selwre_boot__init_device_phase+0xfc>
+  10a138:	7008a783          	lw	a5,1792(a7) # 14d9700 <__stack_end+0x1350100>
+  10a13c:	01d87833          	and	a6,a6,t4
+  10a140:	0087d61b          	srliw	a2,a5,0x8
+  10a144:	0127d71b          	srliw	a4,a5,0x12
+  10a148:	3ff67613          	andi	a2,a2,1023
+  10a14c:	0fc7f793          	andi	a5,a5,252
+  10a150:	0017e793          	ori	a5,a5,1
+  10a154:	0086161b          	slliw	a2,a2,0x8
+  10a158:	8fd1                	or	a5,a5,a2
+  10a15a:	8ff5                	and	a5,a5,a3
+  10a15c:	0107e7b3          	or	a5,a5,a6
+  10a160:	00476713          	ori	a4,a4,4
+  10a164:	0127171b          	slliw	a4,a4,0x12
+  10a168:	8ff5                	and	a5,a5,a3
+  10a16a:	8fd9                	or	a5,a5,a4
+  10a16c:	883e                	mv	a6,a5
+  10a16e:	2781                	sext.w	a5,a5
+  10a170:	70f8a023          	sw	a5,1792(a7)
+  10a174:	bf65                	j	10a12c <rv_boot_plugin_selwre_boot__init_device_phase+0x48>
+  10a176:	00002797          	auipc	a5,0x2
+  10a17a:	b0278793          	addi	a5,a5,-1278 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10a17e:	30579073          	csrw	mtvec,a5
+  10a182:	70062783          	lw	a5,1792(a2)
+  10a186:	6751                	lui	a4,0x14
+  10a188:	20670713          	addi	a4,a4,518 # 14206 <_IMEM_SIZE+0x8206>
+  10a18c:	0127d79b          	srliw	a5,a5,0x12
+  10a190:	0127979b          	slliw	a5,a5,0x12
+  10a194:	8fd9                	or	a5,a5,a4
+  10a196:	2781                	sext.w	a5,a5
+  10a198:	70f62023          	sw	a5,1792(a2)
+  10a19c:	00000073          	ecall
+  10a1a0:	7d805073          	csrwi	0x7d8,0
+  10a1a4:	bff5                	j	10a1a0 <rv_boot_plugin_selwre_boot__init_device_phase+0xbc>
+  10a1a6:	00002797          	auipc	a5,0x2
+  10a1aa:	ad278793          	addi	a5,a5,-1326 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10a1ae:	30579073          	csrw	mtvec,a5
+  10a1b2:	014d96b7          	lui	a3,0x14d9
+  10a1b6:	7006a703          	lw	a4,1792(a3) # 14d9700 <__stack_end+0x1350100>
+  10a1ba:	3ff57793          	andi	a5,a0,1023
+  10a1be:	0087979b          	slliw	a5,a5,0x8
+  10a1c2:	0127571b          	srliw	a4,a4,0x12
+  10a1c6:	0127171b          	slliw	a4,a4,0x12
+  10a1ca:	0067e793          	ori	a5,a5,6
+  10a1ce:	8fd9                	or	a5,a5,a4
+  10a1d0:	2781                	sext.w	a5,a5
+  10a1d2:	70f6a023          	sw	a5,1792(a3)
+  10a1d6:	00000073          	ecall
+  10a1da:	7d805073          	csrwi	0x7d8,0
+  10a1de:	bff5                	j	10a1da <rv_boot_plugin_selwre_boot__init_device_phase+0xf6>
+  10a1e0:	2585                	addiw	a1,a1,1
+  10a1e2:	b7a9                	j	10a12c <rv_boot_plugin_selwre_boot__init_device_phase+0x48>
+  10a1e4:	0140c737          	lui	a4,0x140c
+  10a1e8:	80072783          	lw	a5,-2048(a4) # 140b800 <__stack_end+0x1282200>
+  10a1ec:	8b91                	andi	a5,a5,4
+  10a1ee:	cbc9                	beqz	a5,10a280 <rv_boot_plugin_selwre_boot__init_device_phase+0x19c>
+  10a1f0:	4791                	li	a5,4
+  10a1f2:	80f72023          	sw	a5,-2048(a4)
+  10a1f6:	02100513          	li	a0,33
+  10a1fa:	02100793          	li	a5,33
+  10a1fe:	0001                	nop
+  10a200:	0001                	nop
+  10a202:	0001                	nop
+  10a204:	0001                	nop
+  10a206:	0001                	nop
+  10a208:	0001                	nop
+  10a20a:	0001                	nop
+  10a20c:	0001                	nop
+  10a20e:	0001                	nop
+  10a210:	0001                	nop
+  10a212:	0001                	nop
+  10a214:	0001                	nop
+  10a216:	0001                	nop
+  10a218:	0001                	nop
+  10a21a:	0001                	nop
+  10a21c:	0001                	nop
+  10a21e:	0001                	nop
+  10a220:	0001                	nop
+  10a222:	0001                	nop
+  10a224:	0001                	nop
+  10a226:	0001                	nop
+  10a228:	0001                	nop
+  10a22a:	0001                	nop
+  10a22c:	0001                	nop
+  10a22e:	0001                	nop
+  10a230:	0001                	nop
+  10a232:	0001                	nop
+  10a234:	0001                	nop
+  10a236:	0001                	nop
+  10a238:	0001                	nop
+  10a23a:	0001                	nop
+  10a23c:	0001                	nop
+  10a23e:	3ff00693          	li	a3,1023
+  10a242:	0007871b          	sext.w	a4,a5
+  10a246:	10d70463          	beq	a4,a3,10a34e <rv_boot_plugin_selwre_boot__init_device_phase+0x26a>
+  10a24a:	00002717          	auipc	a4,0x2
+  10a24e:	a2e70713          	addi	a4,a4,-1490 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10a252:	30571073          	csrw	mtvec,a4
+  10a256:	014d96b7          	lui	a3,0x14d9
+  10a25a:	7006a703          	lw	a4,1792(a3) # 14d9700 <__stack_end+0x1350100>
+  10a25e:	0087979b          	slliw	a5,a5,0x8
+  10a262:	0067e793          	ori	a5,a5,6
+  10a266:	0127571b          	srliw	a4,a4,0x12
+  10a26a:	0127171b          	slliw	a4,a4,0x12
+  10a26e:	8fd9                	or	a5,a5,a4
+  10a270:	2781                	sext.w	a5,a5
+  10a272:	70f6a023          	sw	a5,1792(a3)
+  10a276:	00000073          	ecall
+  10a27a:	7d805073          	csrwi	0x7d8,0
+  10a27e:	bff5                	j	10a27a <rv_boot_plugin_selwre_boot__init_device_phase+0x196>
+  10a280:	014007b7          	lui	a5,0x1400
+  10a284:	2007a783          	lw	a5,512(a5) # 1400200 <__stack_end+0x1276c00>
+  10a288:	02d79693          	slli	a3,a5,0x2d
+  10a28c:	0007871b          	sext.w	a4,a5
+  10a290:	0006d463          	bgez	a3,10a298 <rv_boot_plugin_selwre_boot__init_device_phase+0x1b4>
+  10a294:	14200513          	li	a0,322
+  10a298:	02871793          	slli	a5,a4,0x28
+  10a29c:	0007d763          	bgez	a5,10a2aa <rv_boot_plugin_selwre_boot__init_device_phase+0x1c6>
+  10a2a0:	14100513          	li	a0,321
+  10a2a4:	14100793          	li	a5,321
+  10a2a8:	bf99                	j	10a1fe <rv_boot_plugin_selwre_boot__init_device_phase+0x11a>
+  10a2aa:	3ff00713          	li	a4,1023
+  10a2ae:	87aa                	mv	a5,a0
+  10a2b0:	f4e517e3          	bne	a0,a4,10a1fe <rv_boot_plugin_selwre_boot__init_device_phase+0x11a>
+  10a2b4:	014047b7          	lui	a5,0x1404
+  10a2b8:	3007a023          	sw	zero,768(a5) # 1404300 <__stack_end+0x127ad00>
+  10a2bc:	014f97b7          	lui	a5,0x14f9
+  10a2c0:	d007a023          	sw	zero,-768(a5) # 14f8d00 <__stack_end+0x136f700>
+  10a2c4:	f007a023          	sw	zero,-256(a5)
+  10a2c8:	06400713          	li	a4,100
+  10a2cc:	b0e7a023          	sw	a4,-1280(a5)
+  10a2d0:	09000713          	li	a4,144
+  10a2d4:	90e7a023          	sw	a4,-1792(a5)
+  10a2d8:	014da737          	lui	a4,0x14da
+  10a2dc:	a0072783          	lw	a5,-1536(a4) # 14d9a00 <__stack_end+0x1350400>
+  10a2e0:	1007f793          	andi	a5,a5,256
+  10a2e4:	eb85                	bnez	a5,10a314 <rv_boot_plugin_selwre_boot__init_device_phase+0x230>
+  10a2e6:	a0072783          	lw	a5,-1536(a4)
+  10a2ea:	1007f793          	andi	a5,a5,256
+  10a2ee:	efa9                	bnez	a5,10a348 <rv_boot_plugin_selwre_boot__init_device_phase+0x264>
+  10a2f0:	014007b7          	lui	a5,0x1400
+  10a2f4:	2007a703          	lw	a4,512(a5) # 1400200 <__stack_end+0x1276c00>
+  10a2f8:	87aa                	mv	a5,a0
+  10a2fa:	02d71613          	slli	a2,a4,0x2d
+  10a2fe:	0007069b          	sext.w	a3,a4
+  10a302:	00065463          	bgez	a2,10a30a <rv_boot_plugin_selwre_boot__init_device_phase+0x226>
+  10a306:	14200793          	li	a5,322
+  10a30a:	02869713          	slli	a4,a3,0x28
+  10a30e:	ee0758e3          	bgez	a4,10a1fe <rv_boot_plugin_selwre_boot__init_device_phase+0x11a>
+  10a312:	bf49                	j	10a2a4 <rv_boot_plugin_selwre_boot__init_device_phase+0x1c0>
+  10a314:	b0072783          	lw	a5,-1280(a4)
+  10a318:	50072703          	lw	a4,1280(a4)
+  10a31c:	0007869b          	sext.w	a3,a5
+  10a320:	8b0d                	andi	a4,a4,3
+  10a322:	8b8d                	andi	a5,a5,3
+  10a324:	0006dd63          	bgez	a3,10a33e <rv_boot_plugin_selwre_boot__init_device_phase+0x25a>
+  10a328:	2701                	sext.w	a4,a4
+  10a32a:	014fa6b7          	lui	a3,0x14fa
+  10a32e:	b0e6a023          	sw	a4,-1280(a3) # 14f9b00 <__stack_end+0x1370500>
+  10a332:	1147e793          	ori	a5,a5,276
+  10a336:	014f8737          	lui	a4,0x14f8
+  10a33a:	c31c                	sw	a5,0(a4)
+  10a33c:	bf55                	j	10a2f0 <rv_boot_plugin_selwre_boot__init_device_phase+0x20c>
+  10a33e:	02200513          	li	a0,34
+  10a342:	02200793          	li	a5,34
+  10a346:	bd65                	j	10a1fe <rv_boot_plugin_selwre_boot__init_device_phase+0x11a>
+  10a348:	7d805073          	csrwi	0x7d8,0
+  10a34c:	bff5                	j	10a348 <rv_boot_plugin_selwre_boot__init_device_phase+0x264>
+  10a34e:	8082                	ret
+
+000000000010a350 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase>:
+  10a350:	3ff00793          	li	a5,1023
+  10a354:	14f51c63          	bne	a0,a5,10a4ac <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x15c>
+  10a358:	014d9737          	lui	a4,0x14d9
+  10a35c:	70072783          	lw	a5,1792(a4) # 14d9700 <__stack_end+0x1350100>
+  10a360:	000406b7          	lui	a3,0x40
+  10a364:	f0068593          	addi	a1,a3,-256 # 3ff00 <_IMEM_SIZE+0x33f00>
+  10a368:	0007861b          	sext.w	a2,a5
+  10a36c:	8e6d                	and	a2,a2,a1
+  10a36e:	0127d79b          	srliw	a5,a5,0x12
+  10a372:	10b61563          	bne	a2,a1,10a47c <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x12c>
+  10a376:	0127979b          	slliw	a5,a5,0x12
+  10a37a:	f0968693          	addi	a3,a3,-247
+  10a37e:	715d                	addi	sp,sp,-80
+  10a380:	8fd5                	or	a5,a5,a3
+  10a382:	e4a2                	sd	s0,72(sp)
+  10a384:	e0a6                	sd	s1,64(sp)
+  10a386:	fc4a                	sd	s2,56(sp)
+  10a388:	f84e                	sd	s3,48(sp)
+  10a38a:	f452                	sd	s4,40(sp)
+  10a38c:	f056                	sd	s5,32(sp)
+  10a38e:	ec5a                	sd	s6,24(sp)
+  10a390:	e85e                	sd	s7,16(sp)
+  10a392:	e462                	sd	s8,8(sp)
+  10a394:	e066                	sd	s9,0(sp)
+  10a396:	2781                	sext.w	a5,a5
+  10a398:	70f72023          	sw	a5,1792(a4)
+  10a39c:	014da737          	lui	a4,0x14da
+  10a3a0:	a0072783          	lw	a5,-1536(a4) # 14d9a00 <__stack_end+0x1350400>
+  10a3a4:	1007f793          	andi	a5,a5,256
+  10a3a8:	12078f63          	beqz	a5,10a4e6 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x196>
+  10a3ac:	a0072683          	lw	a3,-1536(a4)
+  10a3b0:	b0072783          	lw	a5,-1280(a4)
+  10a3b4:	1006f693          	andi	a3,a3,256
+  10a3b8:	2781                	sext.w	a5,a5
+  10a3ba:	14069e63          	bnez	a3,10a516 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x1c6>
+  10a3be:	014da737          	lui	a4,0x14da
+  10a3c2:	c0072783          	lw	a5,-1024(a4) # 14d9c00 <__stack_end+0x1350600>
+  10a3c6:	d0072703          	lw	a4,-768(a4)
+  10a3ca:	1782                	slli	a5,a5,0x20
+  10a3cc:	0ff77713          	andi	a4,a4,255
+  10a3d0:	1722                	slli	a4,a4,0x28
+  10a3d2:	83e1                	srli	a5,a5,0x18
+  10a3d4:	8fd9                	or	a5,a5,a4
+  10a3d6:	567d                	li	a2,-1
+  10a3d8:	8245                	srli	a2,a2,0x11
+  10a3da:	40f606b3          	sub	a3,a2,a5
+  10a3de:	6705                	lui	a4,0x1
+  10a3e0:	8ef1                	and	a3,a3,a2
+  10a3e2:	9fe70713          	addi	a4,a4,-1538 # 9fe <_DATA_SIZE_LIMIT+0x5fe>
+  10a3e6:	2ed77c63          	bgeu	a4,a3,10a6de <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x38e>
+  10a3ea:	66a5                	lui	a3,0x9
+  10a3ec:	00040337          	lui	t1,0x40
+  10a3f0:	00020eb7          	lui	t4,0x20
+  10a3f4:	010008b7          	lui	a7,0x1000
+  10a3f8:	f0ee9f37          	lui	t5,0xf0ee9
+  10a3fc:	60068693          	addi	a3,a3,1536 # 9600 <_TEXT_SIZE_LIMIT+0x7600>
+  10a400:	01404837          	lui	a6,0x1404
+  10a404:	5b7d                	li	s6,-1
+  10a406:	014d92b7          	lui	t0,0x14d9
+  10a40a:	137d                	addi	t1,t1,-1
+  10a40c:	fffc0bb7          	lui	s7,0xfffc0
+  10a410:	1efd                	addi	t4,t4,-1
+  10a412:	7901                	lui	s2,0xfffe0
+  10a414:	014059b7          	lui	s3,0x1405
+  10a418:	18fd                	addi	a7,a7,-1
+  10a41a:	ff000a37          	lui	s4,0xff000
+  10a41e:	880f0f13          	addi	t5,t5,-1920 # fffffffff0ee8880 <__stack_end+0xfffffffff0d5f280>
+  10a422:	6aa9                	lui	s5,0xa
+  10a424:	4f81                	li	t6,0
+  10a426:	60082583          	lw	a1,1536(a6) # 1404600 <__stack_end+0x127b000>
+  10a42a:	60080c93          	addi	s9,a6,1536
+  10a42e:	8985                	andi	a1,a1,1
+  10a430:	10058a63          	beqz	a1,10a544 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x1f4>
+  10a434:	116f9663          	bne	t6,s6,10a540 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x1f0>
+  10a438:	7002a703          	lw	a4,1792(t0) # 14d9700 <__stack_end+0x1350100>
+  10a43c:	017c7c33          	and	s8,s8,s7
+  10a440:	00875c9b          	srliw	s9,a4,0x8
+  10a444:	0127559b          	srliw	a1,a4,0x12
+  10a448:	3ffcfc93          	andi	s9,s9,1023
+  10a44c:	0fc77713          	andi	a4,a4,252
+  10a450:	00176713          	ori	a4,a4,1
+  10a454:	008c9c9b          	slliw	s9,s9,0x8
+  10a458:	01976733          	or	a4,a4,s9
+  10a45c:	00677733          	and	a4,a4,t1
+  10a460:	01876733          	or	a4,a4,s8
+  10a464:	0045e593          	ori	a1,a1,4
+  10a468:	0125959b          	slliw	a1,a1,0x12
+  10a46c:	00677733          	and	a4,a4,t1
+  10a470:	8f4d                	or	a4,a4,a1
+  10a472:	8c3a                	mv	s8,a4
+  10a474:	2701                	sext.w	a4,a4
+  10a476:	70e2a023          	sw	a4,1792(t0)
+  10a47a:	b775                	j	10a426 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0xd6>
+  10a47c:	00001797          	auipc	a5,0x1
+  10a480:	7fc78793          	addi	a5,a5,2044 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10a484:	30579073          	csrw	mtvec,a5
+  10a488:	70072783          	lw	a5,1792(a4)
+  10a48c:	66d1                	lui	a3,0x14
+  10a48e:	20a68693          	addi	a3,a3,522 # 1420a <_IMEM_SIZE+0x820a>
+  10a492:	0127d79b          	srliw	a5,a5,0x12
+  10a496:	0127979b          	slliw	a5,a5,0x12
+  10a49a:	8fd5                	or	a5,a5,a3
+  10a49c:	2781                	sext.w	a5,a5
+  10a49e:	70f72023          	sw	a5,1792(a4)
+  10a4a2:	00000073          	ecall
+  10a4a6:	7d805073          	csrwi	0x7d8,0
+  10a4aa:	bff5                	j	10a4a6 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x156>
+  10a4ac:	00001797          	auipc	a5,0x1
+  10a4b0:	7cc78793          	addi	a5,a5,1996 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10a4b4:	30579073          	csrw	mtvec,a5
+  10a4b8:	014d96b7          	lui	a3,0x14d9
+  10a4bc:	7006a703          	lw	a4,1792(a3) # 14d9700 <__stack_end+0x1350100>
+  10a4c0:	3ff57793          	andi	a5,a0,1023
+  10a4c4:	0087979b          	slliw	a5,a5,0x8
+  10a4c8:	0127571b          	srliw	a4,a4,0x12
+  10a4cc:	0127151b          	slliw	a0,a4,0x12
+  10a4d0:	00a7e793          	ori	a5,a5,10
+  10a4d4:	8fc9                	or	a5,a5,a0
+  10a4d6:	2781                	sext.w	a5,a5
+  10a4d8:	70f6a023          	sw	a5,1792(a3)
+  10a4dc:	00000073          	ecall
+  10a4e0:	7d805073          	csrwi	0x7d8,0
+  10a4e4:	bff5                	j	10a4e0 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x190>
+  10a4e6:	a0072783          	lw	a5,-1536(a4)
+  10a4ea:	1007f793          	andi	a5,a5,256
+  10a4ee:	1e079563          	bnez	a5,10a6d8 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x388>
+  10a4f2:	014007b7          	lui	a5,0x1400
+  10a4f6:	2007a703          	lw	a4,512(a5) # 1400200 <__stack_end+0x1276c00>
+  10a4fa:	87aa                	mv	a5,a0
+  10a4fc:	02d71613          	slli	a2,a4,0x2d
+  10a500:	0007069b          	sext.w	a3,a4
+  10a504:	00065463          	bgez	a2,10a50c <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x1bc>
+  10a508:	14200793          	li	a5,322
+  10a50c:	02869713          	slli	a4,a3,0x28
+  10a510:	10075963          	bgez	a4,10a622 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x2d2>
+  10a514:	aa4d                	j	10a6c6 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x376>
+  10a516:	02379693          	slli	a3,a5,0x23
+  10a51a:	ea06d2e3          	bgez	a3,10a3be <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x6e>
+  10a51e:	60072683          	lw	a3,1536(a4)
+  10a522:	70072783          	lw	a5,1792(a4)
+  10a526:	02069713          	slli	a4,a3,0x20
+  10a52a:	0ff7f793          	andi	a5,a5,255
+  10a52e:	8361                	srli	a4,a4,0x18
+  10a530:	17a2                	slli	a5,a5,0x28
+  10a532:	8fd9                	or	a5,a5,a4
+  10a534:	577d                	li	a4,-1
+  10a536:	40078793          	addi	a5,a5,1024
+  10a53a:	8345                	srli	a4,a4,0x11
+  10a53c:	8ff9                	and	a5,a5,a4
+  10a53e:	bd61                	j	10a3d6 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x86>
+  10a540:	2f85                	addiw	t6,t6,1
+  10a542:	b5d5                	j	10a426 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0xd6>
+  10a544:	0287d713          	srli	a4,a5,0x28
+  10a548:	0123f3b3          	and	t2,t2,s2
+  10a54c:	01d77733          	and	a4,a4,t4
+  10a550:	00e3e733          	or	a4,t2,a4
+  10a554:	0087df93          	srli	t6,a5,0x8
+  10a558:	83ba                	mv	t2,a4
+  10a55a:	2701                	sext.w	a4,a4
+  10a55c:	a0e9a023          	sw	a4,-1536(s3) # 1404a00 <__stack_end+0x127b400>
+  10a560:	2f81                	sext.w	t6,t6
+  10a562:	41f82023          	sw	t6,1024(a6)
+  10a566:	0ff7f713          	andi	a4,a5,255
+  10a56a:	70e82023          	sw	a4,1792(a6)
+  10a56e:	01447433          	and	s0,s0,s4
+  10a572:	0116f733          	and	a4,a3,a7
+  10a576:	8f41                	or	a4,a4,s0
+  10a578:	01e4f4b3          	and	s1,s1,t5
+  10a57c:	843a                	mv	s0,a4
+  10a57e:	2701                	sext.w	a4,a4
+  10a580:	50e82023          	sw	a4,1280(a6)
+  10a584:	1006869b          	addiw	a3,a3,256
+  10a588:	6004e713          	ori	a4,s1,1536
+  10a58c:	84ba                	mv	s1,a4
+  10a58e:	0116f6b3          	and	a3,a3,a7
+  10a592:	2701                	sext.w	a4,a4
+  10a594:	00eca023          	sw	a4,0(s9)
+  10a598:	2681                	sext.w	a3,a3
+  10a59a:	07569163          	bne	a3,s5,10a5fc <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x2ac>
+  10a59e:	00040637          	lui	a2,0x40
+  10a5a2:	014048b7          	lui	a7,0x1404
+  10a5a6:	537d                	li	t1,-1
+  10a5a8:	014d9837          	lui	a6,0x14d9
+  10a5ac:	167d                	addi	a2,a2,-1
+  10a5ae:	fffc0eb7          	lui	t4,0xfffc0
+  10a5b2:	6008a783          	lw	a5,1536(a7) # 1404600 <__stack_end+0x127b000>
+  10a5b6:	8b89                	andi	a5,a5,2
+  10a5b8:	eba1                	bnez	a5,10a608 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x2b8>
+  10a5ba:	04659563          	bne	a1,t1,10a604 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x2b4>
+  10a5be:	70082783          	lw	a5,1792(a6) # 14d9700 <__stack_end+0x1350100>
+  10a5c2:	01de7e33          	and	t3,t3,t4
+  10a5c6:	0087d69b          	srliw	a3,a5,0x8
+  10a5ca:	0127d71b          	srliw	a4,a5,0x12
+  10a5ce:	3ff6f693          	andi	a3,a3,1023
+  10a5d2:	0fc7f793          	andi	a5,a5,252
+  10a5d6:	0017e793          	ori	a5,a5,1
+  10a5da:	0086969b          	slliw	a3,a3,0x8
+  10a5de:	8fd5                	or	a5,a5,a3
+  10a5e0:	8ff1                	and	a5,a5,a2
+  10a5e2:	01c7e7b3          	or	a5,a5,t3
+  10a5e6:	00476713          	ori	a4,a4,4
+  10a5ea:	0127171b          	slliw	a4,a4,0x12
+  10a5ee:	8ff1                	and	a5,a5,a2
+  10a5f0:	8fd9                	or	a5,a5,a4
+  10a5f2:	8e3e                	mv	t3,a5
+  10a5f4:	2781                	sext.w	a5,a5
+  10a5f6:	70f82023          	sw	a5,1792(a6)
+  10a5fa:	bf65                	j	10a5b2 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x262>
+  10a5fc:	10078793          	addi	a5,a5,256
+  10a600:	8ff1                	and	a5,a5,a2
+  10a602:	b50d                	j	10a424 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0xd4>
+  10a604:	2585                	addiw	a1,a1,1
+  10a606:	b775                	j	10a5b2 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x262>
+  10a608:	0140c737          	lui	a4,0x140c
+  10a60c:	80072783          	lw	a5,-2048(a4) # 140b800 <__stack_end+0x1282200>
+  10a610:	8b91                	andi	a5,a5,4
+  10a612:	c7d9                	beqz	a5,10a6a0 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x350>
+  10a614:	4791                	li	a5,4
+  10a616:	80f72023          	sw	a5,-2048(a4)
+  10a61a:	02100513          	li	a0,33
+  10a61e:	02100793          	li	a5,33
+  10a622:	0001                	nop
+  10a624:	0001                	nop
+  10a626:	0001                	nop
+  10a628:	0001                	nop
+  10a62a:	0001                	nop
+  10a62c:	0001                	nop
+  10a62e:	0001                	nop
+  10a630:	0001                	nop
+  10a632:	0001                	nop
+  10a634:	0001                	nop
+  10a636:	0001                	nop
+  10a638:	0001                	nop
+  10a63a:	0001                	nop
+  10a63c:	0001                	nop
+  10a63e:	0001                	nop
+  10a640:	0001                	nop
+  10a642:	0001                	nop
+  10a644:	0001                	nop
+  10a646:	0001                	nop
+  10a648:	0001                	nop
+  10a64a:	0001                	nop
+  10a64c:	0001                	nop
+  10a64e:	0001                	nop
+  10a650:	0001                	nop
+  10a652:	0001                	nop
+  10a654:	0001                	nop
+  10a656:	0001                	nop
+  10a658:	0001                	nop
+  10a65a:	0001                	nop
+  10a65c:	0001                	nop
+  10a65e:	0001                	nop
+  10a660:	0001                	nop
+  10a662:	3ff00713          	li	a4,1023
+  10a666:	08e78163          	beq	a5,a4,10a6e8 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x398>
+  10a66a:	00001717          	auipc	a4,0x1
+  10a66e:	60e70713          	addi	a4,a4,1550 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10a672:	30571073          	csrw	mtvec,a4
+  10a676:	014d96b7          	lui	a3,0x14d9
+  10a67a:	7006a703          	lw	a4,1792(a3) # 14d9700 <__stack_end+0x1350100>
+  10a67e:	0087979b          	slliw	a5,a5,0x8
+  10a682:	00a7e793          	ori	a5,a5,10
+  10a686:	0127571b          	srliw	a4,a4,0x12
+  10a68a:	0127171b          	slliw	a4,a4,0x12
+  10a68e:	8fd9                	or	a5,a5,a4
+  10a690:	2781                	sext.w	a5,a5
+  10a692:	70f6a023          	sw	a5,1792(a3)
+  10a696:	00000073          	ecall
+  10a69a:	7d805073          	csrwi	0x7d8,0
+  10a69e:	bff5                	j	10a69a <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x34a>
+  10a6a0:	014007b7          	lui	a5,0x1400
+  10a6a4:	2007a703          	lw	a4,512(a5) # 1400200 <__stack_end+0x1276c00>
+  10a6a8:	87aa                	mv	a5,a0
+  10a6aa:	02d71613          	slli	a2,a4,0x2d
+  10a6ae:	0007069b          	sext.w	a3,a4
+  10a6b2:	00065463          	bgez	a2,10a6ba <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x36a>
+  10a6b6:	14200793          	li	a5,322
+  10a6ba:	02869713          	slli	a4,a3,0x28
+  10a6be:	00075763          	bgez	a4,10a6cc <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x37c>
+  10a6c2:	14100513          	li	a0,321
+  10a6c6:	14100793          	li	a5,321
+  10a6ca:	bfa1                	j	10a622 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x2d2>
+  10a6cc:	3ff00713          	li	a4,1023
+  10a6d0:	e2e781e3          	beq	a5,a4,10a4f2 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x1a2>
+  10a6d4:	853e                	mv	a0,a5
+  10a6d6:	b7b1                	j	10a622 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x2d2>
+  10a6d8:	7d805073          	csrwi	0x7d8,0
+  10a6dc:	bff5                	j	10a6d8 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x388>
+  10a6de:	02000513          	li	a0,32
+  10a6e2:	02000793          	li	a5,32
+  10a6e6:	bf35                	j	10a622 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase+0x2d2>
+  10a6e8:	6426                	ld	s0,72(sp)
+  10a6ea:	6486                	ld	s1,64(sp)
+  10a6ec:	7962                	ld	s2,56(sp)
+  10a6ee:	79c2                	ld	s3,48(sp)
+  10a6f0:	7a22                	ld	s4,40(sp)
+  10a6f2:	7a82                	ld	s5,32(sp)
+  10a6f4:	6b62                	ld	s6,24(sp)
+  10a6f6:	6bc2                	ld	s7,16(sp)
+  10a6f8:	6c22                	ld	s8,8(sp)
+  10a6fa:	6c82                	ld	s9,0(sp)
+  10a6fc:	6161                	addi	sp,sp,80
+  10a6fe:	8082                	ret
+
+000000000010a700 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase>:
+  10a700:	715d                	addi	sp,sp,-80
+  10a702:	e0a2                	sd	s0,64(sp)
+  10a704:	e486                	sd	ra,72(sp)
+  10a706:	fc26                	sd	s1,56(sp)
+  10a708:	f84a                	sd	s2,48(sp)
+  10a70a:	f44e                	sd	s3,40(sp)
+  10a70c:	f052                	sd	s4,32(sp)
+  10a70e:	ec56                	sd	s5,24(sp)
+  10a710:	e85a                	sd	s6,16(sp)
+  10a712:	e45e                	sd	s7,8(sp)
+  10a714:	3ff00793          	li	a5,1023
+  10a718:	842a                	mv	s0,a0
+  10a71a:	1cf51c63          	bne	a0,a5,10a8f2 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x1f2>
+  10a71e:	014d9737          	lui	a4,0x14d9
+  10a722:	70072783          	lw	a5,1792(a4) # 14d9700 <__stack_end+0x1350100>
+  10a726:	000406b7          	lui	a3,0x40
+  10a72a:	f0068593          	addi	a1,a3,-256 # 3ff00 <_IMEM_SIZE+0x33f00>
+  10a72e:	0007861b          	sext.w	a2,a5
+  10a732:	8e6d                	and	a2,a2,a1
+  10a734:	0127d79b          	srliw	a5,a5,0x12
+  10a738:	18b61563          	bne	a2,a1,10a8c2 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x1c2>
+  10a73c:	f2168693          	addi	a3,a3,-223
+  10a740:	0127979b          	slliw	a5,a5,0x12
+  10a744:	8fd5                	or	a5,a5,a3
+  10a746:	2781                	sext.w	a5,a5
+  10a748:	70f72023          	sw	a5,1792(a4)
+  10a74c:	001897b7          	lui	a5,0x189
+  10a750:	60078793          	addi	a5,a5,1536 # 189600 <__stack_end>
+  10a754:	3837c703          	lbu	a4,899(a5)
+  10a758:	0aa00693          	li	a3,170
+  10a75c:	1cd71863          	bne	a4,a3,10a92c <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x22c>
+  10a760:	4207c783          	lbu	a5,1056(a5)
+  10a764:	0aa00713          	li	a4,170
+  10a768:	00e78663          	beq	a5,a4,10a774 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x74>
+  10a76c:	05500713          	li	a4,85
+  10a770:	1ce79263          	bne	a5,a4,10a934 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x234>
+  10a774:	001897b7          	lui	a5,0x189
+  10a778:	60078793          	addi	a5,a5,1536 # 189600 <__stack_end>
+  10a77c:	4217c703          	lbu	a4,1057(a5)
+  10a780:	0aa00693          	li	a3,170
+  10a784:	00d70663          	beq	a4,a3,10a790 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x90>
+  10a788:	05500693          	li	a3,85
+  10a78c:	1ad71463          	bne	a4,a3,10a934 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x234>
+  10a790:	4257c783          	lbu	a5,1061(a5)
+  10a794:	0aa00713          	li	a4,170
+  10a798:	00e78663          	beq	a5,a4,10a7a4 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0xa4>
+  10a79c:	05500713          	li	a4,85
+  10a7a0:	18e79a63          	bne	a5,a4,10a934 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x234>
+  10a7a4:	014057b7          	lui	a5,0x1405
+  10a7a8:	f007a783          	lw	a5,-256(a5) # 1404f00 <__stack_end+0x127b900>
+  10a7ac:	0087d79b          	srliw	a5,a5,0x8
+  10a7b0:	0ff7f793          	andi	a5,a5,255
+  10a7b4:	22078c63          	beqz	a5,10a9ec <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x2ec>
+  10a7b8:	37fd                	addiw	a5,a5,-1
+  10a7ba:	0ff7f793          	andi	a5,a5,255
+  10a7be:	477d                	li	a4,31
+  10a7c0:	22f76663          	bltu	a4,a5,10a9ec <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x2ec>
+  10a7c4:	4705                	li	a4,1
+  10a7c6:	00f717bb          	sllw	a5,a4,a5
+  10a7ca:	00189737          	lui	a4,0x189
+  10a7ce:	60070713          	addi	a4,a4,1536 # 189600 <__stack_end>
+  10a7d2:	38472683          	lw	a3,900(a4)
+  10a7d6:	8ff5                	and	a5,a5,a3
+  10a7d8:	2781                	sext.w	a5,a5
+  10a7da:	20078963          	beqz	a5,10a9ec <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x2ec>
+  10a7de:	38875783          	lhu	a5,904(a4)
+  10a7e2:	0bf00613          	li	a2,191
+  10a7e6:	fff7869b          	addiw	a3,a5,-1
+  10a7ea:	16c2                	slli	a3,a3,0x30
+  10a7ec:	92c1                	srli	a3,a3,0x30
+  10a7ee:	20d66463          	bltu	a2,a3,10a9f6 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x2f6>
+  10a7f2:	fff01697          	auipc	a3,0xfff01
+  10a7f6:	80e68693          	addi	a3,a3,-2034 # b000 <_DMEM_SIZE+0x1000>
+  10a7fa:	07a2                	slli	a5,a5,0x8
+  10a7fc:	2681                	sext.w	a3,a3
+  10a7fe:	1ef6ec63          	bltu	a3,a5,10a9f6 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x2f6>
+  10a802:	38a75683          	lhu	a3,906(a4)
+  10a806:	08a00793          	li	a5,138
+  10a80a:	20d7e063          	bltu	a5,a3,10aa0a <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x30a>
+  10a80e:	38c72683          	lw	a3,908(a4)
+  10a812:	4785                	li	a5,1
+  10a814:	20d7e063          	bltu	a5,a3,10aa14 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x314>
+  10a818:	42274683          	lbu	a3,1058(a4)
+  10a81c:	47bd                	li	a5,15
+  10a81e:	1ed7e163          	bltu	a5,a3,10aa00 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x300>
+  10a822:	42374683          	lbu	a3,1059(a4)
+  10a826:	1cd7ed63          	bltu	a5,a3,10aa00 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x300>
+  10a82a:	45472783          	lw	a5,1108(a4)
+  10a82e:	4685                	li	a3,1
+  10a830:	00e7971b          	slliw	a4,a5,0xe
+  10a834:	01e7571b          	srliw	a4,a4,0x1e
+  10a838:	10d70363          	beq	a4,a3,10a93e <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x23e>
+  10a83c:	0c300513          	li	a0,195
+  10a840:	0c300793          	li	a5,195
+  10a844:	0001                	nop
+  10a846:	0001                	nop
+  10a848:	0001                	nop
+  10a84a:	0001                	nop
+  10a84c:	0001                	nop
+  10a84e:	0001                	nop
+  10a850:	0001                	nop
+  10a852:	0001                	nop
+  10a854:	0001                	nop
+  10a856:	0001                	nop
+  10a858:	0001                	nop
+  10a85a:	0001                	nop
+  10a85c:	0001                	nop
+  10a85e:	0001                	nop
+  10a860:	0001                	nop
+  10a862:	0001                	nop
+  10a864:	0001                	nop
+  10a866:	0001                	nop
+  10a868:	0001                	nop
+  10a86a:	0001                	nop
+  10a86c:	0001                	nop
+  10a86e:	0001                	nop
+  10a870:	0001                	nop
+  10a872:	0001                	nop
+  10a874:	0001                	nop
+  10a876:	0001                	nop
+  10a878:	0001                	nop
+  10a87a:	0001                	nop
+  10a87c:	0001                	nop
+  10a87e:	0001                	nop
+  10a880:	0001                	nop
+  10a882:	0001                	nop
+  10a884:	3ff00713          	li	a4,1023
+  10a888:	1ae78063          	beq	a5,a4,10aa28 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x328>
+  10a88c:	00001717          	auipc	a4,0x1
+  10a890:	3ec70713          	addi	a4,a4,1004 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10a894:	30571073          	csrw	mtvec,a4
+  10a898:	014d96b7          	lui	a3,0x14d9
+  10a89c:	7006a703          	lw	a4,1792(a3) # 14d9700 <__stack_end+0x1350100>
+  10a8a0:	0087979b          	slliw	a5,a5,0x8
+  10a8a4:	0227e793          	ori	a5,a5,34
+  10a8a8:	0127571b          	srliw	a4,a4,0x12
+  10a8ac:	0127171b          	slliw	a4,a4,0x12
+  10a8b0:	8fd9                	or	a5,a5,a4
+  10a8b2:	2781                	sext.w	a5,a5
+  10a8b4:	70f6a023          	sw	a5,1792(a3)
+  10a8b8:	00000073          	ecall
+  10a8bc:	7d805073          	csrwi	0x7d8,0
+  10a8c0:	bff5                	j	10a8bc <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x1bc>
+  10a8c2:	00001797          	auipc	a5,0x1
+  10a8c6:	3b678793          	addi	a5,a5,950 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10a8ca:	30579073          	csrw	mtvec,a5
+  10a8ce:	70072783          	lw	a5,1792(a4)
+  10a8d2:	66d1                	lui	a3,0x14
+  10a8d4:	22268693          	addi	a3,a3,546 # 14222 <_IMEM_SIZE+0x8222>
+  10a8d8:	0127d79b          	srliw	a5,a5,0x12
+  10a8dc:	0127979b          	slliw	a5,a5,0x12
+  10a8e0:	8fd5                	or	a5,a5,a3
+  10a8e2:	2781                	sext.w	a5,a5
+  10a8e4:	70f72023          	sw	a5,1792(a4)
+  10a8e8:	00000073          	ecall
+  10a8ec:	7d805073          	csrwi	0x7d8,0
+  10a8f0:	bff5                	j	10a8ec <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x1ec>
+  10a8f2:	00001797          	auipc	a5,0x1
+  10a8f6:	38678793          	addi	a5,a5,902 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10a8fa:	30579073          	csrw	mtvec,a5
+  10a8fe:	014d96b7          	lui	a3,0x14d9
+  10a902:	7006a703          	lw	a4,1792(a3) # 14d9700 <__stack_end+0x1350100>
+  10a906:	3ff57793          	andi	a5,a0,1023
+  10a90a:	0087979b          	slliw	a5,a5,0x8
+  10a90e:	0127571b          	srliw	a4,a4,0x12
+  10a912:	0127141b          	slliw	s0,a4,0x12
+  10a916:	0227e793          	ori	a5,a5,34
+  10a91a:	8fc1                	or	a5,a5,s0
+  10a91c:	2781                	sext.w	a5,a5
+  10a91e:	70f6a023          	sw	a5,1792(a3)
+  10a922:	00000073          	ecall
+  10a926:	7d805073          	csrwi	0x7d8,0
+  10a92a:	bff5                	j	10a926 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x226>
+  10a92c:	05500693          	li	a3,85
+  10a930:	e2d708e3          	beq	a4,a3,10a760 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x60>
+  10a934:	3e000513          	li	a0,992
+  10a938:	3e000793          	li	a5,992
+  10a93c:	b721                	j	10a844 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x144>
+  10a93e:	00c7979b          	slliw	a5,a5,0xc
+  10a942:	01e7d79b          	srliw	a5,a5,0x1e
+  10a946:	4709                	li	a4,2
+  10a948:	eee79ae3          	bne	a5,a4,10a83c <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x13c>
+  10a94c:	001897b7          	lui	a5,0x189
+  10a950:	60078793          	addi	a5,a5,1536 # 189600 <__stack_end>
+  10a954:	4247c703          	lbu	a4,1060(a5)
+  10a958:	02000693          	li	a3,32
+  10a95c:	00e6f763          	bgeu	a3,a4,10a96a <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x26a>
+  10a960:	0c800513          	li	a0,200
+  10a964:	0c800793          	li	a5,200
+  10a968:	bdf1                	j	10a844 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x144>
+  10a96a:	014046b7          	lui	a3,0x1404
+  10a96e:	d006a683          	lw	a3,-768(a3) # 1403d00 <__stack_end+0x127a700>
+  10a972:	03069613          	slli	a2,a3,0x30
+  10a976:	04065563          	bgez	a2,10a9c0 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x2c0>
+  10a97a:	c721                	beqz	a4,10a9c2 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x2c2>
+  10a97c:	54fd                	li	s1,-1
+  10a97e:	893e                	mv	s2,a5
+  10a980:	fec00a37          	lui	s4,0xfec00
+  10a984:	00200ab7          	lui	s5,0x200
+  10a988:	03d49b13          	slli	s6,s1,0x3d
+  10a98c:	04000bb7          	lui	s7,0x4000
+  10a990:	49fd                	li	s3,31
+  10a992:	0485                	addi	s1,s1,1
+  10a994:	5cc010ef          	jal	ra,10bf60 <rv_boot_plugin_sw_interface__get_reg_pair_num>
+  10a998:	0ff4f793          	andi	a5,s1,255
+  10a99c:	02a7f363          	bgeu	a5,a0,10a9c2 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x2c2>
+  10a9a0:	04048793          	addi	a5,s1,64
+  10a9a4:	0792                	slli	a5,a5,0x4
+  10a9a6:	97ca                	add	a5,a5,s2
+  10a9a8:	3807b783          	ld	a5,896(a5)
+  10a9ac:	01478733          	add	a4,a5,s4
+  10a9b0:	01576563          	bltu	a4,s5,10a9ba <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x2ba>
+  10a9b4:	97da                	add	a5,a5,s6
+  10a9b6:	0777f463          	bgeu	a5,s7,10aa1e <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x31e>
+  10a9ba:	fd349ce3          	bne	s1,s3,10a992 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x292>
+  10a9be:	a011                	j	10a9c2 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x2c2>
+  10a9c0:	f345                	bnez	a4,10a960 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x260>
+  10a9c2:	014007b7          	lui	a5,0x1400
+  10a9c6:	2007a703          	lw	a4,512(a5) # 1400200 <__stack_end+0x1276c00>
+  10a9ca:	87a2                	mv	a5,s0
+  10a9cc:	02d71613          	slli	a2,a4,0x2d
+  10a9d0:	0007069b          	sext.w	a3,a4
+  10a9d4:	00065463          	bgez	a2,10a9dc <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x2dc>
+  10a9d8:	14200793          	li	a5,322
+  10a9dc:	02869713          	slli	a4,a3,0x28
+  10a9e0:	00075463          	bgez	a4,10a9e8 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x2e8>
+  10a9e4:	14100793          	li	a5,321
+  10a9e8:	8522                	mv	a0,s0
+  10a9ea:	bda9                	j	10a844 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x144>
+  10a9ec:	0c400513          	li	a0,196
+  10a9f0:	0c400793          	li	a5,196
+  10a9f4:	bd81                	j	10a844 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x144>
+  10a9f6:	0c000513          	li	a0,192
+  10a9fa:	0c000793          	li	a5,192
+  10a9fe:	b599                	j	10a844 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x144>
+  10aa00:	0c500513          	li	a0,197
+  10aa04:	0c500793          	li	a5,197
+  10aa08:	bd35                	j	10a844 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x144>
+  10aa0a:	0c200513          	li	a0,194
+  10aa0e:	0c200793          	li	a5,194
+  10aa12:	bd0d                	j	10a844 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x144>
+  10aa14:	0c600513          	li	a0,198
+  10aa18:	0c600793          	li	a5,198
+  10aa1c:	b525                	j	10a844 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x144>
+  10aa1e:	0c700513          	li	a0,199
+  10aa22:	0c700793          	li	a5,199
+  10aa26:	bd39                	j	10a844 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase+0x144>
+  10aa28:	60a6                	ld	ra,72(sp)
+  10aa2a:	6406                	ld	s0,64(sp)
+  10aa2c:	74e2                	ld	s1,56(sp)
+  10aa2e:	7942                	ld	s2,48(sp)
+  10aa30:	79a2                	ld	s3,40(sp)
+  10aa32:	7a02                	ld	s4,32(sp)
+  10aa34:	6ae2                	ld	s5,24(sp)
+  10aa36:	6b42                	ld	s6,16(sp)
+  10aa38:	6ba2                	ld	s7,8(sp)
+  10aa3a:	6161                	addi	sp,sp,80
+  10aa3c:	8082                	ret
+	...
+
+000000000010aa40 <rv_boot_plugin_selwre_boot__load_fmc_data_phase>:
+  10aa40:	711d                	addi	sp,sp,-96
+  10aa42:	e0ca                	sd	s2,64(sp)
+  10aa44:	ec86                	sd	ra,88(sp)
+  10aa46:	e8a2                	sd	s0,80(sp)
+  10aa48:	e4a6                	sd	s1,72(sp)
+  10aa4a:	fc4e                	sd	s3,56(sp)
+  10aa4c:	f852                	sd	s4,48(sp)
+  10aa4e:	f456                	sd	s5,40(sp)
+  10aa50:	f05a                	sd	s6,32(sp)
+  10aa52:	ec5e                	sd	s7,24(sp)
+  10aa54:	e862                	sd	s8,16(sp)
+  10aa56:	e466                	sd	s9,8(sp)
+  10aa58:	e06a                	sd	s10,0(sp)
+  10aa5a:	3ff00793          	li	a5,1023
+  10aa5e:	892a                	mv	s2,a0
+  10aa60:	08f51d63          	bne	a0,a5,10aafa <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0xba>
+  10aa64:	014d9737          	lui	a4,0x14d9
+  10aa68:	70072783          	lw	a5,1792(a4) # 14d9700 <__stack_end+0x1350100>
+  10aa6c:	000406b7          	lui	a3,0x40
+  10aa70:	f0068593          	addi	a1,a3,-256 # 3ff00 <_IMEM_SIZE+0x33f00>
+  10aa74:	0007861b          	sext.w	a2,a5
+  10aa78:	8e6d                	and	a2,a2,a1
+  10aa7a:	0127d79b          	srliw	a5,a5,0x12
+  10aa7e:	04b61663          	bne	a2,a1,10aaca <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x8a>
+  10aa82:	0127979b          	slliw	a5,a5,0x12
+  10aa86:	f2568693          	addi	a3,a3,-219
+  10aa8a:	8fd5                	or	a5,a5,a3
+  10aa8c:	2781                	sext.w	a5,a5
+  10aa8e:	70f72023          	sw	a5,1792(a4)
+  10aa92:	014da7b7          	lui	a5,0x14da
+  10aa96:	a007a703          	lw	a4,-1536(a5) # 14d9a00 <__stack_end+0x1350400>
+  10aa9a:	10077713          	andi	a4,a4,256
+  10aa9e:	ef41                	bnez	a4,10ab36 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0xf6>
+  10aaa0:	a007a783          	lw	a5,-1536(a5)
+  10aaa4:	1007f793          	andi	a5,a5,256
+  10aaa8:	2a079c63          	bnez	a5,10ad60 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x320>
+  10aaac:	60e6                	ld	ra,88(sp)
+  10aaae:	6446                	ld	s0,80(sp)
+  10aab0:	64a6                	ld	s1,72(sp)
+  10aab2:	79e2                	ld	s3,56(sp)
+  10aab4:	7a42                	ld	s4,48(sp)
+  10aab6:	7aa2                	ld	s5,40(sp)
+  10aab8:	7b02                	ld	s6,32(sp)
+  10aaba:	6be2                	ld	s7,24(sp)
+  10aabc:	6c42                	ld	s8,16(sp)
+  10aabe:	6ca2                	ld	s9,8(sp)
+  10aac0:	6d02                	ld	s10,0(sp)
+  10aac2:	854a                	mv	a0,s2
+  10aac4:	6906                	ld	s2,64(sp)
+  10aac6:	6125                	addi	sp,sp,96
+  10aac8:	8082                	ret
+  10aaca:	00001797          	auipc	a5,0x1
+  10aace:	1ae78793          	addi	a5,a5,430 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10aad2:	30579073          	csrw	mtvec,a5
+  10aad6:	70072783          	lw	a5,1792(a4)
+  10aada:	66d1                	lui	a3,0x14
+  10aadc:	22668693          	addi	a3,a3,550 # 14226 <_IMEM_SIZE+0x8226>
+  10aae0:	0127d79b          	srliw	a5,a5,0x12
+  10aae4:	0127979b          	slliw	a5,a5,0x12
+  10aae8:	8fd5                	or	a5,a5,a3
+  10aaea:	2781                	sext.w	a5,a5
+  10aaec:	70f72023          	sw	a5,1792(a4)
+  10aaf0:	00000073          	ecall
+  10aaf4:	7d805073          	csrwi	0x7d8,0
+  10aaf8:	bff5                	j	10aaf4 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0xb4>
+  10aafa:	00001797          	auipc	a5,0x1
+  10aafe:	17e78793          	addi	a5,a5,382 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10ab02:	30579073          	csrw	mtvec,a5
+  10ab06:	014d96b7          	lui	a3,0x14d9
+  10ab0a:	7006a703          	lw	a4,1792(a3) # 14d9700 <__stack_end+0x1350100>
+  10ab0e:	3ff57793          	andi	a5,a0,1023
+  10ab12:	0087979b          	slliw	a5,a5,0x8
+  10ab16:	0127571b          	srliw	a4,a4,0x12
+  10ab1a:	0127191b          	slliw	s2,a4,0x12
+  10ab1e:	0267e793          	ori	a5,a5,38
+  10ab22:	0127e7b3          	or	a5,a5,s2
+  10ab26:	2781                	sext.w	a5,a5
+  10ab28:	70f6a023          	sw	a5,1792(a3)
+  10ab2c:	00000073          	ecall
+  10ab30:	7d805073          	csrwi	0x7d8,0
+  10ab34:	bff5                	j	10ab30 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0xf0>
+  10ab36:	a007a683          	lw	a3,-1536(a5)
+  10ab3a:	b007a703          	lw	a4,-1280(a5)
+  10ab3e:	1006f693          	andi	a3,a3,256
+  10ab42:	2701                	sext.w	a4,a4
+  10ab44:	e2e1                	bnez	a3,10ac04 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x1c4>
+  10ab46:	014da737          	lui	a4,0x14da
+  10ab4a:	431c                	lw	a5,0(a4)
+  10ab4c:	10072403          	lw	s0,256(a4) # 14da100 <__stack_end+0x1350b00>
+  10ab50:	1782                	slli	a5,a5,0x20
+  10ab52:	0ff47413          	andi	s0,s0,255
+  10ab56:	1422                	slli	s0,s0,0x28
+  10ab58:	83e1                	srli	a5,a5,0x18
+  10ab5a:	8c5d                	or	s0,s0,a5
+  10ab5c:	3f2010ef          	jal	ra,10bf4e <rv_boot_plugin_sw_interface__get_fmc_data_block_size>
+  10ab60:	d531                	beqz	a0,10aaac <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x6c>
+  10ab62:	57fd                	li	a5,-1
+  10ab64:	83c5                	srli	a5,a5,0x11
+  10ab66:	02051713          	slli	a4,a0,0x20
+  10ab6a:	8361                	srli	a4,a4,0x18
+  10ab6c:	408786b3          	sub	a3,a5,s0
+  10ab70:	177d                	addi	a4,a4,-1
+  10ab72:	8efd                	and	a3,a3,a5
+  10ab74:	1ee6e963          	bltu	a3,a4,10ad66 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x326>
+  10ab78:	000405b7          	lui	a1,0x40
+  10ab7c:	000208b7          	lui	a7,0x20
+  10ab80:	01000337          	lui	t1,0x1000
+  10ab84:	f0ee9e37          	lui	t3,0xf0ee9
+  10ab88:	4601                	li	a2,0
+  10ab8a:	4801                	li	a6,0
+  10ab8c:	014046b7          	lui	a3,0x1404
+  10ab90:	5bfd                	li	s7,-1
+  10ab92:	014d9f37          	lui	t5,0x14d9
+  10ab96:	15fd                	addi	a1,a1,-1
+  10ab98:	fffc0c37          	lui	s8,0xfffc0
+  10ab9c:	18fd                	addi	a7,a7,-1
+  10ab9e:	7f81                	lui	t6,0xfffe0
+  10aba0:	014052b7          	lui	t0,0x1405
+  10aba4:	137d                	addi	t1,t1,-1
+  10aba6:	ff0003b7          	lui	t2,0xff000
+  10abaa:	880e0e13          	addi	t3,t3,-1920 # fffffffff0ee8880 <__stack_end+0xfffffffff0d5f280>
+  10abae:	2605                	addiw	a2,a2,1
+  10abb0:	4e81                	li	t4,0
+  10abb2:	6006a703          	lw	a4,1536(a3) # 1404600 <__stack_end+0x127b000>
+  10abb6:	60068c93          	addi	s9,a3,1536
+  10abba:	8b05                	andi	a4,a4,1
+  10abbc:	c355                	beqz	a4,10ac60 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x220>
+  10abbe:	097e9f63          	bne	t4,s7,10ac5c <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x21c>
+  10abc2:	700f2703          	lw	a4,1792(t5) # 14d9700 <__stack_end+0x1350100>
+  10abc6:	0189f9b3          	and	s3,s3,s8
+  10abca:	00875d1b          	srliw	s10,a4,0x8
+  10abce:	01275c9b          	srliw	s9,a4,0x12
+  10abd2:	3ffd7d13          	andi	s10,s10,1023
+  10abd6:	0fc77713          	andi	a4,a4,252
+  10abda:	00176713          	ori	a4,a4,1
+  10abde:	008d1d1b          	slliw	s10,s10,0x8
+  10abe2:	01a76733          	or	a4,a4,s10
+  10abe6:	8f6d                	and	a4,a4,a1
+  10abe8:	01376733          	or	a4,a4,s3
+  10abec:	004cec93          	ori	s9,s9,4
+  10abf0:	012c9c9b          	slliw	s9,s9,0x12
+  10abf4:	8f6d                	and	a4,a4,a1
+  10abf6:	01976733          	or	a4,a4,s9
+  10abfa:	89ba                	mv	s3,a4
+  10abfc:	2701                	sext.w	a4,a4
+  10abfe:	70ef2023          	sw	a4,1792(t5)
+  10ac02:	bf45                	j	10abb2 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x172>
+  10ac04:	02371693          	slli	a3,a4,0x23
+  10ac08:	f206dfe3          	bgez	a3,10ab46 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x106>
+  10ac0c:	6007ac03          	lw	s8,1536(a5)
+  10ac10:	7007a783          	lw	a5,1792(a5)
+  10ac14:	6405                	lui	s0,0x1
+  10ac16:	fff40b93          	addi	s7,s0,-1 # fff <_PKCPARAM_SIZE+0x5ff>
+  10ac1a:	00fbfbb3          	and	s7,s7,a5
+  10ac1e:	1bc2                	slli	s7,s7,0x30
+  10ac20:	31c010ef          	jal	ra,10bf3c <rv_boot_plugin_sw_interface__get_fmc_code_block_size>
+  10ac24:	2c01                	sext.w	s8,s8
+  10ac26:	030bdb93          	srli	s7,s7,0x30
+  10ac2a:	0ffbf793          	andi	a5,s7,255
+  10ac2e:	1c02                	slli	s8,s8,0x20
+  10ac30:	17a2                	slli	a5,a5,0x28
+  10ac32:	018c5c13          	srli	s8,s8,0x18
+  10ac36:	e0040413          	addi	s0,s0,-512
+  10ac3a:	0187e7b3          	or	a5,a5,s8
+  10ac3e:	97a2                	add	a5,a5,s0
+  10ac40:	547d                	li	s0,-1
+  10ac42:	01145713          	srli	a4,s0,0x11
+  10ac46:	0085141b          	slliw	s0,a0,0x8
+  10ac4a:	8ff9                	and	a5,a5,a4
+  10ac4c:	1402                	slli	s0,s0,0x20
+  10ac4e:	9001                	srli	s0,s0,0x20
+  10ac50:	20078793          	addi	a5,a5,512
+  10ac54:	97a2                	add	a5,a5,s0
+  10ac56:	00e7f433          	and	s0,a5,a4
+  10ac5a:	b709                	j	10ab5c <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x11c>
+  10ac5c:	2e85                	addiw	t4,t4,1
+  10ac5e:	bf91                	j	10abb2 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x172>
+  10ac60:	02845e93          	srli	t4,s0,0x28
+  10ac64:	01fa7a33          	and	s4,s4,t6
+  10ac68:	011efeb3          	and	t4,t4,a7
+  10ac6c:	01da6eb3          	or	t4,s4,t4
+  10ac70:	00845d13          	srli	s10,s0,0x8
+  10ac74:	8a76                	mv	s4,t4
+  10ac76:	2e81                	sext.w	t4,t4
+  10ac78:	a1d2a023          	sw	t4,-1536(t0) # 1404a00 <__stack_end+0x127b400>
+  10ac7c:	2d01                	sext.w	s10,s10
+  10ac7e:	41a6a023          	sw	s10,1024(a3)
+  10ac82:	0ff47e93          	andi	t4,s0,255
+  10ac86:	71d6a023          	sw	t4,1792(a3)
+  10ac8a:	007afab3          	and	s5,s5,t2
+  10ac8e:	00687eb3          	and	t4,a6,t1
+  10ac92:	01daeeb3          	or	t4,s5,t4
+  10ac96:	01cb7b33          	and	s6,s6,t3
+  10ac9a:	8af6                	mv	s5,t4
+  10ac9c:	2e81                	sext.w	t4,t4
+  10ac9e:	51d6a023          	sw	t4,1280(a3)
+  10aca2:	600b6e93          	ori	t4,s6,1536
+  10aca6:	8b76                	mv	s6,t4
+  10aca8:	2e81                	sext.w	t4,t4
+  10acaa:	01dca023          	sw	t4,0(s9)
+  10acae:	00a67863          	bgeu	a2,a0,10acbe <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x27e>
+  10acb2:	10040413          	addi	s0,s0,256
+  10acb6:	8c7d                	and	s0,s0,a5
+  10acb8:	1008081b          	addiw	a6,a6,256
+  10acbc:	bdcd                	j	10abae <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x16e>
+  10acbe:	eec518e3          	bne	a0,a2,10abae <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x16e>
+  10acc2:	000405b7          	lui	a1,0x40
+  10acc6:	01404837          	lui	a6,0x1404
+  10acca:	58fd                	li	a7,-1
+  10accc:	014d9537          	lui	a0,0x14d9
+  10acd0:	15fd                	addi	a1,a1,-1
+  10acd2:	fffc0337          	lui	t1,0xfffc0
+  10acd6:	60082783          	lw	a5,1536(a6) # 1404600 <__stack_end+0x127b000>
+  10acda:	8b89                	andi	a5,a5,2
+  10acdc:	e3b9                	bnez	a5,10ad22 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x2e2>
+  10acde:	05171063          	bne	a4,a7,10ad1e <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x2de>
+  10ace2:	70052783          	lw	a5,1792(a0) # 14d9700 <__stack_end+0x1350100>
+  10ace6:	0064f4b3          	and	s1,s1,t1
+  10acea:	0087d61b          	srliw	a2,a5,0x8
+  10acee:	0127d69b          	srliw	a3,a5,0x12
+  10acf2:	3ff67613          	andi	a2,a2,1023
+  10acf6:	0fc7f793          	andi	a5,a5,252
+  10acfa:	0017e793          	ori	a5,a5,1
+  10acfe:	0086161b          	slliw	a2,a2,0x8
+  10ad02:	8fd1                	or	a5,a5,a2
+  10ad04:	8fed                	and	a5,a5,a1
+  10ad06:	8fc5                	or	a5,a5,s1
+  10ad08:	0046e693          	ori	a3,a3,4
+  10ad0c:	0126969b          	slliw	a3,a3,0x12
+  10ad10:	8fed                	and	a5,a5,a1
+  10ad12:	8fd5                	or	a5,a5,a3
+  10ad14:	84be                	mv	s1,a5
+  10ad16:	2781                	sext.w	a5,a5
+  10ad18:	70f52023          	sw	a5,1792(a0)
+  10ad1c:	bf6d                	j	10acd6 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x296>
+  10ad1e:	2705                	addiw	a4,a4,1
+  10ad20:	bf5d                	j	10acd6 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x296>
+  10ad22:	0140c737          	lui	a4,0x140c
+  10ad26:	80072783          	lw	a5,-2048(a4) # 140b800 <__stack_end+0x1282200>
+  10ad2a:	8b91                	andi	a5,a5,4
+  10ad2c:	c799                	beqz	a5,10ad3a <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x2fa>
+  10ad2e:	4791                	li	a5,4
+  10ad30:	80f72023          	sw	a5,-2048(a4)
+  10ad34:	02100913          	li	s2,33
+  10ad38:	bb95                	j	10aaac <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x6c>
+  10ad3a:	014007b7          	lui	a5,0x1400
+  10ad3e:	2007a783          	lw	a5,512(a5) # 1400200 <__stack_end+0x1276c00>
+  10ad42:	02d79693          	slli	a3,a5,0x2d
+  10ad46:	0007871b          	sext.w	a4,a5
+  10ad4a:	0006d463          	bgez	a3,10ad52 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x312>
+  10ad4e:	14200913          	li	s2,322
+  10ad52:	02871793          	slli	a5,a4,0x28
+  10ad56:	d407dbe3          	bgez	a5,10aaac <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x6c>
+  10ad5a:	14100913          	li	s2,321
+  10ad5e:	b3b9                	j	10aaac <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x6c>
+  10ad60:	7d805073          	csrwi	0x7d8,0
+  10ad64:	bff5                	j	10ad60 <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x320>
+  10ad66:	02000913          	li	s2,32
+  10ad6a:	b389                	j	10aaac <rv_boot_plugin_selwre_boot__load_fmc_data_phase+0x6c>
+
+Disassembly of section .rv_boot_plugin_non_overwritable_code:
+
+000000000010b000 <rv_boot_plugin_selwre_boot__load_fmc_code_phase>:
+  10b000:	711d                	addi	sp,sp,-96
+  10b002:	e8a2                	sd	s0,80(sp)
+  10b004:	ec86                	sd	ra,88(sp)
+  10b006:	e4a6                	sd	s1,72(sp)
+  10b008:	e0ca                	sd	s2,64(sp)
+  10b00a:	fc4e                	sd	s3,56(sp)
+  10b00c:	f852                	sd	s4,48(sp)
+  10b00e:	f456                	sd	s5,40(sp)
+  10b010:	f05a                	sd	s6,32(sp)
+  10b012:	ec5e                	sd	s7,24(sp)
+  10b014:	e862                	sd	s8,16(sp)
+  10b016:	e466                	sd	s9,8(sp)
+  10b018:	e06a                	sd	s10,0(sp)
+  10b01a:	014da7b7          	lui	a5,0x14da
+  10b01e:	a007a703          	lw	a4,-1536(a5) # 14d9a00 <__stack_end+0x1350400>
+  10b022:	842a                	mv	s0,a0
+  10b024:	10077713          	andi	a4,a4,256
+  10b028:	c375                	beqz	a4,10b10c <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x10c>
+  10b02a:	a007a683          	lw	a3,-1536(a5)
+  10b02e:	b007a703          	lw	a4,-1280(a5)
+  10b032:	1006f693          	andi	a3,a3,256
+  10b036:	2701                	sext.w	a4,a4
+  10b038:	10069563          	bnez	a3,10b142 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x142>
+  10b03c:	014da737          	lui	a4,0x14da
+  10b040:	e0072783          	lw	a5,-512(a4) # 14d9e00 <__stack_end+0x1350800>
+  10b044:	f0072483          	lw	s1,-256(a4)
+  10b048:	1782                	slli	a5,a5,0x20
+  10b04a:	0ff4f493          	andi	s1,s1,255
+  10b04e:	14a2                	slli	s1,s1,0x28
+  10b050:	83e1                	srli	a5,a5,0x18
+  10b052:	8cdd                	or	s1,s1,a5
+  10b054:	6e9000ef          	jal	ra,10bf3c <rv_boot_plugin_sw_interface__get_fmc_code_block_size>
+  10b058:	85aa                	mv	a1,a0
+  10b05a:	2a050463          	beqz	a0,10b302 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x302>
+  10b05e:	56fd                	li	a3,-1
+  10b060:	82c5                	srli	a3,a3,0x11
+  10b062:	02051793          	slli	a5,a0,0x20
+  10b066:	83e1                	srli	a5,a5,0x18
+  10b068:	40968733          	sub	a4,a3,s1
+  10b06c:	17fd                	addi	a5,a5,-1
+  10b06e:	8f75                	and	a4,a4,a3
+  10b070:	28f76963          	bltu	a4,a5,10b302 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x302>
+  10b074:	3ff00793          	li	a5,1023
+  10b078:	8522                	mv	a0,s0
+  10b07a:	1cf41a63          	bne	s0,a5,10b24e <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x24e>
+  10b07e:	000408b7          	lui	a7,0x40
+  10b082:	00020337          	lui	t1,0x20
+  10b086:	01000e37          	lui	t3,0x1000
+  10b08a:	f0ee9eb7          	lui	t4,0xf0ee9
+  10b08e:	4801                	li	a6,0
+  10b090:	4781                	li	a5,0
+  10b092:	01404537          	lui	a0,0x1404
+  10b096:	5c7d                	li	s8,-1
+  10b098:	014d9fb7          	lui	t6,0x14d9
+  10b09c:	18fd                	addi	a7,a7,-1
+  10b09e:	fffc0cb7          	lui	s9,0xfffc0
+  10b0a2:	137d                	addi	t1,t1,-1
+  10b0a4:	7281                	lui	t0,0xfffe0
+  10b0a6:	014053b7          	lui	t2,0x1405
+  10b0aa:	1e7d                	addi	t3,t3,-1
+  10b0ac:	ff000bb7          	lui	s7,0xff000
+  10b0b0:	880e8e93          	addi	t4,t4,-1920 # fffffffff0ee8880 <__stack_end+0xfffffffff0d5f280>
+  10b0b4:	2805                	addiw	a6,a6,1
+  10b0b6:	4f01                	li	t5,0
+  10b0b8:	60052603          	lw	a2,1536(a0) # 1404600 <__stack_end+0x127b000>
+  10b0bc:	60050d13          	addi	s10,a0,1536
+  10b0c0:	8a05                	andi	a2,a2,1
+  10b0c2:	c65d                	beqz	a2,10b170 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x170>
+  10b0c4:	0b8f1463          	bne	t5,s8,10b16c <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x16c>
+  10b0c8:	700fa703          	lw	a4,1792(t6) # 14d9700 <__stack_end+0x1350100>
+  10b0cc:	0199f9b3          	and	s3,s3,s9
+  10b0d0:	00875d1b          	srliw	s10,a4,0x8
+  10b0d4:	0127561b          	srliw	a2,a4,0x12
+  10b0d8:	3ffd7d13          	andi	s10,s10,1023
+  10b0dc:	0fc77713          	andi	a4,a4,252
+  10b0e0:	00176713          	ori	a4,a4,1
+  10b0e4:	008d1d1b          	slliw	s10,s10,0x8
+  10b0e8:	01a76733          	or	a4,a4,s10
+  10b0ec:	01177733          	and	a4,a4,a7
+  10b0f0:	01376733          	or	a4,a4,s3
+  10b0f4:	00466613          	ori	a2,a2,4
+  10b0f8:	0126161b          	slliw	a2,a2,0x12
+  10b0fc:	01177733          	and	a4,a4,a7
+  10b100:	8f51                	or	a4,a4,a2
+  10b102:	89ba                	mv	s3,a4
+  10b104:	2701                	sext.w	a4,a4
+  10b106:	70efa023          	sw	a4,1792(t6)
+  10b10a:	b77d                	j	10b0b8 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0xb8>
+  10b10c:	a007a783          	lw	a5,-1536(a5)
+  10b110:	1007f793          	andi	a5,a5,256
+  10b114:	1e079463          	bnez	a5,10b2fc <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x2fc>
+  10b118:	3ff00793          	li	a5,1023
+  10b11c:	12f41963          	bne	s0,a5,10b24e <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x24e>
+  10b120:	014007b7          	lui	a5,0x1400
+  10b124:	2007a783          	lw	a5,512(a5) # 1400200 <__stack_end+0x1276c00>
+  10b128:	02d79693          	slli	a3,a5,0x2d
+  10b12c:	0007871b          	sext.w	a4,a5
+  10b130:	0006d463          	bgez	a3,10b138 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x138>
+  10b134:	14200413          	li	s0,322
+  10b138:	02871793          	slli	a5,a4,0x28
+  10b13c:	1007d963          	bgez	a5,10b24e <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x24e>
+  10b140:	aa5d                	j	10b2f6 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x2f6>
+  10b142:	02371693          	slli	a3,a4,0x23
+  10b146:	ee06dbe3          	bgez	a3,10b03c <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x3c>
+  10b14a:	6007a703          	lw	a4,1536(a5)
+  10b14e:	7007a483          	lw	s1,1792(a5)
+  10b152:	02071793          	slli	a5,a4,0x20
+  10b156:	0ff4f493          	andi	s1,s1,255
+  10b15a:	83e1                	srli	a5,a5,0x18
+  10b15c:	14a2                	slli	s1,s1,0x28
+  10b15e:	8cdd                	or	s1,s1,a5
+  10b160:	6785                	lui	a5,0x1
+  10b162:	94be                	add	s1,s1,a5
+  10b164:	57fd                	li	a5,-1
+  10b166:	83c5                	srli	a5,a5,0x11
+  10b168:	8cfd                	and	s1,s1,a5
+  10b16a:	b5ed                	j	10b054 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x54>
+  10b16c:	2f05                	addiw	t5,t5,1
+  10b16e:	b7a9                	j	10b0b8 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0xb8>
+  10b170:	0284d713          	srli	a4,s1,0x28
+  10b174:	005a7a33          	and	s4,s4,t0
+  10b178:	00677733          	and	a4,a4,t1
+  10b17c:	00ea6733          	or	a4,s4,a4
+  10b180:	0084df13          	srli	t5,s1,0x8
+  10b184:	8a3a                	mv	s4,a4
+  10b186:	2701                	sext.w	a4,a4
+  10b188:	a0e3a023          	sw	a4,-1536(t2) # 1404a00 <__stack_end+0x127b400>
+  10b18c:	2f01                	sext.w	t5,t5
+  10b18e:	41e52023          	sw	t5,1024(a0)
+  10b192:	0ff4f713          	andi	a4,s1,255
+  10b196:	70e52023          	sw	a4,1792(a0)
+  10b19a:	017afab3          	and	s5,s5,s7
+  10b19e:	01c7f733          	and	a4,a5,t3
+  10b1a2:	00eae733          	or	a4,s5,a4
+  10b1a6:	01db7b33          	and	s6,s6,t4
+  10b1aa:	8aba                	mv	s5,a4
+  10b1ac:	2701                	sext.w	a4,a4
+  10b1ae:	50e52023          	sw	a4,1280(a0)
+  10b1b2:	610b6713          	ori	a4,s6,1552
+  10b1b6:	8b3a                	mv	s6,a4
+  10b1b8:	2701                	sext.w	a4,a4
+  10b1ba:	00ed2023          	sw	a4,0(s10)
+  10b1be:	00b87863          	bgeu	a6,a1,10b1ce <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x1ce>
+  10b1c2:	10048493          	addi	s1,s1,256
+  10b1c6:	8cf5                	and	s1,s1,a3
+  10b1c8:	1007879b          	addiw	a5,a5,256
+  10b1cc:	b5e5                	j	10b0b4 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0xb4>
+  10b1ce:	ef0593e3          	bne	a1,a6,10b0b4 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0xb4>
+  10b1d2:	000405b7          	lui	a1,0x40
+  10b1d6:	01404837          	lui	a6,0x1404
+  10b1da:	58fd                	li	a7,-1
+  10b1dc:	014d9537          	lui	a0,0x14d9
+  10b1e0:	15fd                	addi	a1,a1,-1
+  10b1e2:	fffc0337          	lui	t1,0xfffc0
+  10b1e6:	60082783          	lw	a5,1536(a6) # 1404600 <__stack_end+0x127b000>
+  10b1ea:	8b89                	andi	a5,a5,2
+  10b1ec:	e7a1                	bnez	a5,10b234 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x234>
+  10b1ee:	05161163          	bne	a2,a7,10b230 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x230>
+  10b1f2:	70052783          	lw	a5,1792(a0) # 14d9700 <__stack_end+0x1350100>
+  10b1f6:	00697933          	and	s2,s2,t1
+  10b1fa:	0087d69b          	srliw	a3,a5,0x8
+  10b1fe:	0127d71b          	srliw	a4,a5,0x12
+  10b202:	3ff6f693          	andi	a3,a3,1023
+  10b206:	0fc7f793          	andi	a5,a5,252
+  10b20a:	0017e793          	ori	a5,a5,1
+  10b20e:	0086969b          	slliw	a3,a3,0x8
+  10b212:	8fd5                	or	a5,a5,a3
+  10b214:	8fed                	and	a5,a5,a1
+  10b216:	0127e7b3          	or	a5,a5,s2
+  10b21a:	00476713          	ori	a4,a4,4
+  10b21e:	0127171b          	slliw	a4,a4,0x12
+  10b222:	8fed                	and	a5,a5,a1
+  10b224:	8fd9                	or	a5,a5,a4
+  10b226:	893e                	mv	s2,a5
+  10b228:	2781                	sext.w	a5,a5
+  10b22a:	70f52023          	sw	a5,1792(a0)
+  10b22e:	bf65                	j	10b1e6 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x1e6>
+  10b230:	2605                	addiw	a2,a2,1
+  10b232:	bf55                	j	10b1e6 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x1e6>
+  10b234:	0140c737          	lui	a4,0x140c
+  10b238:	80072783          	lw	a5,-2048(a4) # 140b800 <__stack_end+0x1282200>
+  10b23c:	8b91                	andi	a5,a5,4
+  10b23e:	cbc9                	beqz	a5,10b2d0 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x2d0>
+  10b240:	4791                	li	a5,4
+  10b242:	80f72023          	sw	a5,-2048(a4)
+  10b246:	02100513          	li	a0,33
+  10b24a:	02100413          	li	s0,33
+  10b24e:	0001                	nop
+  10b250:	0001                	nop
+  10b252:	0001                	nop
+  10b254:	0001                	nop
+  10b256:	0001                	nop
+  10b258:	0001                	nop
+  10b25a:	0001                	nop
+  10b25c:	0001                	nop
+  10b25e:	0001                	nop
+  10b260:	0001                	nop
+  10b262:	0001                	nop
+  10b264:	0001                	nop
+  10b266:	0001                	nop
+  10b268:	0001                	nop
+  10b26a:	0001                	nop
+  10b26c:	0001                	nop
+  10b26e:	0001                	nop
+  10b270:	0001                	nop
+  10b272:	0001                	nop
+  10b274:	0001                	nop
+  10b276:	0001                	nop
+  10b278:	0001                	nop
+  10b27a:	0001                	nop
+  10b27c:	0001                	nop
+  10b27e:	0001                	nop
+  10b280:	0001                	nop
+  10b282:	0001                	nop
+  10b284:	0001                	nop
+  10b286:	0001                	nop
+  10b288:	0001                	nop
+  10b28a:	0001                	nop
+  10b28c:	0001                	nop
+  10b28e:	3ff00793          	li	a5,1023
+  10b292:	06f40d63          	beq	s0,a5,10b30c <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x30c>
+  10b296:	00001797          	auipc	a5,0x1
+  10b29a:	9e278793          	addi	a5,a5,-1566 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10b29e:	30579073          	csrw	mtvec,a5
+  10b2a2:	014d96b7          	lui	a3,0x14d9
+  10b2a6:	7006a703          	lw	a4,1792(a3) # 14d9700 <__stack_end+0x1350100>
+  10b2aa:	3ff47793          	andi	a5,s0,1023
+  10b2ae:	0087979b          	slliw	a5,a5,0x8
+  10b2b2:	0127571b          	srliw	a4,a4,0x12
+  10b2b6:	0127141b          	slliw	s0,a4,0x12
+  10b2ba:	0267e793          	ori	a5,a5,38
+  10b2be:	8fc1                	or	a5,a5,s0
+  10b2c0:	2781                	sext.w	a5,a5
+  10b2c2:	70f6a023          	sw	a5,1792(a3)
+  10b2c6:	00000073          	ecall
+  10b2ca:	7d805073          	csrwi	0x7d8,0
+  10b2ce:	bff5                	j	10b2ca <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x2ca>
+  10b2d0:	014007b7          	lui	a5,0x1400
+  10b2d4:	2007a783          	lw	a5,512(a5) # 1400200 <__stack_end+0x1276c00>
+  10b2d8:	02d79693          	slli	a3,a5,0x2d
+  10b2dc:	0007871b          	sext.w	a4,a5
+  10b2e0:	0006d463          	bgez	a3,10b2e8 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x2e8>
+  10b2e4:	14200413          	li	s0,322
+  10b2e8:	02871793          	slli	a5,a4,0x28
+  10b2ec:	8522                	mv	a0,s0
+  10b2ee:	e207d5e3          	bgez	a5,10b118 <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x118>
+  10b2f2:	14100513          	li	a0,321
+  10b2f6:	14100413          	li	s0,321
+  10b2fa:	bf91                	j	10b24e <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x24e>
+  10b2fc:	7d805073          	csrwi	0x7d8,0
+  10b300:	bff5                	j	10b2fc <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x2fc>
+  10b302:	02000513          	li	a0,32
+  10b306:	02000413          	li	s0,32
+  10b30a:	b791                	j	10b24e <rv_boot_plugin_selwre_boot__load_fmc_code_phase+0x24e>
+  10b30c:	60e6                	ld	ra,88(sp)
+  10b30e:	6446                	ld	s0,80(sp)
+  10b310:	64a6                	ld	s1,72(sp)
+  10b312:	6906                	ld	s2,64(sp)
+  10b314:	79e2                	ld	s3,56(sp)
+  10b316:	7a42                	ld	s4,48(sp)
+  10b318:	7aa2                	ld	s5,40(sp)
+  10b31a:	7b02                	ld	s6,32(sp)
+  10b31c:	6be2                	ld	s7,24(sp)
+  10b31e:	6c42                	ld	s8,16(sp)
+  10b320:	6ca2                	ld	s9,8(sp)
+  10b322:	6d02                	ld	s10,0(sp)
+  10b324:	6125                	addi	sp,sp,96
+  10b326:	8082                	ret
+
+000000000010b328 <rv_boot_plugin_selwre_boot__revoke_resource_phase>:
+  10b328:	1141                	addi	sp,sp,-16
+  10b32a:	e022                	sd	s0,0(sp)
+  10b32c:	e406                	sd	ra,8(sp)
+  10b32e:	3ff00793          	li	a5,1023
+  10b332:	842a                	mv	s0,a0
+  10b334:	0af51f63          	bne	a0,a5,10b3f2 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0xca>
+  10b338:	014d9637          	lui	a2,0x14d9
+  10b33c:	70062703          	lw	a4,1792(a2) # 14d9700 <__stack_end+0x1350100>
+  10b340:	000406b7          	lui	a3,0x40
+  10b344:	f0068593          	addi	a1,a3,-256 # 3ff00 <_IMEM_SIZE+0x33f00>
+  10b348:	0007079b          	sext.w	a5,a4
+  10b34c:	8fed                	and	a5,a5,a1
+  10b34e:	0127571b          	srliw	a4,a4,0x12
+  10b352:	06b79863          	bne	a5,a1,10b3c2 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x9a>
+  10b356:	f3968793          	addi	a5,a3,-199
+  10b35a:	0127171b          	slliw	a4,a4,0x12
+  10b35e:	8f5d                	or	a4,a4,a5
+  10b360:	2701                	sext.w	a4,a4
+  10b362:	70e62023          	sw	a4,1792(a2)
+  10b366:	4581                	li	a1,0
+  10b368:	014048b7          	lui	a7,0x1404
+  10b36c:	537d                	li	t1,-1
+  10b36e:	014d9537          	lui	a0,0x14d9
+  10b372:	16fd                	addi	a3,a3,-1
+  10b374:	fffc0e37          	lui	t3,0xfffc0
+  10b378:	6008a783          	lw	a5,1536(a7) # 1404600 <__stack_end+0x127b000>
+  10b37c:	8b89                	andi	a5,a5,2
+  10b37e:	ebcd                	bnez	a5,10b430 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x108>
+  10b380:	0a659663          	bne	a1,t1,10b42c <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x104>
+  10b384:	70052783          	lw	a5,1792(a0) # 14d9700 <__stack_end+0x1350100>
+  10b388:	01c87833          	and	a6,a6,t3
+  10b38c:	0087d61b          	srliw	a2,a5,0x8
+  10b390:	0127d71b          	srliw	a4,a5,0x12
+  10b394:	3ff67613          	andi	a2,a2,1023
+  10b398:	0fc7f793          	andi	a5,a5,252
+  10b39c:	0017e793          	ori	a5,a5,1
+  10b3a0:	0086161b          	slliw	a2,a2,0x8
+  10b3a4:	8fd1                	or	a5,a5,a2
+  10b3a6:	8ff5                	and	a5,a5,a3
+  10b3a8:	0107e7b3          	or	a5,a5,a6
+  10b3ac:	00476713          	ori	a4,a4,4
+  10b3b0:	0127171b          	slliw	a4,a4,0x12
+  10b3b4:	8ff5                	and	a5,a5,a3
+  10b3b6:	8fd9                	or	a5,a5,a4
+  10b3b8:	883e                	mv	a6,a5
+  10b3ba:	2781                	sext.w	a5,a5
+  10b3bc:	70f52023          	sw	a5,1792(a0)
+  10b3c0:	bf65                	j	10b378 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x50>
+  10b3c2:	00001797          	auipc	a5,0x1
+  10b3c6:	8b678793          	addi	a5,a5,-1866 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10b3ca:	30579073          	csrw	mtvec,a5
+  10b3ce:	70062783          	lw	a5,1792(a2)
+  10b3d2:	6751                	lui	a4,0x14
+  10b3d4:	23a70713          	addi	a4,a4,570 # 1423a <_IMEM_SIZE+0x823a>
+  10b3d8:	0127d79b          	srliw	a5,a5,0x12
+  10b3dc:	0127979b          	slliw	a5,a5,0x12
+  10b3e0:	8fd9                	or	a5,a5,a4
+  10b3e2:	2781                	sext.w	a5,a5
+  10b3e4:	70f62023          	sw	a5,1792(a2)
+  10b3e8:	00000073          	ecall
+  10b3ec:	7d805073          	csrwi	0x7d8,0
+  10b3f0:	bff5                	j	10b3ec <rv_boot_plugin_selwre_boot__revoke_resource_phase+0xc4>
+  10b3f2:	00001797          	auipc	a5,0x1
+  10b3f6:	88678793          	addi	a5,a5,-1914 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10b3fa:	30579073          	csrw	mtvec,a5
+  10b3fe:	014d96b7          	lui	a3,0x14d9
+  10b402:	7006a703          	lw	a4,1792(a3) # 14d9700 <__stack_end+0x1350100>
+  10b406:	3ff57413          	andi	s0,a0,1023
+  10b40a:	0084179b          	slliw	a5,s0,0x8
+  10b40e:	0127571b          	srliw	a4,a4,0x12
+  10b412:	0127141b          	slliw	s0,a4,0x12
+  10b416:	03a7e793          	ori	a5,a5,58
+  10b41a:	8fc1                	or	a5,a5,s0
+  10b41c:	2781                	sext.w	a5,a5
+  10b41e:	70f6a023          	sw	a5,1792(a3)
+  10b422:	00000073          	ecall
+  10b426:	7d805073          	csrwi	0x7d8,0
+  10b42a:	bff5                	j	10b426 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0xfe>
+  10b42c:	2585                	addiw	a1,a1,1
+  10b42e:	b7a9                	j	10b378 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x50>
+  10b430:	0140c737          	lui	a4,0x140c
+  10b434:	80072783          	lw	a5,-2048(a4) # 140b800 <__stack_end+0x1282200>
+  10b438:	8b91                	andi	a5,a5,4
+  10b43a:	1a078f63          	beqz	a5,10b5f8 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x2d0>
+  10b43e:	4791                	li	a5,4
+  10b440:	80f72023          	sw	a5,-2048(a4)
+  10b444:	02100413          	li	s0,33
+  10b448:	4711                	li	a4,4
+  10b44a:	0140c7b7          	lui	a5,0x140c
+  10b44e:	80e7a023          	sw	a4,-2048(a5) # 140b800 <__stack_end+0x1282200>
+  10b452:	014fa7b7          	lui	a5,0x14fa
+  10b456:	b007a023          	sw	zero,-1280(a5) # 14f9b00 <__stack_end+0x1370500>
+  10b45a:	11000713          	li	a4,272
+  10b45e:	014f87b7          	lui	a5,0x14f8
+  10b462:	c398                	sw	a4,0(a5)
+  10b464:	014057b7          	lui	a5,0x1405
+  10b468:	a007a023          	sw	zero,-1536(a5) # 1404a00 <__stack_end+0x127b400>
+  10b46c:	014047b7          	lui	a5,0x1404
+  10b470:	4007a023          	sw	zero,1024(a5) # 1404400 <__stack_end+0x127ae00>
+  10b474:	7007a023          	sw	zero,1792(a5)
+  10b478:	2c5000ef          	jal	ra,10bf3c <rv_boot_plugin_sw_interface__get_fmc_code_block_size>
+  10b47c:	0085151b          	slliw	a0,a0,0x8
+  10b480:	0005071b          	sext.w	a4,a0
+  10b484:	67a9                	lui	a5,0xa
+  10b486:	04f77d63          	bgeu	a4,a5,10b4e0 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x1b8>
+  10b48a:	6729                	lui	a4,0xa
+  10b48c:	40a706bb          	subw	a3,a4,a0
+  10b490:	479d                	li	a5,7
+  10b492:	04d7f763          	bgeu	a5,a3,10b4e0 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x1b8>
+  10b496:	1502                	slli	a0,a0,0x20
+  10b498:	9101                	srli	a0,a0,0x20
+  10b49a:	001007b7          	lui	a5,0x100
+  10b49e:	0036d71b          	srliw	a4,a3,0x3
+  10b4a2:	953e                	add	a0,a0,a5
+  10b4a4:	4681                	li	a3,0
+  10b4a6:	461d                	li	a2,7
+  10b4a8:	40d707bb          	subw	a5,a4,a3
+  10b4ac:	02f67a63          	bgeu	a2,a5,10b4e0 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x1b8>
+  10b4b0:	00369793          	slli	a5,a3,0x3
+  10b4b4:	97aa                	add	a5,a5,a0
+  10b4b6:	0007b023          	sd	zero,0(a5) # 100000 <_IMEM_PA_OFFSET>
+  10b4ba:	0007b423          	sd	zero,8(a5)
+  10b4be:	0007b823          	sd	zero,16(a5)
+  10b4c2:	0007bc23          	sd	zero,24(a5)
+  10b4c6:	0207b023          	sd	zero,32(a5)
+  10b4ca:	0207b423          	sd	zero,40(a5)
+  10b4ce:	0207b823          	sd	zero,48(a5)
+  10b4d2:	06a1                	addi	a3,a3,8
+  10b4d4:	0207bc23          	sd	zero,56(a5)
+  10b4d8:	0006879b          	sext.w	a5,a3
+  10b4dc:	fcf716e3          	bne	a4,a5,10b4a8 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x180>
+  10b4e0:	26f000ef          	jal	ra,10bf4e <rv_boot_plugin_sw_interface__get_fmc_data_block_size>
+  10b4e4:	67a5                	lui	a5,0x9
+  10b4e6:	0085151b          	slliw	a0,a0,0x8
+  10b4ea:	a007879b          	addiw	a5,a5,-1536
+  10b4ee:	40a786bb          	subw	a3,a5,a0
+  10b4f2:	471d                	li	a4,7
+  10b4f4:	04d77763          	bgeu	a4,a3,10b542 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x21a>
+  10b4f8:	1502                	slli	a0,a0,0x20
+  10b4fa:	9101                	srli	a0,a0,0x20
+  10b4fc:	00180737          	lui	a4,0x180
+  10b500:	0036d79b          	srliw	a5,a3,0x3
+  10b504:	953a                	add	a0,a0,a4
+  10b506:	4681                	li	a3,0
+  10b508:	461d                	li	a2,7
+  10b50a:	40d7873b          	subw	a4,a5,a3
+  10b50e:	02e67a63          	bgeu	a2,a4,10b542 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x21a>
+  10b512:	00369713          	slli	a4,a3,0x3
+  10b516:	972a                	add	a4,a4,a0
+  10b518:	00073023          	sd	zero,0(a4) # 180000 <_DMEM_PA_OFFSET>
+  10b51c:	00073423          	sd	zero,8(a4)
+  10b520:	00073823          	sd	zero,16(a4)
+  10b524:	00073c23          	sd	zero,24(a4)
+  10b528:	02073023          	sd	zero,32(a4)
+  10b52c:	02073423          	sd	zero,40(a4)
+  10b530:	02073823          	sd	zero,48(a4)
+  10b534:	06a1                	addi	a3,a3,8
+  10b536:	02073c23          	sd	zero,56(a4)
+  10b53a:	0006871b          	sext.w	a4,a3
+  10b53e:	fce796e3          	bne	a5,a4,10b50a <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x1e2>
+  10b542:	0004071b          	sext.w	a4,s0
+  10b546:	3ff00693          	li	a3,1023
+  10b54a:	87a2                	mv	a5,s0
+  10b54c:	02d71563          	bne	a4,a3,10b576 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x24e>
+  10b550:	014007b7          	lui	a5,0x1400
+  10b554:	2007a703          	lw	a4,512(a5) # 1400200 <__stack_end+0x1276c00>
+  10b558:	87a2                	mv	a5,s0
+  10b55a:	02d71613          	slli	a2,a4,0x2d
+  10b55e:	0007069b          	sext.w	a3,a4
+  10b562:	00065463          	bgez	a2,10b56a <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x242>
+  10b566:	14200793          	li	a5,322
+  10b56a:	02869713          	slli	a4,a3,0x28
+  10b56e:	00075463          	bgez	a4,10b576 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x24e>
+  10b572:	14100793          	li	a5,321
+  10b576:	0001                	nop
+  10b578:	0001                	nop
+  10b57a:	0001                	nop
+  10b57c:	0001                	nop
+  10b57e:	0001                	nop
+  10b580:	0001                	nop
+  10b582:	0001                	nop
+  10b584:	0001                	nop
+  10b586:	0001                	nop
+  10b588:	0001                	nop
+  10b58a:	0001                	nop
+  10b58c:	0001                	nop
+  10b58e:	0001                	nop
+  10b590:	0001                	nop
+  10b592:	0001                	nop
+  10b594:	0001                	nop
+  10b596:	0001                	nop
+  10b598:	0001                	nop
+  10b59a:	0001                	nop
+  10b59c:	0001                	nop
+  10b59e:	0001                	nop
+  10b5a0:	0001                	nop
+  10b5a2:	0001                	nop
+  10b5a4:	0001                	nop
+  10b5a6:	0001                	nop
+  10b5a8:	0001                	nop
+  10b5aa:	0001                	nop
+  10b5ac:	0001                	nop
+  10b5ae:	0001                	nop
+  10b5b0:	0001                	nop
+  10b5b2:	0001                	nop
+  10b5b4:	0001                	nop
+  10b5b6:	3ff00693          	li	a3,1023
+  10b5ba:	0007871b          	sext.w	a4,a5
+  10b5be:	06d70063          	beq	a4,a3,10b61e <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x2f6>
+  10b5c2:	00000717          	auipc	a4,0x0
+  10b5c6:	6b670713          	addi	a4,a4,1718 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10b5ca:	30571073          	csrw	mtvec,a4
+  10b5ce:	014d96b7          	lui	a3,0x14d9
+  10b5d2:	7006a703          	lw	a4,1792(a3) # 14d9700 <__stack_end+0x1350100>
+  10b5d6:	0087979b          	slliw	a5,a5,0x8
+  10b5da:	03a7e793          	ori	a5,a5,58
+  10b5de:	0127571b          	srliw	a4,a4,0x12
+  10b5e2:	0127171b          	slliw	a4,a4,0x12
+  10b5e6:	8fd9                	or	a5,a5,a4
+  10b5e8:	2781                	sext.w	a5,a5
+  10b5ea:	70f6a023          	sw	a5,1792(a3)
+  10b5ee:	00000073          	ecall
+  10b5f2:	7d805073          	csrwi	0x7d8,0
+  10b5f6:	bff5                	j	10b5f2 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x2ca>
+  10b5f8:	014007b7          	lui	a5,0x1400
+  10b5fc:	2007a783          	lw	a5,512(a5) # 1400200 <__stack_end+0x1276c00>
+  10b600:	02d79693          	slli	a3,a5,0x2d
+  10b604:	0007871b          	sext.w	a4,a5
+  10b608:	0006d463          	bgez	a3,10b610 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x2e8>
+  10b60c:	14200413          	li	s0,322
+  10b610:	02871793          	slli	a5,a4,0x28
+  10b614:	e207dae3          	bgez	a5,10b448 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x120>
+  10b618:	14100413          	li	s0,321
+  10b61c:	b535                	j	10b448 <rv_boot_plugin_selwre_boot__revoke_resource_phase+0x120>
+  10b61e:	60a2                	ld	ra,8(sp)
+  10b620:	8522                	mv	a0,s0
+  10b622:	6402                	ld	s0,0(sp)
+  10b624:	0141                	addi	sp,sp,16
+  10b626:	8082                	ret
+
+000000000010b628 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase>:
+  10b628:	715d                	addi	sp,sp,-80
+  10b62a:	e0a2                	sd	s0,64(sp)
+  10b62c:	e486                	sd	ra,72(sp)
+  10b62e:	fc26                	sd	s1,56(sp)
+  10b630:	f84a                	sd	s2,48(sp)
+  10b632:	f44e                	sd	s3,40(sp)
+  10b634:	f052                	sd	s4,32(sp)
+  10b636:	ec56                	sd	s5,24(sp)
+  10b638:	e85a                	sd	s6,16(sp)
+  10b63a:	e45e                	sd	s7,8(sp)
+  10b63c:	3ff00793          	li	a5,1023
+  10b640:	842a                	mv	s0,a0
+  10b642:	2af51663          	bne	a0,a5,10b8ee <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x2c6>
+  10b646:	014d9737          	lui	a4,0x14d9
+  10b64a:	70072783          	lw	a5,1792(a4) # 14d9700 <__stack_end+0x1350100>
+  10b64e:	000406b7          	lui	a3,0x40
+  10b652:	f0068593          	addi	a1,a3,-256 # 3ff00 <_IMEM_SIZE+0x33f00>
+  10b656:	0007861b          	sext.w	a2,a5
+  10b65a:	8e6d                	and	a2,a2,a1
+  10b65c:	0127d79b          	srliw	a5,a5,0x12
+  10b660:	24b61f63          	bne	a2,a1,10b8be <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x296>
+  10b664:	f3d68693          	addi	a3,a3,-195
+  10b668:	0127979b          	slliw	a5,a5,0x12
+  10b66c:	8fd5                	or	a5,a5,a3
+  10b66e:	2781                	sext.w	a5,a5
+  10b670:	70f72023          	sw	a5,1792(a4)
+  10b674:	573d                	li	a4,-17
+  10b676:	0140a7b7          	lui	a5,0x140a
+  10b67a:	20e7a023          	sw	a4,512(a5) # 140a200 <__stack_end+0x1280c00>
+  10b67e:	001897b7          	lui	a5,0x189
+  10b682:	60078793          	addi	a5,a5,1536 # 189600 <__stack_end>
+  10b686:	4187a703          	lw	a4,1048(a5)
+  10b68a:	014d76b7          	lui	a3,0x14d7
+  10b68e:	014d7637          	lui	a2,0x14d7
+  10b692:	2701                	sext.w	a4,a4
+  10b694:	c298                	sw	a4,0(a3)
+  10b696:	41c7a703          	lw	a4,1052(a5)
+  10b69a:	457d                	li	a0,31
+  10b69c:	2701                	sext.w	a4,a4
+  10b69e:	10e6a023          	sw	a4,256(a3) # 14d7100 <__stack_end+0x134db00>
+  10b6a2:	56fd                	li	a3,-1
+  10b6a4:	8736                	mv	a4,a3
+  10b6a6:	0685                	addi	a3,a3,1
+  10b6a8:	0006859b          	sext.w	a1,a3
+  10b6ac:	0712                	slli	a4,a4,0x4
+  10b6ae:	c0b62023          	sw	a1,-1024(a2) # 14d6c00 <__stack_end+0x134d600>
+  10b6b2:	973e                	add	a4,a4,a5
+  10b6b4:	59872583          	lw	a1,1432(a4)
+  10b6b8:	2581                	sext.w	a1,a1
+  10b6ba:	e0b62023          	sw	a1,-512(a2)
+  10b6be:	59c72583          	lw	a1,1436(a4)
+  10b6c2:	2581                	sext.w	a1,a1
+  10b6c4:	f0b62023          	sw	a1,-256(a2)
+  10b6c8:	59072703          	lw	a4,1424(a4)
+  10b6cc:	2701                	sext.w	a4,a4
+  10b6ce:	d0e62023          	sw	a4,-768(a2)
+  10b6d2:	fca699e3          	bne	a3,a0,10b6a4 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x7c>
+  10b6d6:	4701                	li	a4,0
+  10b6d8:	80271073          	csrw	0x802,a4
+  10b6dc:	4107a683          	lw	a3,1040(a5)
+  10b6e0:	014cf637          	lui	a2,0x14cf
+  10b6e4:	2681                	sext.w	a3,a3
+  10b6e6:	20d62023          	sw	a3,512(a2) # 14cf200 <__stack_end+0x1345c00>
+  10b6ea:	80271073          	csrw	0x802,a4
+  10b6ee:	4147a783          	lw	a5,1044(a5)
+  10b6f2:	2781                	sext.w	a5,a5
+  10b6f4:	30f62023          	sw	a5,768(a2)
+  10b6f8:	80271073          	csrw	0x802,a4
+  10b6fc:	014047b7          	lui	a5,0x1404
+  10b700:	d007a783          	lw	a5,-768(a5) # 1403d00 <__stack_end+0x127a700>
+  10b704:	03079713          	slli	a4,a5,0x30
+  10b708:	08075063          	bgez	a4,10b788 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x160>
+  10b70c:	055000ef          	jal	ra,10bf60 <rv_boot_plugin_sw_interface__get_reg_pair_num>
+  10b710:	cd25                	beqz	a0,10b788 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x160>
+  10b712:	001899b7          	lui	s3,0x189
+  10b716:	597d                	li	s2,-1
+  10b718:	01404a37          	lui	s4,0x1404
+  10b71c:	6aa1                	lui	s5,0x8
+  10b71e:	60098993          	addi	s3,s3,1536 # 189600 <__stack_end>
+  10b722:	01400b37          	lui	s6,0x1400
+  10b726:	00040bb7          	lui	s7,0x40
+  10b72a:	84ca                	mv	s1,s2
+  10b72c:	035000ef          	jal	ra,10bf60 <rv_boot_plugin_sw_interface__get_reg_pair_num>
+  10b730:	0905                	addi	s2,s2,1
+  10b732:	0ff97793          	andi	a5,s2,255
+  10b736:	04a7f963          	bgeu	a5,a0,10b788 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x160>
+  10b73a:	d00a2783          	lw	a5,-768(s4) # 1403d00 <__stack_end+0x127a700>
+  10b73e:	2781                	sext.w	a5,a5
+  10b740:	0157f7b3          	and	a5,a5,s5
+  10b744:	2781                	sext.w	a5,a5
+  10b746:	c3a9                	beqz	a5,10b788 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x160>
+  10b748:	00449713          	slli	a4,s1,0x4
+  10b74c:	974e                	add	a4,a4,s3
+  10b74e:	79073683          	ld	a3,1936(a4)
+  10b752:	4290                	lw	a2,0(a3)
+  10b754:	79872783          	lw	a5,1944(a4)
+  10b758:	79c72703          	lw	a4,1948(a4)
+  10b75c:	8ff1                	and	a5,a5,a2
+  10b75e:	8fd9                	or	a5,a5,a4
+  10b760:	2781                	sext.w	a5,a5
+  10b762:	c29c                	sw	a5,0(a3)
+  10b764:	0cc0000f          	fence	io,io
+  10b768:	200b2783          	lw	a5,512(s6) # 1400200 <__stack_end+0x1276c00>
+  10b76c:	8722                	mv	a4,s0
+  10b76e:	2781                	sext.w	a5,a5
+  10b770:	0177f6b3          	and	a3,a5,s7
+  10b774:	2681                	sext.w	a3,a3
+  10b776:	c299                	beqz	a3,10b77c <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x154>
+  10b778:	14200713          	li	a4,322
+  10b77c:	02879693          	slli	a3,a5,0x28
+  10b780:	1a06d463          	bgez	a3,10b928 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x300>
+  10b784:	14100413          	li	s0,321
+  10b788:	001897b7          	lui	a5,0x189
+  10b78c:	60078793          	addi	a5,a5,1536 # 189600 <__stack_end>
+  10b790:	4237c703          	lbu	a4,1059(a5)
+  10b794:	4227c783          	lbu	a5,1058(a5)
+  10b798:	0ff77713          	andi	a4,a4,255
+  10b79c:	0ff7f793          	andi	a5,a5,255
+  10b7a0:	1a071063          	bnez	a4,10b940 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x318>
+  10b7a4:	014046b7          	lui	a3,0x1404
+  10b7a8:	d006a683          	lw	a3,-768(a3) # 1403d00 <__stack_end+0x127a700>
+  10b7ac:	03469613          	slli	a2,a3,0x34
+  10b7b0:	00065363          	bgez	a2,10b7b6 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x18e>
+  10b7b4:	4701                	li	a4,0
+  10b7b6:	4685                	li	a3,1
+  10b7b8:	8bbd                	andi	a5,a5,15
+  10b7ba:	06fe                	slli	a3,a3,0x1f
+  10b7bc:	06c5                	addi	a3,a3,17
+  10b7be:	07b2                	slli	a5,a5,0xc
+  10b7c0:	8fd5                	or	a5,a5,a3
+  10b7c2:	074e                	slli	a4,a4,0x13
+  10b7c4:	8fd9                	or	a5,a5,a4
+  10b7c6:	7d979073          	csrw	0x7d9,a5
+  10b7ca:	001897b7          	lui	a5,0x189
+  10b7ce:	60078793          	addi	a5,a5,1536 # 189600 <__stack_end>
+  10b7d2:	4237c703          	lbu	a4,1059(a5)
+  10b7d6:	4227c783          	lbu	a5,1058(a5)
+  10b7da:	0ff77713          	andi	a4,a4,255
+  10b7de:	0ff7f793          	andi	a5,a5,255
+  10b7e2:	16071163          	bnez	a4,10b944 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x31c>
+  10b7e6:	014046b7          	lui	a3,0x1404
+  10b7ea:	d006a683          	lw	a3,-768(a3) # 1403d00 <__stack_end+0x127a700>
+  10b7ee:	03469613          	slli	a2,a3,0x34
+  10b7f2:	00065363          	bgez	a2,10b7f8 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x1d0>
+  10b7f6:	4701                	li	a4,0
+  10b7f8:	4685                	li	a3,1
+  10b7fa:	8bbd                	andi	a5,a5,15
+  10b7fc:	06fe                	slli	a3,a3,0x1f
+  10b7fe:	06c5                	addi	a3,a3,17
+  10b800:	07b2                	slli	a5,a5,0xc
+  10b802:	8fd5                	or	a5,a5,a3
+  10b804:	074e                	slli	a4,a4,0x13
+  10b806:	8fd9                	or	a5,a5,a4
+  10b808:	7d979073          	csrw	0x7d9,a5
+  10b80c:	3ff00713          	li	a4,1023
+  10b810:	0004079b          	sext.w	a5,s0
+  10b814:	02e79463          	bne	a5,a4,10b83c <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x214>
+  10b818:	014007b7          	lui	a5,0x1400
+  10b81c:	2007a783          	lw	a5,512(a5) # 1400200 <__stack_end+0x1276c00>
+  10b820:	02d79693          	slli	a3,a5,0x2d
+  10b824:	0007871b          	sext.w	a4,a5
+  10b828:	0006d463          	bgez	a3,10b830 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x208>
+  10b82c:	14200413          	li	s0,322
+  10b830:	02871793          	slli	a5,a4,0x28
+  10b834:	0007d463          	bgez	a5,10b83c <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x214>
+  10b838:	14100413          	li	s0,321
+  10b83c:	0001                	nop
+  10b83e:	0001                	nop
+  10b840:	0001                	nop
+  10b842:	0001                	nop
+  10b844:	0001                	nop
+  10b846:	0001                	nop
+  10b848:	0001                	nop
+  10b84a:	0001                	nop
+  10b84c:	0001                	nop
+  10b84e:	0001                	nop
+  10b850:	0001                	nop
+  10b852:	0001                	nop
+  10b854:	0001                	nop
+  10b856:	0001                	nop
+  10b858:	0001                	nop
+  10b85a:	0001                	nop
+  10b85c:	0001                	nop
+  10b85e:	0001                	nop
+  10b860:	0001                	nop
+  10b862:	0001                	nop
+  10b864:	0001                	nop
+  10b866:	0001                	nop
+  10b868:	0001                	nop
+  10b86a:	0001                	nop
+  10b86c:	0001                	nop
+  10b86e:	0001                	nop
+  10b870:	0001                	nop
+  10b872:	0001                	nop
+  10b874:	0001                	nop
+  10b876:	0001                	nop
+  10b878:	0001                	nop
+  10b87a:	0001                	nop
+  10b87c:	3ff00713          	li	a4,1023
+  10b880:	0004079b          	sext.w	a5,s0
+  10b884:	0ce78263          	beq	a5,a4,10b948 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x320>
+  10b888:	00000797          	auipc	a5,0x0
+  10b88c:	3f078793          	addi	a5,a5,1008 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10b890:	30579073          	csrw	mtvec,a5
+  10b894:	014d9737          	lui	a4,0x14d9
+  10b898:	70072783          	lw	a5,1792(a4) # 14d9700 <__stack_end+0x1350100>
+  10b89c:	0084141b          	slliw	s0,s0,0x8
+  10b8a0:	03e46413          	ori	s0,s0,62
+  10b8a4:	0127d79b          	srliw	a5,a5,0x12
+  10b8a8:	0127979b          	slliw	a5,a5,0x12
+  10b8ac:	8c5d                	or	s0,s0,a5
+  10b8ae:	2401                	sext.w	s0,s0
+  10b8b0:	70872023          	sw	s0,1792(a4)
+  10b8b4:	00000073          	ecall
+  10b8b8:	7d805073          	csrwi	0x7d8,0
+  10b8bc:	bff5                	j	10b8b8 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x290>
+  10b8be:	00000797          	auipc	a5,0x0
+  10b8c2:	3ba78793          	addi	a5,a5,954 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10b8c6:	30579073          	csrw	mtvec,a5
+  10b8ca:	70072783          	lw	a5,1792(a4)
+  10b8ce:	66d1                	lui	a3,0x14
+  10b8d0:	23e68693          	addi	a3,a3,574 # 1423e <_IMEM_SIZE+0x823e>
+  10b8d4:	0127d79b          	srliw	a5,a5,0x12
+  10b8d8:	0127979b          	slliw	a5,a5,0x12
+  10b8dc:	8fd5                	or	a5,a5,a3
+  10b8de:	2781                	sext.w	a5,a5
+  10b8e0:	70f72023          	sw	a5,1792(a4)
+  10b8e4:	00000073          	ecall
+  10b8e8:	7d805073          	csrwi	0x7d8,0
+  10b8ec:	bff5                	j	10b8e8 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x2c0>
+  10b8ee:	00000797          	auipc	a5,0x0
+  10b8f2:	38a78793          	addi	a5,a5,906 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10b8f6:	30579073          	csrw	mtvec,a5
+  10b8fa:	014d96b7          	lui	a3,0x14d9
+  10b8fe:	7006a703          	lw	a4,1792(a3) # 14d9700 <__stack_end+0x1350100>
+  10b902:	3ff57793          	andi	a5,a0,1023
+  10b906:	0087979b          	slliw	a5,a5,0x8
+  10b90a:	0127571b          	srliw	a4,a4,0x12
+  10b90e:	0127141b          	slliw	s0,a4,0x12
+  10b912:	03e7e793          	ori	a5,a5,62
+  10b916:	8fc1                	or	a5,a5,s0
+  10b918:	2781                	sext.w	a5,a5
+  10b91a:	70f6a023          	sw	a5,1792(a3)
+  10b91e:	00000073          	ecall
+  10b922:	7d805073          	csrwi	0x7d8,0
+  10b926:	bff5                	j	10b922 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x2fa>
+  10b928:	0007079b          	sext.w	a5,a4
+  10b92c:	3ff00693          	li	a3,1023
+  10b930:	00d79663          	bne	a5,a3,10b93c <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x314>
+  10b934:	47fd                	li	a5,31
+  10b936:	def91ae3          	bne	s2,a5,10b72a <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x102>
+  10b93a:	b5b9                	j	10b788 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x160>
+  10b93c:	843a                	mv	s0,a4
+  10b93e:	b5a9                	j	10b788 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x160>
+  10b940:	4705                	li	a4,1
+  10b942:	b58d                	j	10b7a4 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x17c>
+  10b944:	4705                	li	a4,1
+  10b946:	b545                	j	10b7e6 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x1be>
+  10b948:	4785                	li	a5,1
+  10b94a:	07fe                	slli	a5,a5,0x1f
+  10b94c:	7d979073          	csrw	0x7d9,a5
+  10b950:	7d979073          	csrw	0x7d9,a5
+  10b954:	014d96b7          	lui	a3,0x14d9
+  10b958:	7006a783          	lw	a5,1792(a3) # 14d9700 <__stack_end+0x1350100>
+  10b95c:	001894b7          	lui	s1,0x189
+  10b960:	60048413          	addi	s0,s1,1536 # 189600 <__stack_end>
+  10b964:	0087d71b          	srliw	a4,a5,0x8
+  10b968:	0127d61b          	srliw	a2,a5,0x12
+  10b96c:	3ff77713          	andi	a4,a4,1023
+  10b970:	0fc7f793          	andi	a5,a5,252
+  10b974:	0087171b          	slliw	a4,a4,0x8
+  10b978:	0037e793          	ori	a5,a5,3
+  10b97c:	8fd9                	or	a5,a5,a4
+  10b97e:	0126171b          	slliw	a4,a2,0x12
+  10b982:	8fd9                	or	a5,a5,a4
+  10b984:	2781                	sext.w	a5,a5
+  10b986:	70f6a023          	sw	a5,1792(a3)
+  10b98a:	45042783          	lw	a5,1104(s0)
+  10b98e:	014d8737          	lui	a4,0x14d8
+  10b992:	2781                	sext.w	a5,a5
+  10b994:	40f72023          	sw	a5,1024(a4) # 14d8400 <__stack_end+0x134ee00>
+  10b998:	45442783          	lw	a5,1108(s0)
+  10b99c:	2781                	sext.w	a5,a5
+  10b99e:	60f72023          	sw	a5,1536(a4)
+  10b9a2:	45842783          	lw	a5,1112(s0)
+  10b9a6:	2781                	sext.w	a5,a5
+  10b9a8:	80f6a023          	sw	a5,-2048(a3)
+  10b9ac:	45c42783          	lw	a5,1116(s0)
+  10b9b0:	2781                	sext.w	a5,a5
+  10b9b2:	a0f6a023          	sw	a5,-1536(a3)
+  10b9b6:	574000ef          	jal	ra,10bf2a <rv_boot_plugin_sw_interface__get_ucode_id>
+  10b9ba:	57fd                	li	a5,-1
+  10b9bc:	0207d713          	srli	a4,a5,0x20
+  10b9c0:	0562                	slli	a0,a0,0x18
+  10b9c2:	8d79                	and	a0,a0,a4
+  10b9c4:	7d751073          	csrw	0x7d7,a0
+  10b9c8:	48043703          	ld	a4,1152(s0)
+  10b9cc:	3b071073          	csrw	pmpaddr0,a4
+  10b9d0:	48843703          	ld	a4,1160(s0)
+  10b9d4:	3b171073          	csrw	pmpaddr1,a4
+  10b9d8:	49043703          	ld	a4,1168(s0)
+  10b9dc:	3b271073          	csrw	pmpaddr2,a4
+  10b9e0:	49843703          	ld	a4,1176(s0)
+  10b9e4:	3b371073          	csrw	pmpaddr3,a4
+  10b9e8:	4a043703          	ld	a4,1184(s0)
+  10b9ec:	3b471073          	csrw	pmpaddr4,a4
+  10b9f0:	4a843703          	ld	a4,1192(s0)
+  10b9f4:	3b571073          	csrw	pmpaddr5,a4
+  10b9f8:	4b043703          	ld	a4,1200(s0)
+  10b9fc:	3b671073          	csrw	pmpaddr6,a4
+  10ba00:	4b843703          	ld	a4,1208(s0)
+  10ba04:	3b771073          	csrw	pmpaddr7,a4
+  10ba08:	4c043703          	ld	a4,1216(s0)
+  10ba0c:	3b871073          	csrw	pmpaddr8,a4
+  10ba10:	4c843703          	ld	a4,1224(s0)
+  10ba14:	3b971073          	csrw	pmpaddr9,a4
+  10ba18:	4d043703          	ld	a4,1232(s0)
+  10ba1c:	3ba71073          	csrw	pmpaddr10,a4
+  10ba20:	4d843703          	ld	a4,1240(s0)
+  10ba24:	3bb71073          	csrw	pmpaddr11,a4
+  10ba28:	4e043703          	ld	a4,1248(s0)
+  10ba2c:	3bc71073          	csrw	pmpaddr12,a4
+  10ba30:	4e843703          	ld	a4,1256(s0)
+  10ba34:	3bd71073          	csrw	pmpaddr13,a4
+  10ba38:	4f043703          	ld	a4,1264(s0)
+  10ba3c:	3be71073          	csrw	pmpaddr14,a4
+  10ba40:	4f843703          	ld	a4,1272(s0)
+  10ba44:	3bf71073          	csrw	pmpaddr15,a4
+  10ba48:	50043703          	ld	a4,1280(s0)
+  10ba4c:	7e071073          	csrw	0x7e0,a4
+  10ba50:	50843703          	ld	a4,1288(s0)
+  10ba54:	7e171073          	csrw	0x7e1,a4
+  10ba58:	51043703          	ld	a4,1296(s0)
+  10ba5c:	7e271073          	csrw	0x7e2,a4
+  10ba60:	51843703          	ld	a4,1304(s0)
+  10ba64:	7e371073          	csrw	0x7e3,a4
+  10ba68:	52043703          	ld	a4,1312(s0)
+  10ba6c:	7e471073          	csrw	0x7e4,a4
+  10ba70:	52843703          	ld	a4,1320(s0)
+  10ba74:	7e571073          	csrw	0x7e5,a4
+  10ba78:	53043703          	ld	a4,1328(s0)
+  10ba7c:	7e671073          	csrw	0x7e6,a4
+  10ba80:	53843703          	ld	a4,1336(s0)
+  10ba84:	7e771073          	csrw	0x7e7,a4
+  10ba88:	54043703          	ld	a4,1344(s0)
+  10ba8c:	7e871073          	csrw	0x7e8,a4
+  10ba90:	54843703          	ld	a4,1352(s0)
+  10ba94:	7e971073          	csrw	0x7e9,a4
+  10ba98:	55043703          	ld	a4,1360(s0)
+  10ba9c:	7ea71073          	csrw	0x7ea,a4
+  10baa0:	55843703          	ld	a4,1368(s0)
+  10baa4:	7eb71073          	csrw	0x7eb,a4
+  10baa8:	56043703          	ld	a4,1376(s0)
+  10baac:	7ec71073          	csrw	0x7ec,a4
+  10bab0:	56843703          	ld	a4,1384(s0)
+  10bab4:	7ed71073          	csrw	0x7ed,a4
+  10bab8:	46043703          	ld	a4,1120(s0)
+  10babc:	3a071073          	csrw	pmpcfg0,a4
+  10bac0:	46843703          	ld	a4,1128(s0)
+  10bac4:	3a271073          	csrw	pmpcfg2,a4
+  10bac8:	47043703          	ld	a4,1136(s0)
+  10bacc:	7f071073          	csrw	0x7f0,a4
+  10bad0:	7f202773          	csrr	a4,0x7f2
+  10bad4:	60606637          	lui	a2,0x60606
+  10bad8:	9f9fa8b7          	lui	a7,0x9f9fa
+  10badc:	06060613          	addi	a2,a2,96 # 60606060 <__stack_end+0x6047ca60>
+  10bae0:	0007031b          	sext.w	t1,a4
+  10bae4:	f9f88893          	addi	a7,a7,-97 # ffffffff9f9f9f9f <__stack_end+0xffffffff9f87099f>
+  10bae8:	01137333          	and	t1,t1,a7
+  10baec:	00c776b3          	and	a3,a4,a2
+  10baf0:	0066e6b3          	or	a3,a3,t1
+  10baf4:	02079593          	slli	a1,a5,0x20
+  10baf8:	02069513          	slli	a0,a3,0x20
+  10bafc:	9101                	srli	a0,a0,0x20
+  10bafe:	00b776b3          	and	a3,a4,a1
+  10bb02:	47843e83          	ld	t4,1144(s0)
+  10bb06:	8ec9                	or	a3,a3,a0
+  10bb08:	00c6f733          	and	a4,a3,a2
+  10bb0c:	00e36733          	or	a4,t1,a4
+  10bb10:	000e8e1b          	sext.w	t3,t4
+  10bb14:	6799                	lui	a5,0x6
+  10bb16:	020ede93          	srli	t4,t4,0x20
+  10bb1a:	1702                	slli	a4,a4,0x20
+  10bb1c:	06078513          	addi	a0,a5,96 # 6060 <_TEXT_SIZE_LIMIT+0x4060>
+  10bb20:	8eed                	and	a3,a3,a1
+  10bb22:	1ec2                	slli	t4,t4,0x30
+  10bb24:	9301                	srli	a4,a4,0x20
+  10bb26:	77e9                	lui	a5,0xffffa
+  10bb28:	8f55                	or	a4,a4,a3
+  10bb2a:	f9f78793          	addi	a5,a5,-97 # ffffffffffff9f9f <__stack_end+0xffffffffffe7099f>
+  10bb2e:	030ede93          	srli	t4,t4,0x30
+  10bb32:	9281                	srli	a3,a3,0x20
+  10bb34:	f0001837          	lui	a6,0xf0001
+  10bb38:	00fefeb3          	and	t4,t4,a5
+  10bb3c:	8ee9                	and	a3,a3,a0
+  10bb3e:	0852                	slli	a6,a6,0x14
+  10bb40:	187d                	addi	a6,a6,-1
+  10bb42:	01d6e6b3          	or	a3,a3,t4
+  10bb46:	1682                	slli	a3,a3,0x20
+  10bb48:	01077733          	and	a4,a4,a6
+  10bb4c:	8f55                	or	a4,a4,a3
+  10bb4e:	00c776b3          	and	a3,a4,a2
+  10bb52:	00d366b3          	or	a3,t1,a3
+  10bb56:	1682                	slli	a3,a3,0x20
+  10bb58:	8f6d                	and	a4,a4,a1
+  10bb5a:	9281                	srli	a3,a3,0x20
+  10bb5c:	8ed9                	or	a3,a3,a4
+  10bb5e:	9301                	srli	a4,a4,0x20
+  10bb60:	8f69                	and	a4,a4,a0
+  10bb62:	00eee733          	or	a4,t4,a4
+  10bb66:	02071e93          	slli	t4,a4,0x20
+  10bb6a:	0106f733          	and	a4,a3,a6
+  10bb6e:	01d76733          	or	a4,a4,t4
+  10bb72:	7f271073          	csrw	0x7f2,a4
+  10bb76:	7f2026f3          	csrr	a3,0x7f2
+  10bb7a:	0206d713          	srli	a4,a3,0x20
+  10bb7e:	03071313          	slli	t1,a4,0x30
+  10bb82:	03035313          	srli	t1,t1,0x30
+  10bb86:	00f37333          	and	t1,t1,a5
+  10bb8a:	8f69                	and	a4,a4,a0
+  10bb8c:	00676733          	or	a4,a4,t1
+  10bb90:	02071793          	slli	a5,a4,0x20
+  10bb94:	0106f733          	and	a4,a3,a6
+  10bb98:	8f5d                	or	a4,a4,a5
+  10bb9a:	00c777b3          	and	a5,a4,a2
+  10bb9e:	011e78b3          	and	a7,t3,a7
+  10bba2:	0117e7b3          	or	a5,a5,a7
+  10bba6:	1782                	slli	a5,a5,0x20
+  10bba8:	8f6d                	and	a4,a4,a1
+  10bbaa:	9381                	srli	a5,a5,0x20
+  10bbac:	8fd9                	or	a5,a5,a4
+  10bbae:	9301                	srli	a4,a4,0x20
+  10bbb0:	8f69                	and	a4,a4,a0
+  10bbb2:	00e36733          	or	a4,t1,a4
+  10bbb6:	1702                	slli	a4,a4,0x20
+  10bbb8:	0107f7b3          	and	a5,a5,a6
+  10bbbc:	8fd9                	or	a5,a5,a4
+  10bbbe:	8e7d                	and	a2,a2,a5
+  10bbc0:	00c8e8b3          	or	a7,a7,a2
+  10bbc4:	1882                	slli	a7,a7,0x20
+  10bbc6:	8fed                	and	a5,a5,a1
+  10bbc8:	0208d893          	srli	a7,a7,0x20
+  10bbcc:	0117e8b3          	or	a7,a5,a7
+  10bbd0:	9381                	srli	a5,a5,0x20
+  10bbd2:	8fe9                	and	a5,a5,a0
+  10bbd4:	00f367b3          	or	a5,t1,a5
+  10bbd8:	1782                	slli	a5,a5,0x20
+  10bbda:	0108f833          	and	a6,a7,a6
+  10bbde:	00f86833          	or	a6,a6,a5
+  10bbe2:	7f281073          	csrw	0x7f2,a6
+  10bbe6:	4705                	li	a4,1
+  10bbe8:	a0048493          	addi	s1,s1,-1536
+  10bbec:	18100693          	li	a3,385
+  10bbf0:	00371793          	slli	a5,a4,0x3
+  10bbf4:	97a6                	add	a5,a5,s1
+  10bbf6:	fe07bc23          	sd	zero,-8(a5)
+  10bbfa:	0007b023          	sd	zero,0(a5)
+  10bbfe:	0007b423          	sd	zero,8(a5)
+  10bc02:	0007b823          	sd	zero,16(a5)
+  10bc06:	0007bc23          	sd	zero,24(a5)
+  10bc0a:	0207b023          	sd	zero,32(a5)
+  10bc0e:	0207b423          	sd	zero,40(a5)
+  10bc12:	0207b823          	sd	zero,48(a5)
+  10bc16:	0721                	addi	a4,a4,8
+  10bc18:	fcd71ce3          	bne	a4,a3,10bbf0 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x5c8>
+  10bc1c:	b0005073          	csrwi	mcycle,0
+  10bc20:	b0205073          	csrwi	minstret,0
+  10bc24:	7dd05073          	csrwi	0x7dd,0
+  10bc28:	001007b7          	lui	a5,0x100
+  10bc2c:	30579073          	csrw	mtvec,a5
+  10bc30:	4081                	li	ra,0
+  10bc32:	4101                	li	sp,0
+  10bc34:	4181                	li	gp,0
+  10bc36:	4201                	li	tp,0
+  10bc38:	4281                	li	t0,0
+  10bc3a:	4301                	li	t1,0
+  10bc3c:	4381                	li	t2,0
+  10bc3e:	4401                	li	s0,0
+  10bc40:	4481                	li	s1,0
+  10bc42:	4501                	li	a0,0
+  10bc44:	4581                	li	a1,0
+  10bc46:	4601                	li	a2,0
+  10bc48:	4681                	li	a3,0
+  10bc4a:	4701                	li	a4,0
+  10bc4c:	4781                	li	a5,0
+  10bc4e:	4801                	li	a6,0
+  10bc50:	4881                	li	a7,0
+  10bc52:	4901                	li	s2,0
+  10bc54:	4981                	li	s3,0
+  10bc56:	4a01                	li	s4,0
+  10bc58:	4a81                	li	s5,0
+  10bc5a:	4b01                	li	s6,0
+  10bc5c:	4b81                	li	s7,0
+  10bc5e:	4c01                	li	s8,0
+  10bc60:	4c81                	li	s9,0
+  10bc62:	4d01                	li	s10,0
+  10bc64:	4d81                	li	s11,0
+  10bc66:	4e01                	li	t3,0
+  10bc68:	4e81                	li	t4,0
+  10bc6a:	4f01                	li	t5,0
+  10bc6c:	4f81                	li	t6,0
+  10bc6e:	00000073          	ecall
+  10bc72:	7d805073          	csrwi	0x7d8,0
+  10bc76:	bff5                	j	10bc72 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase+0x64a>
+
+000000000010bc78 <rv_boot_plugin_error_handling__trap_handler>:
+  10bc78:	00000797          	auipc	a5,0x0
+  10bc7c:	1c878793          	addi	a5,a5,456 # 10be40 <rv_boot_plugin_error_handling__trap_handler_for_halt_only>
+  10bc80:	30579073          	csrw	mtvec,a5
+  10bc84:	014d97b7          	lui	a5,0x14d9
+  10bc88:	7007a683          	lw	a3,1792(a5) # 14d9700 <__stack_end+0x1350100>
+  10bc8c:	000407b7          	lui	a5,0x40
+  10bc90:	f0078793          	addi	a5,a5,-256 # 3ff00 <_IMEM_SIZE+0x33f00>
+  10bc94:	0026d71b          	srliw	a4,a3,0x2
+  10bc98:	0126d61b          	srliw	a2,a3,0x12
+  10bc9c:	2681                	sext.w	a3,a3
+  10bc9e:	00f6f533          	and	a0,a3,a5
+  10bca2:	03f77713          	andi	a4,a4,63
+  10bca6:	00f50663          	beq	a0,a5,10bcb2 <rv_boot_plugin_error_handling__trap_handler+0x3a>
+  10bcaa:	8a8d                	andi	a3,a3,3
+  10bcac:	4789                	li	a5,2
+  10bcae:	02f68063          	beq	a3,a5,10bcce <rv_boot_plugin_error_handling__trap_handler+0x56>
+  10bcb2:	0003e7b7          	lui	a5,0x3e
+  10bcb6:	0789                	addi	a5,a5,2
+  10bcb8:	0027171b          	slliw	a4,a4,0x2
+  10bcbc:	8f5d                	or	a4,a4,a5
+  10bcbe:	0126179b          	slliw	a5,a2,0x12
+  10bcc2:	8f5d                	or	a4,a4,a5
+  10bcc4:	2701                	sext.w	a4,a4
+  10bcc6:	014d97b7          	lui	a5,0x14d9
+  10bcca:	70e7a023          	sw	a4,1792(a5) # 14d9700 <__stack_end+0x1350100>
+  10bcce:	4781                	li	a5,0
+  10bcd0:	34179073          	csrw	mepc,a5
+  10bcd4:	0008f7b7          	lui	a5,0x8f
+  10bcd8:	7d979073          	csrw	0x7d9,a5
+  10bcdc:	014047b7          	lui	a5,0x1404
+  10bce0:	d007a703          	lw	a4,-768(a5) # 1403d00 <__stack_end+0x127a700>
+  10bce4:	6785                	lui	a5,0x1
+  10bce6:	80078693          	addi	a3,a5,-2048 # 800 <_DATA_SIZE_LIMIT+0x400>
+  10bcea:	2701                	sext.w	a4,a4
+  10bcec:	8f75                	and	a4,a4,a3
+  10bcee:	00173713          	seqz	a4,a4
+  10bcf2:	0709                	addi	a4,a4,2
+  10bcf4:	071a                	slli	a4,a4,0x6
+  10bcf6:	8f55                	or	a4,a4,a3
+  10bcf8:	7da71073          	csrw	0x7da,a4
+  10bcfc:	7d979073          	csrw	0x7d9,a5
+  10bd00:	00040637          	lui	a2,0x40
+  10bd04:	4501                	li	a0,0
+  10bd06:	014048b7          	lui	a7,0x1404
+  10bd0a:	537d                	li	t1,-1
+  10bd0c:	014d9837          	lui	a6,0x14d9
+  10bd10:	167d                	addi	a2,a2,-1
+  10bd12:	fffc0e37          	lui	t3,0xfffc0
+  10bd16:	6008a783          	lw	a5,1536(a7) # 1404600 <__stack_end+0x127b000>
+  10bd1a:	8b89                	andi	a5,a5,2
+  10bd1c:	e3b9                	bnez	a5,10bd62 <rv_boot_plugin_error_handling__trap_handler+0xea>
+  10bd1e:	04651063          	bne	a0,t1,10bd5e <rv_boot_plugin_error_handling__trap_handler+0xe6>
+  10bd22:	70082783          	lw	a5,1792(a6) # 14d9700 <__stack_end+0x1350100>
+  10bd26:	01c5f5b3          	and	a1,a1,t3
+  10bd2a:	0087d69b          	srliw	a3,a5,0x8
+  10bd2e:	0127d71b          	srliw	a4,a5,0x12
+  10bd32:	3ff6f693          	andi	a3,a3,1023
+  10bd36:	0fc7f793          	andi	a5,a5,252
+  10bd3a:	0017e793          	ori	a5,a5,1
+  10bd3e:	0086969b          	slliw	a3,a3,0x8
+  10bd42:	8fd5                	or	a5,a5,a3
+  10bd44:	8ff1                	and	a5,a5,a2
+  10bd46:	8fcd                	or	a5,a5,a1
+  10bd48:	00476713          	ori	a4,a4,4
+  10bd4c:	0127171b          	slliw	a4,a4,0x12
+  10bd50:	8ff1                	and	a5,a5,a2
+  10bd52:	8fd9                	or	a5,a5,a4
+  10bd54:	85be                	mv	a1,a5
+  10bd56:	2781                	sext.w	a5,a5
+  10bd58:	70f82023          	sw	a5,1792(a6)
+  10bd5c:	bf6d                	j	10bd16 <rv_boot_plugin_error_handling__trap_handler+0x9e>
+  10bd5e:	2505                	addiw	a0,a0,1
+  10bd60:	bf5d                	j	10bd16 <rv_boot_plugin_error_handling__trap_handler+0x9e>
+  10bd62:	0140c737          	lui	a4,0x140c
+  10bd66:	80072783          	lw	a5,-2048(a4) # 140b800 <__stack_end+0x1282200>
+  10bd6a:	8b91                	andi	a5,a5,4
+  10bd6c:	c7e9                	beqz	a5,10be36 <rv_boot_plugin_error_handling__trap_handler+0x1be>
+  10bd6e:	4791                	li	a5,4
+  10bd70:	80f72023          	sw	a5,-2048(a4)
+  10bd74:	4711                	li	a4,4
+  10bd76:	0140c7b7          	lui	a5,0x140c
+  10bd7a:	80e7a023          	sw	a4,-2048(a5) # 140b800 <__stack_end+0x1282200>
+  10bd7e:	014fa7b7          	lui	a5,0x14fa
+  10bd82:	b007a023          	sw	zero,-1280(a5) # 14f9b00 <__stack_end+0x1370500>
+  10bd86:	11000713          	li	a4,272
+  10bd8a:	014f87b7          	lui	a5,0x14f8
+  10bd8e:	c398                	sw	a4,0(a5)
+  10bd90:	014057b7          	lui	a5,0x1405
+  10bd94:	a007a023          	sw	zero,-1536(a5) # 1404a00 <__stack_end+0x127b400>
+  10bd98:	014047b7          	lui	a5,0x1404
+  10bd9c:	4007a023          	sw	zero,1024(a5) # 1404400 <__stack_end+0x127ae00>
+  10bda0:	7007a023          	sw	zero,1792(a5)
+  10bda4:	4785                	li	a5,1
+  10bda6:	07fe                	slli	a5,a5,0x1f
+  10bda8:	7d979073          	csrw	0x7d9,a5
+  10bdac:	001896b7          	lui	a3,0x189
+  10bdb0:	4705                	li	a4,1
+  10bdb2:	a0068693          	addi	a3,a3,-1536 # 188a00 <_DMEM_PA_OFFSET+0x8a00>
+  10bdb6:	18100613          	li	a2,385
+  10bdba:	00371793          	slli	a5,a4,0x3
+  10bdbe:	97b6                	add	a5,a5,a3
+  10bdc0:	fe07bc23          	sd	zero,-8(a5)
+  10bdc4:	0007b023          	sd	zero,0(a5)
+  10bdc8:	0007b423          	sd	zero,8(a5)
+  10bdcc:	0007b823          	sd	zero,16(a5)
+  10bdd0:	0007bc23          	sd	zero,24(a5)
+  10bdd4:	0207b023          	sd	zero,32(a5)
+  10bdd8:	0207b423          	sd	zero,40(a5)
+  10bddc:	0207b823          	sd	zero,48(a5)
+  10bde0:	0721                	addi	a4,a4,8
+  10bde2:	fcc71ce3          	bne	a4,a2,10bdba <rv_boot_plugin_error_handling__trap_handler+0x142>
+  10bde6:	b0005073          	csrwi	mcycle,0
+  10bdea:	b0205073          	csrwi	minstret,0
+  10bdee:	7dd05073          	csrwi	0x7dd,0
+  10bdf2:	4081                	li	ra,0
+  10bdf4:	4101                	li	sp,0
+  10bdf6:	4181                	li	gp,0
+  10bdf8:	4201                	li	tp,0
+  10bdfa:	4281                	li	t0,0
+  10bdfc:	4301                	li	t1,0
+  10bdfe:	4381                	li	t2,0
+  10be00:	4401                	li	s0,0
+  10be02:	4481                	li	s1,0
+  10be04:	4501                	li	a0,0
+  10be06:	4581                	li	a1,0
+  10be08:	4601                	li	a2,0
+  10be0a:	4681                	li	a3,0
+  10be0c:	4701                	li	a4,0
+  10be0e:	4781                	li	a5,0
+  10be10:	4801                	li	a6,0
+  10be12:	4881                	li	a7,0
+  10be14:	4901                	li	s2,0
+  10be16:	4981                	li	s3,0
+  10be18:	4a01                	li	s4,0
+  10be1a:	4a81                	li	s5,0
+  10be1c:	4b01                	li	s6,0
+  10be1e:	4b81                	li	s7,0
+  10be20:	4c01                	li	s8,0
+  10be22:	4c81                	li	s9,0
+  10be24:	4d01                	li	s10,0
+  10be26:	4d81                	li	s11,0
+  10be28:	4e01                	li	t3,0
+  10be2a:	4e81                	li	t4,0
+  10be2c:	4f01                	li	t5,0
+  10be2e:	4f81                	li	t6,0
+  10be30:	7d805073          	csrwi	0x7d8,0
+  10be34:	bff5                	j	10be30 <rv_boot_plugin_error_handling__trap_handler+0x1b8>
+  10be36:	014007b7          	lui	a5,0x1400
+  10be3a:	2007a783          	lw	a5,512(a5) # 1400200 <__stack_end+0x1276c00>
+  10be3e:	bf1d                	j	10bd74 <rv_boot_plugin_error_handling__trap_handler+0xfc>
+
+000000000010be40 <rv_boot_plugin_error_handling__trap_handler_for_halt_only>:
+  10be40:	4785                	li	a5,1
+  10be42:	07fe                	slli	a5,a5,0x1f
+  10be44:	7d979073          	csrw	0x7d9,a5
+  10be48:	7d805073          	csrwi	0x7d8,0
+  10be4c:	bff5                	j	10be48 <rv_boot_plugin_error_handling__trap_handler_for_halt_only+0x8>
+	...
+
+000000000010be50 <_ada_rv_boot_plugin>:
+  10be50:	1101                	addi	sp,sp,-32
+  10be52:	000407b7          	lui	a5,0x40
+  10be56:	ec06                	sd	ra,24(sp)
+  10be58:	e822                	sd	s0,16(sp)
+  10be5a:	e426                	sd	s1,8(sp)
+  10be5c:	f017879b          	addiw	a5,a5,-255
+  10be60:	014d9737          	lui	a4,0x14d9
+  10be64:	70f72023          	sw	a5,1792(a4) # 14d9700 <__stack_end+0x1350100>
+  10be68:	57fd                	li	a5,-1
+  10be6a:	838d                	srli	a5,a5,0x3
+  10be6c:	7ef79073          	csrw	0x7ef,a5
+  10be70:	7ee79073          	csrw	0x7ee,a5
+  10be74:	f989f7b7          	lui	a5,0xf989f
+  10be78:	1792                	slli	a5,a5,0x24
+  10be7a:	7f279073          	csrw	0x7f2,a5
+  10be7e:	4781                	li	a5,0
+  10be80:	7ea79073          	csrw	0x7ea,a5
+  10be84:	7e979073          	csrw	0x7e9,a5
+  10be88:	7e879073          	csrw	0x7e8,a5
+  10be8c:	3ff00513          	li	a0,1023
+  10be90:	a54fe0ef          	jal	ra,10a0e4 <rv_boot_plugin_selwre_boot__init_device_phase>
+  10be94:	0005041b          	sext.w	s0,a0
+  10be98:	3ff00793          	li	a5,1023
+  10be9c:	04f41d63          	bne	s0,a5,10bef6 <_ada_rv_boot_plugin+0xa6>
+  10bea0:	3ff00513          	li	a0,1023
+  10bea4:	cacfe0ef          	jal	ra,10a350 <rv_boot_plugin_selwre_boot__load_pkc_boot_param_phase>
+  10bea8:	0005049b          	sext.w	s1,a0
+  10beac:	04849563          	bne	s1,s0,10bef6 <_ada_rv_boot_plugin+0xa6>
+  10beb0:	3ff00513          	li	a0,1023
+  10beb4:	84dfe0ef          	jal	ra,10a700 <rv_boot_plugin_selwre_boot__sanitize_manifest_phase>
+  10beb8:	0005041b          	sext.w	s0,a0
+  10bebc:	02941d63          	bne	s0,s1,10bef6 <_ada_rv_boot_plugin+0xa6>
+  10bec0:	3ff00513          	li	a0,1023
+  10bec4:	b7dfe0ef          	jal	ra,10aa40 <rv_boot_plugin_selwre_boot__load_fmc_data_phase>
+  10bec8:	0005049b          	sext.w	s1,a0
+  10becc:	02849563          	bne	s1,s0,10bef6 <_ada_rv_boot_plugin+0xa6>
+  10bed0:	3ff00513          	li	a0,1023
+  10bed4:	92cff0ef          	jal	ra,10b000 <rv_boot_plugin_selwre_boot__load_fmc_code_phase>
+  10bed8:	0005041b          	sext.w	s0,a0
+  10bedc:	00941d63          	bne	s0,s1,10bef6 <_ada_rv_boot_plugin+0xa6>
+  10bee0:	3ff00513          	li	a0,1023
+  10bee4:	c44ff0ef          	jal	ra,10b328 <rv_boot_plugin_selwre_boot__revoke_resource_phase>
+  10bee8:	2501                	sext.w	a0,a0
+  10beea:	00851663          	bne	a0,s0,10bef6 <_ada_rv_boot_plugin+0xa6>
+  10beee:	3ff00513          	li	a0,1023
+  10bef2:	f36ff0ef          	jal	ra,10b628 <rv_boot_plugin_selwre_boot__configure_fmc_elw_phase>
+  10bef6:	00000797          	auipc	a5,0x0
+  10befa:	d8278793          	addi	a5,a5,-638 # 10bc78 <rv_boot_plugin_error_handling__trap_handler>
+  10befe:	30579073          	csrw	mtvec,a5
+  10bf02:	014d96b7          	lui	a3,0x14d9
+  10bf06:	7006a783          	lw	a5,1792(a3) # 14d9700 <__stack_end+0x1350100>
+  10bf0a:	0003e737          	lui	a4,0x3e
+  10bf0e:	0709                	addi	a4,a4,2
+  10bf10:	0127d79b          	srliw	a5,a5,0x12
+  10bf14:	0127979b          	slliw	a5,a5,0x12
+  10bf18:	8fd9                	or	a5,a5,a4
+  10bf1a:	2781                	sext.w	a5,a5
+  10bf1c:	70f6a023          	sw	a5,1792(a3)
+  10bf20:	00000073          	ecall
+  10bf24:	7d805073          	csrwi	0x7d8,0
+  10bf28:	bff5                	j	10bf24 <_ada_rv_boot_plugin+0xd4>
+
+000000000010bf2a <rv_boot_plugin_sw_interface__get_ucode_id>:
+  10bf2a:	001897b7          	lui	a5,0x189
+  10bf2e:	60078793          	addi	a5,a5,1536 # 189600 <__stack_end>
+  10bf32:	3817c503          	lbu	a0,897(a5)
+  10bf36:	0ff57513          	andi	a0,a0,255
+  10bf3a:	8082                	ret
+
+000000000010bf3c <rv_boot_plugin_sw_interface__get_fmc_code_block_size>:
+  10bf3c:	001897b7          	lui	a5,0x189
+  10bf40:	60078793          	addi	a5,a5,1536 # 189600 <__stack_end>
+  10bf44:	3887d503          	lhu	a0,904(a5)
+  10bf48:	1542                	slli	a0,a0,0x30
+  10bf4a:	9141                	srli	a0,a0,0x30
+  10bf4c:	8082                	ret
+
+000000000010bf4e <rv_boot_plugin_sw_interface__get_fmc_data_block_size>:
+  10bf4e:	001897b7          	lui	a5,0x189
+  10bf52:	60078793          	addi	a5,a5,1536 # 189600 <__stack_end>
+  10bf56:	38a7d503          	lhu	a0,906(a5)
+  10bf5a:	1542                	slli	a0,a0,0x30
+  10bf5c:	9141                	srli	a0,a0,0x30
+  10bf5e:	8082                	ret
+
+000000000010bf60 <rv_boot_plugin_sw_interface__get_reg_pair_num>:
+  10bf60:	001897b7          	lui	a5,0x189
+  10bf64:	60078793          	addi	a5,a5,1536 # 189600 <__stack_end>
+  10bf68:	4247c503          	lbu	a0,1060(a5)
+  10bf6c:	0ff57513          	andi	a0,a0,255
+  10bf70:	8082                	ret
+	...

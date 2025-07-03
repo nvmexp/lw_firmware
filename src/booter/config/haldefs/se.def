@@ -1,0 +1,133 @@
+# -*- mode: perl; -*-
+
+# SE Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $seHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+        _STUB           => [ pre_TU10X, ],
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        ACQUIRE_MUTEX => [
+            DESCRIPTION    => "To acquire SE PKA mutex",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => BOOTER_ERROR_BIN_NOT_SUPPORTED,
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        RELEASE_MUTEX => [
+            DESCRIPTION    => "To release PKA mutex",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => ACQUIRE_MUTEX,
+        ],
+
+        CONTEXT_INI => [
+            DESCRIPTION    => "To initialize SE context",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'SE_PKA_REG *, SE_KEY_SIZE',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => ACQUIRE_MUTEX,
+        ],
+
+        SET_RSA_OPERATION_KEYS => [
+            DESCRIPTION    => "To set RSA operation keys",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'SE_PKA_REG *, LwU32 *, LwU32 *, LwU32 *, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => ACQUIRE_MUTEX,
+        ],
+
+        GET_PKA_OPERAND_BANK_BASE_ADDRESS => [
+            DESCRIPTION    => "To get SE pka operand bank base address",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => BOOTER_ERROR_BIN_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_MUTEX,
+        ],
+
+        GET_PKA_OPERAND_BANK_ADDRESS => [
+            DESCRIPTION    => "To get SE pka operand bank address",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'SE_PKA_BANK, LwU32 *, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => BOOTER_ERROR_BIN_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_MUTEX,
+        ],
+
+        GET_SPECIFIC_PKA_OPERAND_BANK_OFFSET => [
+            DESCRIPTION    => "To get specific operand bank address offset",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => ACQUIRE_MUTEX,
+        ],
+
+        START_PKA_OPERATION_AND_POLL => [
+            DESCRIPTION    => "To trigger PKA operation and poll status until ready; or report time out error",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => ACQUIRE_MUTEX,
+        ],
+
+        RSA_SET_PARAMS => [
+            DESCRIPTION    => "To set SE RSA parameters",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'SE_PKA_REG *, SE_RSA_PARAMS_TYPE, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => ACQUIRE_MUTEX,
+        ],
+
+        RSA_GET_PARAMS => [
+            DESCRIPTION    => "To get SE RSA parameters",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'SE_PKA_REG *, SE_RSA_PARAMS_TYPE, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => ACQUIRE_MUTEX,
+        ],
+
+        INITIALIZATION_RSA_KEY_DBG => [
+            DESCRIPTION    => "To set SE RSA debug key",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32 *, LwU32 *, LwU32 *, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => ACQUIRE_MUTEX,
+        ],
+
+        INITIALIZATION_RSA_KEY_PROD => [
+            DESCRIPTION    => "To set SE RSA prod key",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32 *, LwU32 *, LwU32 *, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => ACQUIRE_MUTEX,
+        ],
+
+    ],
+];
+
+# return a reference to the Hal definition
+return $seHal;

@@ -1,0 +1,79 @@
+#include <liblwriscv/g_lwriscv_config.h>
+
+OUTPUT_ARCH( "riscv" )
+ENTRY(loader_entry)
+
+#include "memory_layout.ld.in"
+
+MEMORY {
+    code (rx) : ORIGIN = 0x2000000, LENGTH = 0x100000
+    data (rw) : ORIGIN = 0x3000000, LENGTH = 0x100000
+
+    imem_carveout (rwx) : ORIGIN = ORIGIN(imem_rm), LENGTH = __imem_rm_size
+    dmem_carveout (rw)  : ORIGIN = ORIGIN(dmem_rm), LENGTH = __dmem_rm_size
+    dmem_carveout_shr (rw)  : ORIGIN = ORIGIN(dmem_shr), LENGTH = dmem_shr_size
+}
+
+SECTIONS
+{
+    .text :
+    {
+        // "Init" entry point
+        __loader_start = .;
+        KEEP(*(.loader.entry))
+        . = ALIGN(0x100);
+        __loader_end = .;
+
+        // "Normal" entry point (after init), this will be copied into entry point
+        __proxy_entry_start = .;
+        KEEP(*libpart_rm_proxy.a:(.text.partition_rm_entry))
+        . = ALIGN(16) ;
+        __proxy_entry_end = .;
+        // Rest of partition code + SDK
+        *libpart_rm_proxy.a:(.text* .rodata* .srodata*)
+        *liblwriscv.a:(.text.* .rodata* .srodata*)
+        *libCCC.a:(.text.* .rodata* .srodata*)
+        . = ALIGN(0x1000) ;
+        __text_end = .;
+    } > code
+
+    // DMEM sections, this should be BSS only
+    .dmem_carveout :
+    {
+        . = ALIGN(0x10);
+        *liblwriscv.a:(.data.liblwriscv.__stack_chk_guard)
+        . = ALIGN(0x10);
+        _partition_rm_stack_bottom = .;
+        . += 1024;
+        . = ALIGN(0x10);
+        _partition_rm_stack_top = .;
+    } > dmem_carveout
+
+    // Warning: this placement (should) be coherent with FMC as this will be
+    // only window open to SCPDMA
+    .dmem_shr :
+    {
+        . = ALIGN (0x10);
+        *liblwriscv.a:(.data.liblwriscv.ssp_scpdma_buf)
+    } > dmem_carveout_shr
+
+    .data :
+    {
+        __data_start = .;
+        *libpart_rm_proxy.a:(.data* .sdata*  .partition_context)
+        *liblwriscv.a:(.data* .sdata*)
+        *libCCC.a:(.data* .sdata*)
+        __data_end = .;
+        __bss_start = .;
+        *liblwriscv.a:(.bss* .sbss*)
+        *libCCC.a:(.bss* .sbss*)
+        *libpart_rm_proxy.a:(.bss* .sbss*)
+        __bss_end = .;
+        . = ALIGN(0x1000);
+    } > data
+
+    .trap_COMMON :
+    {
+        *(COMMON)
+    }
+}

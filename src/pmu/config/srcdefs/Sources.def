@@ -1,0 +1,3001 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Engines.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    PMUSRC_CORE => [
+
+        FLAGS => ':CORE',             # following are all part of core (non-hal)
+        [
+            ONLY_IF => 'ARCH_FALCON',
+                       'pmu/falcon/main.c',
+                       'pmu/falcon/start.S',
+
+            ONLY_IF => 'ARCH_RISCV',
+                       'pmu/riscv/main.c',
+                       'pmu/riscv/start.S',
+        ],
+
+        'ic/lw/pmu_objic.c'        ,
+        [
+            ONLY_IF => PMU_CMDMGMT_PER_TASK_COMMAND_BUFFER,
+                'os/lw/pmu_lwos_task.c',
+        ],
+        'os/lw/pmu_oslayer.c'      ,
+        'os/lw/pmu_ostmrcallback.c',
+        [
+            ONLY_IF => 'ARCH_FALCON',
+                'pmu/lw/pmu_ssp.c',
+        ],
+        'pmu/lw/setup.c'           ,
+        'pmu/lw/ssurface.c'        ,
+
+        ONLY_IF => 'PMU_HALSTUB',
+            'hal/lw/pmu_halstub.c'     ,
+
+    ],  # PMUSRC_CORE
+
+    PMUSRC_TASKS => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        'task_cmdmgmt.c'        ,
+        'task_lpwr.c'           ,
+        'task_lpwr_lp.c'        ,
+        'task_sequencer.c'      ,
+        'task_i2c.c'            ,
+        'task_perf.c'           ,
+        'task_pmgr.c'           ,
+        'task_gcx.c'            ,
+        'task_acr.c'            ,
+        'task_perfmon.c'        ,
+        'task_therm.c'          ,
+        'task_pcmEvent.c'       ,
+        'task_disp.c'           ,
+        'task_hdcp.c'           ,
+        'task_spi.c'            ,
+        'task_perf_daemon.c'    ,
+        'task_bif.c'            ,
+        'task_perf_cf.c'        ,
+        'task_watchdog.c'       ,
+        'task_lowlatency.c'     ,
+        'task_nne.c'            ,
+
+    ],  # PMUSRC_TASKS
+
+    PMUSRC_ENGINES => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        CLK =>
+        [
+            # Clock non-HAL code
+            CHIPS_SUPPORTED => [ ALL, ],
+                'clk/lw/pmu_objclk.c',
+                'clk/lw/clk_rpc.c'   ,
+                'clk/lw/clk_freq_rpc.c',
+                'clk/lw/clkrmcmd.c'  ,
+
+                ONLY_IF => 'PMU_PERF_AVFS',
+                    'clk/lw/pmu_clknafll.c',
+                    'clk/lw/pmu_clkadc.c',
+
+                ONLY_IF => 'PMU_PERF_NAFLL_LUT',
+                    'clk/lw/pmu_clknafll_lut.c',
+
+                ONLY_IF => 'PMU_PERF_NAFLL_LUT_V10',
+                    'clk/lw/pmu_clknafll_lut_10.c',
+
+                ONLY_IF => 'PMU_PERF_NAFLL_LUT_V20',
+                    'clk/lw/pmu_clknafll_lut_20.c',
+
+                ONLY_IF => 'PMU_PERF_NAFLL_LUT_V30',
+                    'clk/lw/pmu_clknafll_lut_30.c',
+
+                ONLY_IF => 'CLK_NAFLL_ADDRESS_MAP_HAL_V10',
+                    'clk/lw/pmu_clknafll_lut_reg_map_10.c',
+
+                ONLY_IF => 'CLK_NAFLL_ADDRESS_MAP_HAL_V20',
+                    'clk/lw/pmu_clknafll_lut_reg_map_20.c',
+
+                ONLY_IF => 'CLK_NAFLL_ADDRESS_MAP_HAL_V30',
+                    'clk/lw/pmu_clknafll_lut_reg_map_30.c',
+
+                ONLY_IF => 'CLK_NAFLL_ADDRESS_MAP_HAL_V40',
+                    'clk/lw/pmu_clknafll_lut_reg_map_40.c',
+
+                ONLY_IF => 'PMU_PERF_NAFLL_REGIME',
+                    'clk/lw/pmu_clknafll_regime.c',
+
+                ONLY_IF => 'PMU_PERF_NAFLL_REGIME_V2X',
+                    'clk/lw/pmu_clknafll_regime_2x.c',
+
+                ONLY_IF => 'PMU_PERF_NAFLL_REGIME_V10',
+                    'clk/lw/pmu_clknafll_regime_10.c',
+
+                ONLY_IF => 'PMU_PERF_NAFLL_REGIME_V30',
+                    'clk/lw/pmu_clknafll_regime_30.c',
+
+                ONLY_IF => 'PMU_PERF_NAFLL_DEVICE_V10',
+                    'clk/lw/pmu_clknafll_10.c',
+
+                ONLY_IF => 'PMU_PERF_NAFLL_DEVICE_V20',
+                    'clk/lw/pmu_clknafll_20.c',
+
+                ONLY_IF => 'PMU_PERF_NAFLL_DEVICE_V30',
+                    'clk/lw/pmu_clknafll_30.c',
+
+                ONLY_IF => 'PMU_PERF_NAFLL_BYPASS_CLKS_ON_PMU',
+                    'clk/lw/pmu_clknafll_regime_20.c',
+
+                ONLY_IF => 'PMU_PERF_ADC_DEVICES_1X',
+                    'clk/lw/pmu_clkadcs_1x.c',
+
+                ONLY_IF => 'PMU_PERF_ADC_DEVICES_2X',
+                    'clk/lw/pmu_clkadcs_2x.c',
+
+                ONLY_IF => 'PMU_PERF_ADC_DEVICE_V10',
+                    'clk/lw/pmu_clkadc_v10.c',
+
+                ONLY_IF => 'PMU_PERF_ADC_DEVICE_V20',
+                    'clk/lw/pmu_clkadc_v20.c',
+
+                ONLY_IF => 'PMU_PERF_ADC_DEVICE_V30',
+                    'clk/lw/pmu_clkadc_v30.c',
+
+                ONLY_IF => 'PMU_PERF_ADC_DEVICE_V30_ISINK_V10',
+                    'clk/lw/pmu_clkadc_v30_isink_v10.c',
+
+                ONLY_IF => 'CLK_ADC_ADDRESS_MAP_HAL_V10',
+                    'clk/lw/pmu_clkadc_reg_map_10.c',
+
+                ONLY_IF => 'CLK_ADC_ADDRESS_MAP_HAL_V20',
+                    'clk/lw/pmu_clkadc_reg_map_20.c',
+
+                ONLY_IF => 'CLK_ADC_ADDRESS_MAP_HAL_V30',
+                    'clk/lw/pmu_clkadc_reg_map_30.c',
+
+                ONLY_IF => 'CLK_ADC_ADDRESS_MAP_HAL_V40',
+                    'clk/lw/pmu_clkadc_reg_map_40.c',
+
+                ONLY_IF => 'PMU_PERF_ADC_DEVICES_EXTENDED',
+                    'clk/lw/pmu_clkadc_extended.c',
+
+                ONLY_IF => 'PMU_PERF_ADC_DEVICE_V20_EXTENDED',
+                    'clk/lw/pmu_clkadc_v20_extended.c',
+
+                ONLY_IF => 'PMU_PERF_ADC_DEVICE_V30_EXTENDED',
+                    'clk/lw/pmu_clkadc_v30_extended.c',
+
+                ONLY_IF => 'PMU_PERF_ADC_DEVICE_V30_ISINK_V10_EXTENDED',
+                    'clk/lw/pmu_clkadc_v30_isink_v10_extended.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_DOMAIN',
+                    'clk/lw/clk_domain.c',
+                    'clk/lw/clk_domain_3x.c',
+                    'clk/lw/clk_domain_3x_fixed.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_DOMAIN_EXTENDED',
+                    'clk/lw/clk_domain_prog.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_DOMAIN_BASE_AUTO',
+                    'clk/lw/clk_domain_prog_auto.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_DOMAIN_BASE_3X',
+                    'clk/lw/clk_domain_3x_prog_base.c',
+                    'clk/lw/clk_domain_3x_primary_base.c',
+                    'clk/lw/clk_domain_3x_secondary_base.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_DOMAIN_EXTENDED_3X',
+                    'clk/lw/clk_domain_3x_prog.c',
+                    'clk/lw/clk_domain_3x_primary.c',
+                    'clk/lw/clk_domain_3x_secondary.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_DOMAIN_30',
+                    'clk/lw/clk_domain_30_prog.c',
+                    'clk/lw/clk_domain_30_primary.c',
+                    'clk/lw/clk_domain_30_secondary.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_DOMAIN_BASE_35',
+                    'clk/lw/clk_domain_35_prog_base.c',
+                    'clk/lw/clk_domain_35_primary_base.c',
+                    'clk/lw/clk_domain_35_secondary_base.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_DOMAIN_EXTENDED_35',
+                    'clk/lw/clk_domain_35_prog.c',
+                    'clk/lw/clk_domain_35_primary.c',
+                    'clk/lw/clk_domain_35_secondary.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_DOMAIN_40',
+                    'clk/lw/clk_domain_40_prog.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_DOMAINS_PMUMON',
+                    'clk/lw/clk_domain_pmumon.c',
+
+                ONLY_IF => 'PMU_CLK_CLIENT_CLK_DOMAIN',
+                    'clk/lw/client_clk_domain.c',
+                    'clk/lw/client_clk_domain_prog.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_PROG',
+                    'clk/lw/clk_prog.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_PROG_BASE_3X',
+                    'clk/lw/clk_prog_3x_base.c',
+                    'clk/lw/clk_prog_3x_primary_base.c',
+                    'clk/lw/clk_prog_3x_primary_ratio_base.c',
+                    'clk/lw/clk_prog_3x_primary_table_base.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_PROG_BASE_3X_AUTO',
+                    'clk/lw/clk_prog_3x_auto.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_PROG_EXTENDED_3X',
+                    'clk/lw/clk_prog_3x.c',
+                    'clk/lw/clk_prog_3x_primary.c',
+                    'clk/lw/clk_prog_3x_primary_ratio.c',
+                    'clk/lw/clk_prog_3x_primary_table.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_PROG_30',
+                    'clk/lw/clk_prog_30.c',
+                    'clk/lw/clk_prog_30_primary.c',
+                    'clk/lw/clk_prog_30_primary_ratio.c',
+                    'clk/lw/clk_prog_30_primary_table.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_PROG_BASE_35',
+                    'clk/lw/clk_prog_35_base.c',
+                    'clk/lw/clk_prog_35_primary_base.c',
+                    'clk/lw/clk_prog_35_primary_ratio_base.c',
+                    'clk/lw/clk_prog_35_primary_table_base.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_PROG_EXTENDED_35',
+                    'clk/lw/clk_prog_35.c',
+                    'clk/lw/clk_prog_35_primary.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_PROP_REGIME',
+                    'clk/lw/clk_prop_regime.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_PROP_TOP',
+                    'clk/lw/clk_prop_top.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_PROP_TOP_REL',
+                    'clk/lw/clk_prop_top_rel.c',
+                    'clk/lw/clk_prop_top_rel_1x_ratio.c',
+                    'clk/lw/clk_prop_top_rel_1x_table.c',
+                    'clk/lw/clk_prop_top_rel_1x_volt.c',
+
+                ONLY_IF => 'PMU_CLK_CLIENT_CLK_PROP_TOP_POL',
+                    'clk/lw/client_clk_prop_top_pol.c',
+                    'clk/lw/client_clk_prop_top_pol_1x_slider.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_PROP_TOP_REL_VFE',
+                    'clk/lw/clk_prop_top_rel_1x_vfe.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_ENUM',
+                    'clk/lw/clk_enum.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_VF_REL',
+                    'clk/lw/clk_vf_rel.c',
+                    'clk/lw/clk_vf_rel_ratio.c',
+                    'clk/lw/clk_vf_rel_ratio_volt.c',
+                    'clk/lw/clk_vf_rel_table.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_VF_POINT',
+                    'clk/lw/clk_vf_point.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_VF_POINT_3X',
+                    'clk/lw/clk_vf_point_3x.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_VF_POINT_30',
+                    'clk/lw/clk_vf_point_30.c',
+                    'clk/lw/clk_vf_point_30_freq.c',
+                    'clk/lw/clk_vf_point_30_volt.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_VF_POINT_35',
+                [
+                    'clk/lw/clk_vf_point_35.c',
+                    'clk/lw/clk_vf_point_35_freq.c',
+                    'clk/lw/clk_vf_point_35_volt.c',
+                    'clk/lw/clk_vf_point_35_volt_pri.c',
+
+                    ONLY_IF => 'PMU_CLK_CLK_VF_POINT_SEC',
+                        'clk/lw/clk_vf_point_35_volt_sec.c',
+                ], # PMU_CLK_CLK_VF_POINT_35
+
+                ONLY_IF => 'PMU_CLK_CLK_VF_POINT_40',
+                [
+                    'clk/lw/clk_vf_point_40.c',
+                    'clk/lw/clk_vf_point_40_freq.c',
+                    'clk/lw/clk_vf_point_40_volt.c',
+                    'clk/lw/clk_vf_point_40_volt_pri.c',
+
+                    ONLY_IF => 'PMU_CLK_CLK_VF_POINT_SEC',
+                        'clk/lw/clk_vf_point_40_volt_sec.c',
+                ], # PMU_CLK_CLK_VF_POINT_40
+
+                ONLY_IF => 'PMU_CLK_CLIENT_CLK_VF_POINT',
+                    'clk/lw/client_clk_vf_point.c',
+                    'clk/lw/client_clk_vf_point_prog.c',
+                    'clk/lw/client_clk_vf_point_prog_20.c',
+                    'clk/lw/client_clk_vf_point_prog_20_freq.c',
+                    'clk/lw/client_clk_vf_point_prog_20_volt.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_CONTROLLER',
+                    'clk/lw/clk_controller.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_FREQ_CONTROLLER',
+                    'clk/lw/clk_freq_controller.c',
+                    'clk/lw/clk_freq_controller_10_pi.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_VOLT_CONTROLLER',
+                    'clk/lw/clk_volt_controller.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_VOLT_CONTROLLER_PROP',
+                    'clk/lw/clk_volt_controller_prop.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_FREQ_CONTROLLER_V10',
+                    'clk/lw/clk_freq_controller_10.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_FREQ_CONTROLLER_V20',
+                    'clk/lw/clk_freq_controller_20.c',
+                    'clk/lw/clk_freq_controller_20_pi.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_FREQ_COUNTED_AVG',
+                    'clk/lw/clk_freq_counted_avg.c',
+
+                ONLY_IF => 'PMU_CLK_CLK_FREQ_EFFECTIVE_AVG',
+                    'clk/lw/clk_freq_effective_avg.c',
+
+                ONLY_IF => 'PMU_CLK_PLL_DEVICE',
+                    'clk/lw/clk_pll_info.c',
+
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/clk3.c',
+                    'clk/clk3/clksignal.c',
+                    'clk/clk3/dom/clkfreqdomain.c',
+                    'clk/clk3/dom/clkfreqdomain_bif.c',
+                    'clk/clk3/dom/clkfreqdomain_multinafll.c',
+                    'clk/clk3/dom/clkfreqdomain_singlenafll.c',
+                    'clk/clk3/fs/clkbif.c',
+                    'clk/clk3/fs/clkmultiplier.c',
+                    'clk/clk3/fs/clkdivider.c',
+                    'clk/clk3/fs/clkmux.c',
+                    'clk/clk3/fs/clknafll.c',
+                    'clk/clk3/fs/clkreadonly.c',
+                    'clk/clk3/fs/clkwire.c',
+                    'clk/clk3/fs/clkxtal.c',
+
+                ONLY_IF => 'PMU_CLK_FBFLCN_SUPPORTED',
+                    'clk/lw/pmu_clkfbflcn.c',
+
+                ONLY_IF => 'PMU_CLK_LPWR',
+                    'clk/lw/pmu_clklpwr.c',
+
+                #
+                # For Turing, there are two schema classes (with and without
+                # using dynamic ramp on the PLL), the former of which is in
+                # ClkDynLdivFreqDomain and the latter in ClkPllLdivFreqDomain.
+                #
+                ONLY_IF => 'PMU_CLK_DISP_DYN_RAMP_SUPPORTED',
+                    'clk/clk3/fs/clkadynramp.c',
+
+            CHIPS_SUPPORTED => [ GP100, ],
+                ONLY_IF => 'PMU_PERF_AVFS',
+                    'clk/pascal/pmu_clkadcgp100.c',
+                    'clk/pascal/pmu_clkavfsgp100.c',
+
+            CHIPS_SUPPORTED => [ GP10X, -GP100, ],
+                ONLY_IF => 'PMU_PERF_AVFS',
+                    'clk/pascal/pmu_clkadcgp10x_only.c',
+
+            CHIPS_SUPPORTED => [ PASCAL_and_later, -GP100, ],
+                ONLY_IF => 'PMU_PERF_AVFS',
+                    'clk/pascal/pmu_clkadcgp10x.c',
+                    'clk/pascal/pmu_clkavfsgp10x.c',
+
+            CHIPS_SUPPORTED => [ PASCAL_thru_HOPPER, ],
+                ONLY_IF => 'PMU_PERF_AVFS',
+                    'clk/pascal/pmu_clkadcgpxxx_ghxxx.c',
+
+            CHIPS_SUPPORTED => [ PASCAL_and_later, -GP100, ],
+                ONLY_IF => 'PMU_PERF_ADC_DEVICES_EXTENDED',
+                    'clk/pascal/pmu_clkadcgp10x_extended.c',
+
+            CHIPS_SUPPORTED => [ PASCAL, ],
+                'clk/pascal/pmu_clkgpxxx_only.c',
+
+            CHIPS_SUPPORTED => [ PASCAL_thru_VOLTA, -GP100, ],
+                ONLY_IF => 'PMU_PERF_AVFS',
+                    'clk/pascal/pmu_clkavfsgpxxx_gvxxx.c',
+
+            CHIPS_SUPPORTED => [ VOLTA_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                'clk/volta/pmu_clkgv10x.c',
+
+                ONLY_IF => 'PMU_PERF_AVFS',
+                    'clk/volta/pmu_clkadcgv10x.c',
+                    'clk/volta/pmu_clkavfsgv100.c',
+
+            CHIPS_SUPPORTED => [ PASCAL_thru_TURING, -GP100, ],
+                ONLY_IF => 'PMU_PERF_ADC_DEVICES_EXTENDED',
+                    'clk/pascal/pmu_clkadcgpxxx_tuxxx.c',
+
+            CHIPS_SUPPORTED => [ TURING_and_later, ],
+                ONLY_IF => 'PMU_PERF_NAFLL_DEVICES',
+                    'clk/turing/pmu_clkavfstu10x.c',
+
+            CHIPS_SUPPORTED => [ TURING, ],
+                ONLY_IF => 'PMU_PERF_ADC_DEVICE_V20_EXTENDED',
+                    'clk/turing/pmu_clkadctuxxx_only.c',
+
+                ONLY_IF => 'PMU_PERF_NAFLL_DEVICE_V20',
+                    'clk/turing/pmu_clkavfstuxxx_only.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, ],
+                ONLY_IF => 'PMU_PERF_AVFS',
+                    'clk/ampere/pmu_clkadcga100.c',
+
+                ONLY_IF => 'PMU_PERF_ADC_DEVICES_EXTENDED',
+                    'clk/ampere/pmu_clkadcga100_extended.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, ],
+                ONLY_IF => 'PMU_PERF_NAFLL_DEVICE_V30',
+                    'clk/ampere/pmu_clkavfsga100.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, ],
+                'clk/ampere/pmu_clkga100.c',
+                'clk/ampere/pmu_clkga10x.c',
+                'clk/ampere/pmu_clkfbflcnga10x.c',
+
+            CHIPS_SUPPORTED => [ dTURING, GA10X, AD10X, GH202, ],
+                ONLY_IF => 'PMU_PERF_NAFLL_DEVICES_INIT',
+                    'clk/ampere/pmu_clkavfsga10x.c',
+
+            CHIPS_SUPPORTED => [ dADA_and_later, -TEGRA_DGPU_ADA, ],
+                ONLY_IF => 'PMU_PERF_NAFLL_DEVICE_V30',
+                    'clk/ada/pmu_clkavfsad10x.c',
+
+            CHIPS_SUPPORTED => [ GA10X, AD10X, GH202, -GA100, ],
+                ONLY_IF => 'PMU_PERF_AVFS',
+                    'clk/ampere/pmu_clkadcga10x.c',
+
+            CHIPS_SUPPORTED => [ dADA_and_later, -TEGRA_DGPU_ADA, ],
+                ONLY_IF => 'PMU_PERF_AVFS',
+                    'clk/ada/pmu_clkadcad10x.c',
+
+            CHIPS_SUPPORTED => [ dTURING, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/dom/clkfreqdomain_apllldiv_disp.c',
+                    'clk/clk3/dom/clkfreqdomain_osm.c',
+                    'clk/clk3/fs/clkldivunit.c',
+                    'clk/clk3/fs/clkosm.c',
+                    'clk/clk3/sd/clksdtu10x.c',
+
+            CHIPS_SUPPORTED => [ dTURING, GA100, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/fs/clkasdm.c',
+                    'clk/clk3/fs/clksppll.c',
+
+            CHIPS_SUPPORTED => [ dTURING, GA100, dADA, -TEGRA_DGPU_ADA, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/fs/clkapll.c',
+
+            CHIPS_SUPPORTED => [ dTURING_and_later, -G00X, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/dom/clkfreqdomain_mclk.c',
+
+            CHIPS_SUPPORTED => [ dAMPERE_and_later, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/fs/clkldivv2.c',
+                    'clk/clk3/fs/clkswdiv4.c',
+
+            CHIPS_SUPPORTED => [ G00X, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/dom/clkfreqdomain_stub.c',
+                    'clk/clk3/sd/clksdg00x.c',
+
+            CHIPS_SUPPORTED => [ GA100, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/sd/clksdga100.c',
+
+            CHIPS_SUPPORTED => [ dAMPERE, -DISPLAYLESS, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/sd/clksdga10x.c',
+
+            CHIPS_SUPPORTED => [ dADA, -TEGRA_DGPU_ADA, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/sd/clksdad10x.c',
+
+                ONLY_IF => 'PMU_CLK_CNTR',
+                    'clk/ada/pmu_clkcntrad10x.c',
+
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/dom/clkfreqdomain_swdivapll.c',
+
+            CHIPS_SUPPORTED => [ dAMPERE_and_later, -DISPLAYLESS, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/fs/clkpdiv.c',
+                    'clk/clk3/fs/clkrosdm.c',
+
+            CHIPS_SUPPORTED => [ dAMPERE_and_later, -DISPLAYLESS, -AD10X, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/fs/clkhpll.c',
+                    'clk/clk3/dom/clkfreqdomain_swdivhpll.c',
+
+            CHIPS_SUPPORTED => [ dAMPERE_and_later, -GA100, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/fs/clkrovco.c',
+
+            CHIPS_SUPPORTED => [ dAMPERE, dADA, -TEGRA_DGPU_ADA, -GA100, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/fs/clkswdiv2automatic.c',
+                    'clk/clk3/fs/clkswdiv4automatic.c',
+
+            CHIPS_SUPPORTED => [ GH100, GB100, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/fs/clkropdiv.c',
+                    'clk/clk3/sd/clksdgh100.c',
+
+            CHIPS_SUPPORTED => [ dHOPPER_and_later, -DISPLAYLESS, -G00X, ],
+                ONLY_IF => 'PMU_CLK_CLKS_ON_PMU',
+                    'clk/clk3/sd/clksdgh20x.c',
+
+            CHIPS_SUPPORTED => [ dTURING, GA100, ],
+                ONLY_IF => 'PMU_CLK_CLOCK_MON',
+                    'clk/lw/clk_clockmon.c',
+                    'clk/turing/pmu_clkmontu10x.c',
+                    'clk/ampere/pmu_clkmonga100.c',
+
+            CHIPS_SUPPORTED => [ ALL, ],
+                ONLY_IF => 'PMU_CLK_CNTR',
+                    'clk/lw/pmu_clkcntr.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL, ],
+                ONLY_IF => 'PMU_CLK_CNTR',
+                    'clk/fermi/pmu_clkcntrgf10x.c',
+
+            CHIPS_SUPPORTED => [ VOLTA_thru_AD10X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                ONLY_IF => 'PMU_CLK_CNTR',
+                    'clk/volta/pmu_clkcntrgv10x.c',
+
+            CHIPS_SUPPORTED => [ TURING_and_later, ],
+                ONLY_IF => 'PMU_CLK_CNTR',
+                    'clk/turing/pmu_clkcntrtu10x.c',
+
+            CHIPS_SUPPORTED => [ PASCAL_and_later, ],
+                ONLY_IF => 'PMU_CLK_CNTR',
+                    'clk/pascal/pmu_clkcntrgp100.c',
+
+            CHIPS_SUPPORTED => [ HOPPER_and_later, ],
+                ONLY_IF => 'PMU_CLK_CNTR',
+                    'clk/hopper/pmu_clkcntrgh10x.c',
+
+            CHIPS_SUPPORTED => [ PASCAL, ],
+                ONLY_IF => 'PMU_CLK_CNTR',
+                    'clk/pascal/pmu_clkcntrgpxxx_only.c',
+
+            CHIPS_SUPPORTED => [ GV10X, ],
+                ONLY_IF => 'PMU_CLK_CNTR',
+                    'clk/volta/pmu_clkcntrgv10x_only.c',
+        ],
+
+        GCX =>
+        [
+            CHIPS_SUPPORTED => [ MAXWELL, ],
+                'gcx/lw/gcx_rpc.c',
+                'gcx/lw/objgcx.c',
+                'gcx/fermi/pmu_didlegf11x.c',
+                'gcx/kepler/pmu_didlegk10x.c',
+                'gcx/kepler/pmu_didlegk20x.c',
+                'gcx/lw/gcxgc5.c',
+                'gcx/maxwell/pmu_didlegm10x.c',
+        ],
+
+        DISP =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                 'disp/lw/pmu_objdisp.c',
+                 'disp/lw/disp_rpc.c',
+
+             CHIPS_SUPPORTED => [ GM10X_thru_GP10X, ],
+                 'disp/fermi/pmu_dispgf11x.c',
+                'disp/kepler/pmu_dispgk10x.c',
+                'disp/kepler/pmu_dispgk11x.c',
+                'disp/maxwell/pmu_dispgmxxx.c',
+
+             CHIPS_SUPPORTED => [ GM10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                'disp/maxwell/pmu_dispgm10x.c',
+
+             CHIPS_SUPPORTED => [ dTURING, ],
+                'disp/turing/pmu_disptu10xonly.c',
+
+             CHIPS_SUPPORTED => [ TU10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'disp/turing/pmu_disptu10x.c',
+                'disp/turing/pmu_isohubtu10x.c',
+                [
+                    ONLY_IF => 'PMU_DISP_IMP_INFRA',
+                        'disp/lw/disp_imp.c',
+                ],
+
+             CHIPS_SUPPORTED => [ GA10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'disp/ampere/pmu_isohubga10x.c',
+
+             CHIPS_SUPPORTED => [ GP10X, -GP100, ],
+                'disp/pascal/pmu_dispgp10xonly.c',
+
+             CHIPS_SUPPORTED => [ GP10X_and_later, -GP100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                'disp/pascal/pmu_dispgp10x.c',
+
+             CHIPS_SUPPORTED => [ GP10X_thru_TURING, -GV11B, ],
+                'disp/pascal/pmu_dispgp10xtu10x.c',
+
+             CHIPS_SUPPORTED => [ GP10X_thru_TURING, GA100, -GP100, -GV11B, ],
+                'disp/pascal/pmu_dispgp10xga100.c',
+
+             CHIPS_SUPPORTED => [ VOLTA_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                'disp/volta/pmu_dispgv10x.c',
+
+             CHIPS_SUPPORTED => [ dAMPERE, ],
+                'disp/ampere/pmu_dispga10xonly.c',
+
+             CHIPS_SUPPORTED => [ GA10X_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'disp/ampere/pmu_dispga10x.c',
+
+             CHIPS_SUPPORTED => [ AD10X_and_later, -TEGRA_DGPU_ADA, ],
+                'disp/ada/pmu_dispad10x.c',
+        ],
+
+        FAN =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+
+                ONLY_IF => 'PMU_THERM_FAN',
+                'fan/lw/pmu_fanctrl.c',
+                'fan/lw/objfan.c',
+                'fan/lw/fan_rpc.c',
+
+                ONLY_IF => 'PMU_THERM_FAN_COOLER',
+                'fan/lw/fancooler.c',
+
+                ONLY_IF => 'PMU_THERM_FAN_COOLER_ACTIVE',
+                'fan/lw/fancooler_active.c',
+
+                ONLY_IF => 'PMU_THERM_FAN_COOLER_ACTIVE_PWM',
+                'fan/lw/fancooler_active_pwm.c',
+
+                ONLY_IF => 'PMU_THERM_FAN_COOLER_ACTIVE_PWM_TACH_CORR',
+                'fan/lw/fancooler_active_pwm_tach_corr.c',
+
+                ONLY_IF => 'PMU_THERM_FAN_COOLER_PMUMON',
+                    'fan/lw/fancooler_pmumon.c',
+
+                ONLY_IF => 'PMU_THERM_FAN_POLICY',
+                'fan/lw/fanpolicy.c',
+
+                ONLY_IF => 'PMU_THERM_FAN_POLICY_V20',
+                'fan/lw/fan2x/20/fanpolicy_v20.c',
+
+                ONLY_IF => 'PMU_THERM_FAN_POLICY_V30',
+                'fan/lw/fan3x/30/fanpolicy_v30.c',
+
+                ONLY_IF => 'PMU_THERM_FAN_POLICY_IIR_TJ_FIXED_DUAL_SLOPE_PWM',
+                'fan/lw/fanpolicy_iir_tj_fixed_dual_slope_pwm.c',
+
+                ONLY_IF => 'PMU_THERM_FAN_POLICY_IIR_TJ_FIXED_DUAL_SLOPE_PWM_V20',
+                'fan/lw/fan2x/20/fanpolicy_iir_tj_fixed_dual_slope_pwm_v20.c',
+
+                ONLY_IF => 'PMU_THERM_FAN_POLICY_IIR_TJ_FIXED_DUAL_SLOPE_PWM_V30',
+                'fan/lw/fan3x/30/fanpolicy_iir_tj_fixed_dual_slope_pwm_v30.c',
+
+                ONLY_IF => 'PMU_THERM_FAN_ARBITER',
+                'fan/lw/fan3x/fanarbiter.c',
+
+                ONLY_IF => 'PMU_THERM_FAN_ARBITER_V10',
+                'fan/lw/fan3x/10/fanarbiter_v10.c',
+        ],
+
+        FB =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'fb/lw/pmu_objfb.c',
+
+            CHIPS_SUPPORTED => [ pre_AMPERE, ],
+                'fb/maxwell/fbgm10x.c',
+
+            CHIPS_SUPPORTED => [ GM20X_thru_TURING, GA100, ],
+                'fb/maxwell/fbgm200.c',
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                'fb/pascal/fbsrgp10x.c',
+
+            CHIPS_SUPPORTED => [ dVOLTA, ],
+                'fb/volta/pmu_fbhbm2gv10xonly.c',
+
+            CHIPS_SUPPORTED => [ dVOLTA, GA100, GH100, GB100, ],
+                'fb/volta/pmu_fbhbm2gv10x.c',
+
+            CHIPS_SUPPORTED => [ GA100, ],
+            [
+                'fb/ampere/fbga100.c',
+            ],
+
+            CHIPS_SUPPORTED => [ GA100, GH100, GB100, ],
+                'fb/ampere/pmu_fbhbm2ga100.c',
+
+            CHIPS_SUPPORTED => [ VOLTA_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                'fb/volta/fbgv10x.c',
+
+            CHIPS_SUPPORTED => [ dVOLTA, -GV11B, ],
+                [
+                    ONLY_IF => 'PMU_CLK_FBFLCN_MCLK_SWITCH_FB_STOP_WAR',
+                       'fb/volta/fb_stop_war_gv10x_only.c',
+                ],
+
+#           TOT G000 does not have 'LW_PFB_FBPA_FBIO_REFMPLL_CONFIG' register.
+            CHIPS_SUPPORTED => [ dTURING, ],
+                'fb/turing/fbsrtu10x.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'fb/ampere/fbga102.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, -GA100, -GH100, -GB100, -G000, ],
+                'fb/ampere/fbsrga10x.c',
+        ],
+
+        FIFO =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'fifo/lw/pmu_objfifo.c',
+
+            CHIPS_SUPPORTED => [ pre_AMPERE, ],
+                'fifo/kepler/pmu_fifogkxxx.c',
+
+            CHIPS_SUPPORTED => [ GM10X, ],
+                'fifo/maxwell/pmu_fifogm10x.c',
+
+            CHIPS_SUPPORTED => [ pre_AMPERE, ],
+                'fifo/maxwell/pmu_fifogmxxx.c',
+
+            CHIPS_SUPPORTED => [ GM20X, ],
+                'fifo/maxwell/pmu_fifogm20x.c',
+
+            CHIPS_SUPPORTED => [ PASCAL_thru_TURING, ],
+                'fifo/pascal/pmu_fifogpxxx.c',
+
+            CHIPS_SUPPORTED => [ GP100, ],
+                'fifo/pascal/pmu_fifogp100.c',
+
+            CHIPS_SUPPORTED => [ GP10X, -GP100, VOLTA_thru_TURING, ],
+                'fifo/pascal/pmu_fifogp10x.c',
+
+            CHIPS_SUPPORTED => [ GV11B, ],
+                'fifo/volta/pmu_fifogv11b.c',
+
+            CHIPS_SUPPORTED => [ TURING, ],
+                'fifo/turing/pmu_fifotu10xonly.c',
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                'fifo/turing/pmu_fifotu10x.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, ],
+                'fifo/ampere/pmu_fifogaxxx.c',
+
+            CHIPS_SUPPORTED => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+                 'fifo/ampere/pmu_fifoga10b.c',
+
+            CHIPS_SUPPORTED => [ AD10X_and_later, -TEGRA_DGPU_ADA, ],
+                'fifo/ada/pmu_fifoad10x.c',
+        ],
+
+        FUSE =>
+        [
+            ONLY_IF => 'PMU_FUSE_ACCESS_SUPPORTED',
+            [
+                'fuse/lw/pmu_objfuse.c',
+                'fuse/maxwell/pmu_fusegm200.c',
+
+                CHIPS_SUPPORTED => [ TU10X, ],
+                    'fuse/turing/fusetu10xonly.c',
+
+                CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                    'fuse/turing/fusetu10x.c',
+
+                CHIPS_SUPPORTED => [ AMPERE_and_later, -GA100, ],
+                    'fuse/ampere/fusega10x.c',
+
+                CHIPS_SUPPORTED => [ dADA_and_later, -GH20X, -GB100, -G00X, ],
+                    'fuse/ada/fusead10x.c',
+            ],
+        ],
+
+        GR =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'gr/lw/pmu_objgr.c',
+
+            CHIPS_SUPPORTED => [ ALL, -VOLTA_and_later, ],
+                'gr/kepler/pmu_grgkxxxgpxxx.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, GV11B, ],
+                'gr/fermi/pmu_grgfxxx.c',
+
+            CHIPS_SUPPORTED => [ pre_AMPERE, ],
+                'gr/kepler/pmu_grgkxxxtuxxx.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+                'gr/kepler/pmu_grgkxxx.c',
+
+            CHIPS_SUPPORTED => [ GM10X, ],
+                'gr/kepler/pmu_grgk10x.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, ],
+                'gr/maxwell/pmu_grgm10x.c',
+
+            CHIPS_SUPPORTED => [ pre_AMPERE, ],
+                'gr/maxwell/pmu_grgmxxxtuxxx.c',
+
+            CHIPS_SUPPORTED => [ GM20X_thru_TURING, ],
+                'gr/maxwell/pmu_grgm20b.c',
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, -GP100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                'gr/pascal/pmu_grgp10x.c',
+
+            CHIPS_SUPPORTED => [ GP10X, -GP100, ],
+                'gr/pascal/pmu_grgpxxxonly.c',
+
+            CHIPS_SUPPORTED => [ GV11B, ],
+                'gr/volta/pmu_grgv11b.c',
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                'gr/turing/pmu_grtu10x.c',
+
+            CHIPS_SUPPORTED => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+                'gr/ampere/pmu_grga10b_only.c',
+
+            CHIPS_SUPPORTED => [ TURING, ],
+                'gr/turing/pmu_grtuxxx_only.c',
+
+            CHIPS_SUPPORTED => [ GA100, ],
+                'gr/ampere/pmu_grga100.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, ],
+                'gr/ampere/pmu_grga10x.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -G000, -GA100, ],
+                'gr/ampere/pmu_grga10x_only.c',
+        ],
+
+        MS =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'ms/lw/pmu_objms.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL, PASCAL, ],
+                'ms/kepler/pmu_msgkxxxgpxxx.c',
+
+            CHIPS_SUPPORTED => [ pre_AMPERE, ],
+                'ms/kepler/pmu_msgkxxxtuxxx.c',
+
+            CHIPS_SUPPORTED => [ pre_AMPERE, -GV11B, ],
+                'ms/kepler/pmu_msswasrgkxxxtuxxx.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                'ms/kepler/pmu_msgkxxx.c',
+                'ms/kepler/pmu_msswasrgk10x.c',
+
+            CHIPS_SUPPORTED => [ GM10X, ],
+                'ms/maxwell/pmu_msgm10xonly.c',
+                'ms/maxwell/pmu_msswasrgm10xonly.c',
+
+            CHIPS_SUPPORTED => [ GM20X, ],
+                'ms/maxwell/pmu_msgm20xonly.c',
+
+            CHIPS_SUPPORTED => [ GM20X_and_later, -GH202, ],
+                'ms/maxwell/pmu_msgm20x.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                'ms/maxwell/pmu_msswasrgm10x.c',
+
+            CHIPS_SUPPORTED => [ pre_VOLTA, ],
+                'ms/maxwell/pmu_msgmxxxgpxxx.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL, ],
+                'ms/maxwell/pmu_msswasrgmxxxonly.c',
+
+            CHIPS_SUPPORTED => [ PASCAL, VOLTA, -GP100, -GV11B, ],
+                'ms/pascal/pmu_msgpxxxgvxxx.c',
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                'ms/pascal/pmu_msgp10x.c',
+
+            CHIPS_SUPPORTED => [ PASCAL, ],
+                'ms/pascal/pmu_msswasrgp10x.c',
+
+            CHIPS_SUPPORTED => [ PASCAL, TURING, -GP100, ],
+                'ms/pascal/pmu_msgpxxxtuxxx.c',
+
+            CHIPS_SUPPORTED => [ GV11B, ],
+                'ms/volta/pmu_msgv11b.c',
+
+            CHIPS_SUPPORTED => [ TURING, ],
+                'ms/turing/pmu_mstu10xonly.c',
+                'ms/turing/pmu_msswasrtuxxxonly.c',
+
+            CHIPS_SUPPORTED => [ dTURING_thru_ADA, ],
+                'ms/turing/pmu_mstuxxxadxxx.c',
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                'ms/turing/pmu_mstuxxx.c',
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'ms/turing/pmu_mstu10x.c',
+                'ms/turing/pmu_msswasrtu10x.c',
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, ],
+                'ms/ampere/pmu_msgaxxx.c',
+                [
+                    ONLY_IF => 'PMU_LPWR_CTRL_MS_PASSIVE',
+                        'ms/lw/ms_passive.c',
+                ],
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'ms/ampere/pmu_msga10x.c',
+                'ms/ampere/pmu_msswasrga10x.c',
+
+            CHIPS_SUPPORTED => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+                'ms/ampere/pmu_msga10b.c',
+
+            CHIPS_SUPPORTED => [ AD10X_and_later, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+                'ms/ada/pmu_msad10x.c',
+
+            CHIPS_SUPPORTED => [ HOPPER_and_later, ],
+                'ms/hopper/pmu_msghxxx.c',
+        ],
+
+        HDCP =>
+        [
+            CHIPS_SUPPORTED => [ GM10X, ],
+                'hdcp/hdcp_rpc.c',
+                'hdcp/pmu_auth.c'  ,
+                'hdcp/pmu_bigint.c',
+                'hdcp/pmu_pvtbus.c',
+                'hdcp/pmu_upstream.c',
+        ],
+
+        I2C =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'i2c/lw/pmu_obji2c.c',
+                'i2c/lw/pmu_swi2c.c' ,
+                'i2c/lw/i2c_rpc.c'   ,
+                 [
+                    ONLY_IF => 'PMU_PMGR_I2C_HW',
+                        'i2c/lw/pmu_hwi2c.c',
+                 ],
+
+            CHIPS_SUPPORTED => [ GM10X_and_later, ],
+                'i2c/fermi/pmu_i2cgf11x.c',
+
+            CHIPS_SUPPORTED => [ GM10X_and_later, ],
+                'i2c/fermi/pmu_hwi2cgf10x.c',
+                'i2c/fermi/pmu_i2cgf10x.c',
+
+            CHIPS_SUPPORTED => [ GM10X_and_later, ],
+                'i2c/kepler/pmu_i2cmtxgk11x.c',
+
+            CHIPS_SUPPORTED => [ GM20X_and_later, ],
+                'i2c/maxwell/pmu_i2cgm20x.c',
+
+            CHIPS_SUPPORTED => [ GM20X_and_later, -GA100, -GH100, -GB100, ],
+                'i2c/maxwell/pmu_i2cmtxgm20x.c',
+
+            CHIPS_SUPPORTED => [ dPASCAL_and_later, ],
+                'i2c/pascal/pmu_i2cmtxgp10x.c',
+
+            CHIPS_SUPPORTED => [ GA100, GH100, GB100, ],
+                'i2c/ampere/pmu_i2cmtxga100.c',
+
+            CHIPS_SUPPORTED => [ GH100_and_later, ],
+                'i2c/hopper/pmu_hwi2cgh100.c',
+        ],
+
+        IC =>
+        [
+            CHIPS_SUPPORTED => [ GM10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                [
+                    ONLY_IF => 'PMU_IC_MISCIO',
+                        'ic/fermi/ic_miscio_bank0_gf11x.c',
+                ],
+
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, ],
+                'ic/kepler/pmu_icgkxxx.c',
+                [
+                    ONLY_IF => 'PMU_IC_MISCIO',
+                        'ic/kepler/ic_miscio_gkxxx.c',
+                ],
+
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                [
+                    ONLY_IF => 'PMU_IC_MISCIO',
+                        'ic/kepler/ic_miscio_bank0_gk1xx.c',
+                        'ic/kepler/ic_miscio_bank1_gk1xx.c',
+                ],
+
+            CHIPS_SUPPORTED => [ MAXWELL, ],
+                [
+                    ONLY_IF => 'PMU_IC_MISCIO',
+                        'ic/maxwell/ic_miscio_bank1_gm10x.c',
+                ],
+
+            CHIPS_SUPPORTED => [ TURING, ],
+                [
+                    ONLY_IF => 'PMU_BIF_XUSB',
+                        'ic/turing/pmu_icxusbtuxxx.c',
+                ],
+
+            CHIPS_SUPPORTED => [ TURING_and_later, ],
+                'ic/turing/pmu_ictuxxx.c',
+                [
+                    ONLY_IF => 'PMU_IC_IO_BANK_2_SUPPORTED',
+                        'ic/turing/pmu_icbank2tuxxx.c',
+                ],
+
+            CHIPS_SUPPORTED => [ TURING_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                [
+                    ONLY_IF => 'PMU_PG_GSP || PMU_PG_SEC2',
+                        'ic/turing/pmu_icprivtuxxx.c',
+                ],
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, -GA100, ],
+                'ic/ampere/pmu_icga10x.c',
+
+            CHIPS_SUPPORTED => [ HOPPER_and_later, ],
+                'ic/hopper/pmu_icghxxx.c',
+        ],
+
+        ECID =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'ecid/lw/pmu_objecid.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, ],
+                'ecid/maxwell/pmu_ecidgmxxx.c',
+        ],
+
+        GID =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'gid/pmu_gid.c',
+
+            CHIPS_SUPPORTED => [ GM20X_and_later, ],
+                [
+                    ONLY_IF => 'ARCH_FALCON',
+                        'gid/maxwell/gid_gm20x.c',
+                ],
+
+            CHIPS_SUPPORTED => [ GA102_and_later, ],
+                'gid/ampere/gid_ga10x.c',
+        ],
+
+        MISC =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'lib/lib_fxp.c',
+                'lib/lib_pwm.c',
+                'lib/lib_nocat.c',
+                'lib/lib_sandbag.c',
+                'lib/lib_gpio.c',
+                [
+                    ONLY_IF => 'ARCH_FALCON',
+                        'lib/lib_fxp_falcon.c',
+
+                    ONLY_IF => 'ARCH_RISCV',
+                        'lib/lib_fxp_riscv.c',
+                ],
+
+            CHIPS_SUPPORTED => [ TURING_and_later, ],
+                [
+                    ONLY_IF => 'PMU_LIB_AVG',
+                        'lib/lib_avg.c',
+
+                    ONLY_IF => 'PMU_LIB_PMUMON',
+                        'lib/lib_pmumon.c',
+                ],
+
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, ],
+                'lib/logger.c' ,
+                'logger/lw/logger_rpc.c',
+
+            CHIPS_SUPPORTED => [ ALL, ],
+                'boardobj/lw/boardobj.c',
+                'boardobj/lw/boardobjgrp.c',
+                'boardobj/lw/boardobjgrp_e32.c',
+                'boardobj/lw/boardobjgrp_e255.c',
+                'boardobj/lw/boardobjgrpmask.c',
+                [
+                    ONLY_IF => 'PMU_BOARDOBJ_VTABLE',
+                        'boardobj/lw/boardobj_vtable.c',
+
+                    ONLY_IF => 'PMU_BOARDOBJ_INTERFACE',
+                        'boardobj/lw/boardobj_interface.c',
+
+                    ONLY_IF => 'PMU_BOARDOBJ_GRP_E512',
+                        'boardobj/lw/boardobjgrp_e512.c',
+
+                    ONLY_IF => 'PMU_BOARDOBJ_GRP_E1024',
+                        'boardobj/lw/boardobjgrp_e1024.c',
+
+                    ONLY_IF => 'PMU_BOARDOBJ_GRP_E2048',
+                        'boardobj/lw/boardobjgrp_e2048.c',
+
+                    ONLY_IF => 'PMU_BOARDOBJGRP_SRC',
+                        'boardobj/lw/boardobjgrp_src.c',
+
+                    ONLY_IF => 'PMU_BOARDOBJGRP_SRC_VBIOS',
+                        'boardobj/lw/boardobjgrp_src_vbios.c',
+
+                    ONLY_IF => 'PMU_BOARDOBJ_MODEL_10',
+                        'boardobj/lw/boardobjgrp_iface_model_10.c',
+                        'boardobj/lw/boardobj_iface_model_10.c',
+                ],
+        ],
+
+        PERF =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'perf/lw/pmu_objperf.c',
+                'perf/lw/perfrmcmd.c',
+                'perf/lw/perf_rpc.c',
+                [
+                    ONLY_IF => 'PMU_PERF_ELW_PSTATES_2X',
+                        'perf/lw/2x/perfps20.c',
+
+                    ONLY_IF => 'PMU_PERF_ELW_PSTATES_30',
+                        'perf/lw/3x/perfps30.c',
+
+                    ONLY_IF => 'PMU_PERF_ELW_PSTATES_35',
+                        'perf/lw/3x/perfps35.c',
+
+                    ONLY_IF => 'PMU_PERF_PSTATES',
+                        'perf/lw/pstate.c',
+
+                    ONLY_IF => 'PMU_PERF_PSTATES_INFRA',
+                        'perf/lw/pstate_infra.c',
+
+                    ONLY_IF => 'PMU_PERF_PSTATES_3X',
+                        'perf/lw/3x/pstate_3x.c',
+
+                    ONLY_IF => 'PMU_PERF_PSTATES_3X_INFRA',
+                        'perf/lw/3x/pstate_3x_infra.c',
+
+                    ONLY_IF => 'PMU_PERF_PSTATES_30',
+                        'perf/lw/30/pstate_30.c',
+
+                    ONLY_IF => 'PMU_PERF_PSTATES_35',
+                        'perf/lw/35/pstate_35.c',
+
+                    ONLY_IF => 'PMU_PERF_PSTATES_35_INFRA',
+                        'perf/lw/35/pstate_35_infra.c',
+
+                    ONLY_IF => 'PMU_PERF_PSTATES_SELF_INIT',
+                        'perf/lw/pstates_self_init.c',
+
+                    ONLY_IF => 'PMU_PERF_PSTATES_VBIOS',
+                        'perf/lw/vbios/pstates_vbios.c',
+
+                    ONLY_IF => 'PMU_PERF_PSTATES_VBIOS_6X',
+                        'perf/lw/vbios/pstates_vbios_6x.c',
+
+                    ONLY_IF => 'PMU_PERF_PERF_MODE',
+                        'perf/lw/perf_mode.c',
+
+                    ONLY_IF => 'PMU_PERF_PERF_VPSTATES_20',
+                        'perf/lw/2x/vpstate_2x.c',
+
+                    ONLY_IF => 'PMU_PERF_VPSTATES',
+                        'perf/lw/vpstate.c',
+
+                    ONLY_IF => 'PMU_PERF_VPSTATES_3X',
+                        'perf/lw/3x/vpstate_3x.c',
+
+                    ONLY_IF => 'PMUTASK_PERF_DAEMON',
+                        'perf/lw/perf_daemon.c',
+
+                    ONLY_IF => 'PMU_PERF_CHANGE_SEQ',
+                        'perf/lw/changeseq.c',
+                        'perf/lw/changeseq_daemon.c',
+
+                    ONLY_IF => 'PMU_PERF_CHANGE_SEQ_STEP_PRE_POST_PSTATE_PMU',
+                        'perf/lw/changeseqscriptstep_pstate.c',
+
+                    ONLY_IF => 'PMU_PERF_CHANGE_SEQ_STEP_PRE_POST_CHANGE_PMU',
+                        'perf/lw/changeseqscriptstep_change.c',
+
+                    ONLY_IF => 'PMU_PERF_CHANGE_SEQ_STEP_VOLT',
+                        'perf/lw/changeseqscriptstep_volt.c',
+
+                    ONLY_IF => 'PMU_PERF_CHANGE_SEQ_STEP_LPWR',
+                        'perf/lw/changeseqscriptstep_lpwr.c',
+
+                    ONLY_IF => 'PMU_PERF_CHANGE_SEQ_STEP_BIF',
+                        'perf/lw/changeseqscriptstep_bif.c',
+
+                    ONLY_IF => 'PMU_PERF_CHANGE_SEQ_MEM_TUNE_CHANGE',
+                        'perf/lw/changeseqscriptstep_mem_tune.c',
+
+                    ONLY_IF => 'PMU_PERF_CHANGE_SEQ_STEP_CLK_MON',
+                        'perf/lw/35/changeseqscriptstep_clkmon.c',
+
+                    ONLY_IF => 'PMU_PERF_CHANGE_SEQ_STEP_PRE_POST_VOLT_NAFLL_CLKS',
+                        'perf/lw/35/changeseqscriptstep_nafllclk.c',
+
+                    ONLY_IF => 'PMU_PERF_CHANGE_SEQ_LPWR',
+                        'perf/lw/changeseq_lpwr_daemon.c',
+                        'perf/lw/changeseq_lpwr.c',
+
+                    ONLY_IF => 'PMU_PERF_CHANGE_SEQ_35',
+                        'perf/lw/35/changeseq_35.c',
+                        'perf/lw/35/changeseq_35_daemon.c',
+                        'perf/lw/35/changeseqscriptstep_clk.c',
+
+                    ONLY_IF => 'PMU_PERF_VFE',
+                        'perf/lw/3x/vfe.c',
+
+                    ONLY_IF => 'PMU_PERF_VFE_VAR',
+                        'perf/lw/3x/vfe_var.c'                   ,
+                        'perf/lw/3x/vfe_var_derived.c'           ,
+                        'perf/lw/3x/vfe_var_derived_product.c'   ,
+                        'perf/lw/3x/vfe_var_derived_sum.c'       ,
+                        'perf/lw/3x/vfe_var_single.c'            ,
+                        'perf/lw/3x/vfe_var_single_frequency.c'  ,
+                        'perf/lw/3x/vfe_var_single_sensed.c'     ,
+                        'perf/lw/3x/vfe_var_single_sensed_temp.c',
+                        'perf/lw/3x/vfe_var_single_voltage.c'    ,
+
+                    ONLY_IF => 'PMU_PERF_VFE_VAR_SINGLE_SENSED_FUSE_BASE',
+                        'perf/lw/3x/vfe_var_single_sensed_fuse_base.c',
+
+                    ONLY_IF => 'PMU_PERF_VFE_VAR_SINGLE_SENSED_FUSE_LEGACY',
+                        'perf/lw/3x/vfe_var_single_sensed_fuse.c',
+
+                    ONLY_IF => 'PMU_PERF_VFE_VAR_SINGLE_SENSED_FUSE_20',
+                        'perf/lw/3x/vfe_var_single_sensed_fuse_20.c',
+
+                    ONLY_IF => 'PMU_PERF_VFE_VAR_35',
+                        'perf/lw/3x/vfe_var_single_caller_specified.c',
+
+                    ONLY_IF => 'PMU_PERF_VFE_VAR_SINGLE_GLOBALLY_SPECIFIED',
+                        'perf/lw/3x/vfe_var_single_globally_specified.c',
+
+                    ONLY_IF => 'PMU_PERF_VFE_EQU',
+                        'perf/lw/3x/vfe_equ.c'             ,
+                        'perf/lw/3x/vfe_equ_compare.c'     ,
+                        'perf/lw/3x/vfe_equ_minmax.c'      ,
+                        'perf/lw/3x/vfe_equ_monitor.c'     ,
+                        'perf/lw/3x/vfe_equ_quadratic.c'   ,
+
+                    ONLY_IF => 'PMU_PERF_VFE_EQU_35',
+                        'perf/lw/3x/vfe_equ_equation_scalar.c',
+
+                    ONLY_IF => 'PMU_PERF_PERF_LIMIT',
+                        'perf/lw/perf_limit.c',
+                        'perf/lw/perf_limit_client.c',
+                        'perf/lw/perf_limit_vf.c',
+
+                    ONLY_IF => 'PMU_PERF_PERF_LIMIT_35',
+                        'perf/lw/35/perf_limit_35.c',
+
+                    ONLY_IF => 'PMU_PERF_PERF_LIMIT_35_10',
+                        'perf/lw/35/perf_limit_35_10.c',
+
+                    ONLY_IF => 'PMU_PERF_PERF_LIMIT_40',
+                        'perf/lw/40/perf_limit_40.c',
+
+                    ONLY_IF => 'PMU_PERF_POLICY',
+                        'perf/lw/perfpolicy.c',
+
+                    ONLY_IF => 'PMU_PERF_POLICY_35',
+                        'perf/lw/35/perfpolicy_35.c',
+
+                    ONLY_IF => 'PMU_PERF_POLICY_PMUMON',
+                        'perf/lw/perfpolicy_pmumon.c',
+
+                    ONLY_IF => 'PMU_PERF_DAEMON_FBFLCN',
+                        'perf/lw/perf_daemon_fbflcn.c',
+                ],
+
+            ONLY_IF => 'PMU_PERF_VFIELD_VALIDATION',
+                [
+                    CHIPS_SUPPORTED => [ PASCAL, ],
+                        'perf/pascal/pmu_perfvfieldgp10x.c',
+
+                    CHIPS_SUPPORTED => [ VOLTA, -GV11B, ],
+                        'perf/volta/pmu_perfvfieldgv100.c',
+
+                    CHIPS_SUPPORTED => [ GV11B, ],
+                        'perf/volta/pmu_perfvfieldgv11b.c',
+
+                    CHIPS_SUPPORTED => [ TURING, ],
+                        'perf/turing/pmu_perfvfieldtu10x.c',
+
+                    CHIPS_SUPPORTED => [ GA100, ],
+                        'perf/ampere/pmu_perfvfieldga100.c',
+
+                    CHIPS_SUPPORTED => [ AMPERE_and_later, -GA100, ],
+                        'perf/ampere/pmu_perfvfieldga10x.c',
+                ],
+
+        ],
+
+        PERFMON =>
+        [
+            # Perfmon non-HAL code
+            CHIPS_SUPPORTED => [ ALL, ],
+                'perfmon/lw/perfmon_rpc.c',
+        ],
+
+        VOLT =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'volt/lw/objvolt.c',
+                'volt/lw/volt_rpc.c',
+                [
+                    ONLY_IF => 'PMU_VOLT_VOLT_RAIL',
+                        'volt/lw/voltrail.c',
+
+                    ONLY_IF => 'PMU_VOLT_VOLT_DEVICE',
+                        'volt/lw/voltdev.c',
+
+                    ONLY_IF => 'PMU_VOLT_VOLT_DEVICE_VID',
+                        'volt/lw/voltdev_vid.c',
+
+                    ONLY_IF => 'PMU_VOLT_VOLT_DEVICE_PWM',
+                        'volt/lw/voltdev_pwm.c',
+
+                    ONLY_IF => 'PMU_VOLT_VOLT_POLICY',
+                        'volt/lw/voltpolicy.c',
+
+                    ONLY_IF => 'PMU_VOLT_VOLT_POLICY_SINGLE_RAIL',
+                        'volt/lw/voltpolicy_single_rail.c',
+
+                    ONLY_IF => 'PMU_VOLT_VOLT_POLICY_SINGLE_RAIL_MULTI_STEP',
+                        'volt/lw/voltpolicy_single_rail_multi_step.c',
+
+                    ONLY_IF => 'PMU_VOLT_VOLT_POLICY_SPLIT_RAIL',
+                        'volt/lw/voltpolicy_split_rail.c',
+
+                    ONLY_IF => 'PMU_VOLT_VOLT_POLICY_SPLIT_RAIL_MULTI_STEP',
+                        'volt/lw/voltpolicy_split_rail_multi_step.c',
+
+                    ONLY_IF => 'PMU_VOLT_VOLT_POLICY_SPLIT_RAIL_SINGLE_STEP',
+                        'volt/lw/voltpolicy_split_rail_single_step.c',
+
+                    ONLY_IF => 'PMU_VOLT_VOLT_POLICY_MULTI_RAIL',
+                        'volt/lw/voltpolicy_multi_rail.c',
+
+                    ONLY_IF => 'PMU_VOLT_RPC_TEST_EXELWTE',
+                        'volt/lw/volttest.c',
+
+                    ONLY_IF => 'PMU_VOLT_VOLT_RAILS_PMUMON',
+                        'volt/lw/voltrail_pmumon.c',
+                ],
+
+            # Volt HALs
+            CHIPS_SUPPORTED => [ dTURING_and_later, ],
+                [
+                    ONLY_IF => 'PMU_VOLT_RPC_TEST_EXELWTE',
+                        'volt/turing/volttesttu10x.c',
+                ],
+            CHIPS_SUPPORTED => [ dAMPERE_and_later, -GA100, ],
+                [
+                        'volt/ampere/voltga10x.c',
+                ],
+            CHIPS_SUPPORTED => [ dAMPERE_and_later, ],
+                [
+                    ONLY_IF => 'PMU_VOLT_RPC_TEST_EXELWTE',
+                        'volt/ampere/volttestga10x.c',
+                ],
+            CHIPS_SUPPORTED => [ dHOPPER_and_later, ],
+                [
+                    ONLY_IF => 'PMU_VOLT_RPC_TEST_EXELWTE',
+                        'volt/hopper/volttestgh100.c',
+                ],
+            CHIPS_SUPPORTED => [ AD10X, GH100, GB100, ],
+                [
+                        'volt/ada/voltad10x.c',
+                ],
+        ],
+
+        LPWR =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'lpwr/lw/objlpwr.c'        ,
+                'lpwr/lw/lpwr_cg.c'        ,
+                'lpwr/lw/lpwr_rpc.c'       ,
+                'lpwr/lw/lpwr_loadin_rpc.c',
+                'lpwr/lw/lpwr_lp_rpc.c'    ,
+                'lpwr/lw/lpwr_callback.c'  ,
+                'lpwr/lw/lpwr_vbios.c'     ,
+                'lpwr/lw/lpwr_grp.c'       ,
+                'lpwr/lw/lpwr_perfseq.c'   ,
+                'lpwr/lw/lpwr_stat.c'      ,
+
+            CHIPS_SUPPORTED => [ MAXWELL, GP100, ],
+                'lpwr/kepler/lpwr_cg_elcggk10x.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, ],
+                'lpwr/kepler/lpwr_holdoffgk10x.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL_thru_PASCAL, ],
+                'lpwr/maxwell/lpwrgm10x.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL, ],
+                'lpwr/maxwell/lpwr_cggmxxx_only.c' ,
+
+            CHIPS_SUPPORTED => [ dMAXWELL_thru_dADA, ],
+                'lpwr/maxwell/lpwr_cggm10x.c',
+
+            CHIPS_SUPPORTED => [ dHOPPER_and_later, ],
+                'lpwr/hopper/lpwr_cggh10x.c'     ,
+
+            CHIPS_SUPPORTED => [ MAXWELL, GP100, ],
+                'lpwr/maxwell/lpwr_cg_elcggmxxx_only.c',
+
+            CHIPS_SUPPORTED => [ PASCAL_thru_TURING, -GV11B, -GP100, ],
+                'lpwr/pascal/lpwr_cggp10x.c'     ,
+
+            CHIPS_SUPPORTED => [ PASCAL_thru_ADA, -GP100, -TEGRA_DGPU_ADA , GH100 ],
+                'lpwr/pascal/lpwr_cg_elcggp10x.c',
+
+            CHIPS_SUPPORTED => [ TEGRA_DGPU_ADA, IG000, ],
+                'lpwr/ada/lpwr_cg_elcgad10b.c',
+
+             CHIPS_SUPPORTED => [ PASCAL_and_later, -GP100, -GV11B, ],
+                'lpwr/lw/lpwr_seq.c',
+
+            CHIPS_SUPPORTED => [ PASCAL_thru_ADA, -GP100, -TEGRA_DGPU_ADA, -GV11B, ],
+                'lpwr/pascal/lpwr_cg_elcggpxxxadxxx.c',
+
+            CHIPS_SUPPORTED => [ PASCAL, -GP100, ],
+                'lpwr/pascal/lpwr_seqgpxxxonly.c',
+
+            CHIPS_SUPPORTED => [ TU10X, ],
+                'lpwr/turing/lpwrtu10xonly.c'    ,
+                'lpwr/turing/lpwr_seqtuxxxonly.c',
+
+            CHIPS_SUPPORTED => [ dTURING_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'lpwr/turing/lpwr_cgtu10x.c'       ,
+
+            CHIPS_SUPPORTED => [ dTURING_and_later, -GA100, -GH100, -GB100, -G00X ],
+                'lpwr/lw/lpwr_privblocker.c',
+                'lpwr/turing/lpwrtu10x.c'   ,
+
+            CHIPS_SUPPORTED => [ dTURING_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X ],
+                'lpwr/turing/lpwr_privblockertu10x.c' ,
+                 [
+                    ONLY_IF => 'PMU_LPWR_TEST',
+                        'lpwr/lw/lpwr_test.c' ,
+                ],
+
+            CHIPS_SUPPORTED => [ dTURING, ],
+                'lpwr/turing/lpwr_privblockertuxxx_only.c',
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, -GA100, -GH100, -GB100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -G00X, ],
+                'lpwr/ampere/lpwrga10x.c'         ,
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, -GA100, -GH100, -GB100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -G00X, ],
+                'lpwr/ampere/lpwr_privblockerga10x.c' ,
+                'lpwr/ampere/lpwr_seqga10x.c'         ,
+
+            CHIPS_SUPPORTED => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ]         ,
+                'lpwr/ampere/lpwrga10b.c'         ,
+
+            CHIPS_SUPPORTED => [ TEGRA_DGPU_AMPERE, ]             ,
+            # MMINTS-TODO: we might want to enable this on TEGRA_DGPU_ADA, but right now the priv blocker hwref manuals seem a bit broken
+                'lpwr/ampere/lpwr_privblockerga10b.c' ,
+
+            CHIPS_SUPPORTED => [ TEGRA_DGPU_AMPERE, ],
+                'lpwr/ampere/lpwr_cgga10b.c'     ,
+
+            CHIPS_SUPPORTED => [ GH100, ],
+                'lpwr/hopper/lpwr_cg_elcggh10x.c',
+
+            CHIPS_SUPPORTED => [ BLACKWELL_and_later, GH202, -IG000, ],
+                'lpwr/blackwell/lpwr_cg_elcggb10x.c',
+
+            CHIPS_SUPPORTED => [ dADA_and_later, -TEGRA_DGPU_ADA, -GH100, -GH202, -GB100, -G00X, ],
+                'lpwr/ada/lpwrad10x.c',
+                'lpwr/ada/lpwr_seqad10x.c',
+        ],
+
+        PG =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'pg/lw/pmu_objpg.c'      ,
+                'pg/lw/pmu_objpgctrl.c'  ,
+                'pg/lw/pglogic.c'        ,
+                'pg/lw/pmu_pglogicovl.c' ,
+                'pg/lw/pmu_pglogicsm.c'  ,
+                'pg/lw/pmu_pglogicwar.c' ,
+                'pg/lw/pmu_pgstat.c'     ,
+                [
+                    ONLY_IF => 'PMU_PG_LOG',
+                    'pg/lw/pmu_pglog.c',
+                ],
+
+            CHIPS_SUPPORTED => [ pre_TURING, ],
+                'pg/kepler/pmu_pgctrlgkxxxgvxxx.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, ],
+                'pg/kepler/pmu_pgctrlgkxxx.c',
+                'pg/kepler/pmu_pggkxxx.c'    ,
+                'pg/lw/pmu_gc6.c'            ,
+
+            CHIPS_SUPPORTED => [ dMAXWELL_and_later, ],
+                'pg/lw/pmu_pgisland.c'          ,
+                'pg/maxwell/pmu_pgislandgm10x.c',
+                'pg/maxwell/pmu_gc6gm10x.c'     ,
+
+            CHIPS_SUPPORTED => [ dMAXWELL_thru_dADA, ],
+                'pg/maxwell/pmu_gc6gm10xad10x.c',
+
+            CHIPS_SUPPORTED => [ pre_AMPERE, GA100, ],
+                'pg/maxwell/pmu_pgislandgm1xxga100.c',
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, -GA100, -G00X, ],
+                'pg/ampere/pmu_pgislandga10x.c',
+
+            CHIPS_SUPPORTED => [ dMAXWELL_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                'pg/maxwell/pmu_pgapgm10x.c',
+
+            CHIPS_SUPPORTED => [ GM20X_and_later, ],
+                'pg/maxwell/pmu_pgislandgm20x.c',
+                 [
+                    ONLY_IF => 'PMU_LPWR_GC6',
+                        'pg/maxwell/pmu_gc6gm20x.c',
+                 ],
+
+            CHIPS_SUPPORTED => [ PASCAL, VOLTA, -GP100, ],
+                'pg/pascal/pmu_pgctrlgpxxxgvxxx.c',
+
+            CHIPS_SUPPORTED => [ PASCAL_and_later, -GP100, ],
+                'pg/pascal/pmu_pggp10x.c'      ,
+                'pg/pascal/pmu_pgctrlgp10x.c'  ,
+
+            CHIPS_SUPPORTED => [ dPASCAL, -GP100, ],
+                'pg/pascal/pmu_gc6gp10xonly.c',
+
+            CHIPS_SUPPORTED => [ PASCAL_and_later, -GP100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                'pg/pascal/pmu_gc6gp10x.c'     ,
+                'pg/pascal/pmu_pgislandgp10x.c',
+
+            CHIPS_SUPPORTED => [ TURING_and_later, GV11B, ],
+                'pg/volta/pmu_pggv11b.c',
+
+            CHIPS_SUPPORTED => [ TU10X, ],
+                'pg/turing/pmu_gc6lwlinktu10x.c',
+                'pg/turing/pmu_gc6tu10x_only.c' ,
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                'pg/turing/pmu_pgtu10x.c',
+                'pg/turing/pmu_pgctrltu10x.c',
+#               TODO - SC move the content of this file to fb engine and rename file
+                [
+                    ONLY_IF => 'PMU_GC6_FBSR_IN_PMU',
+                        'pg/turing/pmu_pgislandtu10x_only.c',
+                ],
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, ],
+                'pg/turing/pmu_gc6tu10x.c'     ,
+                'pg/turing/pmu_pgislandtu10x.c',
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GA100, -GH100, -GB100, ],
+                'pg/ampere/pmu_gc6ga10x.c',
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, -GA100, ],
+                'pg/ampere/pmu_pgctrlga10x.c',
+        ],
+
+        AP =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'lpwr/lw/objap.c'  ,
+                'lpwr/lw/ap_ctrl.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, ],
+                'lpwr/kepler/ap_ctrlgk10x.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL, ],
+                'lpwr/maxwell/ap_ctrlgmxxx_only.c',
+
+            CHIPS_SUPPORTED => [ PASCAL_and_later, ],
+                'lpwr/pascal/ap_ctrlgp10x.c',
+        ],
+
+        DI =>
+        [
+            CHIPS_SUPPORTED => [ GM10X, ],
+                'di/maxwell/pmu_digm10x_only.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL, PASCAL, ],
+                'di/lw/pmu_objdi.c',
+                'di/maxwell/pmu_digm10x.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL, ],
+                'di/maxwell/pmu_digmxxx_only.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL, PASCAL, ],
+                'di/maxwell/pmu_digmxxxgpxxx.c',
+
+            CHIPS_SUPPORTED => [ GM20X, ],
+                'di/maxwell/pmu_digm20x_only.c',
+
+            CHIPS_SUPPORTED => [ GM20X, PASCAL, ],
+                'di/maxwell/pmu_digm20x.c',
+
+            CHIPS_SUPPORTED => [ PASCAL, ],
+                'di/pascal/pmu_digpxxx_only.c',
+                'di/pascal/pmu_digp10x.c',
+        ],
+
+        PSI =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'lpwr/lw/objpsi.c'   ,
+                'lpwr/lw/psi_ctrl.c' ,
+
+            CHIPS_SUPPORTED => [ MAXWELL, ],
+                'lpwr/kepler/psigk10x.c' ,
+
+            CHIPS_SUPPORTED => [ PASCAL_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                'lpwr/pascal/psigp10x.c' ,
+
+            CHIPS_SUPPORTED => [ PASCAL_thru_TURING, -GV11B, ],
+                'lpwr/pascal/psigp10xtu10x.c' ,
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'lpwr/ampere/psiga10x.c' ,
+        ],
+
+        EI =>
+        [
+            CHIPS_SUPPORTED => [ dTURING_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, ],
+                'lpwr/lw/objei.c'      ,
+                [
+                    ONLY_IF => 'PMU_LPWR_CTRL_EI',
+                        'lpwr/lw/ei_client.c'    ,
+                        'lpwr/lw/ei_callback.c'  ,
+                ],
+
+            CHIPS_SUPPORTED => [ dTURING, ],
+                [
+                    ONLY_IF => 'PMU_LPWR_CTRL_EI',
+                        'lpwr/turing/eitu10x.c',
+                ],
+
+            CHIPS_SUPPORTED => [ dAMPERE_and_later, ],
+                [
+                    ONLY_IF => 'PMU_LPWR_CTRL_EI',
+                        'lpwr/ampere/eiga10x.c',
+
+                    ONLY_IF => 'PMU_LPWR_CTRL_EI_PASSIVE',
+                        'lpwr/lw/ei_passive.c',
+                ],
+        ],
+
+        DFPR =>
+        [
+            CHIPS_SUPPORTED => [ dAMPERE_and_later, -GA100, -GH100, -GH20X, -GB100, -G00X, ],
+                'lpwr/lw/objdfpr.c',
+                'lpwr/ampere/dfprga10x.c',
+
+            CHIPS_SUPPORTED => [ dADA_and_later, -GH100, -G00X, -GH20X, ],
+                'lpwr/ada/dfprad10x.c',
+        ],
+
+        PMGR =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'pmgr/lw/pmgr_rpc.c'          ,
+                'pmgr/lw/pmu_objpmgr.c'       ,
+                 [
+                    ONLY_IF => 'PMU_PMGR_I2C_DEVICE',
+                        'pmgr/lw/i2cdev.c'            ,
+
+                    ONLY_IF => 'PMU_PMGR_I2C_DEVICE_INA219',
+                        'pmgr/lw/i2cdev_ina219.c'     ,
+
+                    ONLY_IF => 'PMU_PMGR_I2C_DEVICE_STM32F051K8U6TR',
+                        'pmgr/lw/i2cdev_stm32f051k8u6tr.c'    ,
+
+                    ONLY_IF => 'PMU_PMGR_I2C_DEVICE_STM32L031G6U6TR',
+                        'pmgr/lw/i2cdev_stm32l031g6u6tr.c'    ,
+
+                    ONLY_IF => 'PMU_PMGR_ACC',
+                        'pmgr/lw/pmgr_acc.c'          ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE',
+                        'pmgr/lw/pwrdev.c'            ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_INA219',
+                        'pmgr/lw/pwrdev_ina219.c'     ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_INA3221',
+                        'pmgr/lw/pwrdev_ina3221.c'    ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_NCT3933U',
+                        'pmgr/lw/pwrdev_nct3933u.c'   ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_BA1XHW',
+                        'pmgr/lw/pwrdev_ba1xhw.c'     ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_BA14',
+                        'pmgr/lw/pwrdev_ba14hw.c'     ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_BA15',
+                        'pmgr/lw/pwrdev_ba15hw.c'     ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_BA16',
+                        'pmgr/lw/pwrdev_ba16hw.c'     ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_BA20',
+                        'pmgr/lw/pwrdev_ba20.c'     ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_GPUADC1X',
+                        'pmgr/lw/pwrdev_gpuadc1x.c'   ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_GPUADC10',
+                        'pmgr/lw/pwrdev_gpuadc10.c'   ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_GPUADC11',
+                        'pmgr/lw/pwrdev_gpuadc11.c'   ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_GPUADC13',
+                        'pmgr/lw/pwrdev_gpuadc13.c'   ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_MONITOR',
+                        'pmgr/lw/pwrchannel.c'        ,
+                        'pmgr/lw/pwrmonitor.c'        ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_MONITOR_1X',
+                        'pmgr/lw/pwrchannel_1x.c',
+                        'pmgr/lw/pwrmonitor_1x.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_MONITOR_2X',
+                        'pmgr/lw/pwrchannel_2x.c'    ,
+                        'pmgr/lw/3x/pwrchannel_est.c',
+                        'pmgr/lw/pwrmonitor_2x.c'    ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_CHANNEL_35',
+                        'pmgr/lw/pwrmonitor_35.c'    ,
+                        'pmgr/lw/pwrchannel_35.c'    ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_CHANNELS_PMUMON',
+                        'pmgr/lw/pwrchannel_pmumon.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_MONITOR_CHANNEL_PSTATE_ESTIMATION_LUT',
+                        'pmgr/lw/pwrchannel_pstate_est_lut.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_MONITOR_TOPOLOGY',
+                        'pmgr/lw/pwrchannel_sensor.c' ,
+                        'pmgr/lw/pwrchannel_sum.c'    ,
+                        'pmgr/lw/pwrchrel.c'          ,
+                        'pmgr/lw/pwrchrel_weight.c'   ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_MONITOR_TOPOLOGY_2X',
+                        'pmgr/lw/pwrchrel_2x.c',
+                        'pmgr/lw/pwrchrel_weighted.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_CHANNEL_SENSOR_CLIENT_ALIGNED',
+                        'pmgr/lw/pwrchannel_sensor_client_aligned.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_MONITOR_CHANNEL_RELATIONSHIP_BALANCED_PHASE_EST',
+                        'pmgr/lw/pwrchrel_balanced_phase_est.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_MONITOR_CHANNEL_RELATIONSHIP_BALANCING_PWM_WEIGHT',
+                        'pmgr/lw/pwrchrel_balancing_pwm_weight.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_MONITOR_CHANNEL_RELATIONSHIP_REGULATOR_LOSS_EST',
+                        'pmgr/lw/pwrchrel_regulator_loss_est.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_MONITOR_CHANNEL_RELATIONSHIP_REGULATOR_EFF_EST_V1',
+                        'pmgr/lw/pwrchrel_regulator_eff_est_v1.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_EQUATION',
+                        'pmgr/lw/pwrequation.c'       ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_EQUATION_LEAKAGE',
+                        'pmgr/lw/pwrequation_leakage.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_EQUATION_LEAKAGE_DTCS11',
+                        'pmgr/lw/pwrequation_leakage_dtcs11.c' ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_EQUATION_LEAKAGE_DTCS12',
+                        'pmgr/lw/pwrequation_leakage_dtcs12.c' ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_EQUATION_LEAKAGE_DTCS13',
+                        'pmgr/lw/pwrequation_leakage_dtcs13.c' ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_EQUATION_BA1X_SCALE',
+                        'pmgr/lw/pwrequation_ba1x_scale.c' ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_EQUATION_DYNAMIC',
+                        'pmgr/lw/pwrequation_dynamic.c' ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_EQUATION_DYNAMIC_10',
+                        'pmgr/lw/pwrequation_dynamic_10.c' ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_EQUATION_BA15_SCALE',
+                        'pmgr/lw/pwrequation_ba15_scale.c' ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY',
+                        'pmgr/lw/pwrpolicy.c'         ,
+                        'pmgr/lw/pwrpolicies.c'       ,
+                        'pmgr/lw/lib_pmgr.c'          ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_2X',
+                        'pmgr/lw/2x/pwrpolicy_2x.c'   ,
+                        'pmgr/lw/2x/pwrpolicies_2x.c' ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_3X',
+                        'pmgr/lw/3x/pwrpolicy_3x.c'   ,
+                        'pmgr/lw/3x/pwrpolicies_3x.c' ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_30',
+                        'pmgr/lw/3x/pwrpolicy_30.c'   ,
+                        'pmgr/lw/3x/pwrpolicies_30.c' ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_35',
+                        'pmgr/lw/3x/pwrpolicy_35.c'   ,
+                        'pmgr/lw/3x/pwrpolicies_35.c' ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_BANG_BANG_VF',
+                        'pmgr/lw/pwrpolicy_bangbang.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_DOMGRP',
+                        'pmgr/lw/pwrpolicy_domgrp.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_MARCH',
+                        'pmgr/lw/pwrpolicy_march.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_MARCH_VF',
+                        'pmgr/lw/pwrpolicy_march_vf.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_LIMIT',
+                        'pmgr/lw/pwrpolicy_limit.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_PROP_LIMIT',
+                        'pmgr/lw/pwrpolicy_proplimit.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_TOTAL_GPU',
+                        'pmgr/lw/pwrpolicy_totalgpu_iface.c',
+                        'pmgr/lw/pwrpolicy_totalgpu.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_WORKLOAD',
+                        'pmgr/lw/pwrpolicy_workload.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_SHARED_WORKLOAD',
+                        'pmgr/lw/pwrpolicy_workload_shared.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_MULTIRAIL_WORKLOAD',
+                        'pmgr/lw/pwrpolicy_workload_multirail_iface.c' ,
+                        'pmgr/lw/pwrpolicy_workload_multirail.c'       ,
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_PERF_CF_PWR_MODEL',
+                        'pmgr/lw/pwrpolicy_perf_cf_pwr_model.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_SINGLE_WORKLOAD_1X',
+                        'pmgr/lw/pwrpolicy_workload_single_1x.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_COMBINED_WORKLOAD_1X',
+                        'pmgr/lw/pwrpolicy_workload_combined_1x.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_HW_THRESHOLD',
+                        'pmgr/lw/pwrpolicy_hwthreshold.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_BALANCE',
+                        'pmgr/lw/pwrpolicy_balance.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_RELATIONSHIP',
+                        'pmgr/lw/pwrpolicyrel.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_RELATIONSHIP_WEIGHT',
+                        'pmgr/lw/pwrpolicyrel_weight.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_POLICY_RELATIONSHIP_BALANCE',
+                        'pmgr/lw/pwrpolicyrel_balance.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_VIOLATION',
+                        'pmgr/lw/pwrviolation.c',
+
+                    ONLY_IF => 'PMU_PMGR_PWR_VIOLATION_PROPGAIN',
+                        'pmgr/lw/pwrviolation_propgain.c',
+
+                    ONLY_IF => 'PMU_PMGR_ILLUM',
+                        'pmgr/lw/objillum.c',
+
+                    ONLY_IF => 'PMU_PMGR_ILLUM_DEVICE',
+                        'pmgr/lw/illum_device.c',
+                        'pmgr/lw/illum_device_mlwv10.c',
+                        'pmgr/lw/illum_device_gpio_pwm_single_color_v10.c',
+                        'pmgr/lw/illum_device_gpio_pwm_rgbw_v10.c',
+
+                    ONLY_IF => 'PMU_PMGR_ILLUM_ZONE',
+                        'pmgr/lw/illum_zone.c',
+                        'pmgr/lw/illum_zone_rgb.c',
+                        'pmgr/lw/illum_zone_rgbw.c',
+                        'pmgr/lw/illum_zone_single_color.c',
+
+                    ONLY_IF => 'PMU_PMGR_PIECEWISE_FREQUENCY_FLOOR',
+                        'pmgr/lw/pff.c',
+
+                    ONLY_IF => 'PMU_PMGR_RPC_TEST_EXELWTE',
+                        'pmgr/lw/pmgrtest.c',
+                 ],
+
+            CHIPS_SUPPORTED => [ GM10X_thru_TURING, GA100, ],
+                'pmgr/fermi/pmu_pmgrgf11xga100.c',
+
+            CHIPS_SUPPORTED => [ GM10X_and_later, ],
+                'pmgr/kepler/pmu_pmgrgk11x.c',
+
+            CHIPS_SUPPORTED => [ pre_AMPERE, GA100, ],
+                'pmgr/maxwell/pmu_pmgrgm10x.c',
+
+            CHIPS_SUPPORTED => [ GP100, ],
+                'pmgr/pascal/pmu_pmgrgp100.c',
+
+            CHIPS_SUPPORTED => [ dTURING_and_later, ],
+                'pmgr/turing/pmgrtu10x.c',
+
+            CHIPS_SUPPORTED => [ GA100, ],
+                'pmgr/ampere/pmgrga100.c',
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, -GA100, ],
+                'pmgr/ampere/pmgrga10x.c',
+
+            CHIPS_SUPPORTED => [ GA10X, -GA100, AD10X, ],
+                'pmgr/ampere/gpioga10xonly.c',
+
+            CHIPS_SUPPORTED => [ AD10X_and_later, ],
+                'pmgr/ada/pmgrad10x.c',
+
+            # Pmgr Test HALs
+            CHIPS_SUPPORTED => [ GA100, ],
+                [
+                    ONLY_IF => 'PMU_PMGR_RPC_TEST_EXELWTE',
+                        'pmgr/ampere/pmgrtestga100.c',
+                ],
+
+            CHIPS_SUPPORTED => [ AD10X_and_later, ],
+                [
+                    ONLY_IF => 'PMU_PMGR_RPC_TEST_EXELWTE',
+                        'pmgr/ada/pmgrtestad10x.c',
+                ],
+
+            CHIPS_SUPPORTED => [ GH100_and_later, ],
+                [
+                    ONLY_IF => 'PMU_PMGR_RPC_TEST_EXELWTE',
+                        'pmgr/hopper/pmgrtestgh100.c',
+                ],
+        ],
+
+        PMU =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'pmu/lw/pmu_objpmu.c'        ,
+                'pmu/fermi/pmu_queuegf10x.c' ,
+                [
+                    ONLY_IF => PMU_VERIFY_VERSION,
+                        'pmu/lw/pmu_verify_version.c',
+                ],
+
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, ],
+                'pmu/fermi/pmu_pmugf10x.c',
+                [
+                    ONLY_IF => PMU_IDLE_COUNTERS,
+                        'pmu/kepler/pmu_idle_counter_gk10x.c',
+                ],
+                [
+                    ONLY_IF => PMU_DETACH,
+                        'pmu/kepler/pmu_detach_gk10x.c',
+                ],
+
+            CHIPS_SUPPORTED => [ GM10X_and_later, ],
+                'pmu/kepler/pmu_pmugkxxx.c',
+
+            CHIPS_SUPPORTED => [ GM10X_thru_AD10X, ],
+                [
+                    ONLY_IF => PMU_CHIP_INFO,
+                        'pmu/kepler/pmu_pmu_chip_info_gkxxx.c',
+                ],
+
+            CHIPS_SUPPORTED => [ dHOPPER_and_later, ],
+                [
+                    ONLY_IF => PMU_CHIP_INFO,
+                        'pmu/hopper/pmu_chip_info_gh100.c',
+                ],
+
+            CHIPS_SUPPORTED => [ dMAXWELL_and_later, ],
+                 [
+                    ONLY_IF => 'PMU_LPWR_GC6',
+                        'pmu/kepler/pmu_pwrgkxxx.c',
+                 ],
+
+            CHIPS_SUPPORTED => [ dMAXWELL_thru_dADA, ],
+                'pmu/maxwell/pmu_pwrgmxxxadxxx.c',
+
+            CHIPS_SUPPORTED => [ dMAXWELL_and_later, -GH100, -GB100, ],
+                # TODO: for the future (GB10X+), move GC6 functions out of this file and disable this file on GH100+ completely.
+                # Right now this file has XVE-based PEX HALs that won't work on GH100+ as well as GC6 functions that are
+                # not needed on GH100 and GB100 but will be needed on future chips. Simply disabling this on GH100 and GB100
+                # is therefore a temporary step.
+                # The only other thing besides PEX and GC6 in this file is pgCreateBsiThermState_GMXXX, which doesn't apply
+                # to pascal+ anyway (see pg.def).
+                'pmu/maxwell/pmu_pwrgmxxx.c',
+
+            CHIPS_SUPPORTED => [ GM10X, ],
+                'pmu/maxwell/pmu_pmugm10x.c',
+
+            CHIPS_SUPPORTED => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+                [
+                    ONLY_IF => PMU_CHIP_INFO,
+                        'pmu/maxwell/pmu_pmu_chip_info_gm20b.c',
+                ],
+
+            CHIPS_SUPPORTED => [ GM20X, ],
+                'pmu/maxwell/pmu_pmugm20x_only.c',
+
+            CHIPS_SUPPORTED => [ GM20X_thru_PASCAL, ],
+                'pmu/maxwell/pmu_gm20x_gp10x_only.c',
+
+            CHIPS_SUPPORTED => [ GM20X_and_later, ],
+                'pmu/maxwell/pmu_pmugm20x.c',
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, -GV11B, ],
+                'pmu/pascal/pmu_pmugp100.c',
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, -GP100, -GV11B, ],
+                'pmu/pascal/pmu_pmugp10x.c',
+                [
+                    ONLY_IF => PMU_IDLE_COUNTERS,
+                        'pmu/pascal/pmu_idle_counter_gp10x.c',
+                ],
+
+            CHIPS_SUPPORTED => [ HOPPER_and_later, ],
+                'pmu/hopper/pmu_pmughxxx.c',
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, -GP100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -GV11B, ],
+                # TODO: for the future (GB10X+), move GC6 functions out of this file and disable this file on GH100+ completely
+                # right now this file has XVE-based PEX HALs that won't work on GH100+ as well as GC6 functions that are
+                # not needed on GH100 and GB100 but will be needed on future chips. Simply disabling this on GH100 and GB100
+                # is therefore a temporary step.
+                'pmu/pascal/pmu_pwrgpxxx.c',
+
+            CHIPS_SUPPORTED => [ GV10X_and_later, ],
+                'pmu/volta/pmugv10x.c',
+
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                'pmu/turing/pmu_pmutu10x.c'   ,
+                [
+                    ONLY_IF => PMU_VERIFY_ENGINE,
+                        'pmu/turing/pmu_verify_engine_tuxxx.c',
+                ],
+                [
+                    ONLY_IF => PMU_QUEUE_REGISTERS_PROTECT,
+                        'pmu/turing/pmu_queuetu10x.c' ,
+                ],
+                [
+                    ONLY_IF => PMU_IDLE_COUNTERS,
+                        'pmu/turing/pmu_idle_counter_tu10x.c',
+                ],
+
+            CHIPS_SUPPORTED => [ dVOLTA_and_later, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, -GV11b, ],
+                 [
+                    ONLY_IF => 'PMU_CLK_FBFLCN_SUPPORTED',
+                        'pmu/volta/pmu_queuegv10x.c' ,
+                 ],
+
+            CHIPS_SUPPORTED => [ GA100, ],
+                 [
+                    ONLY_IF => PMU_VERIFY_CHIP_FOR_PROFILE,
+                        'pmu/ampere/pmu_verify_chip_ga100.c' ,
+                 ],
+
+            CHIPS_SUPPORTED => [ GA10X, -GA100, AD10X, ],
+                 [
+                    ONLY_IF => PMU_VERIFY_CHIP_FOR_PROFILE,
+                        'pmu/ampere/pmu_verify_chip_ga10x.c' ,
+                 ],
+
+            CHIPS_SUPPORTED => [ GA10X, AD10X, GH100, GH20X, GB100, G00X, ],
+                 [
+                    ONLY_IF => 'ARCH_RISCV',
+                        'pmu/lw/pmu_riscv.c' ,
+                 ],
+
+            CHIPS_SUPPORTED => [ GA100_and_later, ],
+                'pmu/ampere/pmu_pmuga100.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, -GA100, ],
+                'pmu/ampere/pmu_pmuga10x.c',
+                [
+                    ONLY_IF => 'PMU_VERIFY_VERSION',
+                        'pmu/ampere/pmu_version_ga10x.c',
+                ],
+        ],
+
+        CMDMGMT =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'cmdmgmt/lw/cmdmgmt_dispatch.c',
+                'cmdmgmt/lw/cmdmgmt_rpc_impl.c',
+                'cmdmgmt/lw/cmdmgmt_queue.c',
+
+            ONLY_IF => '!PMU_FBQ',
+                'cmdmgmt/lw/cmdmgmt_queue_dmem.c',
+
+            ONLY_IF => 'PMU_FBQ',
+                'cmdmgmt/lw/cmdmgmt_queue_fb.c',
+
+            ONLY_IF => 'PMU_FBQ && !PMU_CMDMGMT_PER_TASK_COMMAND_BUFFER',
+                'cmdmgmt/lw/cmdmgmt_queue_fb_heap.c',
+
+            ONLY_IF => 'PMU_CMDMGMT_PER_TASK_COMMAND_BUFFER',
+                'cmdmgmt/lw/cmdmgmt_queue_fb_ptcb.c',
+
+            ONLY_IF => 'PMU_CLK_FBFLCN_SUPPORTED',
+                'cmdmgmt/lw/cmdmgmt_queue_fbflcn.c',
+
+            ONLY_IF => 'PMU_FSP_RPC',
+                'cmdmgmt/lw/cmdmgmt_queue_fsp.c',
+
+            ONLY_IF => 'PMU_CMDMGMT_RPC',
+                'cmdmgmt/lw/cmdmgmt_rpc.c',
+
+            ONLY_IF => 'PMU_DETACH',
+                'cmdmgmt/lw/cmdmgmt_detach.c',
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, -GV11B, ],
+
+            ONLY_IF => 'PMU_CMDMGMT_SUPER_SURFACE_MEMBER_DESCRIPTORS',
+                'cmdmgmt/lw/cmdmgmt_supersurface.c',
+
+            ONLY_IF => 'PMU_CMDMGMT_VC',
+                'cmdmgmt/lw/cmdmgmt_vc.c',
+
+            ONLY_IF => 'PMU_CMDMGMT_SANITIZER_COV',
+                'cmdmgmt/lw/cmdmgmt_sanitizer_cov.c',
+
+            ONLY_IF => 'PMU_CMDMGMT_INSTRUMENTATION',
+                'cmdmgmt/lw/cmdmgmt_instrumentation.c',
+
+            ONLY_IF => 'PMU_CMDMGMT_USTREAMER',
+                'cmdmgmt/lw/cmdmgmt_ustreamer.c',
+
+            ONLY_IF => 'PMU_CMDMGMT_RPC_DMEM_INFO_GET',
+                'cmdmgmt/lw/cmdmgmt_dmem_info.c',
+
+            ONLY_IF => 'PMU_CMDMGMT_LWLINK_HSHUB',
+                'cmdmgmt/lw/cmdmgmt_lwlink.c',
+
+            ONLY_IF => 'PMU_CMDMGMT_VGPU_VF_BAR1_SIZE_UPDATE',
+                'cmdmgmt/lw/cmdmgmt_vgpu.c',
+        ],
+
+        SEQ =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'seq/lw/pmu_objseq.c',
+                'seq/lw/seq_rpc.c'   ,
+
+            CHIPS_SUPPORTED => [ GM10X_and_later, -VOLTA_and_later, ],
+                'seq/fermi/pmu_seqgf11x.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, -VOLTA_and_later, ],
+                'seq/maxwell/pmu_seqgm10x.c',
+
+            CHIPS_SUPPORTED => [ GP100, VOLTA_thru_TURING, -GV11B, ],
+                'seq/pascal/pmu_seqgp100.c',
+
+            CHIPS_SUPPORTED => [ GV10X_thru_TU10X, ],
+                'seq/volta/pmu_seqgv10x.c',
+        ],
+
+        THERM =>
+        [
+            # Thermal non-HAL code
+            CHIPS_SUPPORTED => [ ALL, ],
+                'therm/lw/objtherm.c',
+                'therm/lw/therm_rpc.c',
+                 [
+                    ONLY_IF => 'PMU_THERM_SLCT',
+                        'therm/lw/thrmslct.c',
+
+                    ONLY_IF => 'PMU_THERM_INTR',
+                        'therm/lw/thrmintr.c',
+
+                    ONLY_IF => 'PMU_THERM_SW_SLOW',
+                        'therm/lw/thrmswslow.c',
+
+                    ONLY_IF => 'PMU_THERM_HWFS_CFG',
+                        'therm/lw/thrmhwfs.c',
+
+                    ONLY_IF => 'PMU_THERM_RPC_TEST_EXELWTE',
+                        'therm/lw/thrmtest.c',
+
+                    ONLY_IF => 'PMU_THERM_DETACH_REQUEST',
+                        'therm/lw/therm_detach.c',
+                 ],
+
+            CHIPS_SUPPORTED => [ ALL, ],
+                 [
+                    ONLY_IF => 'PMU_THERM_SENSOR',
+                        'therm/lw/tempsim.c',
+                        'therm/lw/thrmsensor.c',
+                 ],
+
+            # Thermal PWM HAL
+            CHIPS_SUPPORTED => [ GM10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'therm/kepler/pmu_thrmpwmgk10x.c',
+            CHIPS_SUPPORTED => [ MAXWELL, ],
+                'therm/kepler/pmu_thrmpwmgk10x_gm20x.c',
+            CHIPS_SUPPORTED => [ GP10X_thru_GV10X, ],
+                'therm/pascal/pmu_thrmpwmgp10x_gv10x.c',
+            CHIPS_SUPPORTED => [ GP10X_and_later, ],
+                'therm/pascal/pmu_thrmpwmgp10x.c',
+            CHIPS_SUPPORTED => [ TU10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'therm/turing/pmu_thrmpwmtu10x.c',
+            CHIPS_SUPPORTED => [ GA10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'therm/ampere/pmu_thrmpwmga100.c',
+
+            # Thermal slowdown control HAL
+            CHIPS_SUPPORTED => [ GM10X_and_later, ],
+                [
+                   ONLY_IF => 'PMU_THERM_SLCT',
+                       'therm/kepler/pmu_thrmslctgk11x.c',
+                ],
+
+            # Thermal intr control HAL
+            CHIPS_SUPPORTED => [ GM10X_and_later, ],
+                [
+                   ONLY_IF => 'PMU_THERM_INTR',
+                       'therm/kepler/pmu_thrmintrgk10x.c',
+                ],
+            CHIPS_SUPPORTED => [ GM10X_and_later, ],
+                [
+                   ONLY_IF => 'PMU_THERM_INTR',
+                       'therm/kepler/pmu_thrmintrgk11x.c',
+                ],
+            CHIPS_SUPPORTED => [ GP10X_and_later, ],
+                [
+                   ONLY_IF => 'PMU_THERM_INTR',
+                       'therm/pascal/thrm_intr_gp10x.c',
+                ],
+
+            # BA power devices
+            CHIPS_SUPPORTED => [ GM10X_and_later, ],
+                [
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_BA1XHW',
+                        'therm/kepler/pmu_thrm_pwr_ba1x.c',
+                ],
+            CHIPS_SUPPORTED => [ MAXWELL, ],
+                [
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_BA12X',
+                        'therm/maxwell/pmu_thrm_pwr_ba12.c',
+                ],
+            CHIPS_SUPPORTED => [ GP10X, ],
+                [
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_BA13X',
+                        'therm/pascal/pmu_thrm_pwr_ba13.c',
+                ],
+            CHIPS_SUPPORTED => [ GP10X, -GP100, ],
+                [
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_BA14',
+                        'therm/pascal/pmu_thrm_pwr_ba14.c',
+                ],
+            CHIPS_SUPPORTED => [ GV10X_and_later, ],
+                [
+                    ONLY_IF => 'PMU_PMGR_PWR_DEVICE_BA15',
+                        'therm/volta/pmu_thrm_pwr_ba15.c',
+                ],
+
+            # Thermal Sensor 2.0 Support
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, ],
+                [
+                    ONLY_IF => 'PMU_THERM_THERM_DEVICE',
+                        'therm/lw/thrmdevice.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_DEVICE_GPU',
+                        'therm/lw/thrmdevice_gpu.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_DEVICE_I2C',
+                        'therm/lw/thrmdevice_i2c.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_DEVICE_I2C_TMP411',
+                        'therm/lw/thrmdevice_i2c_tmp411.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_CHANNEL',
+                        'therm/lw/thrmchannel.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_CHANNEL_DEVICE',
+                        'therm/lw/thrmchannel_device.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_CHANNEL_PMUMON',
+                        'therm/lw/thrmchannel_pmumon.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_POLICY',
+                        'therm/lw/thrmpolicy.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_POLICY_DOMGRP',
+                        'therm/lw/thrmpolicy_domgrp.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_POLICY_DTC',
+                        'therm/lw/thrmpolicy_dtc.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_POLICY_DTC_VF',
+                        'therm/lw/thrmpolicy_dtc_vf.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_POLICY_DTC_VOLT',
+                        'therm/lw/thrmpolicy_dtc_volt.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_POLICY_DTC_PWR',
+                        'therm/lw/thrmpolicy_dtc_pwr.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_POLICY_DIAGNOSTICS',
+                        'therm/lw/thrmpolicy_diagnostics.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_POLICY_DIAGNOSTICS_LIMIT_COUNTDOWN',
+                        'therm/lw/thrmpolicy_diagnostics_limit_countdown.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_POLICY_DIAGNOSTICS_CAPPED',
+                        'therm/lw/thrmpolicy_diagnostics_capped.c',
+                ],
+
+            CHIPS_SUPPORTED => [ dVOLTA_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                [
+                    ONLY_IF => 'PMU_THERM_THERM_DEVICE_GPU_GPC_TSOSC',
+                        'therm/lw/thrmdevice_gpu_gpc_tsosc.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_DEVICE_GPU_SCI',
+                        'therm/lw/thrmdevice_gpu_sci.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_DEVICE_HBM2_SITE',
+                        'therm/lw/thrmdevice_hbm2_site.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_DEVICE_HBM2_COMBINED',
+                        'therm/lw/thrmdevice_hbm2_combined.c',
+                ],
+
+            # Thermal miscellaneous HAL
+            CHIPS_SUPPORTED => [ GM10X_and_later, -GM10X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                [
+                    ONLY_IF => 'PMU_SELWRITY_HARDENING',
+                        'therm/kepler/thrmbagk11x.c',
+                ],
+            CHIPS_SUPPORTED => [ GM10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                [
+                    ONLY_IF => 'PMU_THERM_SENSOR',
+                        'therm/fermi/pmu_thermgf11x.c',
+                ],
+            CHIPS_SUPPORTED => [ GM10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'therm/kepler/pmu_thermgk11x.c',
+            CHIPS_SUPPORTED => [ GM10X, ],
+                [
+                    ONLY_IF => 'PMU_SELWRITY_HARDENING',
+                        'therm/maxwell/thrmbagm10x.c',
+                ],
+            CHIPS_SUPPORTED => [ GM10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'therm/maxwell/pmu_thermgm10x.c',
+            CHIPS_SUPPORTED => [ GM20X_thru_GV10X, ],
+                'therm/maxwell/pmu_thermgm20x.c',
+            CHIPS_SUPPORTED => [ GP10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'therm/pascal/pmu_thrm_gp10x.c',
+            CHIPS_SUPPORTED => [ GP10X, ],
+                'therm/pascal/pmu_thrm_gp10x_only.c',
+            CHIPS_SUPPORTED => [ GP10X_thru_TU10X, ],
+                'therm/pascal/pmu_thrm_gp10x_tu10x.c',
+            CHIPS_SUPPORTED => [ GP10X_thru_TU10X, GA100, ],
+                'therm/pascal/pmu_thrm_gp10x_ga101.c',
+            CHIPS_SUPPORTED => [ GP10X_thru_AD10X, ],
+                'therm/pascal/pmu_thrm_gp10x_ga10x.c',
+            CHIPS_SUPPORTED => [ HOPPER_and_later, ],
+                'therm/hopper/pmu_thrm_gh10x.c',
+            CHIPS_SUPPORTED => [dPASCAL_and_later, ],
+                [
+                    ONLY_IF => 'PMU_THERM_RPC_TEST_EXELWTE',
+                        'therm/pascal/thrm_test_gp10x.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_MONITOR',
+                        'therm/lw/thrmmon.c',
+                ],
+            CHIPS_SUPPORTED => [ GP10X_thru_GA100, ],
+                [
+                    ONLY_IF => 'PMU_THERM_RPC_TEST_EXELWTE',
+                        'therm/pascal/thrm_test_gp10x_ga101.c',
+                ],
+            CHIPS_SUPPORTED => [ dVOLTA, ],
+                'therm/volta/thrmgv10xonly.c',
+            CHIPS_SUPPORTED => [ dVOLTA_thru_dTURING, ],
+                'therm/volta/thrmgvxxxtuxxx.c',
+                [
+                    ONLY_IF => 'PMU_BLOCK_ACTIVITY_ENABLED',
+                        'therm/volta/thrmbagv10x.c',
+                ],
+                [
+                    ONLY_IF => 'PMU_THERM_RPC_TEST_EXELWTE',
+                        'therm/volta/thrmtestgv10x.c',
+                ],
+            CHIPS_SUPPORTED => [ dVOLTA_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                [
+                    'therm/volta/thrmgv10x.c',
+                    ONLY_IF => 'PMU_THERM_RPC_TEST_EXELWTE',
+                        'therm/volta/thrmtestbagv10x.c',
+                ],
+            CHIPS_SUPPORTED => [ dVOLTA_thru_GA100, ],
+                [
+                    ONLY_IF => 'PMU_THERM_RPC_TEST_EXELWTE',
+                        'therm/volta/thrmtestbahelpergv10x.c',
+                ],
+            CHIPS_SUPPORTED => [ dTURING_thru_GA100, ],
+                [
+                    ONLY_IF => 'PMU_BLOCK_ACTIVITY_ENABLED',
+                        'therm/turing/thrmbatu10x.c',
+                ],
+            CHIPS_SUPPORTED => [ dTURING_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'therm/turing/thrmtu10x.c',
+                [
+                    ONLY_IF => 'PMU_THERM_RPC_TEST_EXELWTE',
+                        'therm/turing/thrmtestbatu10x.c',
+                ],
+            CHIPS_SUPPORTED => [ dTURING, ],
+                [
+                    ONLY_IF => 'PMU_THERM_BA_WAR_200433679',
+                        'therm/turing/thrmbawartu10x.c',
+                ],
+            CHIPS_SUPPORTED => [ GA100, ],
+                'therm/ampere/thrmga100ga101only.c',
+            CHIPS_SUPPORTED => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'therm/ampere/thrmga10x.c',
+                [
+                    ONLY_IF => 'PMU_THERM_RPC_TEST_EXELWTE',
+                        'therm/ampere/thrmtestbahelperga10x.c',
+                ],
+            CHIPS_SUPPORTED => [ GA100, ],
+                [
+                    ONLY_IF => 'PMU_THERM_RPC_TEST_EXELWTE',
+                        'therm/ampere/thrmtestga100.c',
+                ],
+            CHIPS_SUPPORTED => [ GA10X, -GA100, AD10X, GH100, GB100, ],
+                [
+                    ONLY_IF => 'PMU_THERM_RPC_TEST_EXELWTE',
+                        'therm/ampere/thrmtestga10x.c',
+
+                    ONLY_IF => 'PMU_THERM_THERM_PMUMON_WAR_3076546',
+                        'therm/lw/therm_pmumon.c',
+                ],
+            CHIPS_SUPPORTED => [ GA10X, -GA100, AD10X, ],
+                [
+                    ONLY_IF => 'PMU_THERM_RPC_TEST_EXELWTE',
+                        'therm/ampere/thrmtestga10xonly.c',
+                ],
+            CHIPS_SUPPORTED => [ GH100, GB100, ],
+                [
+                    ONLY_IF => 'PMU_THERM_RPC_TEST_EXELWTE',
+                        'therm/hopper/thrmtestgh100.c',
+                ],
+            CHIPS_SUPPORTED => [ GA10X_and_later, -GA100, ],
+                [
+                    ONLY_IF => 'PMU_THERM_THERM_DEVICE_GPU_GPC_COMBINED',
+                        'therm/lw/thrmdevice_gpu_gpc_combined.c',
+                    ONLY_IF => 'PMU_THERM_THERM_DEVICE_GDDR6_X_COMBINED',
+                        'therm/lw/thrmdevice_gddr6_x_combined.c',
+                ],
+        ],
+
+        PBI =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'pbi/lw/pbi.c',
+
+            CHIPS_SUPPORTED => [ pre_HOPPER, ],
+                'pbi/maxwell/pbi_gm10x.c',
+
+            CHIPS_SUPPORTED => [ pre_HOPPER, -GM10X, ],
+                'pbi/maxwell/pbi_gm20x.c',
+
+            CHIPS_SUPPORTED => [ HOPPER_and_later, ],
+                "pbi/hopper/pbi_gh100.c",
+        ],
+
+        SMBPBI =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'smbpbi/lw/objsmbpbi.c' ,
+                'smbpbi/lw/smbpbi.c'    ,
+                'smbpbi/lw/smbpbi_rpc.c',
+
+            CHIPS_SUPPORTED => [ GM10X_and_later, ],
+                'smbpbi/lw/smbpbias.c' ,
+
+            CHIPS_SUPPORTED => [ GV10X_and_later, ],
+                'smbpbi/lw/smbpbi_bundle.c',
+
+            CHIPS_SUPPORTED => [ GM10X_and_later, ],
+                'smbpbi/fermi/smbpbigf11x.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL, ],
+                'smbpbi/kepler/eccgk11x.c',
+
+            CHIPS_SUPPORTED => [ dMAXWELL_and_later, ],
+                'smbpbi/maxwell/smbpbigm10x.c',
+
+            CHIPS_SUPPORTED => [ dPASCAL_and_later, ],
+                'smbpbi/pascal/tlimgp10x.c',
+
+            CHIPS_SUPPORTED => [ PASCAL, ],
+                'smbpbi/pascal/eccgp10x.c',
+
+            CHIPS_SUPPORTED => [ VOLTA_thru_TURING, -GV11B, ],
+                'smbpbi/volta/eccgv10x.c',
+
+            CHIPS_SUPPORTED => [ VOLTA_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+                'smbpbi/volta/utilgv10x.c',
+
+            CHIPS_SUPPORTED => [ dVolta, ],
+                'smbpbi/volta/smbpbigv10x.c',
+
+            CHIPS_SUPPORTED => [ dTuring, ],
+                'smbpbi/turing/smbpbitu10x.c',
+
+            CHIPS_SUPPORTED => [ dVOLTA, -GV11B ],
+                'smbpbi/volta/fwwpgv10x.c',
+
+            CHIPS_SUPPORTED => [ TURING_and_later, ],
+                'smbpbi/turing/fwwptu10x.c',
+
+            CHIPS_SUPPORTED => [ TURING_thru_ADA, ],
+                # TODO: fork out non-XVE version of this code for GH100+
+                'smbpbi/turing/pcieinfotu10x.c',
+
+            CHIPS_SUPPORTED => [ dAMPERE_and_later, ],
+                'smbpbi/ampere/eccga100.c',
+                'smbpbi/ampere/rrlga100.c',
+                'smbpbi/ampere/smbpbiga100.c',
+                'smbpbi/ampere/lwlinkga100.c',
+                'smbpbi/lw/smbpbi_dem.c',
+
+            CHIPS_SUPPORTED => [ dAMPERE, AD10X, ],
+                'smbpbi/ampere/lwlinkgaxxx_only.c',
+                'smbpbi/ampere/pcieinfoga100.c',
+
+            CHIPS_SUPPORTED => [ GA100, ],
+                'smbpbi/ampere/lwlinkga100_only.c',
+
+            CHIPS_SUPPORTED => [ GA10X, -GA100, AD10X, ],
+                'smbpbi/ampere/lwlinkga10x_only.c',
+
+            CHIPS_SUPPORTED => [ dHOPPER_and_later, ],
+                'smbpbi/hopper/pcieinfogh100.c',
+                'smbpbi/hopper/lwlinkgh100.c',
+                [
+                    ONLY_IF => 'PMU_FSP_RPC',
+                        'smbpbi/lw/smbpbi_fsp_rpc.c',
+                ]
+        ],
+
+        TIMER =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'timer/lw/pmu_objtimer.c',
+                'timer/fermi/pmu_gputimergf10x.c',
+
+            CHIPS_SUPPORTED => [ TURING_and_later, ],
+                'timer/turing/watchdog_tu10x.c',
+        ],
+
+        SHA1 =>
+        [
+            'sha1/pmu_sha1.c',
+        ],
+
+        DPAUX =>
+        [
+            CHIPS_SUPPORTED => [ GM10X_and_later, ],
+                'i2c/lw/dpaux.c',
+        ],
+
+        ACR =>
+        [
+            CHIPS_SUPPORTED => [ GM20X, GP100, ],
+                'acr/maxwell/pmu_acrgm20xgp10x_only.c',
+
+            CHIPS_SUPPORTED => [ GM20X_thru_VOLTA, TEGRA_DGPU_AMPERE, ],
+                'acr/lw/acr_rpc.c',
+                [
+                    ONLY_IF => '!PMU_ACR_HS_PARTITION',
+                        'acr/lw/pmu_acr.c',
+                ],
+
+            CHIPS_SUPPORTED => [ GM20X_thru_VOLTA, ],
+                'acr/maxwell/pmu_acrgm20x.c',
+
+            CHIPS_SUPPORTED => [ GP10X_thru_GV100, ],
+                'acr/pascal/pmu_acrgp100.c',
+
+            CHIPS_SUPPORTED => [ GP10X, -GP100, GV10X, ],
+                'acr/pascal/pmu_acrgp10xgv10x_only.c',
+
+            CHIPS_SUPPORTED => [ GP10X_thru_GV100, -GP100, ],
+                'acr/pascal/pmu_acrgp10x.c',
+
+            CHIPS_SUPPORTED => [ GV10X, ],
+                'acr/volta/pmu_acrgv10x.c',
+
+            CHIPS_SUPPORTED => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+                'acr/ampere/pmu_acrga10b_only.c',
+        ],
+
+        LSF =>
+        [
+            CHIPS_SUPPORTED => [ GM20X_and_later, ],
+                'lsf/lw/pmu_objlsf.c',
+                'lsf/maxwell/pmu_lsfgm20x.c',
+
+            CHIPS_SUPPORTED => [ GM20X, ],
+                'lsf/maxwell/pmu_lsfgm20x_only.c',
+
+            CHIPS_SUPPORTED => [ GP100, ],
+                'lsf/pascal/pmu_lsfgp100_only.c',
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, ],
+                'lsf/pascal/pmu_lsfgp10X.c',
+
+            CHIPS_SUPPORTED => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+                'lsf/volta/pmu_lsfgv11x.c',
+
+            CHIPS_SUPPORTED => [ GA100_and_later, ],
+                'lsf/ampere/pmu_lsfga100.c',
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, -GA100, ],
+                'lsf/ampere/pmu_lsfga10x.c',
+        ],
+
+        SPI =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'spi/lw/pmu_objspi.c',
+                'spi/lw/pmu_spirom.c',
+                'spi/lw/spi_rpc.c',
+                [
+                    ONLY_IF => 'PMU_SPI_DEVICE',
+                        'spi/lw/spidev.c',
+
+                    ONLY_IF => 'PMU_SPI_DEVICE_ROM',
+                        'spi/lw/spidev_rom.c',
+                ],
+
+            CHIPS_SUPPORTED => [ GM10X_and_later, ],
+                'spi/fermi/pmu_spiromgf10x.c',
+
+            CHIPS_SUPPORTED => [ MAXWELL, ],
+                'spi/fermi/pmu_spiromgfxxxgmxxx.c',
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, ],
+                'spi/pascal/pmu_spigp100.c',
+                'spi/pascal/pmu_spiromgp100.c',
+
+            CHIPS_SUPPORTED => [ GP100, ],
+                'spi/pascal/pmu_spigp100_only.c',
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, -GP100, ],
+                'spi/pascal/pmu_spigp10x.c',
+
+            CHIPS_SUPPORTED => [ GV10X_and_later, ],
+                'spi/volta/pmu_spiromgv10x.c',
+                'spi/volta/pmu_eraseledgergv10x.c',
+
+            CHIPS_SUPPORTED => [ TU10X, GA100, ],
+                'spi/turing/pmu_spitu10x.c',
+
+            CHIPS_SUPPORTED => [ GA100_and_later, ],
+                'spi/ampere/pmu_spiromga100.c',
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, -GA100, ],
+                'spi/ampere/pmu_spiga10x.c',
+                'spi/ampere/pmu_spiromga10x.c',
+        ],
+
+        MUTEX =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'mutex/lw/pmu_objmutex.c',
+
+            CHIPS_SUPPORTED => [ GM10X, GV11B, ],
+                'mutex/fermi/pmu_mutexgf10x.c' ,
+
+            CHIPS_SUPPORTED => [ GM20X, ],
+                'mutex/maxwell/pmu_mutexgm20x.c' ,
+
+            CHIPS_SUPPORTED => [ GP100, ],
+                'mutex/pascal/pmu_mutexgp100.c' ,
+
+            CHIPS_SUPPORTED => [ GP10X_and_later, -GP100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, -GV11B, ],
+                'mutex/pascal/pmu_mutexgp10x.c' ,
+        ],
+
+        VBIOS =>
+        [
+            CHIPS_SUPPORTED => [ GP10X_and_later, -GP100, ],
+                'vbios/lw/objvbios.c',
+                'vbios/lw/vbios_ied.c',
+                'vbios/lw/vbios_opcodes.c',
+
+            CHIPS_SUPPORTED => [ GP10X, -GP100, ],
+                'vbios/pascal/pmu_vbiosgp10x.c',
+
+            CHIPS_SUPPORTED => [ TURING_and_later, ],
+                'vbios/turing/pmu_vbiostu10x.c',
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, ],
+            [
+                ONLY_IF => 'PMU_VBIOS_IMAGE_ACCESS',
+                    'vbios/lw/vbios_image.c',
+            ],
+            [
+                ONLY_IF => 'PMU_VBIOS_DIRT',
+                    'vbios/lw/vbios_dirt.c',
+            ],
+            [
+                ONLY_IF => 'PMU_VBIOS_FRTS',
+                    'vbios/lw/vbios_frts.c',
+                    'vbios/ampere/vbios_frts_ga10x.c',
+            ],
+            [
+                ONLY_IF => 'PMU_VBIOS_FRTS_ACCESS_DMA',
+                    'vbios/lw/vbios_frts_access_dma.c',
+            ],
+            [
+                ONLY_IF => 'PMU_VBIOS_FRTS_CERT30',
+                    'vbios/lw/vbios_frts_cert30.c',
+            ],
+            [
+                ONLY_IF => 'PMU_VBIOS_SKU',
+                    'vbios/lw/vbios_sku.c',
+            ],
+        ],
+
+        BIF =>
+        [
+            CHIPS_SUPPORTED => [ dTURING_and_later, ],
+                'bif/lw/bif_rpc.c',
+
+            CHIPS_SUPPORTED => [ dTURING_thru_AD10X, ],
+                'bif/turing/biftu10x.c',
+                [
+                    ONLY_IF => 'PMU_BIF_LANE_MARGINING',
+                        'bif/turing/lanemargining_tu10x.c',
+                ],
+
+            CHIPS_SUPPORTED => [ dTURING_thru_dAMPERE, ],
+                'bif/turing/biftu10xga10x.c',
+
+            CHIPS_SUPPORTED => [ dTURING_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'bif/lw/objbif.c',
+
+            CHIPS_SUPPORTED => [ dTURING, ],
+                'bif/turing/lwlinktu10x.c',
+                'bif/turing/xusbtu10x.c',
+
+            CHIPS_SUPPORTED => [ dAMPERE, AD10X, ],
+                'bif/ampere/lwlinkga100.c',
+
+            CHIPS_SUPPORTED => [ GA100, ],
+                [
+                    ONLY_IF => 'PMU_BIF_LANE_MARGINING',
+                        'bif/ampere/lanemargining_ga100.c',
+                ],
+
+            CHIPS_SUPPORTED => [ dAMPERE_thru_AD10X, -GA100, ],
+                'bif/ampere/bifga10x.c',
+
+            CHIPS_SUPPORTED => [ dAMPERE, -GA100, AD10X, ],
+                'bif/ampere/bifga10x_only.c',
+
+            CHIPS_SUPPORTED => [ dTURING, GA100, ],
+                'bif/turing/biftu10xga100.c',
+
+            CHIPS_SUPPORTED => [ dAMPERE_thru_AD10X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                'bif/ampere/bifga100.c',
+
+            CHIPS_SUPPORTED => [ dHOPPER_and_later, ],
+                'bif/hopper/bifgh100.c',
+                [
+                    ONLY_IF => 'PMU_BIF_LANE_MARGINING',
+                        'bif/hopper/lanemargining_gh100.c',
+                ],
+        ],
+
+        PERF_CF =>
+        [
+            CHIPS_SUPPORTED => [ dTURING_and_later, ],
+                'perf/lw/cf/perf_cf.c',
+                'perf/lw/cf/perf_cf_rpc.c',
+                [
+                    ONLY_IF => 'PMU_PERF_CF_SENSOR',
+                        'perf/lw/cf/perf_cf_sensor.c'           ,
+                        'perf/lw/cf/perf_cf_sensor_pmu.c'       ,
+                        'perf/lw/cf/perf_cf_sensor_pmu_fb.c'    ,
+                        'perf/lw/cf/perf_cf_sensor_pex.c'       ,
+                        'perf/lw/cf/perf_cf_sensor_ptimer.c'    ,
+                        'perf/lw/cf/perf_cf_sensor_ptimer_clk.c',
+                        'perf/lw/cf/perf_cf_sensor_clkcntr.c'   ,
+                        'perf/lw/cf/perf_cf_sensor_pgtime.c'    ,
+
+                    ONLY_IF => 'PMU_PERF_CF_SENSOR_THERM_MONITOR',
+                        'perf/lw/cf/perf_cf_sensor_therm_monitor.c',
+
+                    ONLY_IF => 'PMU_PERF_CF_PM_SENSOR',
+                        'perf/lw/cf/perf_cf_pm_sensor.c'        ,
+
+                    ONLY_IF => 'PMU_PERF_CF_PM_SENSOR_V00',
+                        'perf/lw/cf/perf_cf_pm_sensor_v00.c'    ,
+
+                    ONLY_IF => 'PMU_PERF_CF_PM_SENSOR_V10',
+                        'perf/lw/cf/perf_cf_pm_sensor_v10.c'    ,
+
+                    ONLY_IF => 'PMU_PERF_CF_PM_SENSOR_CLW_V10',
+                        'perf/lw/cf/perf_cf_pm_sensor_clw_v10.c'    ,
+
+                    ONLY_IF => 'PMU_PERF_CF_PM_SENSOR_CLW_DEV_V10',
+                        'perf/lw/cf/perf_cf_pm_sensor_clw_dev_v10.c'    ,
+
+                    ONLY_IF => 'PMU_PERF_CF_PM_SENSOR_CLW_MIG_V10',
+                        'perf/lw/cf/perf_cf_pm_sensor_clw_mig_v10.c'    ,
+
+                    ONLY_IF => 'PMU_PERF_CF_PM_SENSORS_PMUMON',
+                        'perf/lw/cf/perf_cf_pm_sensors_pmumon.c'   ,
+
+                    ONLY_IF => 'PMU_PERF_CF_TOPOLOGY',
+                        'perf/lw/cf/perf_cf_topology.c'            ,
+                        'perf/lw/cf/perf_cf_topology_sensed_base.c',
+                        'perf/lw/cf/perf_cf_topology_min_max.c'    ,
+
+                    ONLY_IF => 'PMU_PERF_CF_TOPOLOGY_SENSED',
+                        'perf/lw/cf/perf_cf_topology_sensed.c',
+
+                    ONLY_IF => 'PMU_PERF_CF_TOPOLOGIES_PMUMON',
+                        'perf/lw/cf/perf_cf_topology_pmumon.c',
+
+                    ONLY_IF => 'PMU_PERF_CF_CONTROLLER',
+                        'perf/lw/cf/perf_cf_controller.c'     ,
+                        'perf/lw/cf/perf_cf_controller_util.c',
+                        'perf/lw/cf/perf_cf_controller_optp_2x.c',
+
+                    ONLY_IF => 'PMU_PERF_CF_CONTROLLERS_1X',
+                         'perf/lw/cf/perf_cf_controller_1x.c',
+
+                    ONLY_IF => 'PMU_PERF_CF_CONTROLLERS_2X',
+                         'perf/lw/cf/perf_cf_controller_2x.c',
+
+                    ONLY_IF => 'PMU_CLIENT_PERF_CF_CONTROLLER',
+                        'perf/lw/cf/client_perf_cf_controller.c',
+
+                    ONLY_IF => 'PMU_CLIENT_PERF_CF_CONTROLLER_MEM_TUNE',
+                        'perf/lw/cf/client_perf_cf_controller_mem_tune.c',
+
+                    ONLY_IF => 'PMU_PERF_CF_CONTROLLER_DLPPC_1X',
+                        'perf/lw/cf/perf_cf_controller_dlppc_1x.c',
+
+                    ONLY_IF => 'PMU_PERF_CF_CONTROLLER_MEM_TUNE',
+                        'perf/lw/cf/perf_cf_controller_mem_tune.c',
+                        'perf/ampere/perf_cf_ga10x.c',
+
+                    ONLY_IF => 'PMU_PERF_CF_CONTROLLER_MEM_TUNE_2X',
+                        'perf/lw/cf/perf_cf_controller_mem_tune_2x.c',
+
+                    ONLY_IF => 'PMU_PERF_CF_CONTROLLER_UTIL_2X',
+                        'perf/lw/cf/perf_cf_controller_util_2x.c',
+
+                    ONLY_IF => 'PMU_PERF_CF_POLICY',
+                        'perf/lw/cf/perf_cf_policy.c'          ,
+                        'perf/lw/cf/perf_cf_policy_ctrl_mask.c',
+
+                    ONLY_IF => 'PMU_CLIENT_PERF_CF_POLICY',
+                        'perf/lw/cf/client_perf_cf_policy.c'          ,
+                        'perf/lw/cf/client_perf_cf_policy_ctrl_mask.c',
+
+                    ONLY_IF => 'PMU_PERF_CF_PWR_MODEL',
+                        'perf/lw/cf/perf_cf_pwr_model.c',
+
+                    ONLY_IF => 'PMU_PERF_CF_PWR_MODEL_DLPPM_1X',
+                        'perf/lw/cf/perf_cf_pwr_model_dlppm_1x.c',
+
+                    ONLY_IF => 'PMU_PERF_CF_PWR_MODEL_TGP_1X',
+                        'perf/lw/cf/perf_cf_pwr_model_tgp_1x.c',
+
+                    ONLY_IF => 'PMU_CLIENT_PERF_CF_PWR_MODEL_PROFILE',
+                        'perf/lw/cf/client_perf_cf_pwr_model_profile.c',
+
+                    ONLY_IF => 'PMU_CLIENT_PERF_CF_PWR_MODEL_PROFILE_TGP_1X',
+                        'perf/lw/cf/client_perf_cf_pwr_model_profile_tgp_1x.c',
+                ],
+        ],
+
+        LWLINK =>
+        [
+            CHIPS_SUPPORTED => [ GP100, ],
+                    'lwlink/pascal/pmu_lwlinkgp100.c',
+
+            CHIPS_SUPPORTED => [ GV10X, ],
+                    'lwlink/volta/pmu_lwlinkgv10x.c',
+        ],
+
+        NNE =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'nne/lw/objnne.c',
+                'nne/lw/nne_rpc.c',
+                'nne/lw/nne_desc_ram.c',
+                'nne/lw/nne_swzl_ram.c',
+                'nne/lw/nne_parm_ram.c',
+                'nne/lw/nne_weight_ram.c',
+                'nne/lw/nne_sync.c',
+
+                [
+                    ONLY_IF => 'PMU_NNE_VAR',
+                        'nne/lw/nne_var.c',
+                        'nne/lw/nne_var_freq.c',
+                        'nne/lw/nne_var_pm.c',
+                        'nne/lw/nne_var_chip_config.c',
+                        'nne/lw/nne_var_power_dn.c',
+                        'nne/lw/nne_var_power_total.c',
+
+                    ONLY_IF => 'PMU_NNE_LAYER',
+                        'nne/lw/nne_layer.c',
+                        'nne/lw/nne_layer_fc_10.c',
+
+                    ONLY_IF => 'PMU_NNE_DESC',
+                        'nne/lw/nne_desc.c',
+                        'nne/lw/nne_desc_fc_10.c',
+                        'nne/lw/nne_desc_client.c',
+                ],
+
+            CHIPS_SUPPORTED => [ GA10X_and_later, -GA100, ],
+                'nne/ampere/nnega10x.c',
+        ],
+
+        VGPU =>
+        [
+            CHIPS_SUPPORTED => [ GA10X, -GA100, ],
+                [
+                    ONLY_IF => 'PMU_CMDMGMT_VGPU_VF_BAR1_SIZE_UPDATE',
+                        'vgpu/ampere/pmu_vgpuga10x.c',
+                ],
+        ],
+
+    ],  # PMUSRC_ENGINES
+
+];   # filesRef
+
+
+my $platformsRef = [
+
+    # the PMU platform
+    PLATFORM_PMU  => [
+        PMUSRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

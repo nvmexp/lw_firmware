@@ -1,0 +1,171 @@
+# -*- mode: perl; -*-
+
+# VOLT Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $voltHal = [
+
+    DEFAULTS => [
+        FLAGS       => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        POLL_PGOOD_STATUS   => [
+            DESCRIPTION    => "Polls the status of PGOOD signal",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwBool bPollOn",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libVolt", "__FUNC__")',
+
+            _GA10X         => [ GA10X_and_later, -GA100, ],
+            _STUB          => [ pre_GA10X, GA100, CHEETAH, ],
+        ],
+
+        RAIL_RAM_ASSIST_ENGAGED_MASK_GET   => [
+            DESCRIPTION    => "Checks if ram assist is engaged for each ADC",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 railType, LwU32* pRamAssistEngagedMask",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libVolt", "__FUNC__")',
+
+            _AD10X         => [ AD10X, GH100, GB100, ],
+            _STUB          => [ ALL, -AD10X, -GH100, -GB100, ],
+        ],
+
+        # Volt tests HAL interfaces, defined in volttest*.c HAL files
+        TEST_VMIN_CAP   => [
+            DESCRIPTION    => "Tests if Voltage caps to Vmin",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_VOLT_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libVoltTest", "__FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ pre_TU10X, CHEETAH, ],
+        ],
+
+        TEST_VMIN_CAP_NEGATIVE_CHECK   => [
+            DESCRIPTION    => "Negative Test to test for Vmin Cap",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_VOLT_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libVoltTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_VMIN_CAP,
+        ],
+
+        TEST_DROOPY_ENGAGE   => [
+            DESCRIPTION    => "Test droopy engagement behavior",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_VOLT_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libVoltTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_VMIN_CAP,
+        ],
+
+        TEST_EDPP_THERM_EVENTS   => [
+            DESCRIPTION    => "Test EDPp Therm events",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_VOLT_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            INTERFACE_TAG  => "voltTestEDPpThermEvents", # EDPp instead of Edpp
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libVoltTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_VMIN_CAP,
+        ],
+
+        TEST_THERM_MONITORS_OVER_EDPP_EVENTS   => [
+            DESCRIPTION    => "Test EDPp Therm events",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_VOLT_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            INTERFACE_TAG  => "voltTestThermMonitorsOverEDPpEvents", # EDPp instead of Edpp
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libVoltTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_VMIN_CAP,
+        ],
+
+        TEST_FIXED_SLEW_RATE   => [
+            DESCRIPTION    => "Test fixed slew rate behavior",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_VOLT_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libVoltTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_VMIN_CAP,
+        ],
+
+        TEST_HI_OFFSET_OVERRIDE_ENABLE   => [
+            DESCRIPTION    => "Enables/Disables the IPC HI_OFFSET override",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool bOverride, LwU16  pwmHiOffset",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libVoltTest", "__FUNC__")',
+
+            _TU10X         => [ TU10X, GA100, ],
+            _GA10X         => [ GA10X_and_later, -GA100, ],
+            _STUB          => [ pre_TU10X, CHEETAH, ],
+        ],
+
+        TEST_FORCE_VMIN   => [
+            DESCRIPTION    => "Tests if FORCE_VMIN_MASK functionality works as expected by triggering the event that enforces VMIN capping",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_VOLT_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libVoltTest", "__FUNC__")',
+
+            _GH100         => [ dHOPPER_and_later, ],
+            _STUB          => [ pre_GH100, CHEETAH, ],
+        ],
+
+        TEST_VID_PWM_BOUND_FLOOR   => [
+            DESCRIPTION    => "Tests if VIDx_PWM_BOUND HW block works as expected and is able to bound the incoming VIDx_PWM_HI value",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_VOLT_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libVoltTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_FORCE_VMIN,
+        ],
+
+        TEST_VID_PWM_BOUND_CEIL   => [
+            DESCRIPTION    => "Tests if VIDx_PWM_BOUND HW block works as expected and is able to bound the incoming VIDx_PWM_HI value",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_VOLT_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libVoltTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_FORCE_VMIN,
+        ],
+
+        TEST_POSITIVE_CLVC_OFFSET   => [
+            DESCRIPTION    => "Tests if CLVC offset is applied correctly by VIDPWM HW in the final VIDPWM value computation",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_VOLT_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libVoltTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_FORCE_VMIN,
+        ],
+
+        TEST_NEGATIVE_CLVC_OFFSET   => [
+            DESCRIPTION    => "Tests if negative CLVC offset is applied correctly by VIDPWM HW in the final VIDPWM value computation",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_VOLT_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libVoltTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_FORCE_VMIN,
+        ],
+
+    ],  # HAL_INTERFACES
+
+]; #voltHal
+
+# return a reference to the Hal definition
+return $voltHal;
+

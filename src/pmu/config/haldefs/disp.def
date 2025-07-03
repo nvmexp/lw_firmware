@@ -1,0 +1,540 @@
+# -*- mode: perl; -*-
+
+# Display Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $dispHal = [
+
+    DEFAULTS => [
+
+        FLAGS       => ":DIRECT_HAL_CALLS",
+
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        SERVICE => [
+            DESCRIPTION    => "service disp interrupt requests",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GMXXX         => [ pre_VOLTA, ],
+            _GV10X         => [ VOLTA_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _STUB          => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        INIT_VBLANK_INTR => [
+            DESCRIPTION    => "Init RG VBLANK interrupt settings",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 headIndex",
+            STUB_RETURNS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_disp", "__FUNC__")',
+
+            LIKE_INTERFACE => SERVICE,
+        ],
+
+        MS_RG_LINE_WAR_ACTIVATE => [
+            DESCRIPTION    => "Enable/disable LoadV and RG LINE Interrupt for MS Disp WAR",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32, LwU8, LwBool",
+            STUB_RETURNS   => FLCN_OK,
+
+            _TU10X         => [ TURING, ],
+            _STUB          => [ ALL, -TURING, ],
+        ],
+
+        PROGRAM_DWCF_INTR => [
+            DESCRIPTION    => "Enable/disable the DWCF interrupt for OSM",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool",
+            STUB_RETURNS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libRmOneshot", "__FUNC__")',
+
+            _GM10X         => [ dMAXWELL_and_later, ],
+        ],
+
+        SET_ENABLE_VBLANK_INTR => [
+            DESCRIPTION    => "Enables/disables (rg_)vblank interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 headIndex, LwBool bEnable",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_disp", "__FUNC__")',
+
+            _GMXXX         => [ pre_VOLTA, ],
+            _GV10X         => [ VOLTA_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _STUB          => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        PRE_INIT => [
+            DESCRIPTION    => "one-time initialization for display object",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool *pBDispPresent",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GMXXX         => [ pre_VOLTA, ],
+            _GV10X         => [ dVOLTA_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _STUB          => [ tMAXWELL_and_later, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        GET_NUMBER_OF_HEADS => [
+            DESCRIPTION    => "get the number of heads",
+            RETURN_TYPE    => LwU8,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => ZERO,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GMXXX         => [MAXWELL, PASCAL, ],
+            _GV10X         => [ VOLTA_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _STUB          => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        GET_NUMBER_OF_SORS => [
+            DESCRIPTION    => "get the number of sors",
+            RETURN_TYPE    => LwU8,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => ZERO,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GMXXX         => [ pre_VOLTA, ],
+            _GV10X         => [ VOLTA_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _STUB          => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        PROGRAM_MSCG_WATERMARKS => [
+            DESCRIPTION    => "Programs the MSCG watermark values for the current pstate",
+            INTERFACE_TAG  => 'isohubProgramMscgWatermarks',    # 'isohub' instead of 'disp'
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => ERROR,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            _TU10X         => [ dTURING_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ pre_TURING, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        PROGRAM_MSCG_CYCLE_AND_EXIT_TIME_US => [
+            DESCRIPTION    => "Programs the MSCG/DIFR cycle and exit time (in Us) for the current pstate",
+            INTERFACE_TAG  => 'isohubProgramMscgCycleAndExitTimeUs',    # 'isohub' instead of 'disp'
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "RM_PMU_DISP_PSTATE_MSCG_SETTINGS *pPstateMscgSettings",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ pre_dAMPERE, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        ENABLE_OSM_VBLANK_MSCG => [
+            DESCRIPTION    => "Enables One shot mode Vblank based MSCG signaling in HW",
+            INTERFACE_TAG  => 'isohubEnableOsmVblankMscg',    # 'isohub' instead of 'disp'
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "RM_PMU_DISP_PSTATE_MSCG_SETTINGS *pPstateMscgSettings, LwU32 maxWindows, LwU32 maxLwr, LwBool bEnable",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            LIKE_INTERFACE => PROGRAM_MSCG_CYCLE_AND_EXIT_TIME_US,
+        ],
+
+        MSCG_ENABLE_DISABLE_ISR => [
+            DESCRIPTION    => "Enable/disable MSCG in IHUB",
+            INTERFACE_TAG  => 'isohubMscgEnableDisableIsr',  # 'isohub' instead of 'disp'
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "const LwBool bEnable, const LwU32 mscgDisableReasons",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _TU10X         => [ dTURING_and_later, ],
+            _STUB          => [ pre_TURING, ],
+        ],
+
+        MSCG_ENABLE_DISABLE => [
+            DESCRIPTION    => "Enable/disable MSCG in IHUB",
+            INTERFACE_TAG  => 'isohubMscgEnableDisable',  # 'isohub' instead of 'disp'
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "const LwBool bEnable, const LwU32 mscgDisableReasons",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            LIKE_INTERFACE => MSCG_ENABLE_DISABLE_ISR,
+        ],
+
+        ENQ_METHOD_FOR_CHANNEL => [
+            DESCRIPTION    => "enqueues method, data for a given channel",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 dispChnlNum, LwU32 methodOffset, LwU32 data",
+            STUB_RETURNS   => ERROR,
+
+            _GMXXX         => [ pre_VOLTA, ],
+            _GV10X         => [ VOLTA_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _STUB          => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        PMS_MODE_SET => [
+            DESCRIPTION    => "intialize display and do modeset",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 modesetType, LwBool bTriggerSrExit",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            _GP10X         => [ PASCAL, -GP100, ],
+            _TU10X         => [ dTURING_and_later, ],
+            _STUB          => [ MAXWELL, VOLTA, GP100, ],
+        ],
+
+        PMS_MODE_SET_RESTORE_VPLL => [
+            DESCRIPTION    => "Restore VPLL to state captured by clkCaptureParamsForPmsOnBsod",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 headId",
+
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE, -DISPLAYLESS, ],
+            _STUB          => [ pre_TURING, ADA_and_later, DISPLAYLESS, ],
+        ],
+
+        RM_ONESHOT_STATE_UPDATE => [
+            DESCRIPTION    => "Update state of RM_ONESHOT",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => LW_FALSE,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libRmOneshot", "__FUNC__")',
+
+            _GM10X         => [ pre_VOLTA, ],
+            _TU10X         => [ dTURING_and_later, ],
+            _STUB          => [ VOLTA, ]
+        ],
+
+        CHECK_FOR_VRR_HACK_BUG_1604175 => [
+            DESCRIPTION    => "check for VRR hack",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+
+            _GM10X         => [ pre_VOLTA, ],
+            _STUB          => [ VOLTA_and_later,  ],
+
+        ],
+
+        IS_NOTEBOOK_GSYNC_SUPPORTED => [
+            DESCRIPTION    => "check for VRR hack",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => LW_FALSE,
+
+            _GM20X         => [ GM20X, ],
+            _GP10X         => [ GP10X, -GP100, ],
+            _TU10X         => [ TURING, ],
+            _STUB          => [ GV11B, ALL, -GM20X, -GP10X, -TURING, GP100, ],
+        ],
+
+        GET_DEBUG_CTL_DAT_OFFSETS => [
+            DESCRIPTION    => "Gets offset of LW_PDISP_DSI_DEBUG_CTL, LW_PDISP_DSI_DEBUG_DAT",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => " LwU32 dispChnlNum, LwU32 *pDsiDebugCtl, LwU32 *pDsiDebugDat",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            _GMXXX         => [ MAXWELL, ],
+            _GP10X         => [ PASCAL, -GP100, dTURING_and_later, ],
+            _STUB          => [ GP100, VOLTA, ],
+        ],
+
+        READ_OR_WRITE_REG_VIA_AUX => [
+            DESCRIPTION    => "Read or write a DPAUX register",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 port, LwU32 reg, LwBool bWrite, LwU8 *pData",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispPms", "__FUNC__")',
+
+            _GP10X         => [ dPASCAL_and_later, ],
+            _STUB          => [ MAXWELL, ],
+        ],
+
+        READ_VGA_REG => [
+            DESCRIPTION    => "Read a VGA register",
+            RETURN_TYPE    => LwU8,
+            STUB_RETURNS   => 0xFF,
+            ARGUMENTS      => "LwU8 index",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispPms", "__FUNC__")',
+
+            _GP10X         => [ dPASCAL_and_later, ],
+            _STUB          => [ MAXWELL, ],
+        ],
+
+        WRITE_VGA_REG => [
+            DESCRIPTION    => "Write a VGA register",
+            RETURN_TYPE    => void,
+            STUB_RETURNS   => void,
+            ARGUMENTS      => "LwU8 index, LwU8 data",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispPms", "__FUNC__")',
+
+            LIKE_INTERFACE => READ_VGA_REG,
+        ],
+
+        PSR_DISABLE_SPARSE_SR => [
+            DESCRIPTION    => "Disable sparse SR (LWSR panel)",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => "LwU8 port",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispPms", "__FUNC__")',
+
+            LIKE_INTERFACE => READ_OR_WRITE_REG_VIA_AUX,
+        ],
+
+        DISABLE_DEBUG_MODE => [
+            DESCRIPTION    => "Disable the debug mode for the channel specified",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => "LwU32 dispChannelNum",
+
+            _TU10X         => [ dTURING_and_later, ],
+            _STUB          => [ pre_TURING, ],
+        ],
+
+        RESTORE_SOR_PWR_SETTINGS => [
+            DESCRIPTION    => "Restore SOR power settings",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispPms", "__FUNC__")',
+
+            _GP10X         => [ dPASCAL_and_later, -GP100, ],
+            _STUB          => [ MAXWELL, GP100, ],
+        ],
+
+        SET_DPCD_LINK_SETTINGS => [
+            DESCRIPTION    => "Set DPCD link settings",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispPms", "__FUNC__")',
+
+            LIKE_INTERFACE => RESTORE_SOR_PWR_SETTINGS,
+        ],
+
+        GET_PAIR_PAD_LINK => [
+            DESCRIPTION    => "Returns pair of padlink",
+            RETURN_TYPE    => LwU32,
+            STUB_RETURNS   => LW_OK,
+            ARGUMENTS      => "LwU32 padlink",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispPms", "__FUNC__")',
+
+            LIKE_INTERFACE => RESTORE_SOR_PWR_SETTINGS,
+        ],
+
+        FORCE_IDLE_PATTERN => [
+            DESCRIPTION    => "Force idle pattern on link",
+            RETURN_TYPE    => void,
+            STUB_RETURNS   => void,
+            ARGUMENTS      => "LwBool bEnable",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispPms", "__FUNC__")',
+
+            LIKE_INTERFACE => RESTORE_SOR_PWR_SETTINGS,
+        ],
+
+        ENABLE_POWER_STATE_OF_PADLINK_BUFFER => [
+            DESCRIPTION    => "Enable power state of padlink buffer",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispPms", "__FUNC__")',
+
+            _GP10X         => [ PASCAL_thru_TURING, -GP100, ],
+            _GA10X         => [ dAMPERE_and_later, ],
+            _STUB          => [ MAXWELL, GP100, ],
+
+        ],
+
+        RUN_DP_NO_LINK_TRAINING => [
+            DESCRIPTION    => "Run link training",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispPms", "__FUNC__")',
+
+            _GP10X         => [ PASCAL_thru_TURING, -GP100, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _GA10X         => [ GA10X_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ MAXWELL, GP100, ],
+        ],
+
+        SET_DISPLAY_OWNER => [
+            DESCRIPTION    => "Set display owner to driver",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispPms", "__FUNC__")',
+
+            LIKE_INTERFACE => RESTORE_SOR_PWR_SETTINGS,
+        ],
+
+        CONFIGURE_SOR_SETTINGS => [
+            DESCRIPTION    => "Configure SOR settings",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => void,
+
+            _GP10X         => [ PASCAL, -GP100, ],
+            _TU10X         => [ dTURING_and_later, ],
+            _STUB          => [ ALL, -PASCAL, GP100, -dTURING_and_later, ],
+        ],
+
+        PROGRAM_PRE_MCLK_SWITCH_IMP_SETTINGS => [
+            DESCRIPTION    => "Program display settings prior to an MCLK switch to ensure it's glitchless",
+            INTERFACE_TAG  => 'dispProgramPreMClkSwitchImpSettings',         # 'MClk' instead of 'Mclk'
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            _TU10X         => [ dTURING_and_later, ],
+            _STUB          => [ pre_TURING, ],
+        ],
+
+        PROGRAM_MEM_FETCH_VBLANK_SETTINGS => [
+            DESCRIPTION    => "Programs memfetch vblank duration watermarks and other settings for MCLK switch",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            _TU10X         => [ TURING, ],
+            _STUB          => [ pre_TURING, dAMPERE_and_later, ],
+        ],
+
+        PROGRAM_POST_MCLK_SWITCH_IMP_SETTINGS => [
+            DESCRIPTION    => "Restore the display settings post an MCLK switch",
+            INTERFACE_TAG  => 'dispProgramPostMClkSwitchImpSettings',         # 'MClk' instead of 'Mclk'
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            LIKE_INTERFACE => PROGRAM_PRE_MCLK_SWITCH_IMP_SETTINGS,
+        ],
+
+        IS_ONE_SHOT_MODE_ENABLED => [
+            DESCRIPTION    => "Returns whether oneshot mode is enabled on at least one head or not",
+            RETURN_TYPE    => LwBool,
+            STUB_RETURNS   => LW_FALSE,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            LIKE_INTERFACE => PROGRAM_PRE_MCLK_SWITCH_IMP_SETTINGS,
+        ],
+
+        PROGRAM_ONE_SHOT_MODE_DELAYS => [
+            DESCRIPTION    => "Program Oneshot mode delays (i.e One shot start delay and RG unstall spoolup delay) for MSCG/MCLK",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool bPreMclk",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            LIKE_INTERFACE => PROGRAM_PRE_MCLK_SWITCH_IMP_SETTINGS,
+        ],
+
+        GET_LWRRENT_FRAME_TIME_US => [
+            DESCRIPTION    => "Gets the lwrrently programmed frame time value, in Us",
+            RETURN_TYPE    => LwU32,
+            STUB_RETURNS   => ZERO,
+            ARGUMENTS      => LwU32,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE, ],
+            _AD10X         => [ dADA_and_later, ],
+            _STUB          => [ pre_AMPERE, ],
+        ],
+
+        PROGRAM_NEW_FRAME_TIME => [
+            DESCRIPTION    => "Programs the newly computed value of frame time",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => LwU32,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE, ],
+            _AD10X         => [ dADA_and_later, ],
+            _STUB          => [ pre_AMPERE, ],
+        ],
+
+        RESTORE_FRAME_TIME => [
+            DESCRIPTION    => "Restores the originally programmed frame timer value",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => LwU32,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE, ],
+            _AD10X         => [ dADA_and_later, ],
+            _STUB          => [ pre_AMPERE, ],
+        ],
+
+        PROGRAM_VBLANK_FOR_VRR_EXTENDED_FRAME => [
+            DESCRIPTION    => "Programs vblank for vrr head for MCLK switch",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, ],
+            _STUB          => [ pre_TURING, ],
+        ],
+
+        RESTORE_VBLANK_FOR_VRR_EXTENDED_FRAME => [
+            DESCRIPTION    => "Restore the vblank settings post MCLK switch",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            LIKE_INTERFACE => PROGRAM_VBLANK_FOR_VRR_EXTENDED_FRAME,
+        ],
+
+        SET_RASTER_EXTEND_HEIGHT_FP => [
+            DESCRIPTION    => "Extends raster front porch",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => ERROR,
+            ARGUMENTS      => "LwU32 head, LwU32 rasterExtension, LwU32 bEnable, LwU32 bGuaranteeCompletion",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            LIKE_INTERFACE => PROGRAM_PRE_MCLK_SWITCH_IMP_SETTINGS,
+        ],
+
+        PWM_SOURCE_DESCRIPTOR_CONSTRUCT => [
+            DESCRIPTION     => "Constructs the PWM source descriptor for given PWM source in specified DMEM overlay",
+            RETURN_TYPE     => "PWM_SOURCE_DESCRIPTOR *",
+            ARGUMENTS       => "RM_PMU_PMGR_PWM_SOURCE pwmSource, LwU8 ovlIdxDmem",
+            STUB_RETURNS    => NULL,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libPwmConstruct", "__FUNC__")',
+
+            _GA10X          => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB           => [ pre_dAMPERE, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        FORCE_SOR_CLK => [
+            DESCRIPTION     => "Force enable/disable SOR CLK for all SOR-s",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwBool bEnable",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_pmgrLibIllum", "__FUNC__")',
+
+            _GA10X          => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB           => [ pre_dAMPERE, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        PROGRAM_FRAME_TIMER_VBLANK_MSCG_DISABLE => [
+            DESCRIPTION    => "Programs Frame timer to disable VBlank MSCG during Mclk Switch",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool bPreMclk",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            _GA10X          => [ dAMPERE, -DISPLAYLESS, ],
+            _STUB           => [ ADA_and_later, pre_dAMPERE, DISPLAYLESS, ],
+        ],
+
+        PROCESS_LAST_DATA => [
+            DESCRIPTION     => "Handles LAST_DATA interrupt",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_dispImp", "__FUNC__")',
+
+            _GA10X          => [ dAMPERE, -DISPLAYLESS, ],
+            _STUB           => [ ADA_and_later, pre_dAMPERE, DISPLAYLESS, ],
+        ],
+
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $dispHal;

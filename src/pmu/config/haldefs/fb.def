@@ -1,0 +1,302 @@
+# -*- mode: perl; -*-
+
+# Framebuffer Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $fbHal = [
+
+    DEFAULTS => [
+
+        FLAGS       => ":DIRECT_HAL_CALLS",
+
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        STOP => [
+            DESCRIPTION   => "FB STOP command",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "LwBool bStop, LwU32 params",
+            STUB_RETURNS  => ERROR,
+
+            _GM10X        => [ pre_AMPERE, ],
+            _STUB         => [ AMPERE_and_later, ],
+        ],
+
+        HBM_SITE_TEMP_GET => [
+            DESCRIPTION     => "Gets HBM site temperature",
+            INTERFACE_TAG   => "fbHBMSiteTempGet",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 fbpaIndex, LwU8 provIdx, LwTemp *pLwTemp",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibSensor2X", "__FUNC__")',
+
+            _GV10X          => [ VOLTA, ],
+            _GA100          => [ GA100, GH100, GB100, ],
+            _STUB           => [ ALL, -VOLTA, -GA100, -GH100, -GB100, ],
+        ],
+
+        HBM_SITE_NON_FLOORSWEPT_FBPA_IDX_GET => [
+            DESCRIPTION     => "Gets the index of the first non floorswept FBPA within a HBM2 site",
+            INTERFACE_TAG   => "fbHBMSiteNonFloorsweptFBPAIdxGet",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU8 siteIndex",
+            STUB_RETURNS    => FB_FBPA_INDEX_ILWALID,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibConstruct", "__FUNC__")',
+
+            _GV10X          => [ VOLTA, ],
+            _GA100          => [ GA100, ],
+            _STUB           => [ ALL, -VOLTA, -GA100, ],
+        ],
+
+        HBM_SITE_COUNT_GET => [
+            DESCRIPTION     => "Get total number of HBM sites.",
+            INTERFACE_TAG   => "fbHBMSiteCountGet",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibConstruct", "__FUNC__")',
+
+            _GV10X          => [ VOLTA, GA100, GH100, GB100, ],
+            _STUB           => [ ALL, -VOLTA, -GA100, -GH100, -GB100, ],
+        ],
+
+        STOP_PMU_FBFLCN_WAR => [
+            DESCRIPTION     => "Exelwtes the FB stop WAR required for MCLK switch exelwtion on FB falcon",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            FLAGS           => ":STUB_ASSERT",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GV10X          => [ VOLTA, -GV11B, ],
+            _STUB           => [ ALL, -VOLTA, GV11B, ]
+        ],
+
+        START_PMU_FBFLCN_WAR => [
+            DESCRIPTION     => "Exelwtes the FB start WAR required for MCLK switch exelwtion on FB falcon",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            FLAGS           => ":STUB_ASSERT",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE  => STOP_PMU_FBFLCN_WAR,
+        ],
+
+        ENABLE_SELF_REFRESH => [
+            DESCRIPTION     => "Setup the FB self refresh command per DDR_MODE and CMD_MAPPING",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 ramType, LwU32 *pEntry1, LwU32 *pEntry2",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GP10X          => [ PASCAL_thru_TURING, -CHEETAH, -GV11B, ],
+            _GA10X          => [ AMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -CHEETAH, -GH100, -GB100, ],
+            _STUB           => [ MAXWELL, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, CHEETAH, GH100, GB100, GV11B, ],
+        ],
+
+        GET_SELF_REFRESH_ENTRY_VALS_SDDR3_GT215 => [
+            DESCRIPTION     => "Setup the FB self refresh command for SDDR3 GT215 CMD mapping",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pEntry1, LwU32 *pEntry2",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GP10X          => [ PASCAL_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -CHEETAH, -GH100, -GB100, -GV11B, ],
+            _STUB           => [ MAXWELL, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, CHEETAH, GH100, GB100, GV11B, ],
+        ],
+
+        GET_SELF_REFRESH_ENTRY_VALS_SDDR3 => [
+            DESCRIPTION     => "Setup the FB self refresh command for SDDR3 but not GT215 CMD mapping",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pEntry1, LwU32 *pEntry2",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            LIKE_INTERFACE  => GET_SELF_REFRESH_ENTRY_VALS_SDDR3_GT215,
+        ],
+
+        GET_SELF_REFRESH_ENTRY_VALS_GDDR5 => [
+            DESCRIPTION     => "get the TESTCMD entry values for GDDR5",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pEntry1, LwU32 *pEntry2",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            LIKE_INTERFACE  => GET_SELF_REFRESH_ENTRY_VALS_SDDR3_GT215,
+        ],
+
+        GET_SELF_REFRESH_ENTRY_VALS_GDDR6 => [
+            DESCRIPTION     => "get the TESTCMD entry values for GDDR6",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pEntry1, LwU32 *pEntry2",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _TU10X          => [ TURING, ],
+            _STUB           => [ pre_TURING, dAMPERE_and_later, ],
+        ],
+
+        ENABLE_SELF_REFRESH_FOR_GDDR6 => [
+            DESCRIPTION     => "Trigger FB SR entry on GDDR6",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pEntry1, LwU32 *pEntry2",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _TU10X          => [ TURING, ],
+            _GA10X          => [ dAMPERE_and_later, ],
+            _STUB           => [ pre_TURING, ],
+        ],
+
+        FLUSH_L2_ALL_RAMS_AND_CACHES => [
+            DESCRIPTION     => "flush all L2 Rams and Caches using the ELPG flush",
+            RETURN_TYPE     => GCX_GC6_ENTRY_STATUS,
+            STUB_RETURNS    => GCX_GC6_OK,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            LIKE_INTERFACE  => GET_SELF_REFRESH_ENTRY_VALS_SDDR3_GT215,
+        ],
+
+        FORCE_IDLE => [
+            DESCRIPTION     => "Assert that FB and L2 are idle.",
+            RETURN_TYPE     => GCX_GC6_ENTRY_STATUS,
+            STUB_RETURNS    => GCX_GC6_OK,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            LIKE_INTERFACE  => GET_SELF_REFRESH_ENTRY_VALS_SDDR3_GT215,
+        ],
+
+        PRE_GC6_CLAMP => [
+            DESCRIPTION     => "prepare for fb_clamp signal to be asserted",
+            RETURN_TYPE     => GCX_GC6_ENTRY_STATUS,
+            STUB_RETURNS    => GCX_GC6_OK,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            LIKE_INTERFACE  => GET_SELF_REFRESH_ENTRY_VALS_SDDR3_GT215,
+        ],
+
+        ENTER_SR_AND_POWER_DOWN => [
+            DESCRIPTION     => "FB enters self-refresh and power down pll",
+            RETURN_TYPE     => GCX_GC6_ENTRY_STATUS,
+            STUB_RETURNS    => GCX_GC6_OK,
+            ARGUMENTS       => "LwU8",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GP10X          => [ PASCAL, VOLTA, -CHEETAH, -GV11B, ],
+            _TU10X          => [ TURING, -CHEETAH, ],
+            _GA10X          => [ AMPERE_and_later, -CHEETAH, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB           => [ MAXWELL, CHEETAH, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X,  GV11B, ],
+        ],
+
+        GC6_ENTRY_CLOCK_DISABLE => [
+            DESCRIPTION     => "Disable FB CLOCK and PLL",
+            RETURN_TYPE     => GCX_GC6_ENTRY_STATUS,
+            STUB_RETURNS    => GCX_GC6_OK,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _TU10X          => [ TURING, -CHEETAH, ],
+            _GA10X          => [ AMPERE_and_later, -CHEETAH, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB           => [ pre_TURING, CHEETAH, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X,  GV11B, ],
+        ],
+
+        GET_ACTIVE_FBP_MASK => [
+            DESCRIPTION     => "Return active FBP mask",
+            INTERFACE_TAG   => "fbGetActiveFBPMask",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => "void",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GV10X          => [ VOLTA_and_later, -CHEETAH, ],
+            _STUB           => [ pre_VOLTA, CHEETAH, ],
+        ],
+
+        GET_ACTIVE_LTC_COUNT => [
+            DESCRIPTION   => "Gets the active LTC count.",
+            INTERFACE_TAG => "fbGetActiveLTCCount",
+            RETURN_TYPE   => LwU32,
+            ARGUMENTS     => "void",
+            STUB_RETURNS  => ZERO,
+            FLAGS         => ":STUB_ASSERT",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GM200        => [ GM20X, PASCAL_thru_TURING, GA100, ],
+            _GA102        => [ AMPERE_and_later, -GA100, ],
+            _STUB         => [ GM10X, ],
+        ],
+
+        IS_TEMP_READ_AVAILABLE => [
+            DESCRIPTION   => "Checks if temperature read delay has expired.",
+            RETURN_TYPE   => LwBool,
+            ARGUMENTS     => "void",
+            STUB_RETURNS  => LW_TRUE,
+            FLAGS         => ":STUB_ASSERT",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibSensor2X", "__FUNC__")',
+
+            _GV10X        => [ VOLTA, AMPERE_and_later, ],
+            _STUB         => [ ALL, -VOLTA, -AMPERE_and_later, ],
+        ],
+
+        SENSOR_GDDR6_X_COMBINED_IS_ENABLED => [
+            DESCRIPTION     => "Checks whether GDDR6/GDDR6X thermal sensor is enabled.",
+            INTERFACE_TAG   => "fbSensorGDDR6XCombinedIsEnabled",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwBool *pBEnabled",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibSensor2X", "__FUNC__")',
+
+            _GA10X          => [ GA10X_and_later, -GA100, ],
+            _STUB           => [ pre_GA10X, GA100, ],
+        ],
+
+        GDDR6_X_COMBINED_TEMP_GET => [
+            DESCRIPTION     => "Gets the GDDR6/GDDR6X combined memory temperature.",
+            INTERFACE_TAG   => "fbGDDR6XCombinedTempGet",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 provIdx, LwTemp *pLwTemp",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibSensor2X", "__FUNC__")',
+
+            LIKE_INTERFACE  => SENSOR_GDDR6_X_COMBINED_IS_ENABLED,
+        ],
+
+        DISABLING_TEMPERATURE_TRACKING => [
+            DESCRIPTION     => "Disable FB temperature tracking",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rtd3Entry", "__FUNC__")',
+
+            _GA10X          => [ GA10X_and_later, -GA100, -G00X, ],
+            _STUB           => [ pre_GA10X, GA100, G00X, ],
+        ],
+
+        WAR_BUG_2805650 => [
+            DESCRIPTION     => "SW WAR for Bug 2805650",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            ONLY_IF         => 'PMU_FB_WAR_BUG_2805650',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GA100          => [ GA100, ],
+            _STUB           => [ ALL, -GA100, ],
+        ],
+
+        GET_NUM_CHANNELS => [
+            DESCRIPTION     => "Public interface to get number of FB channels",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfCf", "__FUNC__")',
+
+            _GA10X          => [ GA10X_and_later, -GA100, -G00X, ],
+            _STUB           => [ pre_GA10X, GA100, G00X, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $fbHal;
+

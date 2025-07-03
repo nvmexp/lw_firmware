@@ -1,0 +1,53 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2021 by LWPU Corporation.  All rights reserved.
+ * All information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "../tools/random.lw"
+#include "cilpstress.h"
+
+extern __shared__ UINT32 smem_array[];
+
+extern "C" __global__ void CILPSupport(const CILPParams params)
+{
+    UINT32 index = blockIdx.x * blockDim.x + threadIdx.x;
+    UINT32* pInput = GetPtr<UINT32*>(params.inputDataPtr);
+    UINT32* pOutput = GetPtr<UINT32*>(params.outputDataPtr);
+    UINT32 numSMemElements = params.bytesPerCta / sizeof(UINT32);
+    UINT32 randomState;
+    InitRandomState(params.randSeed + threadIdx.x, &randomState);
+    
+    for (UINT32 i = threadIdx.x; i < numSMemElements; i+= blockDim.x)
+    {
+        smem_array[i] = static_cast<UINT32>(GetRandom(&randomState)); 
+    }
+    __syncthreads();
+    UINT32 reg;
+    
+    // With numInnerIterations we can prolong the exelwtion for a single kernel
+    // Allows the ability to configure whether we are going to preempt against
+    // a single long kernel or many smaller kernel launches (which are going to
+    // fill the shared memory everytime)
+    for (UINT32 i = 0; i < params.numInnerIterations; i++)
+    {
+        if (i & 1)
+        {
+            reg = pInput[index];
+            reg >>= 1;
+            reg += numSMemElements ? smem_array[i % numSMemElements] : 0;
+        }
+        else
+        {
+            reg = static_cast<UINT32>(GetRandom(&randomState));
+            reg <<= 1;
+        }
+        pOutput[index] = reg;
+    }
+}
+

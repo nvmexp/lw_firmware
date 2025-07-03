@@ -1,0 +1,70 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2017-2021 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "gpusync.h"
+
+extern "C" __global__ void PollAllLocks(device_ptr devPtrSync,    UINT32 kernelCount,
+                                        UINT32 numDevices,        UINT32 deviceIdx,
+                                        device_ptr devPtrTimeout, UINT32 timeoutLoops)
+    __launch_bounds__(1, 1);
+extern "C" __global__ void PollAllLocks(device_ptr devPtrSync,    UINT32 kernelCount,
+                                        UINT32 numDevices,        UINT32 deviceIdx,
+                                        device_ptr devPtrTimeout, UINT32 timeoutLoops)
+{
+    volatile UINT64* sync = GetPtr<UINT64*>(devPtrSync);
+    volatile UINT32* timeoutMatrix = GetPtr<UINT32*>(devPtrTimeout);
+    UINT32 loops = 0;
+    sync[deviceIdx] = kernelCount;
+    UINT64 tempPtr[MAX_SYNC_DEVICES];
+
+    while (true)
+    {
+        UINT32 go = 1;
+
+        for (UINT32 i = 0 ; i < numDevices; i++)
+        {
+            tempPtr[i] = sync[i];
+            go &= (tempPtr[i] >= kernelCount);
+        }
+
+        if (go)
+        {
+            break;
+        }
+        if (loops >= timeoutLoops)
+        {
+            for (UINT32 j = 0; j < numDevices; j++)
+            {
+                if (tempPtr[j] < kernelCount)
+                {
+                    timeoutMatrix[deviceIdx * numDevices + j]++;
+                    break;
+                }
+            }
+        }
+        loops++;
+    }
+}
+
+extern "C" __global__ void LwdaDelay(const UINT64 delayNs)
+    __launch_bounds__(1, 1);
+extern "C" __global__ void LwdaDelay(const UINT64 delayNs)
+{
+    LwdaDelayNs(delayNs);
+}
+
+extern "C" __global__ void WriteU32(device_ptr addr, UINT32 value)
+    __launch_bounds__(1, 1);
+extern "C" __global__ void WriteU32(device_ptr addr, UINT32 value)
+{
+    UINT32* const ptr = GetPtr<UINT32*>(addr);
+    *ptr = value;
+}

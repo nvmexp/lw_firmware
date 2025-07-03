@@ -1,0 +1,1029 @@
+-- _LWRM_COPYRIGHT_BEGIN_
+--
+-- Copyright 2020 by LWPU Corporation.  All rights reserved.  All
+-- information contained herein is proprietary and confidential to LWPU
+-- Corporation.  Any use, reproduction, or disclosure without the written
+-- permission of LWPU Corporation is prohibited.
+--
+-- _LWRM_COPYRIGHT_END_
+
+with Dev_Prgnlcl;             use Dev_Prgnlcl;
+with Dev_Riscv_Csr_64;        use Dev_Riscv_Csr_64;
+with Iopmp_Policy_Types;      use Iopmp_Policy_Types;
+with Mpu_Policy_Types;        use Mpu_Policy_Types;
+with Device_Map_Policy_Types; use Device_Map_Policy_Types;
+with Lw_Types.Shift_Right_Op; use Lw_Types.Shift_Right_Op;
+with Lw_Types;                use Lw_Types;
+with Policy_External;         use Policy_External;
+with Policy_Types;            use Policy_Types;
+with Types;                   use Types;
+
+package Policies is
+    -- MPU is partitioned and mostly owned by rm-proxy/rm partition
+    Always_Clear_MPU_On_Switch : constant LwU1 := 0;
+
+    Default_Debug_Control : constant Plcy_Debug_Control := Plcy_Debug_Control'(
+        Debug_Ctrl => LW_PRGNLCL_RISCV_DBGCTL_Register'(
+        Icd_Cmdwl_Stop   => STOP_ENABLE,
+        Icd_Cmdwl_Run    => RUN_ENABLE,
+        Rsvd1            => LW_PRGNLCL_RISCV_DBGCTL_RSVD1_INIT,
+        Icd_Cmdwl_Step   => STEP_ENABLE,
+        Icd_Cmdwl_J      => J_ENABLE,
+        Icd_Cmdwl_Emask  => EMASK_ENABLE,
+        Icd_Cmdwl_Rreg   => RREG_ENABLE,
+        Icd_Cmdwl_Wreg   => WREG_ENABLE,
+        Icd_Cmdwl_Rdm    => RDM_ENABLE,
+        Icd_Cmdwl_Wdm    => WDM_ENABLE,
+        Icd_Cmdwl_Rstat  => RSTAT_ENABLE,
+        Icd_Cmdwl_Ibrkpt => IBRKPT_ENABLE,
+        Icd_Cmdwl_Rcsr   => RCSR_ENABLE,
+        Icd_Cmdwl_Wcsr   => WCSR_ENABLE,
+        Icd_Cmdwl_Rpc    => RPC_ENABLE,
+        Icd_Cmdwl_Rfreg  => RFREG_ENABLE,
+        Icd_Cmdwl_Wfreg  => WFREG_ENABLE,
+        Rsvd             => LW_PRGNLCL_RISCV_DBGCTL_RSVD_INIT,
+        Start_In_Icd     => ICD_FALSE,
+        Single_Step_Mode => MODE_ENABLE),
+
+        Debug_Ctrl_Lock => LW_PRGNLCL_RISCV_DBGCTL_LOCK_Register'(
+        Icd_Cmdwl_Stop   => STOP_UNLOCKED,
+        Icd_Cmdwl_Run    => RUN_UNLOCKED,
+        Rsvd1            => LW_PRGNLCL_RISCV_DBGCTL_LOCK_RSVD1_INIT,
+        Icd_Cmdwl_Step   => STEP_UNLOCKED,
+        Icd_Cmdwl_J      => J_UNLOCKED,
+        Icd_Cmdwl_Emask  => EMASK_UNLOCKED,
+        Icd_Cmdwl_Rreg   => RREG_UNLOCKED,
+        Icd_Cmdwl_Wreg   => WREG_UNLOCKED,
+        Icd_Cmdwl_Rdm    => RDM_UNLOCKED,
+        Icd_Cmdwl_Wdm    => WDM_UNLOCKED,
+        Icd_Cmdwl_Rstat  => RSTAT_UNLOCKED,
+        Icd_Cmdwl_Ibrkpt => IBRKPT_UNLOCKED,
+        Icd_Cmdwl_Rcsr   => RCSR_UNLOCKED,
+        Icd_Cmdwl_Wcsr   => WCSR_UNLOCKED,
+        Icd_Cmdwl_Rpc    => RPC_UNLOCKED,
+        Icd_Cmdwl_Rfreg  => RFREG_UNLOCKED,
+        Icd_Cmdwl_Wfreg  => WFREG_UNLOCKED,
+        Rsvd             => LW_PRGNLCL_RISCV_DBGCTL_LOCK_RSVD_INIT,
+        Single_Step_Mode => MODE_UNLOCKED));
+
+    -- Policy for GSP-RM-Proxy and GSP-RM, more permissive than HS
+    RM_Debug_Control : constant Plcy_Debug_Control := Plcy_Debug_Control'(
+        Debug_Ctrl => LW_PRGNLCL_RISCV_DBGCTL_Register'(
+        Icd_Cmdwl_Stop   => STOP_ENABLE,
+        Icd_Cmdwl_Run    => RUN_ENABLE,
+        Rsvd1            => LW_PRGNLCL_RISCV_DBGCTL_RSVD1_INIT,
+        Icd_Cmdwl_Step   => STEP_ENABLE,
+        Icd_Cmdwl_J      => J_ENABLE,
+        Icd_Cmdwl_Emask  => EMASK_ENABLE,
+        Icd_Cmdwl_Rreg   => RREG_ENABLE,
+        Icd_Cmdwl_Wreg   => WREG_ENABLE,
+        Icd_Cmdwl_Rdm    => RDM_ENABLE,
+        Icd_Cmdwl_Wdm    => WDM_ENABLE,
+        Icd_Cmdwl_Rstat  => RSTAT_ENABLE,
+        Icd_Cmdwl_Ibrkpt => IBRKPT_ENABLE,
+        Icd_Cmdwl_Rcsr   => RCSR_ENABLE,
+        Icd_Cmdwl_Wcsr   => WCSR_ENABLE,
+        Icd_Cmdwl_Rpc    => RPC_ENABLE,
+        Icd_Cmdwl_Rfreg  => RFREG_ENABLE,
+        Icd_Cmdwl_Wfreg  => WFREG_ENABLE,
+        Rsvd             => LW_PRGNLCL_RISCV_DBGCTL_RSVD_INIT,
+        Start_In_Icd     => ICD_FALSE,
+        Single_Step_Mode => MODE_ENABLE),
+
+        Debug_Ctrl_Lock => LW_PRGNLCL_RISCV_DBGCTL_LOCK_Register'(
+        Icd_Cmdwl_Stop   => STOP_UNLOCKED,
+        Icd_Cmdwl_Run    => RUN_UNLOCKED,
+        Rsvd1            => LW_PRGNLCL_RISCV_DBGCTL_LOCK_RSVD1_INIT,
+        Icd_Cmdwl_Step   => STEP_UNLOCKED,
+        Icd_Cmdwl_J      => J_UNLOCKED,
+        Icd_Cmdwl_Emask  => EMASK_UNLOCKED,
+        Icd_Cmdwl_Rreg   => RREG_UNLOCKED,
+        Icd_Cmdwl_Wreg   => WREG_UNLOCKED,
+        Icd_Cmdwl_Rdm    => RDM_UNLOCKED,
+        Icd_Cmdwl_Wdm    => WDM_UNLOCKED,
+        Icd_Cmdwl_Rstat  => RSTAT_UNLOCKED,
+        Icd_Cmdwl_Ibrkpt => IBRKPT_UNLOCKED,
+        Icd_Cmdwl_Rcsr   => RCSR_UNLOCKED,
+        Icd_Cmdwl_Wcsr   => WCSR_UNLOCKED,
+        Icd_Cmdwl_Rpc    => RPC_UNLOCKED,
+        Icd_Cmdwl_Rfreg  => RFREG_UNLOCKED,
+        Icd_Cmdwl_Wfreg  => WFREG_UNLOCKED,
+        Rsvd             => LW_PRGNLCL_RISCV_DBGCTL_LOCK_RSVD_INIT,
+        Single_Step_Mode => MODE_UNLOCKED));
+
+    Init_Mpu_Control : constant Plcy_Mpu_Control := Plcy_Mpu_Control'(
+        Hash_LWMPU_Enable => 0,
+        Start_Index       => 0,
+        Entry_Count       => 2);
+
+    Acr_Mpu_Control : constant Plcy_Mpu_Control := Plcy_Mpu_Control'(
+        Hash_LWMPU_Enable => 0,
+        Start_Index       => 2,
+        Entry_Count       => 2);
+
+    Attestation_Mpu_Control : constant Plcy_Mpu_Control := Plcy_Mpu_Control'(
+        Hash_LWMPU_Enable => 0,
+        Start_Index       => 4,
+        Entry_Count       => 2);
+
+    Spdm_Mpu_Control : constant Plcy_Mpu_Control := Plcy_Mpu_Control'(
+        Hash_LWMPU_Enable => 0,
+        Start_Index       => 6,
+        Entry_Count       => 2);
+
+    RM_Mpu_Control : constant Plcy_Mpu_Control := Plcy_Mpu_Control'(
+        Hash_LWMPU_Enable => 0,
+        Start_Index       => 8,
+        Entry_Count       => 120);
+
+    Default_Device_Map_Group_0 : constant Plcy_Device_Map_Group_0 := (
+    MMODE => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+    RISCV_CTL => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+    PIC => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+    TIMER => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+    HOSTIF => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+    DMA => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+    PMB => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+    DIO => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0));
+
+    Default_Device_Map_Group_1 : constant Plcy_Device_Map_Group_1 := (
+        KEY => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+        DEBUG => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+        SHA => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+        KMEM => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+        BROM => (
+           Readable => SUBMMODE_READ_ENABLE, -- because to read DMA config
+           Writable => SUBMMODE_WRITE_DISABLE,
+           Reserved => 0),
+        ROM_PATCH => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+        IOPMP => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+        NOACCESS => (
+           Readable => SUBMMODE_READ_DISABLE,
+           Writable => SUBMMODE_WRITE_DISABLE,
+           Reserved => 0));
+
+    Default_Device_Map_Group_2 : constant Plcy_Device_Map_Group_2 := (
+        SCP => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+        FBIF => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+        FALCON_ONLY => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+        PRGN_CTL => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+        SCR_GRP0 => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+        SCR_GRP1 => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+        SCR_GRP2 => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+        SCR_GRP3 => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0));
+
+    Default_Device_Map_Group_3 : constant Plcy_Device_Map_Group_3 := (
+        PLM => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+        HUB_DIO => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+       RESET => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_ENABLE,
+           Reserved => 0),
+       READ_ONLY => (
+           Readable => SUBMMODE_READ_ENABLE,
+           Writable => SUBMMODE_WRITE_DISABLE,
+           Reserved => 0),
+        Reserved => 0);
+
+    Core_Pmp_Access_Mode_RWX : constant PMP_Access_Mode := (
+        Exelwtion_Access => PERMITTED,
+        Write_Access => PERMITTED,
+        Read_Access => PERMITTED,
+        Reserved => 0
+    );
+
+    Core_Pmp_Access_Mode_RX : constant PMP_Access_Mode := (
+        Exelwtion_Access => PERMITTED,
+        Write_Access => DENIED,
+        Read_Access => PERMITTED,
+        Reserved => 0
+    );
+
+    Core_Pmp_Access_Mode_RW : constant PMP_Access_Mode := (
+        Exelwtion_Access => DENIED,
+        Write_Access => PERMITTED,
+        Read_Access => PERMITTED,
+        Reserved => 0
+    );
+
+    Core_Pmp_Access_Mode_R : constant PMP_Access_Mode := (
+        Exelwtion_Access => DENIED,
+        Write_Access => DENIED,
+        Read_Access => PERMITTED,
+        Reserved => 0
+    );
+
+    Core_Pmp_Access_Mode_None : constant PMP_Access_Mode := (
+        Exelwtion_Access => DENIED,
+        Write_Access => DENIED,
+        Read_Access => DENIED,
+        Reserved => 0
+    );
+
+    Core_Pmp_Entry_Disabled : constant Core_Pmp_Entry := (
+        Addr => 16#0#,
+        Address_Mode => OFF,
+        Access_Mode => Core_Pmp_Access_Mode_None,
+        Reserved => 0
+    );
+
+    -- Prefedine all memory regions so there are no mistakes or overlapping entries
+    Emem_Start    : constant Integer := 16#0000_0000_0120_0000#;
+    Emem_End      : constant Integer := 16#0000_0000_0120_2000#;
+
+    -- Imem partitioning, make sure to keep it in sync with ldscript.ld.in
+    Partition_SK_Imem_Start : constant Integer := 16#0000_0000_0010_0000#;
+    Partition_SK_Imem_Size  : constant Integer := 16#$IMEM_SK_SIZE#;
+    Partition_SK_Imem_End   : constant Integer := Partition_SK_Imem_Start + Partition_SK_Imem_Size;
+
+    Partition_Shr_Imem_Start : constant Integer := Partition_SK_Imem_End;
+    Partition_Shr_Imem_Size  : constant Integer := 16#$IMEM_SHR_SIZE#;
+    Partition_Shr_Imem_End   : constant Integer := Partition_Shr_Imem_Start + Partition_Shr_Imem_Size;
+
+    Partition_ACR_Imem_Start : constant Integer := Partition_Shr_Imem_End;
+    Partition_ACR_Imem_Size  : constant Integer := 16#$IMEM_ACR_SIZE#;
+    Partition_ACR_Imem_End   : constant Integer := Partition_ACR_Imem_Start + Partition_ACR_Imem_Size;
+
+    Partition_Att_Imem_Start : constant Integer := Partition_ACR_Imem_End;
+    Partition_Att_Imem_Size  : constant Integer := 16#$IMEM_ATT_SIZE#;
+    Partition_Att_Imem_End   : constant Integer := Partition_Att_Imem_Start + Partition_Att_Imem_Size;
+
+    Partition_RM_Imem_Start : constant Integer := Partition_Att_Imem_End;
+    Partition_RM_Imem_Size  : constant Integer := 16#$IMEM_RM_SIZE#;
+    Partition_RM_Imem_End   : constant Integer := Partition_RM_Imem_Start + Partition_RM_Imem_Size;
+
+    Partition_Init_Imem_Start : constant Integer := Partition_RM_Imem_End;
+    Partition_Init_Imem_Size  : constant Integer := 16#$IMEM_INIT_SIZE#;
+    Partition_Init_Imem_End   : constant Integer := Partition_Init_Imem_Start + Partition_Init_Imem_Size;
+
+    Partition_Spdm_Imem_Start : constant Integer := Partition_Init_Imem_End;
+    Partition_Spdm_Imem_Size  : constant Integer := 16#$IMEM_SPDM_SIZE#;
+    Partition_Spdm_Imem_End   : constant Integer := Partition_Spdm_Imem_Start + Partition_Spdm_Imem_Size;
+
+    -- Dmem partitioning, make sure to keep it in sync with ldscript.ld.in
+    Partition_SK_Dmem_Start : constant Integer := 16#0000_0000_0018_0000#;
+    Partition_SK_Dmem_Size  : constant Integer := 16#$DMEM_SK_SIZE#;
+    Partition_SK_Dmem_End   : constant Integer := Partition_SK_Dmem_Start + Partition_SK_Dmem_Size;
+
+    Partition_Shr_Dmem_Start : constant Integer := Partition_SK_Dmem_End;
+    Partition_Shr_Dmem_Size  : constant Integer := 16#$DMEM_SHR_SIZE#;
+    Partition_Shr_Dmem_End   : constant Integer := Partition_Shr_Dmem_Start + Partition_Shr_Dmem_Size;
+
+    Partition_ACR_Dmem_Start : constant Integer := Partition_Shr_Dmem_End;
+    Partition_ACR_Dmem_Size  : constant Integer := 16#$DMEM_ACR_SIZE#;
+    Partition_ACR_Dmem_End   : constant Integer := Partition_ACR_Dmem_Start + Partition_ACR_Dmem_Size;
+
+    Partition_Att_Dmem_Start : constant Integer := Partition_ACR_Dmem_End;
+    Partition_Att_Dmem_Size  : constant Integer := 16#$DMEM_ATT_SIZE#;
+    Partition_Att_Dmem_End   : constant Integer := Partition_Att_Dmem_Start + Partition_Att_Dmem_Size;
+
+    Partition_RM_Dmem_Start : constant Integer := Partition_Att_Dmem_End;
+    Partition_RM_Dmem_Size  : constant Integer := 16#$DMEM_RM_SIZE#;
+    Partition_RM_Dmem_End   : constant Integer := Partition_RM_Dmem_Start + Partition_RM_Dmem_Size;
+
+    -- Partition Init *must* follow RM as it's reused by RM partition
+    Partition_Init_Dmem_Start : constant Integer := Partition_RM_Dmem_End;
+    Partition_Init_Dmem_Size  : constant Integer := 16#$DMEM_INIT_SIZE#;
+    Partition_Init_Dmem_End   : constant Integer := Partition_Init_Dmem_Start + Partition_Init_Dmem_Size;
+
+    -- MK Note: SPDM is moved to the end, so we can give their .bss as bootrom stack
+    Partition_Spdm_Dmem_Start : constant Integer := Partition_Init_Dmem_End;
+    Partition_Spdm_Dmem_Size  : constant Integer := 16#$DMEM_SPDM_SIZE#;
+    Partition_Spdm_Dmem_End   : constant Integer := Partition_Spdm_Dmem_Start + Partition_Spdm_Dmem_Size;
+
+    Print_Buffer_Dmem_Start : constant Integer := Partition_Spdm_Dmem_End;
+    Print_Buffer_Dmem_Size  : constant Integer := 16#$DMEM_PRINT_SIZE#;
+    Print_Buffer_Dmem_End   : constant Integer := Print_Buffer_Dmem_Start + Print_Buffer_Dmem_Size;
+
+    Core_Pmp_Entry_Emem_Start : constant Core_Pmp_Entry := (
+        Addr => PMP_Address(Shift_Right(LwU64(Emem_Start), 2)),
+        Address_Mode => OFF,
+        Access_Mode => Core_Pmp_Access_Mode_None,
+        Reserved => 0
+    );
+
+    Core_Pmp_Entry_Emem_End : constant Core_Pmp_Entry := (
+        Addr => PMP_Address(Shift_Right(LwU64(Emem_End), 2)),
+        Address_Mode => TOR,
+        Access_Mode => Core_Pmp_Access_Mode_RW,
+        Reserved => 0
+    );
+
+    -- CC-specific helpers to define shared regions
+
+    Core_Pmp_Entry_imem_shr_Start : constant Core_Pmp_Entry  := (
+        Addr => PMP_Address(Shift_Right(LwU64(Partition_Shr_Imem_Start), 2)),
+        Address_Mode => OFF,
+        Access_Mode => Core_Pmp_Access_Mode_None,
+        Reserved => 0
+    );
+
+    Core_Pmp_Entry_imem_shr_End : constant Core_Pmp_Entry  := (
+        Addr => PMP_Address(Shift_Right(LwU64(Partition_Shr_Imem_End), 2)),
+        Address_Mode => TOR,
+        Access_Mode => Core_Pmp_Access_Mode_RX,
+        Reserved => 0
+    );
+
+    Core_Pmp_Entry_dmem_shr_Start : constant Core_Pmp_Entry  := (
+        Addr => PMP_Address(Shift_Right(LwU64(Partition_Shr_Dmem_Start), 2)),
+        Address_Mode => OFF,
+        Access_Mode => Core_Pmp_Access_Mode_None,
+        Reserved => 0
+    );
+
+    Core_Pmp_Entry_dmem_shr_End : constant Core_Pmp_Entry  := (
+        Addr => PMP_Address(Shift_Right(LwU64(Partition_Shr_Dmem_End), 2)),
+        Address_Mode => TOR,
+        Access_Mode => Core_Pmp_Access_Mode_RW,
+        Reserved => 0
+    );
+
+    Core_Pmp_Entry_print_shr_Start : constant Core_Pmp_Entry  := (
+        Addr => PMP_Address(Shift_Right(LwU64(Print_Buffer_Dmem_Start), 2)),
+        Address_Mode => OFF,
+        Access_Mode => Core_Pmp_Access_Mode_None,
+        Reserved => 0
+    );
+
+    Core_Pmp_Entry_print_shr_End : constant Core_Pmp_Entry  := (
+        Addr => PMP_Address(Shift_Right(LwU64(Print_Buffer_Dmem_End), 2)),
+        Address_Mode => TOR,
+        Access_Mode => Core_Pmp_Access_Mode_RW,
+        Reserved => 0
+    );
+
+    ACR_Core_Pmp : constant Plcy_Core_Pmp := (
+        -- Shared regions
+        Core_Pmp_Entry_imem_shr_Start,
+        Core_Pmp_Entry_imem_shr_End,
+        Core_Pmp_Entry_dmem_shr_Start,
+        Core_Pmp_Entry_dmem_shr_End,
+        Core_Pmp_Entry_print_shr_Start,
+        Core_Pmp_Entry_print_shr_End,
+        -- Imem
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_ACR_Imem_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_ACR_Imem_End), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_RX,
+                                Reserved => 0),
+        -- Dmem
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_ACR_Dmem_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_ACR_Dmem_End), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_RW,
+                                Reserved => 0),
+        -- ACR needs read access from FB to access descriptors passed from RM
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(16#7400_0000_0000_0000#), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(16#7800_0000_0000_0000#), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_RW,
+                                Reserved => 0),
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled
+    );
+
+    Attestation_Core_Pmp : constant Plcy_Core_Pmp := (
+        -- Shared regions
+        Core_Pmp_Entry_imem_shr_Start,
+        Core_Pmp_Entry_imem_shr_End,
+        Core_Pmp_Entry_dmem_shr_Start,
+        Core_Pmp_Entry_dmem_shr_End,
+        Core_Pmp_Entry_print_shr_Start,
+        Core_Pmp_Entry_print_shr_End,
+        -- Imem
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_Att_Imem_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_Att_Imem_End), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_RX,
+                                Reserved => 0),
+        -- Dmem
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_Att_Dmem_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_Att_Dmem_End), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_RW,
+                                Reserved => 0),
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled
+    );
+
+    SPDM_Core_Pmp : constant Plcy_Core_Pmp := (
+        -- Shared regions
+        Core_Pmp_Entry_imem_shr_Start,
+        Core_Pmp_Entry_imem_shr_End,
+        Core_Pmp_Entry_dmem_shr_Start,
+        Core_Pmp_Entry_dmem_shr_End,
+        Core_Pmp_Entry_print_shr_Start,
+        Core_Pmp_Entry_print_shr_End,
+        -- Imem
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_Spdm_Imem_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_Spdm_Imem_End), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_RX,
+                                Reserved => 0),
+        -- Dmem
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_Spdm_Dmem_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_Spdm_Dmem_End), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_RW,
+                                Reserved => 0),
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled
+    );
+
+    RmProxy_Core_Pmp : constant Plcy_Core_Pmp := (
+        -- Shared regions
+        Core_Pmp_Entry_imem_shr_Start,
+        Core_Pmp_Entry_imem_shr_End,
+        Core_Pmp_Entry_dmem_shr_Start,
+        Core_Pmp_Entry_dmem_shr_End,
+        Core_Pmp_Entry_print_shr_Start,
+        Core_Pmp_Entry_print_shr_End,
+        Core_Pmp_Entry_Emem_Start,
+        Core_Pmp_Entry_Emem_End,
+        -- Imem, including INIT partition!
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_RM_Imem_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_Init_Imem_End), 2)),
+                                Address_Mode => TOR,
+                                -- Write permitted, because RM partition will overwrite entry code
+                                Access_Mode => Core_Pmp_Access_Mode_RWX,
+                                Reserved => 0),
+        -- Dmem, including INIT partition!
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_RM_Dmem_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_Init_Dmem_End), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_RW,
+                                Reserved => 0),
+        -- Permit exelwtion from FB, we need to execute from WPR only, but there
+        -- is no way to dynamically reconfigure PMP
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(16#7400_0000_0000_0000#), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(16#7800_0000_0000_0000#), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_RWX,
+                                Reserved => 0),
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled
+    );
+
+-- MK TODO: permit read from sysmem
+    Init_Core_Pmp : constant Plcy_Core_Pmp := (
+        -- Shared regions
+        Core_Pmp_Entry_imem_shr_Start,
+        Core_Pmp_Entry_imem_shr_End,
+        Core_Pmp_Entry_dmem_shr_Start,
+        Core_Pmp_Entry_dmem_shr_End,
+        Core_Pmp_Entry_print_shr_Start,
+        Core_Pmp_Entry_print_shr_End,
+        Core_Pmp_Entry_Emem_Start,
+        Core_Pmp_Entry_Emem_End,
+        -- Imem
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_Init_Imem_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_Init_Imem_End), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_RX,
+                                Reserved => 0),
+        -- Dmem
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_Init_Dmem_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Partition_Init_Dmem_End), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_RW,
+                                Reserved => 0),
+        -- Sysmem, to process bootargs
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(16#9400_0000_0000_0000#), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(16#9800_0000_0000_0000#), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_R,
+                                Reserved => 0),
+        Core_Pmp_Entry_Disabled,
+        Core_Pmp_Entry_Disabled
+    );
+
+    Default_Io_Pmp_Entry : constant Io_Pmp_Entry := (
+        Cfg  => Plcy_Io_Pmp_Cfg'(
+            Read         => READ_DISABLE,
+            Write        => WRITE_DISABLE,
+            Fbdma_Imem   => DISABLE,
+            Fbdma_Dmem   => DISABLE,
+            Sha          => DISABLE,
+            Cpdma        => DISABLE,
+            PMB0         => DISABLE,
+            PMB1         => DISABLE,
+            PMB2         => DISABLE,
+            PMB3         => DISABLE,
+            Gdma_Chan0_0 => DISABLE,
+            Gdma_Chan0_1 => DISABLE,
+            Gdma_Chan1_0 => DISABLE,
+            Gdma_Chan1_1 => DISABLE,
+            Gdma_Chan2_0 => DISABLE,
+            Gdma_Chan2_1 => DISABLE,
+            Gdma_Chan3_0 => DISABLE,
+            Gdma_Chan3_1 => DISABLE,
+            SE_AES_0     => DISABLE,
+            SE_AES_1     => DISABLE,
+            SE_HASH      => DISABLE,
+            Lock         => LOCK_UNLOCKED),
+        Mode            => OFF,
+        Addr_Lo_1k      => 0,
+        Addr_Lo_Above1k => 0,
+        Addr_Hi         => 0);
+
+    Default_Io_Pmp : constant Plcy_Io_Pmp := (
+        0 => Default_Io_Pmp_Entry,
+        1 => Default_Io_Pmp_Entry,
+        2 => Default_Io_Pmp_Entry,
+        3 => Default_Io_Pmp_Entry,
+        4 => Default_Io_Pmp_Entry,
+        5 => Default_Io_Pmp_Entry,
+        6 => Default_Io_Pmp_Entry,
+        7 => Default_Io_Pmp_Entry
+       );
+
+    -- Acr needs to be able to read both sysmem and FB, and write FB
+    Acr_Io_Pmp : constant Plcy_Io_Pmp := (
+     -- Permit DMEM access MK TODO: make it DMA buffers only once ACR team refactors
+        0 => Io_Pmp_Entry'(
+                Cfg  => Plcy_Io_Pmp_Cfg'(
+                    Read         => READ_ENABLE,
+                    Write        => WRITE_ENABLE,
+                    Fbdma_Imem   => DISABLE,
+                    Fbdma_Dmem   => ENABLE,
+                    Sha          => ENABLE,
+                    Cpdma        => ENABLE,
+                    PMB0         => DISABLE,
+                    PMB1         => DISABLE,
+                    PMB2         => DISABLE,
+                    PMB3         => DISABLE,
+                    Gdma_Chan0_0 => DISABLE,
+                    Gdma_Chan0_1 => DISABLE,
+                    Gdma_Chan1_0 => DISABLE,
+                    Gdma_Chan1_1 => DISABLE,
+                    Gdma_Chan2_0 => DISABLE,
+                    Gdma_Chan2_1 => DISABLE,
+                    Gdma_Chan3_0 => DISABLE,
+                    Gdma_Chan3_1 => DISABLE,
+                    SE_AES_0     => ENABLE,
+                    SE_AES_1     => ENABLE,
+                    SE_HASH      => ENABLE,
+                    Lock         => LOCK_UNLOCKED),
+                Mode            => NAPOT,
+                Addr_Lo_1k      => 0,
+                -- MK TODO: ACR needs reorganisation of DMEM layout, for now we map
+                -- way more than we should into DMEM iopmp
+                Addr_Lo_Above1k => 16#c2f#, -- Range: 0000000000184000-0000000000187fff size:4000 (16384 bytes)
+                Addr_Hi         => 0),
+        -- block memory that doesn't belong to ACR (0x182000-0x182400)
+        1 => Io_Pmp_Entry'(
+                Cfg  => Plcy_Io_Pmp_Cfg'(
+                    Read         => READ_DISABLE,
+                    Write        => WRITE_DISABLE,
+                    Fbdma_Imem   => ENABLE,
+                    Fbdma_Dmem   => ENABLE,
+                    Sha          => ENABLE,
+                    Cpdma        => ENABLE,
+                    PMB0         => ENABLE,
+                    PMB1         => ENABLE,
+                    PMB2         => ENABLE,
+                    PMB3         => ENABLE,
+                    Gdma_Chan0_0 => ENABLE,
+                    Gdma_Chan0_1 => ENABLE,
+                    Gdma_Chan1_0 => ENABLE,
+                    Gdma_Chan1_1 => ENABLE,
+                    Gdma_Chan2_0 => ENABLE,
+                    Gdma_Chan2_1 => ENABLE,
+                    Gdma_Chan3_0 => ENABLE,
+                    Gdma_Chan3_1 => ENABLE,
+                    SE_AES_0     => ENABLE,
+                    SE_AES_1     => ENABLE,
+                    SE_HASH      => ENABLE,
+                    Lock         => LOCK_UNLOCKED),
+                Mode            => NAPOT,
+                Addr_Lo_1k      => 0,
+                Addr_Lo_Above1k => 16#c10#, -- Range: 0000000000182000-00000000001823ff size:400 (1024 bytes)
+                Addr_Hi         => 0),
+        2 => Io_Pmp_Entry'(
+                Cfg  => Plcy_Io_Pmp_Cfg'(
+                    Read         => READ_ENABLE,
+                    Write        => WRITE_ENABLE,
+                    Fbdma_Imem   => DISABLE,
+                    Fbdma_Dmem   => ENABLE,
+                    Sha          => ENABLE,
+                    Cpdma        => ENABLE,
+                    PMB0         => DISABLE,
+                    PMB1         => DISABLE,
+                    PMB2         => DISABLE,
+                    PMB3         => DISABLE,
+                    Gdma_Chan0_0 => DISABLE,
+                    Gdma_Chan0_1 => DISABLE,
+                    Gdma_Chan1_0 => DISABLE,
+                    Gdma_Chan1_1 => DISABLE,
+                    Gdma_Chan2_0 => DISABLE,
+                    Gdma_Chan2_1 => DISABLE,
+                    Gdma_Chan3_0 => DISABLE,
+                    Gdma_Chan3_1 => DISABLE,
+                    SE_AES_0     => ENABLE,
+                    SE_AES_1     => ENABLE,
+                    SE_HASH      => ENABLE,
+                    Lock         => LOCK_UNLOCKED),
+                Mode            => NAPOT,
+                Addr_Lo_1k      => 0,
+                Addr_Lo_Above1k => 16#c17#, -- Range: 0000000000182000-0000000000183fff size:2000 (8192 bytes)
+                Addr_Hi         => 0),
+        -- Permit FB/Sysmem access
+        3 => Io_Pmp_Entry'(
+                    Cfg  => Plcy_Io_Pmp_Cfg'(
+                        Read         => READ_ENABLE,
+                        Write        => WRITE_ENABLE,
+                        Fbdma_Imem   => DISABLE,
+                        Fbdma_Dmem   => ENABLE,
+                        Sha          => ENABLE,
+                        Cpdma        => ENABLE,
+                        PMB0         => DISABLE,
+                        PMB1         => DISABLE,
+                        PMB2         => DISABLE,
+                        PMB3         => DISABLE,
+                        Gdma_Chan0_0 => DISABLE,
+                        Gdma_Chan0_1 => DISABLE,
+                        Gdma_Chan1_0 => DISABLE,
+                        Gdma_Chan1_1 => DISABLE,
+                        Gdma_Chan2_0 => DISABLE,
+                        Gdma_Chan2_1 => DISABLE,
+                        Gdma_Chan3_0 => DISABLE,
+                        Gdma_Chan3_1 => DISABLE,
+                        SE_AES_0     => ENABLE,
+                        SE_AES_1     => ENABLE,
+                        SE_HASH      => ENABLE,
+                        Lock         => LOCK_UNLOCKED),
+                Mode            => NAPOT,
+                Addr_Lo_1k      => 0,
+                -- Map whole global memory
+                Addr_Lo_Above1k => 16#1ff_ffff#,
+                Addr_Hi         => 16#fff_ffff#), -- MK TODO: this should be way less, but there is something wrong with iopmp matching of global io
+        4 => Default_Io_Pmp_Entry,
+        5 => Default_Io_Pmp_Entry,
+        6 => Default_Io_Pmp_Entry,
+        7 => Default_Io_Pmp_Entry
+    );
+
+    SPDM_Io_Pmp : constant Plcy_Io_Pmp := (
+     -- Permit DMEM access MK TODO: make it DMA buffers only once SPDM team refactors
+        0 => Io_Pmp_Entry'(
+                Cfg  => Plcy_Io_Pmp_Cfg'(
+                    Read         => READ_ENABLE,
+                    Write        => WRITE_ENABLE,
+                    Fbdma_Imem   => DISABLE,
+                    Fbdma_Dmem   => ENABLE,
+                    Sha          => DISABLE,
+                    Cpdma        => DISABLE,
+                    PMB0         => DISABLE,
+                    PMB1         => DISABLE,
+                    PMB2         => DISABLE,
+                    PMB3         => DISABLE,
+                    Gdma_Chan0_0 => DISABLE,
+                    Gdma_Chan0_1 => DISABLE,
+                    Gdma_Chan1_0 => DISABLE,
+                    Gdma_Chan1_1 => DISABLE,
+                    Gdma_Chan2_0 => DISABLE,
+                    Gdma_Chan2_1 => DISABLE,
+                    Gdma_Chan3_0 => DISABLE,
+                    Gdma_Chan3_1 => DISABLE,
+                    SE_AES_0     => DISABLE,
+                    SE_AES_1     => DISABLE,
+                    SE_HASH      => DISABLE,
+                    Lock         => LOCK_UNLOCKED),
+                Mode            => NAPOT,
+                Addr_Lo_1k      => 0,
+                Addr_Lo_Above1k => 16#62dff#, -- Range: 000000000018b000-000000000018bfff size:1000 (4096 bytes)
+                Addr_Hi         => 0),
+        -- block write behind SPDM range
+        1 => Io_Pmp_Entry'(
+                Cfg  => Plcy_Io_Pmp_Cfg'(
+                    Read         => READ_DISABLE,
+                    Write        => WRITE_DISABLE,
+                    Fbdma_Imem   => ENABLE,
+                    Fbdma_Dmem   => ENABLE,
+                    Sha          => ENABLE,
+                    Cpdma        => ENABLE,
+                    PMB0         => ENABLE,
+                    PMB1         => ENABLE,
+                    PMB2         => ENABLE,
+                    PMB3         => ENABLE,
+                    Gdma_Chan0_0 => ENABLE,
+                    Gdma_Chan0_1 => ENABLE,
+                    Gdma_Chan1_0 => ENABLE,
+                    Gdma_Chan1_1 => ENABLE,
+                    Gdma_Chan2_0 => ENABLE,
+                    Gdma_Chan2_1 => ENABLE,
+                    Gdma_Chan3_0 => ENABLE,
+                    Gdma_Chan3_1 => ENABLE,
+                    SE_AES_0     => ENABLE,
+                    SE_AES_1     => ENABLE,
+                    SE_HASH      => ENABLE,
+                    Lock         => LOCK_UNLOCKED),
+                Mode            => NAPOT,
+                Addr_Lo_1k      => 0,
+                Addr_Lo_Above1k => 16#63eff#, -- Range: 000000000018f800-000000000018ffff size:800 (2048 bytes)
+                Addr_Hi         => 0),
+        -- Enable rest of SPDM DMEM
+        2 => Io_Pmp_Entry'(
+                Cfg  => Plcy_Io_Pmp_Cfg'(
+                    Read         => READ_ENABLE,
+                    Write        => WRITE_ENABLE,
+                    Fbdma_Imem   => DISABLE,
+                    Fbdma_Dmem   => ENABLE,
+                    Sha          => DISABLE,
+                    Cpdma        => DISABLE,
+                    PMB0         => DISABLE,
+                    PMB1         => DISABLE,
+                    PMB2         => DISABLE,
+                    PMB3         => DISABLE,
+                    Gdma_Chan0_0 => DISABLE,
+                    Gdma_Chan0_1 => DISABLE,
+                    Gdma_Chan1_0 => DISABLE,
+                    Gdma_Chan1_1 => DISABLE,
+                    Gdma_Chan2_0 => DISABLE,
+                    Gdma_Chan2_1 => DISABLE,
+                    Gdma_Chan3_0 => DISABLE,
+                    Gdma_Chan3_1 => DISABLE,
+                    SE_AES_0     => DISABLE,
+                    SE_AES_1     => DISABLE,
+                    SE_HASH      => DISABLE,
+                    Lock         => LOCK_UNLOCKED),
+                Mode            => NAPOT,
+                Addr_Lo_1k      => 0,
+                Addr_Lo_Above1k => 16#637ff#, -- Range: 000000000018c000-000000000018ffff size:4000 (16384 bytes)
+                Addr_Hi         => 0),
+        3 => Default_Io_Pmp_Entry,
+        4 => Default_Io_Pmp_Entry,
+        5 => Default_Io_Pmp_Entry,
+        6 => Default_Io_Pmp_Entry,
+        7 => Default_Io_Pmp_Entry
+    );
+    -------------------------------------------------------------------------------------------------------------------------------
+    --***************************************************************************************************************************--
+    -------------------------------------------------------------------------------------------------------------------------------
+    -- Partition indices. WARNING: they must match partitions.h
+    Partition_ID_Init       : constant Partition_ID := 0;
+    Partition_ID_ACR        : constant Partition_ID := 1;
+    Partition_ID_RmProxy    : constant Partition_ID := 2;
+    Partition_ID_Attestation: constant Partition_ID := 3;
+    Partition_ID_SPDM       : constant Partition_ID := 4;
+
+    -- Init partition
+    P_Init_Policy : constant External_Policy := (
+        Switchable_To       => Plcy_Switchable_To_Array'(
+                                    Partition_ID_ACR => PERMITTED,
+                                    others => DENIED),
+        Entry_Point_Address => 16#00010_1000#, -- Partition 0
+        Ucode_Id            => 1,
+        Sspm                => Plcy_SSPM'(
+                                Splm => 16#F#, -- L3
+                                Ssecm => SSECM_SEC),
+        Secret_Mask         => Plcy_Secret_Mask'(
+                                Scp_Secret_Mask0 => 1,
+                                Scp_Secret_Mask1 => 0,
+                                Scp_Secret_Mask_lock0 => 0,
+                                Scp_Secret_Mask_lock1 => 0),
+        Debug_Control       => Default_Debug_Control,
+        Mpu_Control         => Init_Mpu_Control,
+        Device_Map_Group_0  => Default_Device_Map_Group_0,
+        Device_Map_Group_1  => Default_Device_Map_Group_1,
+        Device_Map_Group_2  => Default_Device_Map_Group_2,
+        Device_Map_Group_3  => Default_Device_Map_Group_3,
+        Core_Pmp            => Init_Core_Pmp,
+        Priv_Lockdown       => LW_PRGNLCL_RISCV_BR_PRIV_LOCKDOWN_Register'(Lock => LOCK_UNLOCKED),
+        Io_Pmp              => Default_Io_Pmp);
+
+    -- ACR partition
+    P_ACR_Policy : constant External_Policy := (
+        Switchable_To       => Plcy_Switchable_To_Array'(
+                                    Partition_ID_Init => DENIED,
+                                    others => PERMITTED),
+        Entry_Point_Address => 16#00010_1010#, -- Partition 1
+        Ucode_Id            => 2,
+        Sspm                => Plcy_SSPM'(
+                                Splm => 16#F#, -- L3
+                                Ssecm => SSECM_SEC),
+        Secret_Mask         => Plcy_Secret_Mask'(
+                                Scp_Secret_Mask0 => 16#000_0000_8000_0001#, -- Enable secret index 0 and 31
+                                Scp_Secret_Mask1 => 0,
+                                Scp_Secret_Mask_lock0 => 0,
+                                Scp_Secret_Mask_lock1 => 0),
+        Debug_Control       => Default_Debug_Control,
+        Mpu_Control         => Acr_Mpu_Control,
+        Device_Map_Group_0  => Default_Device_Map_Group_0,
+        Device_Map_Group_1  => Default_Device_Map_Group_1,
+        Device_Map_Group_2  => Default_Device_Map_Group_2,
+        Device_Map_Group_3  => Default_Device_Map_Group_3,
+        Core_Pmp            => ACR_Core_Pmp,
+        Priv_Lockdown       => LW_PRGNLCL_RISCV_BR_PRIV_LOCKDOWN_Register'(Lock => LOCK_UNLOCKED),
+        Io_Pmp              => ACR_Io_Pmp
+        );
+
+    -- RM/RM Proxy partition
+    P_RM_Policy : constant External_Policy := (
+        Switchable_To       => Plcy_Switchable_To_Array'(
+                                    Partition_ID_Init => DENIED,
+                                    others => PERMITTED),
+        Entry_Point_Address => 16#00010_1020#, -- Partition 2
+        Ucode_Id            => 5,
+        Sspm                => Plcy_SSPM'(
+                                Splm => 10#1#, -- L0
+                                Ssecm => SSECM_INSEC),
+        Secret_Mask         => Plcy_Secret_Mask'(
+                                Scp_Secret_Mask0 => 0,
+                                Scp_Secret_Mask1 => 0,
+                                Scp_Secret_Mask_lock0 => 0,
+                                Scp_Secret_Mask_lock1 => 0),
+        Debug_Control       => RM_Debug_Control,
+        Mpu_Control         => RM_Mpu_Control,
+        Device_Map_Group_0  => Default_Device_Map_Group_0,
+        Device_Map_Group_1  => Default_Device_Map_Group_1,
+        Device_Map_Group_2  => Default_Device_Map_Group_2,
+        Device_Map_Group_3  => Default_Device_Map_Group_3,
+        Core_Pmp            => RmProxy_Core_Pmp,
+        Priv_Lockdown       => LW_PRGNLCL_RISCV_BR_PRIV_LOCKDOWN_Register'(Lock => LOCK_UNLOCKED),
+        Io_Pmp              => Default_Io_Pmp);
+
+    -- Attestation partition
+    P_Attestation_Policy : constant External_Policy := (
+        Switchable_To       => Plcy_Switchable_To_Array'(
+                                    Partition_ID_Init => DENIED,
+                                    others => PERMITTED),
+        Entry_Point_Address => 16#00010_1030#, -- Partition 3
+        Ucode_Id            => 3,
+        Sspm                => Plcy_SSPM'(
+                                Splm => 10#5#,
+                                Ssecm => SSECM_SEC),
+        Secret_Mask         => Plcy_Secret_Mask'(
+                                Scp_Secret_Mask0 => 1,
+                                Scp_Secret_Mask1 => 0,
+                                Scp_Secret_Mask_lock0 => 0,
+                                Scp_Secret_Mask_lock1 => 0),
+        Debug_Control       => Default_Debug_Control,
+        Mpu_Control         => Attestation_Mpu_Control,
+        Device_Map_Group_0  => Default_Device_Map_Group_0,
+        Device_Map_Group_1  => Default_Device_Map_Group_1,
+        Device_Map_Group_2  => Default_Device_Map_Group_2,
+        Device_Map_Group_3  => Default_Device_Map_Group_3,
+        Core_Pmp            => Attestation_Core_Pmp,
+        Priv_Lockdown       => LW_PRGNLCL_RISCV_BR_PRIV_LOCKDOWN_Register'(Lock => LOCK_UNLOCKED),
+        Io_Pmp              => Default_Io_Pmp);
+
+    -- SPDM partition
+    P_SPDM_Policy : constant External_Policy := (
+        Switchable_To       => Plcy_Switchable_To_Array'(
+                                    Partition_ID_Init => DENIED,
+                                    others => PERMITTED),
+        Entry_Point_Address => 16#00010_1040#, -- Partition 4
+        Ucode_Id            => 4,
+        Sspm                => Plcy_SSPM'(
+                                Splm => 10#5#,
+                                Ssecm => SSECM_INSEC),
+        Secret_Mask         => Plcy_Secret_Mask'(
+                                Scp_Secret_Mask0 => 0,
+                                Scp_Secret_Mask1 => 0,
+                                Scp_Secret_Mask_lock0 => 0,
+                                Scp_Secret_Mask_lock1 => 0),
+        Debug_Control       => Default_Debug_Control,
+        Mpu_Control         => Spdm_Mpu_Control,
+        Device_Map_Group_0  => Default_Device_Map_Group_0,
+        Device_Map_Group_1  => Default_Device_Map_Group_1,
+        Device_Map_Group_2  => Default_Device_Map_Group_2,
+        Device_Map_Group_3  => Default_Device_Map_Group_3,
+        Core_Pmp            => SPDM_Core_Pmp,
+        Priv_Lockdown       => LW_PRGNLCL_RISCV_BR_PRIV_LOCKDOWN_Register'(Lock => LOCK_UNLOCKED),
+        Io_Pmp              => SPDM_Io_Pmp);
+
+-------------------------------------------------------------------------------------------------------------------------------
+--***************************************************************************************************************************--
+-------------------------------------------------------------------------------------------------------------------------------
+    External_Policies : constant External_Policy_Array := External_Policy_Array'(
+        Partition_ID_Init           => P_Init_Policy,
+        Partition_ID_ACR            => P_ACR_Policy,
+        Partition_ID_RmProxy        => P_RM_Policy,
+        Partition_ID_Attestation    => P_Attestation_Policy,
+        Partition_ID_SPDM           => P_SPDM_Policy
+    );
+
+end Policies;

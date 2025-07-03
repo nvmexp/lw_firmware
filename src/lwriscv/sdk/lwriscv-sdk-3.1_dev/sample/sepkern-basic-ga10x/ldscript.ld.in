@@ -1,0 +1,82 @@
+#include <liblwriscv/g_lwriscv_config.h>
+
+OUTPUT_ARCH( "riscv" )
+ENTRY(startup)
+MEMORY {
+    dtcm (rw) : ORIGIN = 0x0000000000181000, LENGTH = LWRISCV_APP_DMEM_LIMIT
+    itcm (rx) : ORIGIN = 0x0000000000101000, LENGTH = LWRISCV_APP_IMEM_LIMIT
+}
+SECTIONS
+{
+  /DISCARD/ : 
+  {
+    *start.o(.text.*)
+    *shutdown_m.o(.text.*)
+  }
+
+  .partition_0_code 0x101000:
+  {
+      KEEP(*(.text.partition_0_startup))
+      . = ALIGN(4);
+      KEEP(*(.text.partition_0_trap_handler))
+      *partition_0_main.o(.text.*)
+      *partition_0_main.o(.rodata.* .srodata*)
+      
+  } > itcm
+
+  ASSERT(. < 0x102000, "partition_0_code size too large")
+
+  .partition_1_code 0x102000 :
+  {
+      KEEP(*(.text.partition_1_startup))
+      . = ALIGN(4);
+      KEEP(*(.text.partition_1_trap_handler))
+      KEEP(*partition_1_main.o(.text.*))
+      KEEP(*partition_1_main.o(.rodata.* .srodata*))
+  } > itcm
+
+  ASSERT(. < 0x103000, "partition_1_code size too large")
+
+  .common_code 0x103000 :
+  {
+      *shutdown_sbi.o(.text.*)
+      *print.o(.text.*)
+      *vprintfmt.o(.text.* .rodata .rodata.*)
+      . = ALIGN(0x100);
+  } > itcm
+
+  ASSERT(. < 0x104000, "common_code size too large")
+
+  .common_data 0x181000:
+  {
+    *print.o(.bss.* .sbss*)
+  } > dtcm
+
+  ASSERT(. < 0x183000, "common_data size too large")
+
+  .partition_0_data 0x183000:
+  {
+    *partition_0_main.o(.data .data.* .sdata*)
+    *partition_0_main.o(.bss .bss.* .sbss*)
+    . = ALIGN(0x1000);
+    _partition_0_stack_bottom = . ;
+    . += 512 ;
+    _partition_0_stack_top = . ;
+  } > dtcm
+
+  ASSERT(. < 0x184000, "partition_0_data size too large")
+
+  .partition_1_data 0x184000:
+  {
+    *partition_1_main.o(.data .data.* .sdata*)
+    *partition_1_main.o(.bss .bss.* .sbss*)
+    . = ALIGN(0x1000);
+    _partition_1_stack_bottom = . ;
+    . += 512 ;
+    _partition_1_stack_top = . ;
+    . = ALIGN(0x100);
+  } > dtcm
+
+  ASSERT(. < 0x185000, "partition_0_data size too large")
+
+}

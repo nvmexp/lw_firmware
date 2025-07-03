@@ -1,0 +1,254 @@
+# -*- mode: perl; -*-
+
+# NNE Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $nneHal = [
+
+    DEFAULTS => [
+        FLAGS => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+        DESC_RAM_SIZE_GET => [
+            DESCRIPTION     => "Get the size of the descriptor RAM, in bytes.",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => void,
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            _GA10X          => [ AMPERE_and_later, -GA100, ],
+            _STUB           => [ pre_AMPERE, GA100, ],
+        ],
+
+        DESC_RAM_HEADER_SIZE_GET => [
+            DESCRIPTION     => "Get the number of bytes for the descriptor RAM header.",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => void,
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_SIZE_GET,
+        ],
+
+        DESC_RAM_NETWORK_HEADER_SIZE_GET => [
+            DESCRIPTION     => "Get the number of bytes for a network's header in the descriptor RAM",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => void,
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_SIZE_GET,
+        ],
+
+        DESC_RAM_LAYER_ENTRY_SIZE_GET => [
+            DESCRIPTION     => "Get the number of bytes for each layer's entry in the descriptor RAM",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => void,
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_SIZE_GET,
+        ],
+
+        DESC_NETWORK_HEADER_BINARY_FORMAT_GET => [
+            DESCRIPTION     => "Get the DLC-compatible binary representation of an NNE_DESC's metadata",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "NNE_DESC *pDesc, LwU32 *pData, LwU32 size, LwU8 loopMax, LwU32 paramRamStatusOffset",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => LW_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_SIZE_GET,
+        ],
+
+        DESC_LAYER_ENTRY_BINARY_FORMAT_GET => [
+            DESCRIPTION     => "Get the DLC-compatible binary representation of an NNE_LAYER's metadata",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "NNE_LAYER *pLayer, LwU32 *pData, LwU32 size, LwU32 swzlRamOffset, LwU32 parmRamOutputOffset, LwBool bOutputStride",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => LW_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_SIZE_GET,
+        ],
+
+        DESC_RAM_NUM_DESC_LOADED_SET => [
+            DESCRIPTION     => "Configure the DLC with the number of descriptors loaded into its RAMs.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 numDesc",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_SIZE_GET,
+        ],
+
+        DESC_RAM_ACCESS => [
+            DESCRIPTION     => "Burst read or write a portion of the descriptor RAM.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 *pData, LwU32 ramOffset, LwU32 copySize, LwBool bWrite",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            _GA10X          => [ AMPERE_and_later, -GA100, ],
+            _STUB           => [ pre_AMPERE, GA100, ],
+        ],
+
+        SWZL_RAM_SIZE_GET =>
+        [
+            DESCRIPTION     => "Get the size of the swizzle RAM, in bytes.",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => void,
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_SIZE_GET,
+        ],
+
+        SWZL_BINARY_FORMAT_GET => [
+            DESCRIPTION     => "Colwert an array of swizzles into their DLC-compatible binary format.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "NNE_SWZL *pSwzl, LwU32 *pBuf, LwU32 numSwzl",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_SIZE_GET,
+        ],
+
+        SWZL_RAM_WRITE => [
+            DESCRIPTION     => "Write a neural-net descriptor's binary into the descriptor RAM.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 *pData, LwU32 ramOffset, LwU32 size",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_ACCESS,
+        ],
+
+        PARM_RAM_SIZE_GET => [
+            DESCRIPTION     => "Get the size of the parameter RAM, in bytes.",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => void,
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_SIZE_GET,
+        ],
+
+        PARM_RAM_ACCESS => [
+            DESCRIPTION     => "Read or write a location in the parameter RAM.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 *pData, LwU32 ramOffset, LwU32 copySize, LwBool bWrite",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_ACCESS,
+        ],
+
+        WEIGHT_RAM_SIZE_GET => [
+            DESCRIPTION     => "Get the size of the weight RAM, in bytes.",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => void,
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_SIZE_GET,
+        ],
+
+        WEIGHT_RAM_WRITE => [
+            DESCRIPTION     => "Write an array of weights to the weight RAM.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 *pData, LwU32 ramOffset, LwU32 copySize",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_ACCESS,
+        ],
+
+        DESC_TRIGGER_INFERENCE_AND_WAIT => [
+            DESCRIPTION     => "Trigger a DLC driven inference, and block until completion.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 nnetId, LwU8 loopCnt, LW2080_CTRL_NNE_NNE_DESC_INFERENCE_CONFIG *pInferenceCfg, LwU64_ALIGN32 *pHwExelwtionTime",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            # Note: with refactoring, it will be possible to merge the TU10X and GA10X implementations again
+            LIKE_INTERFACE  => DESC_RAM_ACCESS,
+        ],
+
+        DESC_INFERENCE_TRIGGER => [
+            DESCRIPTION     => "Trigger a DLC driven inference, and block until completion.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "NNE_SYNC_TRIGGER_PARAMS *pParams",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_ACCESS,
+        ],
+
+        DESC_INFERENCE_CANCEL => [
+            DESCRIPTION     => "Cancel an outstanding inference",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            FLAGS           => "",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_ACCESS,
+        ],
+
+        DESC_INTERRUPT_INIT => [
+            DESCRIPTION     => "Initialize interrupts for NNE descriptor usage.",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            FLAGS           => "",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GA10X          => [ AMPERE_and_later, -GA100, ],
+            _STUB           => [ pre_AMPERE, GA100, ],
+        ],
+
+        DESC_INTERRUPT_SERVICE => [
+            DESCRIPTION     => "Service NNE descriptor interrupts.",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            FLAGS           => "",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_INTERRUPT_INIT,
+        ],
+
+        FP_EXCEPTIONS_PARSE => [
+            DESCRIPTION     => "Parse hardware floating point exception state into hardware-agnostic exceptions.",
+            RETURN_TYPE     => LW2080_CTRL_NNE_NNE_DESC_INFERENCE_FP_EXCEPTION_FLAGS,
+            ARGUMENTS       => "LwU32 hwExceptions",
+            FLAGS           => ":STUB_ASSERT",
+            STUB_RETURNS    => LW2080_CTRL_NNE_NNE_DESC_INFERENCE_FP_EXCEPTION_NONE,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_nne", "__FUNC__")',
+
+            LIKE_INTERFACE  => DESC_RAM_SIZE_GET,
+
+        ],
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $nneHal;
+

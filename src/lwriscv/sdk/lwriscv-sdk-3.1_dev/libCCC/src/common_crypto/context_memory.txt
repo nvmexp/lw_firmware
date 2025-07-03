@@ -1,0 +1,668 @@
+
+Author: Juki <jvirtanen@lwpu.com>
+Date: 2020-05-10
+Version: 0.2
+
+CCC context memory description (CMEM)
+=====================================
+
+CCC context memory (CMEM) was implemented to get rid of the subsystem
+provided memory pool (MEMPOOL). This MEMPOOL could have been
+implemented e.g. using a heap or by some other mechanism, as selected
+by the subsystem.
+
+Description of the old MEMPOOL concept used before CMEM
+-------------------------------------------------------
+
+CCC has used the subsystem MEMPOOL via a few CCC macros which were
+defined in the subsystem specific CCC configuration file
+crypto_system_config.h
+
+The MEMPOOL could be viewed as an external memory handler which
+CCC can always turn to when it needs memory. Even though the
+amount of memory using by each algorithm class only varies
+within some fixed intervals and the number of objects and
+sizes of objects used is fixed on each run of the same algorithm
+class the MEMPOOL did not really know these limits and it
+has to be prepared to serve arbitrary amounts of rather
+arbitrary (less than some max size) sizes of requirements
+with rather arbitrary alignments.
+
+These macros are:
+
+GET_CONTIGUOUS_ZEROED_MEMORY(align, msize)
+RELEASE_CONTIGUOUS_MEMORY(addr)
+ -> allocate and release contiguous objects with given alignment
+    (contiguous in physical memory, alignment is a pow(2) value,
+     may be accessed by both CPU and peripheral DMA memory views)
+
+GET_ZEROED_MEMORY(msize)
+RELEASE_MEMORY(addr)
+ -> allocate and release objects with given alignment
+    (contiguous in virtual memory, accessed with CPU memory view)
+
+Recently a couple of new optional macros were added for specific
+object requirements:
+
+GET_KEY_MEMORY(ksize)
+RELEASE_KEY_MEMORY(addr)
+ -> allocate and release objects with given alignment
+    (contiguous in virtual memory, accessed with CPU memory view)
+    As long as CPU can access the memory space it e.g. may be
+    using on SoC memory which is not accessible by peripherals.
+
+GET_DMA_MEMORY(align, msize)
+RELEASE_DMA_MEMORY(addr)
+ -> allocate and release contiguous objects with given alignment
+    (contiguous in physical memory, alignment is a pow(2) value,
+     may be accessed by both CPU and peripheral DMA memory views)
+
+The above optional macros are for specific purpose of managing KEY
+buffers and DMA buffers. If these macros were not defined by the
+subsystem configuration, these specific memory request would fall back
+to use:
+
+GET_KEY_MEMORY(ksize) =>
+ GET_ZEROED_MEMORY(msize)
+RELEASE_KEY_MEMORY(addr) =>
+ RELEASE_MEMORY(addr)
+
+GET_ALIGNED_DMA_MEMORY(align, msize) =>
+ GET_CONTIGUOUS_ZEROED_MEMORY(align. msize)
+RELEASE_DMA_MEMORY(addr) =>
+ RELEASE_CONTIGUOUS_MEMORY(addr)
+
+When CCC_USE_DMA_MEM_BUFFER_ALLOC defined nonzero
+the GET_ALIGNED_DMA_MEMORY/RELEASE_DMA_MEMORY tuple was used
+to colwert the CCC algorithm context buffers were requested
+using the DMA macros and the rest of the context memory
+was requested using the more generic CONTIGUOUS allocation
+macros. This was a required separation for some subsystems
+having issues with DMA memory.
+
+The above setup has worked so far, but it does not really match with
+the safety rule that dynamic memory must not be used. This requirement
+makes sense, but removing the MEMPOOL need was not possible due to
+release schedules and other activity.
+
+CMEM implementation
+===================
+
+The CCC CMEM will change the above MEMPOOL radically. All code
+using memory needs to be changed so that it has some memory context
+to request the memory from and that context needs to be passed
+a pre-defined size of pre-allocated memory.
+
+My goal is that every algorithm class call will need a maximum of 4096
+bytes (PAGE_SIZE) of such memory per call. When passed a memory buffer
+of PAGE_SIZE, the CMEM memory management internal to CCC will take
+care of slicing that memory for the memory needs of CCC algorithms.
+
+To do that all memory handling calls in CCC need to be rewritten
+and some code needs to be rewritten because they earlier did not have
+anything that could derive the memory context from.
+
+In addition to internal changes, the clients will need to pass
+one or more tuples of <buffer address, size> in the CCC crypto API
+context object so that each CCC call can internally use those
+provided memory buffers as CMEM context memory.
+
+Since the CCC crypto API already operates mainly with two parameters and
+all algorithms use the same three entry points to CCC the client
+side change are rather simple.
+
+Further, adding support of CMEM must be invisible to the clients,
+which means that selection of MEMPOOL and CMEM memory object support
+needs to be supported at runtime, per each subsystem client CCC crypto
+API context object lifetime.
+
+It must also be possible to use compile time selection to disable
+either mechanism. My target is that when clients will move to CMEM,
+test it and decide to use it, then they can drop the MEMPOOL
+implementation out of the system unless required for other purposes
+than CCC.
+
+CCC changes for CMEM
+--------------------
+
+To achieve that the first phase (phase 1) of changes is to change
+all CCC mempool macro calls into a single macro call which
+also contains the memory context ref, an tag for identifying
+the nature of memory requested, the object alignment and the size.
+
+Likewise the memory release macros need to be changed to contain
+the memory context ref, a tag for identifying the nature
+of the memory released and the address.
+
+Phase 1 in CMEM colwersion
+++++++++++++++++++++++++++
+
+CMTAG_MEM_GET_BUFFER(cmem, cm_tag, align, bsize)
+
+CMTAG_MEM_RELEASE(cmem, cm_tag, cm_obj)
+
+For type safety I add another memory request macro which
+uses the same implementation as CMTAG_MEM_GET_BUFFER() for memory
+slice management but it just does a type cast of the returned memory
+address to given type and the object size requested is using
+sizeof_u32(type):
+
+CMTAG_MEM_GET_OBJECT(cmem, cm_tag, align, basetype)
+
+So the above returns a memory object reference of type basetype instead
+of uint8_t ref. There is only one release macro for both of the
+above "GET" macros.
+
+After the first phase all memory handler calls will pass a NULL
+pointer as memory context to the CMEM implementation. When the CMEM
+implementation call receives a NULL pointer as context memory
+memory context ref it will use the subsystem MEMPOOL to manage the object,
+i.e. it maps the call to the old memory management macros.
+
+It will use the TAG to know which kind of call to make to the mempool,
+so the TAGs need to be defined:
+
+enum cmtag_e {
+	CMTAG_NONE = 0,
+	CMTAG_PKA_DATA,
+	CMTAG_BUFFER,
+	CMTAG_ECONTEXT,
+	CMTAG_KOBJECT,
+	CMTAG_API_STATE,
+	CMTAG_ALIGNED_BUFFER,
+	CMTAG_ALIGNED_DMA_BUFFER,
+	CMTAG_ALIGNED_CONTEXT,
+};
+
+There are 8 actual memory request types used by CCC:
+
+PKA_DATA => requests object of type struct pkae_engine_data
+
+BUFFER => generic buffer
+
+ECONTEXT => engine context object
+
+KOBJECT => key object (all key buffers in CCC are identical),
+           so this is of type te_args_key_data_t (it has a couple
+	   of other names, but the object is identical in form and size).
+
+API_STATE => API layer algorithm class state object
+
+ALIGNED_BUFFER => contiguous byte buffer
+
+ALIGNED_DMA_BUFFER => contiguous buffer for DMA access
+
+ALIGNED_CONTEXT => algorithm context buffer
+
+If backtracking with some text above, recall that ALL of the objects
+used by ANY CCC calls will fit in a SINGLE PAGE. That statement
+means that every object is implicitely contiguous, because they
+all fit in a single page. This means we do not need to care about
+page boundaries in physical memory.
+
+Also note that CCC core code never copies algorithm input data in
+large amounts around, but it may need to handle fragmented input data
+by splitting it into several calls. This may occur when the CPU sees
+the physical memory through a series of MMU's which makes the memory
+look linear. The peripherals, like the SE engine does not use the same
+MMU as the CPU does, instead it uses the SMMU. The issue with that is
+that the SMMU may not be enabled (peripheral must use the SMMU bypass
+to look at physical memory directly, which may result in fragmented
+buffers with holes in between). Holes can be avoided by using
+the CONTIGUOUS BUFFER requests in MEMPOOL, but the CMEM avoids this
+because all used memory fits in a single page, so it reduces complexity.
+
+After all CCC memory handling calls are colwerted to use the
+CMTAG_MEM_GET_xxx() macro calls all locations that call those call them
+with NULL arguments.
+
+Ref ->
+ dev/ccc-devel commit Change-Id: Ia1137dc590d8fd8ff2d910db47712a163ad82770
+
+Phase 2 of CMEM implementation
+++++++++++++++++++++++++++++++
+
+At this point an implementation for the
+macros is required so that the single point entry memory calls
+with type tags can be tested.
+
+All CCC tests must now pass in every platform.
+
+Ref ->
+ dev/ccc-devel commit Change-Id: Ic2372c5d8bc87f1bd73c6f635540046c2457510c
+
+After the tests pass all locations which call the CMTAG_MEM_GET_xxx() or
+CMTAG_MEM_RELEASE() macros need to be able to locate the memory context
+so that they can later stop using MEMPOOL for the memory management.
+
+Up to this point it did not matter, because MEMPOOL uses a "global context",
+i.e. value NULL for the memory context ref.
+
+So, all code in CCC that does not have any kind of context must be modified
+by some means. Also as much as possible memory consumption needs to
+be minimized, resused and optimized so that everything fits in PAGE_SIZE
+memory buffer.
+
+Mostly this is successful at this point. There are some exceptions, fortunately
+only a couple. But there are some good exlwses for these cases.
+
+Exceptions
+..........
+
+CCC provides a couple of "library mode APIs" for special functions
+which are not accessible via the CCC crypto API. Because these
+functions may be used by subsystems it is not nice if we change these
+APIs because it causes issues in compiling and, worse, with GVS runs
+when CCC changes but the subsystem is not adapted to the change but
+CCC change needs to pass GVS with the change. This is kind of a
+chicken and egg problem.
+
+One such API is the Montgomery value calculator for RSA, which is
+not used by production code at all. It exists in case a subsystem
+needs those values but does not have other means to callwlate them.
+
+This API does not contain a context, because it is a self-contained
+R&D only call:
+
+status_t se_get_rsa_montgomery_values(uint32_t rsa_size_bytes,
+				      uint8_t *modulus,
+				      bool is_big_endian,
+				      uint8_t *m_prime,
+				      uint8_t *r2);
+
+The above is only compiled if HAVE_RSA_MONTGOMERY_CALC is nonzero.
+This code now either uses the MEMPOOL (unless forbidden) and if
+forbidden it will use a 512 byte static buffer. Note that the stack
+size of most systems where CCC runs is so small that adding any large
+objects to stack will end up badly, so that is never allowed.  A
+static buffer is not an issue with an R&D montgomery calculator which
+is not used by CCC core.
+
+This is also an example of reducing memory usage, it now uses 512
+bytes of memory compared with the 1.5. KB used earlier by using client
+buffers and reworking the montgomery calculator internals. As a side
+note, T23X does not need external montgomery values, this calculator
+is only needed for T19x.
+
+The other example is not as nice, but it is related. The library mode
+provides a call to save RSA keys into keyslots. As above, the T19X
+system needs the montgomery values when operating (e.g.) with RSA
+keys and CCC callwlates those at runtime if not provided by the
+caller. This callwlation needs memory which is not available since
+the call chain down to function does not contain a context.
+
+status_t pka1_rsa_write_key_locked(const struct engine_s *engine,
+				   uint32_t rsa_keyslot,
+				   uint32_t rsa_expsize_bytes,
+				   uint32_t rsa_size_bytes,
+				   const uint8_t *exponent,
+				   const uint8_t *modulus,
+				   bool exponent_big_endian,
+				   bool modulus_big_endian,
+				   const rsa_montgomery_values_t *mg);
+
+As said, this code is only used in T19x, but it is anyway annoying.
+When CCC calls this function it is in a locked context (see
+function rsa_keyslot_set() in crypto_ks_pka.c). A subsystem
+using this call directly to save RSA keys into keyslots also
+needs to be in a locked context when calling any of the CCC functions
+with name "xxx_locked()" so the solution to this case is similar
+to the montgomery calculator API => use a static buffer.
+
+The above two examples are both related to Montgomery value
+callwlations and the API does not receive either a memory buffer to
+use at runtime or a context pointer to get a memory context ref so both
+of these are solved by using a STATIC BUFFER (which by nature is not
+thread safe). But since the first one is an R&D interface only and the
+second is called as a locked context, neither of these exceptions
+really matter.
+
+So far, there are no other cases found in CCC that can not be modified
+to contain or already contain a suitable context for fetching the
+memory context ref for using CMEM.
+
+Change in API context object static initializers
+++++++++++++++++++++++++++++++++++++++++++++++++
+
+Another systematic change that had to be done is to decide where to
+place the CMEM memory context refs. Let's discuss the context references
+later, but we need to be able to fetch them for the calling context
+by some means.
+
+Since the CMEM system needs to be accessed at every layer of the CCC
+core, the natural location for the reference is the ENGINE CONTEXT
+object.  So, each engine context object type in tegra_se.h will get a
+new field of type:
+
+struct context_mem_s  *cmem; /* context memory for this call chain or NULL */
+
+The engine contexts are initialized by calls like:
+
+status_t XXX_engine_context_static_init(YYY);
+
+which in turn are called from algorithm context initializers like:
+
+status_t XXX_context_static_init(ZZZ);
+
+I considered adding another set of initializer for injecting a value
+to each engine context type cmem field. This works, but it is
+unfortunately error prone: If such a call is omitted the cmem will be
+left NULL and the call chain will use MEMPOOL instead of CMEM.
+
+So, I decided to change the static initialized call apis to
+INCLUDE the cmem parameter object, which is either NULL or a ref
+to the context memory object.
+
+There is a side effect in this change: If a subsystem is bypassing
+the CCC crypto API (like some systems do) and they directly access
+e.g. the CCC engine layer functions: All of these functions need an
+ENGINE CONTEXT object of some sort. When a subsystem initializes
+those objects, they very likely use a call like:
+
+status_t XXX_engine_context_static_init(YYY), which now has an
+additional parameter cmem. Thus, this change is not backwards
+compatible like the other alternative would have been, but I decided
+still to use this. If such a subsystem wants to continue
+using MEMPOOL => they just need to add a NULL parameter for cmem
+to make the code work again. If the subsystem wants to start using
+CMEM system, it needs to pass a cmem object ref instead.
+
+CMEM support functions can be used for colwerting a
+memory buffer into a cmem reference, so that is simple to do
+once a subsystem switches to using CCC CMEM system.
+
+But, it may cause those GVS issues requiring synchronized
+changes to subsystem; we shall deal with those by adding the
+extra NULL parameters as required.
+
+CMEM memory context references
+------------------------------
+
+The memory buffers from subsystem calls are passed in the object
+crypto_context_t which is part of every call to CCC crypto API.
+
+There is a new field:
+
+struct context_mem_s ctx_mem;
+
+This object contains at least one tuple like <uint8_t *buf, uint32_t size>
+Each of the MAX three tuples point to a memory location with a given size.
+
+If the system does NOT use separare DMA memory area or KEY memory area
+then ctx_mem looks like this:
+
+struct context_mem_s {
+	uint8_t *cmem_buf;
+	uint32_t cmem_size;
+}
+
+If there is a separate DMA memory for the context call then it adds:
+
+uint8_t *cmem_dma_buf;
+uint32_t cmem_dma_size;
+
+and a separate KEY memory area adds:
+
+uint8_t *cmem_key_buf;
+uint32_t cmem_key_size;
+
+The memory type tags for the above memory areas are as:
+
+enum cmem_type_e {
+	CMEM_TYPE_NONE,
+	CMEM_TYPE_GENERIC, /* Used for all types if no DMA or KEY defined */
+	CMEM_TYPE_KEY, /* Used for KEY objects */
+	CMEM_TYPE_DMA, /* Used for DMA access buffers */
+};
+
+If there are no such DMA/KEY areas used, those fields are not compiled
+in code and only GENERIC is used for all requests.
+
+The combined size of all memory areas used does not exceed one page,
+but normally it is recommended to pass a page for each if possible.
+If a subsystem is very short of memory the estimated absolute minimal sizes
+for each alogorithm class calls is defined in the API layer handler codes
+in crypto_xxx.c files in a static struct cm_layout_s object.
+It contains (max) three sizes, each one is the minimal size of
+GENERIC, DMA and KEY memory size for that particular algorithm class.
+
+If the memory is shorter than this ERR_NO_MEMORY is returned.  When
+enabling DMA and/or KEY memory fragments, the min size of GENERIC is
+reduced accordingly since the DMA and/or KEY memory slices will not
+get reserved from it. If these numbers are INCREASED, larger memory must
+be passed to avoid ERR_NO_MEMORY returns.
+
+The values are rather arbitrary based on test runs, so it is possile
+that a configuration combination will require more than the minimal
+amount of memory; but please remember that the recommendation is to
+pass PAGE_SIZE memories instead of poking the source to find the
+estimated minimal amount of memory.
+
+If you encounter a misconfiguration, please let me know.
+
+CMEM descriptors
+----------------
+
+Each of the (max) three memory areas (buffers) need to be aligned to
+64 byte boundary and need to be contiguous. They are contiguous, if
+they are in a single page. They are also aligned if the page boundary
+is passed as a buffer address. If mid-page buffers are passed, please align
+them to 64 bytes to avoid error returns.
+
+Each buffer is aligned to 64 bytes. This is very colwenient, since the
+largest cache line size we use in any of our systems is also 64 bytes.
+
+So, this implies that the buffers are CACHE LINE aligned. This is a
+very important property, because unaligned cache lines will lead to
+corruption when DMA is not cache coherent with the CPU. CCC manages
+cache lines internally when required, as long as objects are cache
+line aligned.
+
+Each CMEM buffer is divided into SLICES, each of which is a positive
+multiple of 64 bytes in size.
+
+SLICE(0) is special: It contains a CMEM DESCRIPTOR.
+
+All other slices contain data used by CCC or are inactive.
+
+The CMEM descriptor is as follows:
+
+#define MEM_SLICE_COUNT_MAX 7
+
+/* 8 bytes per entry */
+struct mem_slice_s {
+	enum cmtag_e	sli_tag;    /**< Slice allocation tag (CMTAG_NONE: not in use) */
+	uint16_t	sli_offset; /**< Slice offset from aligned base */
+	uint16_t	sli_len;    /**< Slice length */
+};
+
+struct cmem_memory_descriptor_s {
+	uint16_t	  d_size;  /**< Lwrrently used */
+	uint16_t	  d_max;   /**< Max mem usage */
+	uint16_t	  d_free_space; /**< after descriptor to end of cmem */
+	uint16_t 	  d_entries_used; /**< entries in use */
+	struct mem_slice_s d_ent[ MEM_SLICE_COUNT_MAX ];
+};
+
+/* 8 + (MEM_SLICE_COUNT_MAX*8) == 64
+ */
+struct cmem_desc_s {
+	union {
+		struct cmem_memory_descriptor_s cde;
+
+		/* This will get accessed past the descriptor object
+		 * end in cmem_get_slice(). This is intentional, the
+		 * memory buffer starts at
+		 * &cde_bytes[CMEM_DESCRIPTOR_SIZE]
+		 * after the descriptor.
+		 *
+		 * Such a descriptor is in front of each CMEM buffer
+		 * area, in cde_bytes[0..63].
+		 */
+		uint8_t cde_bytes[0];
+	};
+};
+
+Note that the above allows each memory buffer to be SPLIT into
+7 SLICES (in addition to the 64 byte descriptor).
+
+This limits every CCC algorithm call chain to 7 simultaneous active
+object reservations. If more slices are needed ERR_NO_MEMORY is
+returned.
+
+So, every buffer passed in can be colwerted to a CMEM
+by treating it to be of type struct cmem_desc_s.
+
+The zero size uint8_t cde_bytes[0]; field gets accessed PAST the
+object end, which is a common mechanism in cases like this.  The size
+of the buffer was passed in e.g. field cmem_size in context memory ref
+object.
+
+CMEM slice management
+---------------------
+
+Each time a CMTAG_MEM_GET_xxx() call is made, it contains a
+TAG for the request type.
+
+If the tag is CMTAG_KOBJECT and key mem is defined, it is reserved
+from key mem.
+
+If the tag is CMTAG_DMA_BUFFER and dma mem is defined, it is reserved
+from dma mem.
+
+If not defined or not of the above types, it is reserved from GENERIC.
+
+CMEM slices ar searched from SLICE(1..7) as followed: If the slice is
+active it is skipped. If it is not the last slice, but it is inactive
+CMEM checks if the request will fit in that slice. If it does, the
+slice is reserved and the address of the slice is returned to the caller.
+If this is the last slice and there is room to reserve the amount of
+64 byte aligned size, a new slice is marked active and returned to caller.
+
+Note that all returned memory areas are cleared before passing the address
+to caller.
+
+Note that all slices are aligned to 64 bytes, not matter what the alignment
+request size is, because in CMEM none of the slices can pass page boundaries.
+In such a case, CACHE LINE size alignment is the max alignment which is ever
+needed.
+
+This is not the case for MEMPOOL objects, because they are not required
+to exist in a single page.
+
+Hence, CMEM objects are simpler and all object addresses are aligned
+to 64 bytes (max CACHE_LINE size in our systems).
+
+When an address is released by CMTAG_MEM_RELEASE() call the TAG is used
+to find the correct CMEM descriptor as above, the address is
+checked to be one of the reserved slice addresses and the object
+is marked inactive.
+
+If a released slice is not known by the CMEM, a LOG_ERROR() is called
+and then the request is ignored. This is because the API does not
+return a status_t on object releases (Could change => more work).
+
+After each slice release code calls cmme_gc_slices() to garbage collect
+in case the LAST active slice was released. If it is, it will combine
+the last released object size into the free memory pool.
+
+If SLICE(1) is released it implies that the call chain has released
+all objects. In this case (if enabled) the garbage collector will
+call cmem_descriptor_mem_use(mdesc) to log the CMEM statisticts
+for the call chain with this memory descriptor.
+
+Using CMEM in client
+--------------------
+
+Client can colwert any suitable contiguous memory area into CMEM
+memory reference with the call:
+
+status_t cmem_from_buffer(struct context_mem_s *cmem,
+			  enum cmem_type_e cmtype,
+			  uint8_t *buf, uint32_t blen);
+
+If more than one memory type is required, call it more times with the
+same cmem object ref and different cmtype.
+
+After this, it can be used as cmem parameter to the static initializers which
+set it to the ENGINE CONTEXT.
+
+Using implicit CMEM
+-------------------
+
+If the subsystem is a single threaded system which always completes a
+new CCC crypto API call fully (or it retruns an error) before starting
+a next CCC crypto API call for another context, then there is a simple
+way of switching from MEMPOOL into using CMEM.
+
+When the HAVE_IMPLICIT_CONTEXT_MEMORY_USE is defined nonzero the CCC
+crypto API context calls will AUTOMATICALLY inject a static buffer of
+PAGE_SIZE into every context. Since the same buffer is shared between
+all calls only single context can be active at any one time, i.e. the
+algorithms must complete before another call chain is started.
+
+If this is violated, can the calling context does not own the
+static buffer, an error is returned.
+
+The buffer is reserved for a context in OP_INIT and released on
+OP_RESET or error.
+
+When used like this any complying client subsystem can be ilwisibly
+switched to use CCC CMEM with no changes if it only uses CCC via the
+crypto API. If subsystem uses engine api or other internal apis then
+some changes are required.
+
+CMEM compile time options
+-------------------------
+
+Compile time options with default values:
+
+/* Enable context memory support */
+#define HAVE_CONTEXT_MEMORY 0
+
+/* Implicitly pass internal static p age as CMEM
+ * in all CCC api calls.
+ *
+ * Only possible to set this in sequential
+ * subsystems, like PSC.
+ *
+ * Also usable in well controlled test setups in more
+ * complex systems that might normally not be
+ * sequential, if the tests are run sequentially.
+ */
+#define HAVE_IMPLICIT_CONTEXT_MEMORY_USE 0
+
+/* If set, not possible to use memory pool: CMEM is mandatory.
+ * Memory pool use triggers an error for algorithm memory.
+ *
+ * If not set, use memory pool if context does not set CMEM
+ * (i.e. selected by caller at runtime).
+ */
+#define FORCE_CONTEXT_MEMORY 0
+
+/* Tracing options for CMEM implementation:
+ *  CCC_TRACE_CMEM_OPS : trace all CCC CMEM object manipulations if set.
+ *  CCC_TRACE_CMEM_USAGE : trace all CCC CMEM memory usage if set.
+ *
+ * Subsystem may need additional options to enable R&D log output.
+ */
+#define CCC_TRACE_CMEM_OPS 0
+#define CCC_TRACE_CMEM_USAGE 0
+
+/* Only set if KEY objects should reside in
+ * separate memory (not for PSC) for "keys".
+ * Memory space should be specified in context.
+ *
+ * This is automatically defined nonzero if subsystem defined the macro
+ *  GET_KEY_MEMORY
+ */
+#define CCC_WITH_CONTEXT_KEY_MEMORY 0
+
+/* Only set if DMA objects should reside in
+ * separate memory (not for PSC) for "DMA access".
+ * Memory space should be specified in context.
+ *
+ * This is automatically defined nonzero if subsystem defined the macro
+ *  GET_ALIGNED_DMA_MEMORY
+ */
+#define CCC_WITH_CONTEXT_DMA_MEMORY 0

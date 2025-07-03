@@ -1,0 +1,13 @@
+aggregate project Ucode_Aggregator is
+
+   for Project_Files use ("ns_code.gpr", "Hs_Code_Wrapper.gpr", "Hs_Libs.gpr", "../../../ucode/" & external("BUILD_UCODE") & "/spark_code/config/project_files/hs_ucode_core.gpr");
+   for Project_Path use (".", "../../../ucode/" & external("BUILD_UCODE") & "/spark_code/config/project_files");
+
+  package Builder is
+
+      for Global_Configuration_Pragmas use "../global_config_pragmas.adc";
+      for Global_Compilation_Switches ("Ada") use ("-gnateT=" & Ucode_Aggregator'Project_Dir & "../target32.atp");
+   end Builder;
+
+end Ucode_Aggregator;
+

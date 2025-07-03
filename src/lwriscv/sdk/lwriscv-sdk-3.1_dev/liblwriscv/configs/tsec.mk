@@ -1,0 +1,12 @@
+# Engine configuration, to be included by other configs
+LWRISCV_IS_ENGINE := sec
+
+ifeq ($(LWRISCV_IS_CHIP),t234)
+LWRISCV_IMEM_SIZE := 0x21000
+LWRISCV_DMEM_SIZE := 0x15000
+LWRISCV_EMEM_SIZE := 0x2000
+endif
+
+LWRISCV_HAS_DIO_SE := y
+LWRISCV_HAS_DIO_SNIC := y
+LWRISCV_HAS_SHA := y

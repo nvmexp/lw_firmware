@@ -1,0 +1,77 @@
+
+LWPU MODS, MOdular Diagnostic Software, allows users to test LWPU
+hardware.
+
+Package contents
+================
+
+The MODS package contains the following files:
+    README                  This file
+    mods                    MODS exelwtable
+    install_module.sh       Installation script for the MODS kernel module
+    mods_kernel_driver.tgz  Source code of the MODS kernel module
+    default.bin             LWPU logo image
+    lrf.bin                 Test file
+    grf.bin                 Test file
+
+Usage
+=====
+
+Usage:
+    % ./mods [options]
+
+Options:
+    -v                  Displays version information and exits.
+    -notest             Displays system configuration and does not perform
+                        any testing.
+    -dev N              Runs MODS on the selected device (N is zero-based
+                        index).
+    -poll_interrupts    Troubleshooting option when the OS is unable to hook
+                        interrupts.
+    -blink_lights       Blinks keyboard lights when tests are running.
+
+Any other options are ignored.
+
+MODS kernel module
+==================
+
+MODS comes with a kernel module which is needed to communicate directly with
+the hardware. The kernel module needs to be built the first time MODS is run,
+therefore the system must have Linux kernel headers installed.
+
+When MODS is ran with root privileges, it will automatically build and insert
+the kernel module if it finds out that the kernel module is not installed.
+
+If MODS is ran from an ordinary user account, the kernel module has to be
+pre-installed by the root user with the install_module.sh script which comes
+with MODS. After the kernel module is loaded, it publishes a device node
+/dev/mods. The user who runs MODS must have sufficient access rights to be
+able to access this device. The access rights to the kernel module can be
+altered in udev rules file, typically /etc/udev/rules.d/99-mods.rules.
+
+When the kernel module is installed with the install_module.sh script, it will
+still not be automatically loaded on boot. Either the root user must execute
+`modprobe mods' or the MODS module must be placed in a distribution-dependent
+file which lists auto-loaded modules, for example in /etc/modules (Debian) or
+/etc/conf.d/modules (Gentoo).
+
+Tests performed by MODS
+=======================
+
+MODS performs several tests during a run:
+ * MatsTest (test 3)        CPU-bound memory test.
+ * Random2d (test 58)       2D graphics test.
+ * GLRandomTest (test 16)   OpenGL test.
+ * LwdaMatsTest (test 87)   LWCA-based memory test.
+ * LwdaGrfTest (test 89)    LWCA shared memory test.
+ * CheckPCIExpressBus       background test which counts errors on the PCI
+                            Express bus during other tests' exelwtion.
+
+Some tests (such as test 58 or test 16) run twice to verify that their results
+are stable and consistent.
+
+The background CheckPCIExpressBus test sometimes reports "Pcie error
+detected". These are the correctible errors allowed by the PCI Express
+specification. If the number of the correctible errors grows above a certain
+threshold, the test will fail and notify about it. The test also detects
+non-correctible errors and fails if there are any.

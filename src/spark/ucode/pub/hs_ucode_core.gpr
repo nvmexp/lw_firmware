@@ -1,0 +1,21 @@
+with "../../libs/Hs_Libs.gpr";
+
+project Hs_Ucode_Core is
+
+   Architecture : Hs_Libs.Architecture_Type := Hs_Libs.Architecture;
+   FALCON       : Hs_Libs.FALCON_Type := Hs_Libs.FALCON;
+
+   for Source_Dirs use ("src/ada_src/pub_ada_src/common/lw",
+                        "src/ada_src/pub_ada_src/common/" & Architecture,
+                        "src/ada_src/register_instances/common/" & Architecture);
+   for Main use ("pub_main.adb");
+
+   package Compiler renames Hs_Libs.Compiler;
+   package Builder renames Hs_Libs.Builder;
+   package Prove renames Hs_Libs.Prove;
+   package Documentation renames Hs_Libs.Documentation;
+
+    Obj_Dir := "src/c_src";
+   for Object_Dir use Obj_Dir;
+
+end Hs_Ucode_Core;

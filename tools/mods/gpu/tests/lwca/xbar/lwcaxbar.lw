@@ -1,0 +1,263 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2016-2019 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "../tools/tools.h"
+#include "lwdaxbar.h"
+
+__shared__ UINT32 s_NumErrors;
+__shared__ UINT32 s_MaxLocalErrors;
+extern __shared__ XbarBadValue s_Errors[];
+
+#if INJECT_ERRORS == 1
+__device__ UINT32 MakeError(UINT32* ptr, UINT32* basePtr, UINT32 loop, UINT64 iteration)
+{
+    const UINT64 offset = reinterpret_cast<UINT64>(ptr) -
+                                reinterpret_cast<UINT64>(basePtr);
+    UINT32 value = 0;
+
+    // Only report on some memory locations
+    if ((offset % 0x228E00 == 0) && (loop + iteration == 10))
+    {
+        value = static_cast<UINT32>(0x80000000);
+    }
+    return value;
+}
+#else
+#define MakeError(ptr, basePtr, i, j) 0
+#endif
+
+// Colwerts pointer to a host-compatible value
+__device__ device_ptr MakeHostPtr(void* ptr)
+{
+    return reinterpret_cast<device_ptr>(ptr);
+}
+
+// Reports an error
+__device__ void ReportError
+(
+    const UINT32 *ptr,
+    const UINT32 *basePtr,
+    UINT32 actualValue,
+    UINT32 expectedValue
+)
+{
+    const UINT32 errorIndex = atomicAdd_block(&s_NumErrors, 1);
+    if (errorIndex < s_MaxLocalErrors)
+    {
+        XbarBadValue& badValue = s_Errors[errorIndex];
+        badValue.offset = reinterpret_cast<UINT64>(ptr) -
+                            reinterpret_cast<UINT64>(basePtr);
+        badValue.actual = actualValue;
+        badValue.expected = expectedValue;
+        badValue.thread = threadIdx.x;
+        badValue.block = blockIdx.x;
+        badValue.failingBits = actualValue ^ expectedValue;
+        asm("mov.u32 %0, %%smid;" : "=r"(badValue.smid));
+    }
+}
+
+// Store local errors in output table
+__device__ void StoreErrors(device_ptr devPtrErrors, UINT32 errorSizeBytes)
+{
+    __syncthreads();
+    if (threadIdx.x == 0)
+    {
+        XbarRangeErrors& errors = *(GetPtr<XbarRangeErrors*>(devPtrErrors));
+
+        atomicAdd(&errors.numErrors, s_NumErrors);
+
+        // Copy reported error values
+        UINT32 numErrors = s_MaxLocalErrors;
+        if (s_NumErrors < s_MaxLocalErrors)
+        {
+            numErrors = s_NumErrors;
+        }
+        const unsigned maxErrors =
+            (errorSizeBytes - sizeof(XbarRangeErrors) + sizeof(XbarBadValue)) / sizeof(XbarBadValue);
+        for (UINT32 i=0; i < numErrors; i++)
+        {
+            const unsigned idx = atomicAdd(&errors.numReportedErrors, 1);
+            if (idx >= maxErrors)
+            {
+                atomicDec(&errors.numReportedErrors, 1);
+                break;
+            }
+            errors.reportedValues[idx] = s_Errors[i];
+        }
+    }
+}
+
+__device__ UINT32 GetPtrIndex(UINT32 dwordPerSM, UINT32 lineInL2)
+{
+    return blockIdx.x * dwordPerSM + blockDim.x * lineInL2 + threadIdx.x;
+}
+
+__device__
+UINT32 DoRead(UINT32* ptr, UINT32 dwordPerSM, UINT32 loop, UINT64 iteration,
+    UINT32 numL2LinesToRead, bool checkData, UINT32 expected)
+{
+    // Flip between reading from the first line in L2 (all zeroes), and the
+    // second lines (patterns)
+    UINT32* rdAddr =  ptr + GetPtrIndex(dwordPerSM, (iteration % numL2LinesToRead));
+
+    UINT32 rdValue;
+    asm volatile ("ld.global.cg.u32 %0, [%1];" : "=r"(rdValue) : "l"(rdAddr) : "memory" );
+
+    if (checkData)
+    {
+        rdValue ^= MakeError(rdAddr, ptr, loop, iteration);
+        if (rdValue != expected)
+        {
+            ReportError(rdAddr, ptr, rdValue, expected);
+        }
+    }
+
+    return rdValue;
+}
+
+__device__
+void DoWrite(UINT32* wrAddr, UINT32 wrPat0, UINT32 wrPat1, UINT64 iteration)
+{
+    // Flip between writing zeros, and whatever pattern has been provided
+    UINT32 wrValue = (iteration % 2) ? wrPat0 : wrPat1;
+    asm volatile ("st.global.cg.u32 [%0], %1;" : : "l"(wrAddr), "r"(wrValue) : "memory" );
+}
+
+// Init local error table
+__device__ void InitLocalData(UINT32 maxLocalErrors)
+{
+    if (threadIdx.x == 0)
+    {
+        s_NumErrors = 0;
+        s_MaxLocalErrors = maxLocalErrors;
+    }
+    __syncthreads();
+}
+
+extern "C" __global__ void LwdaXbar
+(
+    device_ptr devPtr,
+    device_ptr devPtrErrors,
+    UINT32 errorSizeBytes,
+    UINT32 maxLocalErrors,
+    UINT32 dwordPerSM,
+    UINT32 numL2LinesToRead,
+    UINT32 numL2Lines,
+    UINT64 innerIterations,
+    UINT32 mode,
+    UINT32 switchingMode,
+    const XbarPatterns wrPats
+)
+{
+    InitLocalData(maxLocalErrors);
+
+    UINT32* ptr = GetPtr<UINT32*>(devPtr);
+
+    const UINT32 wrPat1 = wrPats.p[threadIdx.x % MAX_XBAR_PATS];
+    UINT32 wrPat0;
+    switch (switchingMode)
+    {
+        case XBAR_SWITCHING_MODE_ILW:
+            wrPat0 = ~wrPat1;
+            break;
+        case XBAR_SWITCHING_MODE_ONES:
+            wrPat0 = 0xFFFFFFFF;
+            break;
+        case XBAR_SWITCHING_MODE_ZEROES:
+        default:
+            wrPat0 = 0x0;
+            break;
+    }
+
+    const bool doReads = (mode & XBAR_MODE_RD) && numL2LinesToRead;
+    const bool doWrites = (mode & XBAR_MODE_WR) && (numL2LinesToRead < numL2Lines);
+    const bool doReadCmp = (mode & XBAR_MODE_RD_CMP);
+    const UINT32 expected = ((threadIdx.x / 8) % 2) ? 0x00000000 : 0xFFFFFFFF;
+
+    // In regular read mode, the first two lines in L2 are used for reading
+    // zeroes and patterns, so we need to start writing to the 2nd line. In L2
+    // sliced interleave mode, since the zeros are interleaved within the slices,
+    // we can use as many L2 lines as desired.
+    UINT32 wrEndIdx = (doWrites) ? numL2LinesToRead : 0;
+    UINT32 startIdx = (mode & XBAR_MODE_L2) ? wrEndIdx : 2;
+    for (UINT32 i = startIdx; i < numL2Lines; i++)
+    {
+        UINT32* wrAddr = ptr + GetPtrIndex(dwordPerSM, i);
+
+        for (UINT64 j = 0; j < innerIterations; j++) 
+        {
+            UINT32 rdValue = 0;
+            if (doReads)
+            {
+                rdValue = DoRead(ptr, dwordPerSM, i, j, numL2LinesToRead, doReadCmp, expected);
+            }
+
+            if (doWrites)
+            {
+                DoWrite(wrAddr, wrPat0, wrPat1, j);
+            }
+
+            // TODO: This is a dummy branch to trick the compiler in not optimizing
+            // out the read above, since 'asm volatile' lwrrently has Bug 1775315
+            if (numL2Lines == 0xFFFFFFFF)
+            {
+                asm volatile ("st.global.cg.u32 [%0], %1;" : : "l"(wrAddr), "r"(rdValue) : "memory" );
+            }
+        }
+    }    
+
+    // Store errors in FB after test is complete
+    StoreErrors(devPtrErrors, errorSizeBytes);
+}
+
+// This function is used for initializing L2 data for regular Rd/Wr modes. For 
+// interleave mode, the CPU application will initalize L2 via repeated Fill calls
+extern "C" __global__ void LwdaInitXbar
+(
+    device_ptr devPtr,
+    UINT32 dwordPerSM,
+    UINT32 numL2LinesToRead,
+    UINT32 numL2Lines,
+    UINT32 mode,
+    UINT32 switchingMode,
+    XbarPatterns rdPats
+)
+{
+    UINT32* ptr = GetPtr<UINT32*>(devPtr);
+
+    // Initialize all lines in L2 to 0
+    for (UINT32 i = 0; i < numL2Lines; i++)
+    {
+        ptr[GetPtrIndex(dwordPerSM, i)] = 0;
+    }
+
+    // L2 Mode patterns will be set by CPU application since we require AMAP.
+    // Here we'll only handle setting Rd Mode patterns when not using L2 Mode
+    if ((mode & XBAR_MODE_RD) && !(mode & XBAR_MODE_L2))
+    {
+        // Set the first line to the appropriate switching mode pattern, it is
+        // set to 0 by default
+        if (switchingMode == XBAR_SWITCHING_MODE_ILW)
+        {
+            ptr[GetPtrIndex(dwordPerSM, 0)] = ~rdPats.p[threadIdx.x % MAX_XBAR_PATS];
+        }
+        else if (switchingMode == XBAR_SWITCHING_MODE_ONES)
+        {
+            ptr[GetPtrIndex(dwordPerSM, 0)] = 0xFFFFFFFF;
+        }
+
+        // In read mode, the second line in L2 is used to store patterns
+        ptr[GetPtrIndex(dwordPerSM, 1)] = rdPats.p[threadIdx.x % MAX_XBAR_PATS];
+
+    }
+}
+
+// vim:ft=cpp

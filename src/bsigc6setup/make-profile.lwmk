@@ -1,0 +1,249 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2018-2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_COMPRESS    ?= false
+NO_CHECK_BUILD ?= false
+NO_RELEASE     ?= false
+INCLUDE_DT     ?= false
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+BSIGC6SETUPSW  = $(LW_SOURCE)/uproc/bsigc6setup/
+LWUPROC        = $(LW_SOURCE)/uproc
+RESMAN_ROOT    = $(LW_SOURCE)/drivers/resman
+UPROC_CMN_SRC  = $(LW_SOURCE)/uproc/cmn
+GEN_CLASS_OS   = $(BSIGC6SETUPSW)/build/gen_class_os.pl
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+BSIGC6SETUP_PROFILE ?= bsigc6setup_tu10x
+include $(BSIGC6SETUPSW)/config/bsigc6setup-profiles.mk
+
+###############################################################################
+# Load common falcon make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LWUPROC)/build/common/lwFalconArch.lwmk
+
+override LW_TARGET_ARCH = $(FALCON_TOOLS_BUILD)
+override LW_TARGET_OS   = falcon
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Define the output directory paths for the BSIGC6SETUP build and all sub-make builds.
+###############################################################################
+
+OUTPUTDIR := _out/$(BSIGC6SETUP_PROFILE)
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+export LW_TARGET_ARCH
+export MANUAL_PATHS
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+#LW_INCLUDES += $(LW_SOURCE)/apps/lwwatch/inc/swref
+#LW_INCLUDES += $(LW_SOURCE)/apps/lwwatch/inc/hwref
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/libs/lwos/$(LWOS_VERSION)/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES += $(RESMAN_ROOT)/kernel/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(FALCON_TOOLS)/include
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+
+IMG_TARGET  := $(OUTPUTDIR)/g_$(BSIGC6SETUP_PROFILE)
+IMG_ELF     := $(IMG_TARGET).out
+IMG_READELF := $(IMG_TARGET).readelf
+IMG_SECTIONS:= $(IMG_TARGET).sections
+IMG_H       := $(IMG_TARGET).h
+IMG_BIN     := $(IMG_TARGET).bin
+IMG_OBJDUMP := $(IMG_TARGET).objdump
+IMG_NM      := $(IMG_TARGET).nm
+IMG_MAP     := $(IMG_TARGET).map
+IMG_DT      := $(IMG_TARGET).dt
+IMG_DBGLINE := $(IMG_TARGET).dbgline
+
+RELEASE_FILES = $(IMG_H) $(IMG_NM) $(IMG_OBJDUMP) $(IMG_READELF)
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+LDFLAGS += -T $(BSIGC6SETUPSW)/build/$(LDSCRIPT)
+
+CFLAGS += --save-temps
+
+ifeq ($(LW_TARGET_OS),falcon)
+    CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+    CFLAGS += -DUPROC_RISCV
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+    CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+    CFLAGS += -DUPROC_RISCV
+endif
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(.)); delete $$ELW{PWD}; \
+		  print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Rule to generate header file from binary
+###############################################################################
+
+$(IMG_H): $(IMG_ELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating header $(notdir $@)
+	$(PERL) $(GEN_CLASS_OS) -vppath $(FALCON_TOOLS)/bin -dump $(IMG_ELF).dump -hdr $(IMG_H) -bin $(IMG_ELF) -base 0x0 -array $(BSIGC6SETUP_PROFILE) -v
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(BSIGC6SETUP_PROFILE)]"
+
+###############################################################################
+# Rules for buildig the ELF image and binary files
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+all: $(IMG_H) $(IMG_ELF) release
+#	$(ECHO) "Cleaning files... $(shell $(PERL) --clean $(SOURCES))"
+	$(RM) $(SOURCES)
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(LW_SOURCE)/uproc/build/scripts/release-imgs-if-changed.pl
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_ARGS += --output-prefix $(BUILD_PROJECT_NAME)
+RELEASE_IMG_ARGS += --image         $(IMG_BIN)
+RELEASE_IMG_ARGS += --p4            $(P4)
+
+RELEASE_IMG_ARGS += --release-path $(RELEASE_PATH)
+
+RELEASE_IMG_ARGS += --release-files            \
+  $(subst $(SPACE),$(COMMA),$(RELEASE_FILES))
+
+# unless disabled, make sure the environment is fresh before installing
+ifneq ("$(NO_CHECK_BUILD)","true")
+  .PHONY: checkbuild
+  install: checkbuild
+endif
+
+release: $(IMG_ELF)
+	$(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)
+
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files is the prerequisite
+# for this rule.
+###############################################################################
+
+$(IMG_ELF): $(OBJECTS) $(BSIGC6SETUPSW)/build/$(LDSCRIPT)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(BSIGC6SETUPSRC_ALL) $(CFLAGS) $(OBJECTS) -o $(IMG_ELF) $(LDFLAGS)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_READELF)
+	$(OBJDUMP) -d    $(IMG_ELF) >> $(IMG_OBJDUMP)
+	$(OBJDUMP) -S -d $(IMG_ELF) >> $(IMG_OBJDUMP).source
+	$(DUMPEXEC) -img $(IMG_ELF) -b $(IMG_ELF)
+	$(NM)      -S -n $(IMG_ELF) >> $(IMG_NM)
+	$(ECHO) $(NM)      $(IMG_ELF)       > $(IMG_MAP)
+	$(NM)      $(IMG_ELF)       >> $(IMG_MAP)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_READELF))
+	$(READELF) --all $(IMG_ELF) >> $(IMG_READELF)
+	$(READELF) -S $(IMG_ELF) >> $(IMG_SECTIONS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(IMG_ELF) >> $(IMG_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(IMG_ELF)
+
+###############################################################################
+# Rule for generating .dt/symdump file
+###############################################################################
+
+SYMDUMP_SCRIPT = $(LW_SOURCE)/pmu_sw/build/symdump/symdump.pl
+
+SYMDUMP_ARGS  += $(IMG_ELF) $(IMG_DT)
+SYMDUMP_ARGS  += --falcon-tools $(FALCON_TOOLS)
+SYMDUMP_ARGS  += --acl          $(APP_P4_CL)
+
+$(IMG_DT):
+	-$(PERL) $(SYMDUMP_SCRIPT) $(SYMDUMP_ARGS)
+
+ifeq ("$(INCLUDE_DT)","true")
+  all: $(IMG_DT)
+endif
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+	-$(RM) *.i *.s *.o
+
+.PHONY: clean_ucode
+clean: clean_ucode

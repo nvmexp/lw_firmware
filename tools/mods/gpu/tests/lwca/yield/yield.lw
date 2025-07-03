@@ -1,0 +1,241 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2017 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "../tools/tools.h" 
+
+// Yield and nanosleep remove threads from participating in the colwergence barrier
+// Adding warpsync before bar.sync ensures that the yielded threads catch up with remaining
+// threads, and the bar.sync is exelwted colwergently. 
+// warpsync handles colwergence within a warp, and bar.sync synchronizes warps across the CTA.
+// This change will not be needed once the compiler folks checkin change to 
+// map __syncthreads to asm("_warpsync 0xffffffff; bar.sync 0;"); (see bug 1819801)
+#define __syncthreadsNew() asm("_warpsync 0xffffffff; bar.sync 0;");
+
+//-----------------------------------------------------------------------------
+// This kernel checks if half of the divergent threads Yield 
+//-----------------------------------------------------------------------------
+extern "C" __global__ void Yield
+(
+    device_ptr inputBuf,
+    device_ptr outputBuf
+)
+{
+    const int localIdx  = threadIdx.x;
+    const int globalIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int numThreadsCTA = blockDim.x;
+
+    // Yield is not exposed in PTX, let compiler add it:
+    // load/stores from volatile shared mem causes compiler to insert Yields
+    volatile __shared__ unsigned Values[32];
+
+    unsigned * inputVal = GetPtr<unsigned*>(inputBuf) + globalIdx;
+    unsigned * outputVal = GetPtr<unsigned*>(outputBuf) + globalIdx;
+
+    asm (".reg .u32 v1;"); 
+    asm ("ld.global.u32 v1, [%0];" :: "l"(inputVal));
+
+    unsigned initVal = 0;
+    unsigned loopMax = 0;
+    asm ("mov.u32 %0, v1;" : "=r"(loopMax));
+
+    // Get starting value in shared mem
+    Values[localIdx] = initVal;
+
+    // Diverge threads
+    if (localIdx < (numThreadsCTA/2))
+    {           
+        for (int i = 0; i < loopMax; i++)
+        {
+            // A volatile load/store adds YIELD
+            Values[localIdx]++;
+            
+            // increment v1 : (debug) used to validate correct load above
+            asm ("add.u32 v1, v1, 1;");
+        }
+    }
+    else
+    {
+        // this value of v1 is used to check result of Yield, reset to 0
+        asm ("mov.u32 v1, 0x0;");
+
+        for (int i = 0; i < loopMax; i++)
+        {                
+            if (Values[localIdx] == Values[localIdx - (numThreadsCTA / 2)])
+            {
+                // The set of threads above have not updated and yielded yet
+                // increment v1 as a counter and continue
+                asm ("add.u32 v1, v1, 1;");
+                continue;
+            }
+            else if ((Values[localIdx] + loopMax) == Values[localIdx - (numThreadsCTA / 2)])
+            {
+                // The set of threads above finished the loop without yielding
+                // This denotes failing condition, set MSB and break
+                asm ("mov.b32 v1, 0x80000000;");
+                break;
+            }
+            else
+            {
+                // If we read any other value, there was a Yield
+                // This denotes passing condition, set MSB-1'th bit
+                // also store what value we read (for debug)
+                asm ("mov.u32 v1, %0;" ::"r"(Values[localIdx - (numThreadsCTA / 2)]));
+                asm ("or.b32 v1, v1, 0x40000000;");
+                break;
+            }   
+        }
+    }
+    __syncthreadsNew();
+   
+    // Store the final value of v1
+    asm ("st.global.u32 [%0], v1;" :: "l"(outputVal));
+}
+
+//-----------------------------------------------------------------------------
+// This kernel checks if half of the divergent threads sleep with the nanosleep instruction
+//-----------------------------------------------------------------------------
+extern "C" __global__ void Nanosleep
+(
+    device_ptr inputBuf,
+    device_ptr outputBuf
+)
+{
+    const int localIdx  = threadIdx.x;
+    const int globalIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int numThreadsCTA = blockDim.x;
+
+    // shared mem
+    __shared__ unsigned Values[32];
+
+    unsigned * inputVal = GetPtr<unsigned*>(inputBuf) + globalIdx;
+    unsigned * outputVal = GetPtr<unsigned*>(outputBuf) + globalIdx;
+
+    asm (".reg .u32 v1;");
+    asm ("ld.global.u32 v1, [%0];" :: "l"(inputVal));
+
+    unsigned initVal = 0;
+    unsigned loopMax = 0;
+    asm ("mov.u32 %0, v1;" : "=r"(loopMax));
+
+    // Get starting value in shared mem
+    Values[localIdx] = initVal;
+
+    // Coverage for Nanosleep: Diverge threads
+    if (localIdx < (numThreadsCTA/2))
+    {           
+        for (int i = 0; i < loopMax; i++)
+        {
+            Values[localIdx]++;
+            // increment v1 : (debug) used to validate correct load above
+            asm ("add.u32 v1, v1, 1;");
+
+            // A sleep should let other threads start
+            asm ("nanosleep.u32 5000;");
+        }
+    }
+    else
+    {
+        // this value of v1 is used to check result of Yield, reset to 0
+        asm ("mov.u32 v1, 0x0;");
+        for (int i = 0; i < loopMax; i++)
+        {                
+            if (Values[localIdx] == Values[localIdx - (numThreadsCTA / 2)])
+            {
+                // The set of threads above have not updated and yielded yet
+                // increment v1 as a counter and sleep
+                asm ("add.u32 v1, v1, 1;");
+                asm ("nanosleep.u32 5000;");
+                continue;
+            }
+            else if ((Values[localIdx] + loopMax) == Values[localIdx - (numThreadsCTA / 2)])
+            {
+                // The set of threads above finished the loop without yielding
+                // This denotes failing condition, set MSB and break
+                asm ("mov.b32 v1, 0x80000000;");
+                break;
+            }
+            else
+            {
+                // If we read any other value, there was a Yield
+                // This denotes passing condition, set MSB-1'th bit
+                // also store what value we read (for debug)
+                asm ("mov.u32 v1, %0;" ::"r"(Values[localIdx - (numThreadsCTA / 2)]));
+                asm ("or.b32 v1, v1, 0x40000000;");
+                break;
+            }   
+        }
+    }
+    __syncthreadsNew();
+
+    // Store the final value of v1
+    asm ("st.global.u32 [%0], v1;" :: "l"(outputVal));
+}
+
+//-----------------------------------------------------------------------------
+static __device__ unsigned ld_uncached(unsigned *addr)
+{
+    unsigned val;
+    asm volatile("ld.global.sys.mmio.s32 %0, [%1];" : "=r"(val) : "l"(addr));
+    return val;
+}
+
+//-----------------------------------------------------------------------------
+static __device__ unsigned ld_cg(unsigned *addr)
+{
+    unsigned val;
+    asm volatile("ld.global.cg.s32 %0, [%1];" : "=r"(val) : "l"(addr));
+    return val;
+}
+
+//-----------------------------------------------------------------------------
+// This kernel checks if MMIO instructions return uncached data
+//-----------------------------------------------------------------------------
+extern "C" __global__ void Mmio
+(   device_ptr flagBuf,
+    device_ptr inputBuf,
+    device_ptr outputBuf
+)
+{
+    const int globalIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    volatile unsigned * flagVal = GetPtr<unsigned*>(flagBuf);
+    unsigned * inputVal = GetPtr<unsigned*>(inputBuf) + globalIdx;
+    unsigned * outputVal = GetPtr<unsigned*>(outputBuf) + globalIdx;
+
+    if (globalIdx == 0)
+    {
+        // ilwalidate cache
+        outputVal[0] = ld_uncached(inputVal);
+    
+        // Volatile read will cache the result in L2.
+        outputVal[1]  = *(volatile unsigned *)inputVal;
+        // make sure read is finished
+        __threadfence_system();
+
+        (*(volatile unsigned *)flagVal) = 0x101; //FLAG_GPU_WRITE
+
+        // Wait for CPU update
+        while (1)
+        {
+            unsigned flagValue = *flagVal;
+            if (flagValue == 0x102) //FLAG_CPU_WRITE2
+            {
+                break;
+            }
+        }
+        //Get cached data, ld.cg bypasses the L1 cache and fetches from L2 if GPU caching is on
+        outputVal[2]  = ld_cg(inputVal);
+        // Get uncached data using MMIO
+        outputVal[3]  = ld_uncached(inputVal);
+    }
+    __syncthreads();
+}
+
+

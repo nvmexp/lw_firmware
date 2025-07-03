@@ -1,0 +1,112 @@
+/*
+ * Copyright (c) 2017-2021, LWPU Corporation. All Rights Reserved.
+ *
+ * LWPU Corporation and its licensors retain all intellectual property and
+ * proprietary rights in and to this software and related documentation.  Any
+ * use, reproduction, disclosure or distribution of this software and related
+ * documentation without an express license agreement from LWPU Corporation
+ * is strictly prohibited.
+ *
+ * Header file for CheetAh Security Elliptic Engine
+ */
+
+#ifndef INCLUDED_ED25519_LWRVES_H
+#define INCLUDED_ED25519_LWRVES_H
+
+#ifdef DOXYGEN
+#include <ccc_doxygen.h>
+#endif
+
+#include <tegra_pka1_ec_param.h>
+
+#ifndef HAVE_ED25519_LWRVES
+#define HAVE_ED25519_LWRVES 1
+#endif
+
+/* ed25519 type definitions using the generic lwrve macros
+ *
+ * Due to cert-c rules, use CCC_ prefix with ED25519_xxx
+ */
+#define CCC_ED25519_LWRVE_TYPE GENERIC_LWRVE_TYPE(ed25519, 32)
+#define CCC_ED25519_LWRVE      GENERIC_LWRVE(ed25519)
+
+CCC_ED25519_LWRVE_TYPE;
+
+/* "EDDSA with ed25519" means it is using a twisted Edwards lwrve
+ * birationally equivalent to the Lwrve25519.
+ *
+ * Generic twisted Edwards lwrve:
+ * a*x^2 + y^2 = 1 + d*x^2*y^2
+ *
+ * ED25519 has the following parameters:
+ *
+ * a = -1
+ * b = 256
+ * q = 2^255-19
+ * n = 2^252 + 27742317777372353535851937790883648493
+ * d = -121665/121666 over field Fq
+ * B = (x, 4/5) (on lwrve) for which x is positive
+ * H = SHA-512
+ *
+ * This is the Edwards25519 lwrve equation:
+ *  -x^2 + y^2 = 1 - (121665/121666)*x^2*y^2
+ *
+ * -1 is a square in Fq.
+ *
+ * See crypto_process_ed25519.c
+ */
+CCC_ED25519_LWRVE = {
+	.p = { 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xed, },
+
+	/* -1 (mod p) for LWPKA
+	 */
+	.a =  { 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xec, },
+
+	/* d = (-121665 * mod_ilw(121666) % p) ==>
+	 * 0x52036CEE2B6FFE738CC740797779E89800700A4D4141D8AB75EB4DCA135978A3
+	 *
+	 * Note: This lwrve does not use field A or B value; so we use field B as field D
+	 * value for this lwrve (same length fields).
+	 *
+	 * The D value is assigned to field B for this lwrve.
+	 */
+	.b =  { 0x52, 0x03, 0x6C, 0xEE, 0x2B, 0x6F, 0xFE, 0x73,
+		0x8C, 0xC7, 0x40, 0x79, 0x77, 0x79, 0xE8, 0x98,
+		0x00, 0x70, 0x0A, 0x4D, 0x41, 0x41, 0xD8, 0xAB,
+		0x75, 0xEB, 0x4D, 0xCA, 0x13, 0x59, 0x78, 0xA3, },
+
+	/* x = decompress_x(g_y, 0) ==>
+	 * 0x216936D3CD6E53FEC0A4E231FDD6DC5C692CC7609525A7B2C9562D608F25D51A
+	 */
+	.x = { 0x21, 0x69, 0x36, 0xD3, 0xCD, 0x6E, 0x53, 0xFE,
+	       0xC0, 0xA4, 0xE2, 0x31, 0xFD, 0xD6, 0xDC, 0x5C,
+	       0x69, 0x2C, 0xC7, 0x60, 0x95, 0x25, 0xA7, 0xB2,
+	       0xC9, 0x56, 0x2D, 0x60, 0x8F, 0x25, 0xD5, 0x1A, },
+
+	/* y = 4 * modp_ilw(5) % p ==>
+	 * 0x6666666666666666666666666666666666666666666666666666666666666658
+	 */
+	.y = { 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
+	       0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
+	       0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
+	       0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x58, },
+
+	/* (OBP) order-of-the-base-point set to n =>
+	 * 2^252 + 27742317777372353535851937790883648493 =
+	 *  7237005577332262213973186563042994240857116359379907606001950938285454250989 =
+	 *  0x1000000000000000000000000000000014def9dea2f79cd65812631a5cf5d3ed
+	 *
+	 * ceiling(log2(n)) == 253 for this lwrve.
+	 */
+	.n = { 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	       0x14, 0xDE, 0xF9, 0xDE, 0xA2, 0xF7, 0x9C, 0xD6,
+	       0x58, 0x12, 0x63, 0x1A, 0x5C, 0xF5, 0xD3, 0xED, },
+};
+#endif /* INCLUDED_ED25519_LWRVES_H */

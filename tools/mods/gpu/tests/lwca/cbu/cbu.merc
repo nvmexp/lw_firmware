@@ -1,0 +1,1165 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2021 by LWPU Corporation.  All rights reserved.
+ * All information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+.language merlwry
+.version 1.0
+.target sm_90
+.virtual_target sm_90
+.abi_version   0
+.elftype exec
+
+#include "../tools/merc_common.h"
+
+.sectionattr .lw.info, align@4
+.section .lw.info
+{
+    LW_INFO_BLOCK(Bra64x1Divergence)
+    LW_INFO_BLOCK(BraLinearDivergence)
+    LW_INFO_BLOCK(BraUBinaryDivergenceHighExit)
+    LW_INFO_BLOCK(BraUBinaryDivergenceLowExit)
+    LW_INFO_BLOCK(BraColwExit)
+    LW_INFO_BLOCK(BraColwWarpSync)
+    LW_INFO_BLOCK(BraDivWarpSync)
+    LW_INFO_BLOCK(BraDivExit)
+    LW_INFO_BLOCK(ExitVerifyAtExit)
+    LW_INFO_BLOCK(Brx32xMultiway)
+    LW_INFO_BLOCK(Jmx32xMultiway)
+    LW_INFO_BLOCK(SProducerMConsumerBssyBsyn)
+    LW_INFO_BLOCK(SProducerMConsumerWarpSync)
+    LW_INFO_BLOCK(PairWiseProducerConsumer)
+}
+
+#define LWI_ABI(test) \
+.sectionattr .lw.info.test, align@4 \
+.section .lw.info.test \
+{ \
+    LWI_KPARAM_INFO(12, 240, 161) \
+    LWI_MAXREG_COUNT(0xfe) \
+}
+
+LWI_ABI(Bra64x1Divergence)
+LWI_ABI(BraLinearDivergence)
+LWI_ABI(BraUBinaryDivergenceHighExit)
+LWI_ABI(BraUBinaryDivergenceLowExit)
+LWI_ABI(BraColwExit)
+LWI_ABI(BraColwWarpSync)
+LWI_ABI(BraDivWarpSync)
+LWI_ABI(BraDivExit)
+LWI_ABI(ExitVerifyAtExit)
+LWI_ABI(Brx32xMultiway)
+LWI_ABI(Jmx32xMultiway)
+LWI_ABI(SProducerMConsumerBssyBsyn)
+LWI_ABI(SProducerMConsumerWarpSync)
+LWI_ABI(PairWiseProducerConsumer)
+
+
+#define BRA64D(start, mid, end) \
+                    .GEN_LABEL3(BRA64D, start, end): \
+                    mov.b32 %r1 = mid; \
+                    setp.u32.lt %p0 = %r0, %r1; \
+                    @%p0 bra.rel %pt, (`.GEN_LABEL3(BRA64D, start, mid)); \
+                    @!%p0 bra.rel %pt, (`.GEN_LABEL3(BRA64D, mid, end)); \
+                    st.global.u8 [{%r8:2}], {%ur4:2}, %r6; \
+                    exit %pt;
+
+#define BRA_TERM(lab, start, end) \
+                    .GEN_LABEL3(lab, start, end): \
+                    _vote.any %r7, %pt = %pt; \
+                    popc.b32 %r7 = %r7; \
+                    st.global.u8 [{%r8:2}], {%ur4:2}, %r7; \
+                    exit %pt; \
+                    st.global.u8 [{%r8:2}], {%ur4:2}, %r6; \
+                    bra.rel %pt, (`.GEN_LABEL3(lab, start, end)); 
+ 
+.visible .entry Bra64x1Divergence
+.section .text.Bra64x1Divergence
+{
+    Bra64x1Divergence:
+    {   
+        ld.const.b64 {%ur4:2} = [bank0 + 0x118];
+        ld.const.b64 {%ur0:2} = [bank0 + 0x210];
+        _s2r %r0 = %sr33; // threadIdx.x 
+        _s2r %r20 = %sr37; // blockIdx.x
+        ld.const %r21 = [bank0 + 0x0]; //blockDim.x
+        
+        mad.u32.lo %r4 = %r20, %r21, %r0;
+        mov.b32 %r5 = 0x80;
+        add.s32 %r6 = %r0, %r5;
+        mov.b32 %r7 = 0x1;
+        mad.u32.wide {%r8:2}, %pt = %r4, %r7, {%ur0:2};
+
+        BRA64D(0, 32, 64)
+        BRA64D(32, 48, 64)
+        BRA64D(48, 56, 64)
+        BRA64D(56, 60, 64)
+        BRA64D(60, 62, 64)
+        BRA64D(62, 63, 64)
+        BRA_TERM(BRA64D,63, 64)
+        BRA_TERM(BRA64D,62, 63)
+        BRA64D(60, 61, 62)
+        BRA_TERM(BRA64D,61, 62)
+        BRA_TERM(BRA64D,60, 61)
+        BRA64D(56, 58, 60)
+        BRA64D(58, 59, 60)
+        BRA_TERM(BRA64D,59, 60)
+        BRA_TERM(BRA64D,58, 59)
+        BRA64D(56, 57, 58)
+        BRA_TERM(BRA64D,57, 58)
+        BRA_TERM(BRA64D,56, 57)
+        BRA64D(48, 52, 56)
+        BRA64D(52, 54, 56)
+        BRA64D(54, 55, 56)
+        BRA_TERM(BRA64D,55, 56)
+        BRA_TERM(BRA64D,54, 55)
+        BRA64D(52, 53, 54) 
+        BRA_TERM(BRA64D,53, 54)
+        BRA_TERM(BRA64D,52, 53)
+        BRA64D(48, 50, 52) 
+        BRA64D(50, 51, 52)
+        BRA_TERM(BRA64D,51, 52)
+        BRA_TERM(BRA64D,50, 51)
+        BRA64D(48, 49, 50) 
+        BRA_TERM(BRA64D,49, 50)
+        BRA_TERM(BRA64D,48, 49)       
+        BRA64D(32, 40, 48) 
+        BRA64D(40, 44, 48) 
+        BRA64D(44, 46, 48) 
+        BRA64D(46, 47, 48)
+        BRA_TERM(BRA64D,47, 48)
+        BRA_TERM(BRA64D,46, 47)
+        BRA64D(44, 45, 46) 
+        BRA_TERM(BRA64D,45, 46)
+        BRA_TERM(BRA64D,44, 45)
+        BRA64D(40, 42, 44) 
+        BRA64D(42, 43, 44) 
+        BRA_TERM(BRA64D,43, 44)
+        BRA_TERM(BRA64D,42, 43)
+        BRA64D(40, 41, 42) 
+        BRA_TERM(BRA64D,41, 42)
+        BRA_TERM(BRA64D,40, 41)
+        BRA64D(32, 36, 40) 
+        BRA64D(36, 38, 40) 
+        BRA64D(38, 39, 40) 
+        BRA_TERM(BRA64D,39, 40)
+        BRA_TERM(BRA64D,38, 39)
+        BRA64D(36, 37, 38) 
+        BRA_TERM(BRA64D,37, 38)
+        BRA_TERM(BRA64D,36, 37)
+        BRA64D(32, 34, 36) 
+        BRA64D(34, 35, 36) 
+        BRA_TERM(BRA64D,35, 36)
+        BRA_TERM(BRA64D,34, 35)
+        BRA64D(32, 33, 34) 
+        BRA_TERM(BRA64D,33, 34)
+        BRA_TERM(BRA64D,32, 33)
+        BRA64D(0, 16, 32) 
+        BRA64D(16, 24, 32) 
+        BRA64D(24, 28, 32) 
+        BRA64D(28, 30, 32) 
+        BRA64D(30, 31, 32) 
+        BRA_TERM(BRA64D,31, 32)
+        BRA_TERM(BRA64D,30, 31)
+        BRA64D(28, 29, 30) 
+        BRA_TERM(BRA64D,29, 30)
+        BRA_TERM(BRA64D,28, 29)
+        BRA64D(24, 26, 28) 
+        BRA64D(26, 27, 28) 
+        BRA_TERM(BRA64D,27, 28)
+        BRA_TERM(BRA64D,26, 27)
+        BRA64D(24, 25, 26) 
+        BRA_TERM(BRA64D,25, 26)
+        BRA_TERM(BRA64D,24, 25)
+        BRA64D(16, 20, 24) 
+        BRA64D(20, 22, 24) 
+        BRA64D(22, 23, 24) 
+        BRA_TERM(BRA64D,23, 24)
+        BRA_TERM(BRA64D,22, 23)
+        BRA64D(20, 21, 22) 
+        BRA_TERM(BRA64D,21, 22)
+        BRA_TERM(BRA64D,20, 21)
+        BRA64D(16, 18, 20) 
+        BRA64D(18, 19, 20) 
+        BRA_TERM(BRA64D,19, 20)
+        BRA_TERM(BRA64D,18, 19)
+        BRA64D(16, 17, 18) 
+        BRA_TERM(BRA64D,17, 18)
+        BRA_TERM(BRA64D,16, 17)
+        BRA64D(0, 8, 16) 
+        BRA64D(8, 12, 16) 
+        BRA64D(12, 14, 16) 
+        BRA64D(14, 15, 16) 
+        BRA_TERM(BRA64D,15, 16)
+        BRA_TERM(BRA64D,14, 15)
+        BRA64D(12, 13, 14) 
+        BRA_TERM(BRA64D,13, 14)
+        BRA_TERM(BRA64D,12, 13)
+        BRA64D(8, 10, 12) 
+        BRA64D(10, 11, 12) 
+        BRA_TERM(BRA64D,11, 12)
+        BRA_TERM(BRA64D,10, 11)
+        BRA64D(8, 9, 10) 
+        BRA_TERM(BRA64D,9, 10)
+        BRA_TERM(BRA64D,8, 9)
+        BRA64D(0, 4, 8) 
+        BRA64D(4, 6, 8) 
+        BRA64D(6, 7, 8) 
+        BRA_TERM(BRA64D,7, 8)
+        BRA_TERM(BRA64D,6, 7)
+        BRA64D(4, 5, 6) 
+        BRA_TERM(BRA64D,5, 6)
+        BRA_TERM(BRA64D,4, 5)
+        BRA64D(0, 2, 4) 
+        BRA64D(2, 3, 4) 
+        BRA_TERM(BRA64D,3, 4)
+        BRA_TERM(BRA64D,2, 3)
+        BRA64D(0, 1, 2) 
+        BRA_TERM(BRA64D,1, 2)
+        BRA_TERM(BRA64D,0, 1)
+        exit %pt;
+    }
+}
+
+#define BLD_CHECK(id, nxt) \
+                .GEN_LABEL(BLD, id): \
+                mov.b32 %r1 = id; \
+                setp.u32.eq %p0 = %r0, %r1; \
+                @%p0 bra.rel %pt, (`.GEN_LABEL(BLD_EXIT, id)); \
+                @!%p0 bra.rel %pt, (`.GEN_LABEL(BLD, nxt)); \
+                exit %pt;
+
+#define BLD_RECORD(id) \
+                .GEN_LABEL(BLD_EXIT, id): \
+                _vote.any %r10, %pt = %pt; \
+                popc.b32 %r10 = %r10; \
+                add.s32 %r5 = %r0, %r10; \
+                st.global.u8 [{%r6:2}], {%ur4:2}, %r5; \
+                exit %pt;
+
+
+.visible .entry BraLinearDivergence
+.section .text.BraLinearDivergence
+{
+    BraLinearDivergence:
+    {        
+        // getting the implicit memory descriptor
+        ld.const.b64 {%ur4:2} = [bank0 + 0x118];
+    
+        // Getting TestMem Pointer
+        ld.const.b64 {%ur0:2} = [bank0 + 0x210];
+    
+        _s2r %r0 = %sr33; // threadIdx.x
+        _s2r %r20 = %sr37; // blockIdx.x
+        ld.const %r21 = [bank0 + 0x0]; // blockDim.x
+        
+        mad.u32.lo %r4 = %r20, %r21, %r0;
+        mov.b32 %r7 = 0x1;
+        mad.u32.wide {%r6:2}, %pt = %r4, %r7, {%ur0:2};
+ 
+        BLD_CHECK(0, 1)
+        BLD_RECORD(0)
+        BLD_CHECK(1, 2)
+        BLD_RECORD(1)
+        BLD_CHECK(2, 3)
+        BLD_RECORD(2)
+        BLD_CHECK(3, 4)
+        BLD_RECORD(3)
+        BLD_CHECK(4, 5)
+        BLD_RECORD(4)
+        BLD_CHECK(5, 6)
+        BLD_RECORD(5)
+        BLD_CHECK(6, 7)
+        BLD_RECORD(6)
+        BLD_CHECK(7, 8)
+        BLD_RECORD(7)
+        BLD_CHECK(8, 9)
+        BLD_RECORD(8)
+        BLD_CHECK(9, 10)
+        BLD_RECORD(9)
+        BLD_CHECK(10, 11)
+        BLD_RECORD(10)
+        BLD_CHECK(11, 12)
+        BLD_RECORD(11)
+        BLD_CHECK(12, 13)
+        BLD_RECORD(12)
+        BLD_CHECK(13, 14)
+        BLD_RECORD(13)
+        BLD_CHECK(14, 15)
+        BLD_RECORD(14)
+        BLD_CHECK(15, 16)
+        BLD_RECORD(15)
+        BLD_CHECK(16, 17)
+        BLD_RECORD(16)
+        BLD_CHECK(17, 18)
+        BLD_RECORD(17)
+        BLD_CHECK(18, 19)
+        BLD_RECORD(18)
+        BLD_CHECK(19, 20)
+        BLD_RECORD(19)
+        BLD_CHECK(20, 21)
+        BLD_RECORD(20)
+        BLD_CHECK(21, 22)
+        BLD_RECORD(21)
+        BLD_CHECK(22, 23)
+        BLD_RECORD(22)
+        BLD_CHECK(23, 24)
+        BLD_RECORD(23)
+        BLD_CHECK(24, 25)
+        BLD_RECORD(24)
+        BLD_CHECK(25, 26)
+        BLD_RECORD(25)
+        BLD_CHECK(26, 27)
+        BLD_RECORD(26)
+        BLD_CHECK(27, 28)
+        BLD_RECORD(27)
+        BLD_CHECK(28, 29)
+        BLD_RECORD(28)
+        BLD_CHECK(29, 30)
+        BLD_RECORD(29)
+        BLD_CHECK(30, 31)
+        BLD_RECORD(30)
+        BLD_CHECK(31, 32)
+        BLD_RECORD(31)
+          
+        .BLD_32:
+        exit %pt;
+    }
+}
+
+#define BR_SETUP() \
+                ld.const.b64 {%ur4:2} = [bank0 + 0x118]; \
+                ld.const.b64 {%ur0:2} = [bank0 + 0x210]; \
+                _s2r %r0 = %sr33; \
+                _s2r %r2 = %sr37; \
+                ld.const %r3 = [bank0 + 0x0]; \
+                mad.u32.lo %r4 = %r2, %r3, %r0; \
+                mov.b32 %r5 = 0x80; \
+                add.s32 %r6 = %r0, %r5; \
+                mov.b32 %r7 = 0x1; \
+                mad.u32.wide {%r8:2}, %pt = %r4, %r7, {%ur0:2};
+         
+#define BRUH(start, mid, end) \
+                    .GEN_LABEL3(BRUH, start, end): \
+                    setp.u32.lt %p0 = %r0, mid; \
+                    _vote.any %r7, %pt = !%p0; \
+                    popc.b32 %r7 = %r7; \
+                    @!%p0 st.global.u8 [{%r8:2}], {%ur4:2}, %r7; \
+                    @!%p0 exit %pt; \
+                    @%p0 bra.rel %pt, (`.GEN_LABEL3(BRUH, start, mid)); \
+                    @!%p0 bra.rel %pt, (`.GEN_LABEL3(BRUH, mid, end)); \
+                    st.global.u8 [{%r8:2}], {%ur4:2}, %r6; \
+                    exit %pt;
+
+#define BRUL(start, mid, end) \
+                    .GEN_LABEL3(BRUL, start, end): \
+                    setp.u32.lt %p0 = %r0, mid; \
+                    _vote.any %r7, %pt = %p0; \
+                    popc.b32 %r7 = %r7; \
+                    @%p0 st.global.u8 [{%r8:2}], {%ur4:2}, %r7; \
+                    @%p0 exit %pt; \
+                    @%p0 bra.rel %pt, (`.GEN_LABEL3(BRUL, start, mid)); \
+                    @!%p0 bra.rel %pt, (`.GEN_LABEL3(BRUL, mid, end)); \
+                    st.global.u8 [{%r8:2}], {%ur4:2}, %r6; \
+                    exit %pt;
+
+.visible .entry BraUBinaryDivergenceHighExit
+.section .text.BraUBinaryDivergenceHighExit
+{
+    BraUBinaryDivergenceHighExit:
+    {        
+        BR_SETUP() 
+        BRUH(0, 16, 32) 
+        BRUH(16, 24, 32) 
+        BRUH(24, 28, 32) 
+        BRUH(28, 30, 32) 
+        BRUH(30, 31, 32) 
+        BRA_TERM(BRUH,31, 32)
+        BRA_TERM(BRUH,30, 31)
+        BRUH(28, 29, 30) 
+        BRA_TERM(BRUH,29, 30)
+        BRA_TERM(BRUH,28, 29)
+        BRUH(24, 26, 28) 
+        BRUH(26, 27, 28) 
+        BRA_TERM(BRUH,27, 28)
+        BRA_TERM(BRUH,26, 27)
+        BRUH(24, 25, 26) 
+        BRA_TERM(BRUH,25, 26)
+        BRA_TERM(BRUH,24, 25)
+        BRUH(16, 20, 24) 
+        BRUH(20, 22, 24) 
+        BRUH(22, 23, 24) 
+        BRA_TERM(BRUH,23, 24)
+        BRA_TERM(BRUH,22, 23)
+        BRUH(20, 21, 22) 
+        BRA_TERM(BRUH,21, 22)
+        BRA_TERM(BRUH,20, 21)
+        BRUH(16, 18, 20) 
+        BRUH(18, 19, 20) 
+        BRA_TERM(BRUH,19, 20)
+        BRA_TERM(BRUH,18, 19)
+        BRUH(16, 17, 18) 
+        BRA_TERM(BRUH,17, 18)
+        BRA_TERM(BRUH,16, 17)
+        BRUH(0, 8, 16) 
+        BRUH(8, 12, 16) 
+        BRUH(12, 14, 16) 
+        BRUH(14, 15, 16) 
+        BRA_TERM(BRUH,15, 16)
+        BRA_TERM(BRUH,14, 15)
+        BRUH(12, 13, 14) 
+        BRA_TERM(BRUH,13, 14)
+        BRA_TERM(BRUH,12, 13)
+        BRUH(8, 10, 12) 
+        BRUH(10, 11, 12) 
+        BRA_TERM(BRUH,11, 12)
+        BRA_TERM(BRUH,10, 11)
+        BRUH(8, 9, 10) 
+        BRA_TERM(BRUH,9, 10)
+        BRA_TERM(BRUH,8, 9)
+        BRUH(0, 4, 8) 
+        BRUH(4, 6, 8) 
+        BRUH(6, 7, 8) 
+        BRA_TERM(BRUH,7, 8)
+        BRA_TERM(BRUH,6, 7)
+        BRUH(4, 5, 6) 
+        BRA_TERM(BRUH,5, 6)
+        BRA_TERM(BRUH,4, 5)
+        BRUH(0, 2, 4) 
+        BRUH(2, 3, 4) 
+        BRA_TERM(BRUH,3, 4)
+        BRA_TERM(BRUH,2, 3)
+        BRUH(0, 1, 2) 
+        BRA_TERM(BRUH,1, 2)
+        BRA_TERM(BRUH,0, 1)
+        exit %pt; 
+    }
+}
+
+.visible .entry BraUBinaryDivergenceLowExit
+.section .text.BraUBinaryDivergenceLowExit
+{
+    BraUBinaryDivergenceLowExit:
+    {        
+        BR_SETUP()      
+        BRUL(0, 16, 32) 
+        BRUL(16, 24, 32) 
+        BRUL(24, 28, 32) 
+        BRUL(28, 30, 32) 
+        BRUL(30, 31, 32) 
+        BRA_TERM(BRUL,31, 32)
+        BRA_TERM(BRUL,30, 31)
+        BRUL(28, 29, 30) 
+        BRA_TERM(BRUL,29, 30)
+        BRA_TERM(BRUL,28, 29)
+        BRUL(24, 26, 28) 
+        BRUL(26, 27, 28) 
+        BRA_TERM(BRUL,27, 28)
+        BRA_TERM(BRUL,26, 27)
+        BRUL(24, 25, 26) 
+        BRA_TERM(BRUL,25, 26)
+        BRA_TERM(BRUL,24, 25)
+        BRUL(16, 20, 24) 
+        BRUL(20, 22, 24) 
+        BRUL(22, 23, 24) 
+        BRA_TERM(BRUL,23, 24)
+        BRA_TERM(BRUL,22, 23)
+        BRUL(20, 21, 22) 
+        BRA_TERM(BRUL,21, 22)
+        BRA_TERM(BRUL,20, 21)
+        BRUL(16, 18, 20) 
+        BRUL(18, 19, 20) 
+        BRA_TERM(BRUL,19, 20)
+        BRA_TERM(BRUL,18, 19)
+        BRUL(16, 17, 18) 
+        BRA_TERM(BRUL,17, 18)
+        BRA_TERM(BRUL,16, 17)
+        BRUL(0, 8, 16) 
+        BRUL(8, 12, 16) 
+        BRUL(12, 14, 16) 
+        BRUL(14, 15, 16) 
+        BRA_TERM(BRUL,15, 16)
+        BRA_TERM(BRUL,14, 15)
+        BRUL(12, 13, 14) 
+        BRA_TERM(BRUL,13, 14)
+        BRA_TERM(BRUL,12, 13)
+        BRUL(8, 10, 12) 
+        BRUL(10, 11, 12) 
+        BRA_TERM(BRUL,11, 12)
+        BRA_TERM(BRUL,10, 11)
+        BRUL(8, 9, 10) 
+        BRA_TERM(BRUL,9, 10)
+        BRA_TERM(BRUL,8, 9)
+        BRUL(0, 4, 8) 
+        BRUL(4, 6, 8) 
+        BRUL(6, 7, 8) 
+        BRA_TERM(BRUL,7, 8)
+        BRA_TERM(BRUL,6, 7)
+        BRUL(4, 5, 6) 
+        BRA_TERM(BRUL,5, 6)
+        BRA_TERM(BRUL,4, 5)
+        BRUL(0, 2, 4) 
+        BRUL(2, 3, 4) 
+        BRA_TERM(BRUL,3, 4)
+        BRA_TERM(BRUL,2, 3)
+        BRUL(0, 1, 2) 
+        BRA_TERM(BRUL,1, 2)
+        BRA_TERM(BRUL,0, 1)
+        exit %pt;     
+    }
+}
+
+#define BCE(start, end) \
+            .GEN_LABEL3(BCE, start, end): \
+            bra.rel.colw (`.GEN_LABEL3(BCE_T, start, end)); \
+            st.global.u8 [{%r8:2}], {%ur4:2}, %r6; \
+            exit %pt;
+
+#define BCE_T(start, mid, end, val) \
+            .GEN_LABEL3(BCE_T, start, end): \
+            and.b32 %p0, %rz = %r0, val; \
+            @!%p0 bra.rel.colw %pt, (`.GEN_LABEL3(BCE_F, start, end)); \
+            @%p0 _vote.any %r7, %pt = %pt; \
+            @%p0 popc.b32 %r7 = %r7; \
+            st.global.u8 [{%r8:2}], {%ur4:2}, %r7; \
+            @%p0 exit %pt; \
+            @!%p0 bra.rel.colw (`.GEN_LABEL3(BCE, start, mid));
+
+#define BCE_F(start, end) \
+            .GEN_LABEL3(BCE_F, start, end): \
+            _vote.any %r7, %pt = %pt; \
+            popc.b32 %r7 = %r7; \
+            setp.u32.eq %p0 = %r7, 0x1; \
+            slct.b32 %r6 = %r7, 0x1, %p0; \
+            st.global.u8 [{%r8:2}], {%ur4:2}, %r7; \
+            exit %pt; \
+            bra.rel (`.GEN_LABEL3(BCE, start, end));
+
+.visible .entry BraColwExit
+.section .text.BraColwExit
+{
+    BraColwExit:
+    {        
+        BR_SETUP()
+        BCE(0, 32)
+        BCE_T(0, 16, 32, 1)
+        BCE_F(0, 32)
+        BCE(0, 16)
+        BCE_T(0, 8, 16, 2)
+        BCE_F(0, 16)
+        BCE(0, 8)
+        BCE_T(0, 4, 8, 4)
+        BCE_F(0, 8)
+        BCE(0, 4)
+        BCE_T(0, 2, 4, 8)
+        BCE_F(0, 4)
+        BCE(0, 2)
+        BCE_T(0, 1, 2, 16)
+        BCE_F(0, 2)
+        
+        .BCE_0_1:
+        _vote.any %r7, %pt = %pt;
+        popc.b32 %r7 = %r7;
+        st.global.u8 [{%r8:2}], {%ur4:2}, %r7;
+        exit %pt;
+        st.global.u8 [{%r8:2}], {%ur4:2}, %r6;
+        bra.rel (`.BCE_0_1);
+    }
+}
+
+#define BCWS(start, end, val) \
+            .GEN_LABEL3(BCWS, start, end): \
+            and.b32 %p0, %rz = %r0, val; \
+            @!%p0 bra.rel.div %pt, (`.GEN_LABEL3(BCWS_E, start, end)); \
+            bra.rel %pt, (`.BCWS_WS_EXIT); \
+            st.global.u8 [{%r8:2}], {%ur4:2}, %r6; \
+            exit %pt;
+
+#define BCWS_E(start, mid, end) \
+            .GEN_LABEL3(BCWS_E, start, end): \
+            bra.rel.div %pt, (`.GEN_LABEL3(BCWS, start, mid)); \
+
+#define BCWS_F(start, end) \
+            .GEN_LABEL3(BCWS_F, start, end): \
+            st.global.u8 [{%r8:2}], {%ur4:2}, %r6; \
+            exit %pt; \
+            bra.rel %pt, (`.GEN_LABEL3(BCWS_F, start, end));
+
+.visible .entry BraColwWarpSync
+.section .text.BraColwWarpSync
+{
+    BraColwWarpSync:
+    {        
+        BR_SETUP()
+        BCWS(0, 32, 1)
+        BCWS_E(0, 16, 32)
+        BCWS_F(0, 32)
+        BCWS(0, 16, 2)
+        BCWS_E(0, 8, 16)
+        BCWS_F(0, 16)
+        BCWS(0, 8, 4)
+        BCWS_E(0, 4, 8)
+        BCWS_F(0, 8)
+        BCWS(0, 4, 8)
+        BCWS_E(0, 2, 4)
+        BCWS_F(0, 4)
+        BCWS(0, 2, 16)
+        BCWS_E(0, 1, 2)
+        BCWS_F(0, 2)
+        
+        .BCWS_0_1:
+        @%p0 bra.rel %pt, (`.BCWS_WS_EXIT);
+
+        .BCWS_WS_EXIT:
+        _warpsync.all %pt;
+        _vote.any %r10, %pt = %pt;
+        popc.b32 %r10 = %r10;
+        add.s32 %r7 = %r0, %r10;
+        st.global.u8 [{%r8:2}], {%ur4:2}, %r7;
+        exit %pt;
+        bra.rel %pt, (`.BCWS_WS_EXIT);
+      
+       exit %pt;
+    }
+}
+
+#define BDWS(start, end, val) \
+            .GEN_LABEL3(BDWS, start, end): \
+            and.b32 %p0, %rz = %r0, val; \
+            @!%p0 bra.rel.div %pt, (`.GEN_LABEL3(BDWS_E, start, end)); \
+            bra.rel %pt, (`.BDWS_WS_EXIT); \
+            st.global.u8 [{%r8:2}], {%ur4:2}, %r6; \
+            exit %pt;
+
+#define BDWS_E(start, mid, end) \
+            .GEN_LABEL3(BDWS_E, start, end): \
+            bra.rel.div %pt, (`.GEN_LABEL3(BDWS, start, mid)); \
+
+#define BDWS_F(start, end) \
+            .GEN_LABEL3(BDWS_F, start, end): \
+            st.global.u8 [{%r8:2}], {%ur4:2}, %r6; \
+            exit %pt; \
+            bra.rel %pt, (`.GEN_LABEL3(BDWS_F, start, end));
+
+.visible .entry BraDivWarpSync
+.section .text.BraDivWarpSync
+{
+    BraDivWarpSync:
+    {        
+        BR_SETUP()
+        BDWS(0, 32, 1)
+        BDWS_E(0, 16, 32)
+        BDWS_F(0, 32)
+        BDWS(0, 16, 2)
+        BDWS_E(0, 8, 16)
+        BDWS_F(0, 16)
+        BDWS(0, 8, 4)
+        BDWS_E(0, 4, 8)
+        BDWS_F(0, 8)
+        BDWS(0, 4, 8)
+        BDWS_E(0, 2, 4)
+        BDWS_F(0, 4)
+        BDWS(0, 2, 16)
+        BDWS_E(0, 1, 2)
+        BDWS_F(0, 2)
+        
+        .BDWS_0_1:
+        @%p0 bra.rel %pt, (`.BDWS_WS_EXIT);
+
+        .BDWS_WS_EXIT:
+        _warpsync.all %pt;
+        _vote.any %r10, %pt = %pt;
+        popc.b32 %r10 = %r10;
+        add.s32 %r7 = %r0, %r10;
+        st.global.u8 [{%r8:2}], {%ur4:2}, %r7;
+        exit %pt;
+        bra.rel %pt, (`.BDWS_WS_EXIT);
+    }
+}
+
+#define BDE(start, mid, end, val) \
+                    .GEN_LABEL3(BDE, start, end): \
+                    and.b32 %p0, %rz = %r0, val; \
+                    @%p0 _vote.any %r7, %pt = %pt; \
+                    @%p0 popc.b32 %r7 = %r7; \
+                    st.global.u8 [{%r8:2}], {%ur4:2}, %r7; \
+                    @%p0 exit %pt; \
+                    bra.rel.div %pt, (`.GEN_LABEL3(BDEF, start, end)); \
+                    bra.rel %pt, (`.GEN_LABEL3(BDE, start, mid));
+
+#define BDEF(start, end) \
+                .GEN_LABEL3(BDEF, start, end): \
+                _vote.any %r7, %pt = !%pt; \
+                popc.b32 %r7 = %r7; \
+                st.global.u8 [{%r8:2}], {%ur4:2}, %r6; \
+                exit %pt; \
+                bra.rel %pt, (`.GEN_LABEL3(BDEF, start, end));
+
+.visible .entry BraDivExit
+.section .text.BraDivExit
+{
+    BraDivExit:
+    {        
+        BR_SETUP()
+        BDE(0, 16, 32, 1)
+        BDEF(0, 32)
+        BDE(0, 8, 16, 2)
+        BDEF(0, 16)
+        BDE(0, 4, 8, 4)
+        BDEF(0, 8)
+        BDE(0, 2, 4, 8)
+        BDEF(0, 4)
+        BDE(0, 1, 2, 16)
+        BDEF(0, 2)
+        
+        .BDE_0_1:
+        _vote.any %r7, %pt = %pt;
+        popc.b32 %r7 = %r7;
+        st.global.u8 [{%r8:2}], {%ur4:2}, %r7;
+        exit %pt;
+        st.global.u8 [{%r8:2}], {%ur4:2}, %r6;
+        bra.rel %pt, (`.GEN_LABEL3(BDE, 0, 1));
+        exit %pt;
+    }
+}
+
+#define BREG_CONCAT(x) %cb ## x
+#define BAR_FILL(bar) _bmov.32 BREG_CONCAT(bar) = 0xffffffff;
+
+.visible .entry ExitVerifyAtExit
+.section .text.ExitVerifyAtExit
+{
+    ExitVerifyAtExit:
+    {        
+        BR_SETUP()
+        lepc {%r4:2} = 0x10; 
+        bra.rel %pt, (`.SETUP_EXIT_HANDLER);        
+        mov.b32 %r7 = 0x1;
+        st.global.u8 [{%r8:2}], {%ur4:2}, %r7;
+        exit %pt;
+
+        .SETUP_EXIT_HANDLER:
+        BAR_FILL(0)
+        BAR_FILL(1)
+        BAR_FILL(2)
+        BAR_FILL(3)
+        BAR_FILL(4)
+        BAR_FILL(5)
+        BAR_FILL(6)
+        BAR_FILL(7)
+        BAR_FILL(8)
+        BAR_FILL(9)
+        BAR_FILL(10)
+        BAR_FILL(11)
+        BAR_FILL(12)
+        BAR_FILL(13)
+        BAR_FILL(14)
+        BAR_FILL(15)
+        _bmov.32 %atexit_pc_lo = %r4;
+        _bmov.32 %atexit_pc_hi = %r5;
+        exit %pt;
+    }
+}
+
+#define BRX_TID(id) \
+            .GEN_LABEL(BRX_TID, id): \
+            mov.b32 %r3 = id; \
+            atom.global.add.relaxed.gpu.policy %pt, %r14 = [{%r8:2} + 0x0], {%ur4:2}, %r3; \
+            bra.rel %pt, (`.BRX_RETURN); \
+            exit %pt;
+
+.visible .entry Brx32xMultiway
+.section .text.Brx32xMultiway
+{
+    Brx32xMultiway:
+    {        
+        ld.const.b64 {%ur4:2} = [bank0 + 0x118];
+        ld.const.b64 {%ur0:2} = [bank0 + 0x210];
+        _s2r %r0 = %sr33; // threadIdx.x 
+        _s2r %r2 = %sr37; // blockIdx.x
+        ld.const %r3 = [bank0 + 0x0]; //blockDim.x
+        
+        mov.b32 %r7 = 0x4;
+        mad.u32.wide {%r8:2}, %pt = %r2, %r7, {%ur0:2};
+        
+        // creating the 2nd arg here i.e ((1 << blockDim ) - 1)
+        shl.c %r10 = 0x1, %r3;
+        add.s32 %r10 = %r10, ~0x0;
+
+        _s2r %r3 = %sr56; // SR_EqMask
+        and.b32 %p0, %r30 = %r10, %r3;
+        lepc {%r6:2} = 0x0;
+        nop;
+        bra.rel %pt, (`.BRX_SETUP);
+
+        BRX_TID(0)
+        BRX_TID(1)
+        BRX_TID(2)
+        BRX_TID(3)
+        BRX_TID(4)
+        BRX_TID(5)
+        BRX_TID(6)
+        BRX_TID(7)
+        BRX_TID(8)
+        BRX_TID(9)
+        BRX_TID(10)
+        BRX_TID(11)
+        BRX_TID(12)
+        BRX_TID(13)
+        BRX_TID(14)
+        BRX_TID(15)
+        BRX_TID(16)
+        BRX_TID(17)
+        BRX_TID(18)
+        BRX_TID(19)
+        BRX_TID(20)
+        BRX_TID(21)
+        BRX_TID(22)
+        BRX_TID(23)
+        BRX_TID(24)
+        BRX_TID(25)
+        BRX_TID(26)
+        BRX_TID(27)
+        BRX_TID(28)
+        BRX_TID(29)
+        BRX_TID(30)
+        BRX_TID(31)
+
+        .BRX_SETUP:
+        mov.b32 %r18 = 0x40; 
+        mad.u32.wide {%r6:2}, %p1 = %r0, %r18, {%r6:2};
+        lepc {%r12:2} = 0x0;
+        
+        add.s32 %r2 = %r6, -%r12;
+        mov.b32 %r3 = -0x1;
+        add.s32 %r2 = %r2, -0x20;
+        @%p0 brx.rel %pt, {%r2:2} + 0x0, 0x0; 
+
+        .BRX_RETURN:
+        _warpsync.all %pt;
+        exit %pt;
+    }
+}
+
+#define JMX_TID(id) \
+            .GEN_LABEL(JMX_TID, id): \
+            mov.b32 %r3 = id; \
+            atom.global.add.relaxed.sys.policy %pt, %r14 = [{%r8:2} + 0x0], {%ur4:2}, %r3; \
+            bra.rel %pt, (`.JMX_RETURN); \
+            exit %pt;
+
+.visible .entry Jmx32xMultiway
+.section .text.Jmx32xMultiway
+{
+    Jmx32xMultiway:
+    {        
+        ld.const.b64 {%ur4:2} = [bank0 + 0x118];
+        ld.const.b64 {%ur0:2} = [bank0 + 0x210];
+        _s2r %r0 = %sr33; // threadIdx.x 
+        _s2r %r2 = %sr37; // blockIdx.x
+        ld.const %r3 = [bank0 + 0x0]; //blockDim.x
+        
+        mov.b32 %r7 = 0x4;
+        mad.u32.wide {%r8:2}, %p0 = %r2, %r7, {%ur0:2};
+        
+        // creating the 2nd arg here i.e ((1 << blockDim ) - 1)
+        shl.c %r10 = 0x1, %r3;
+        add.s32 %r10 = %r10, ~0x0;
+
+        _s2r %r3 = %sr56; // SR_EqMask
+        and.b32 %p0, %rz = %r10, %r3;
+        lepc {%r6:2} = 0x0;
+        // work around as lepc returns incorrect pc with an immediate other than 0
+        nop; 
+        bra.rel %pt, (`.JMX_SETUP);
+
+        JMX_TID(0)
+        JMX_TID(1)
+        JMX_TID(2)
+        JMX_TID(3)
+        JMX_TID(4)
+        JMX_TID(5)
+        JMX_TID(6)
+        JMX_TID(7)
+        JMX_TID(8)
+        JMX_TID(9)
+        JMX_TID(10)
+        JMX_TID(11)
+        JMX_TID(12)
+        JMX_TID(13)
+        JMX_TID(14)
+        JMX_TID(15)
+        JMX_TID(16)
+        JMX_TID(17)
+        JMX_TID(18)
+        JMX_TID(19)
+        JMX_TID(20)
+        JMX_TID(21)
+        JMX_TID(22)
+        JMX_TID(23)
+        JMX_TID(24)
+        JMX_TID(25)
+        JMX_TID(26)
+        JMX_TID(27)
+        JMX_TID(28)
+        JMX_TID(29)
+        JMX_TID(30)
+        JMX_TID(31)
+        
+        .JMX_SETUP: 
+        mov.b32 %r18 = 0x40; 
+        mad.u32.wide {%r14:2}, %p1 = %r0, %r18, {%r6:2};
+        mov.b32 %r18 = 0x1; 
+        mov.b32 %r19 = 0x20; 
+        mad.u32.wide {%r14:2}, %pt = %r18, %r19, {%r14:2};
+        @%p0 brx.abs %p0, {%r14:2} + 0x0, 0x0;
+
+        .JMX_RETURN:
+        _warpsync.all %pt;
+        exit %pt;
+    }
+}
+
+.visible .entry SProducerMConsumerBssyBsyn
+.section .text.SProducerMConsumerBssyBsyn
+{
+    SProducerMConsumerBssyBsyn:
+    {        
+        ld.const.b64 {%ur4:2} = [bank0 + 0x118];
+        ld.const.b64 {%ur0:2} = [bank0 + 0x210];
+        ld.const.b64 {%ur2:2} = [bank0 + 0x218];
+        _s2r %r0 = %sr33; // threadIdx.x 
+        _s2r %r2 = %sr37; // blockIdx.x
+        ld.const %r3 = [bank0 + 0x0]; //blockDim.x
+        
+        mad.u32.lo %r4 = %r2, %r3, %r0;
+        mov.b32 %r5 = 0x1;
+        add.s32 %r6 = %r0, %r5;
+        mov.b32 %r7 = 0x4;
+        mad.u32.wide {%r8:2}, %pt = %r2, %r7, {%ur0:2};
+        mad.u32.wide {%r10:2}, %pt = %r4, %r7, {%ur2:2};
+        ld.const %r12 = [bank0 + 0x220];
+        
+        setp.u32.eq %p0 = %r0, %rz;
+        @%p0 bra.rel %pt, (`.L1_PRODUCER_LOOP);
+        add.s32 %r5 = %r0, %r5;
+        setp.u32.lt %p0 = %r0, 0x10;
+        @!%p0 exit %pt;
+        @%p0 bra.rel %pt, (`.L1_CONSUMER_LOOP);
+      
+        .L1_PRODUCER_LOOP:
+        setp.u32.eq %p0 = %r12, %rz;
+        @%p0 exit %pt;
+
+        .L1_WAIT_CONSUMER:
+        yield %pt;
+        ld.global.policy %r7 = [{%r8:2} + 0x0], {%ur4:2}, %pt;
+        setp.u32.eq %p0 = %r7, %rz;
+        @!%p0 bra.rel %pt, (`.L1_WAIT_CONSUMER);
+
+        .L1_PRODUCE:
+        mov.b32 %r3 = 0x10;
+        atom.global.add.relaxed.sys.policy %pt, %r7 = [{%r8:2} + 0x0], {%ur4:2}, %r3;
+        atom.global.add.relaxed.sys.policy %pt, %r7 = [{%r10:2} + 0x0], {%ur4:2}, %r3;
+        add.s32 %r12 = %r12, -0x1;
+        bra.rel %pt, (`.L1_PRODUCER_LOOP);
+
+        .L1_CONSUMER_LOOP:
+        setp.u32.eq %p0 = %r12, %rz;
+        @%p0 exit %pt;
+
+        .L1_WAIT_PRODUCER:
+        yield %pt;
+        ld.global.policy %r7 = [{%r8:2} + 0x0], {%ur4:2}, %pt;
+        setp.u32.eq %p0 = %r7, %rz;
+        @%p0 bra.rel %pt, (`.L1_WAIT_PRODUCER);
+
+        .L1_CONSUME:
+        ld.global.policy %r7 = [{%r8:2} + 0x0], {%ur4:2}, %pt;
+        setp.u32.eq %p0 = %r7, 0x1;
+        @%p0 bra.rel %pt, (`.L1_DONE_CONSUME);
+        predict %pt, %cb0, 0x0;
+        setp.u32.eq %p0 = %r7, %r5;
+        @!%p0 bra.rel %pt, (`.L1_NOT_MY_TOKEN);
+        add.s32 %r3 = %rz, -0x1;
+        atom.global.add.relaxed.sys.policy %pt, %r7 = [{%r8:2} + 0x0], {%ur4:2}, %r3;
+        mov.b32 %r3 = 0x1;
+        atom.global.add.relaxed.sys.policy %pt, %r7 = [{%r10:2} + 0x0], {%ur4:2}, %r3;
+
+        .L1_NOT_MY_TOKEN:
+        _s2r %r3 = %sr56; // SR_EQMASK
+        confirm %pt, %cb0; 
+        bra.rel %pt, (`.L1_CONSUME); 
+        
+        .L1_DONE_CONSUME:
+        setp.u32.eq %p0 = %r0, 0x1;
+        @%p0 add.s32 %r3 = %rz, -0x1;
+        @%p0 atom.global.add.relaxed.sys.policy %pt, %r7 = [{%r8:2} + 0x0], {%ur4:2}, %r3;
+        add.s32 %r12 = %r12, -0x1;
+        bra.rel %pt, (`.L1_CONSUMER_LOOP);
+        
+        .L1_EXIT:
+        exit %pt;
+    }
+}
+
+.visible .entry SProducerMConsumerWarpSync
+.section .text.SProducerMConsumerWarpSync
+{
+    SProducerMConsumerWarpSync:
+    {        
+        ld.const.b64 {%ur4:2} = [bank0 + 0x118];
+        ld.const.b64 {%ur0:2} = [bank0 + 0x210];
+        ld.const.b64 {%ur2:2} = [bank0 + 0x218];
+        _s2r %r0 = %sr33; // threadIdx.x 
+        _s2r %r2 = %sr37; // blockIdx.x
+        ld.const %r3 = [bank0 + 0x0]; //blockDim.x
+        
+        mad.u32.lo %r4 = %r2, %r3, %r0;
+        mov.b32 %r5 = 0x1;
+        add.s32 %r6 = %r0, %r5;
+        mov.b32 %r7 = 0x4;
+        mad.u32.wide {%r8:2}, %pt = %r2, %r7, {%ur0:2};
+        mad.u32.wide {%r10:2}, %pt = %r4, %r7, {%ur2:2};
+        ld.const %r12 = [bank0 + 0x220];
+        
+        setp.u32.eq %p0 = %r0, %rz;
+        @%p0 bra.rel %pt, (`.L2_PRODUCER_LOOP);
+        add.s32 %r5 = %r0, %r5;
+        setp.u32.lt %p0 = %r0, 0x10;
+        @!%p0 exit %pt;
+        @%p0 bra.rel %pt, (`.L2_CONSUMER_LOOP);
+      
+        .L2_PRODUCER_LOOP:
+        setp.u32.eq %p0 = %r12, %rz;
+        @%p0 exit %pt;
+
+        .L2_WAIT_CONSUMER:
+        yield %pt;
+        ld.global.policy %r7 = [{%r8:2} + 0x0], {%ur4:2}, %pt;
+        setp.u32.eq %p0 = %r7, %rz;
+        @!%p0 bra.rel %pt, (`.L2_WAIT_CONSUMER);
+
+        .L2_PRODUCE:
+        mov.b32 %r3 = 0x10;
+        atom.global.add.relaxed.sys.policy %pt, %r7 = [{%r8:2} + 0x0], {%ur4:2}, %r3;
+        atom.global.add.relaxed.sys.policy %pt, %r7 = [{%r10:2} + 0x0], {%ur4:2}, %r3;
+        add.s32 %r12 = %r12, -0x1;
+        bra.rel %pt, (`.L2_PRODUCER_LOOP);
+
+        .L2_CONSUMER_LOOP:
+        setp.u32.eq %p0 = %r12, %rz;
+        @%p0 exit %pt;
+
+        .L2_WAIT_PRODUCER:
+        yield %pt;
+        ld.global.policy %r7 = [{%r8:2} + 0x0], {%ur4:2}, %pt;
+        setp.u32.eq %p0 = %r7, %rz;
+        @%p0 bra.rel %pt, (`.L2_WAIT_PRODUCER);
+
+        .L2_CONSUME:
+        ld.global.policy %r7 = [{%r8:2} + 0x0], {%ur4:2}, %pt;
+        setp.u32.eq %p0 = %r7, 0x1;
+        @%p0 bra.rel %pt, (`.L2_DONE_CONSUME);
+        nop;
+        setp.u32.eq %p0 = %r7, %r5;
+        @!%p0 bra.rel %pt, (`.L2_NOT_MY_TOKEN);
+        add.s32 %r3 = %rz, -0x1;
+        atom.global.add.relaxed.sys.policy %pt, %r7 = [{%r8:2} + 0x0], {%ur4:2}, %r3;
+        mov.b32 %r3 = 0x1;
+        atom.global.add.relaxed.sys.policy %pt, %r7 = [{%r10:2} + 0x0], {%ur4:2}, %r3;
+
+        .L2_NOT_MY_TOKEN:
+        mov.b32 %r17 = 0xfffffffe;
+        _s2r %r7 = %sr56; // SR_EQMASK
+        _warpsync %pt, %r7;
+        _warpsync %pt, %r17;
+        _warpsync %pt, %r7;
+        bra.rel %pt, (`.L2_CONSUME); 
+        
+        .L2_DONE_CONSUME:
+        setp.u32.eq %p0 = %r0, 0x1;
+        @%p0 add.s32 %r3 = %rz, -0x1;
+        @%p0 atom.global.add.relaxed.sys.policy %pt, %r7 = [{%r8:2} + 0x0], {%ur4:2}, %r3;
+        add.s32 %r12 = %r12, -0x1;
+        bra.rel %pt, (`.L2_CONSUMER_LOOP);
+        
+        .L2_EXIT:
+        exit %pt;
+    }
+}
+
+.visible .entry PairWiseProducerConsumer
+.section .text.PairWiseProducerConsumer
+{
+    PairWiseProducerConsumer:
+    {        
+        ld.const.b64 {%ur4:2} = [bank0 + 0x118];
+        ld.const.b64 {%ur0:2} = [bank0 + 0x210];
+        ld.const.b64 {%ur2:2} = [bank0 + 0x218];
+        _s2r %r0 = %sr33; // threadIdx.x 
+        _s2r %r2 = %sr37; // blockIdx.x
+        ld.const %r3 = [bank0 + 0x0]; //blockDim.x
+        
+        mad.u32.lo %r4 = %r2, %r3, %r0;
+        mov.b32 %r5 = 0x80;
+        add.s32 %r6 = %r0, %r5;
+        mov.b32 %r7 = 0x4;
+        shr.u32 %r5 = %r4, 0x1;
+        mad.u32.wide {%r8:2}, %pt = %r5, %r7, {%ur0:2};
+        mad.u32.wide {%r10:2}, %pt = %r4, %r7, {%ur2:2};
+        ld.const %r12 = [bank0 + 0x220];
+        
+        mov.b32 %r27 = 0x1;
+        and.b32 %p0, %r27 = %r0, %r27;
+        @!%p0 bra.rel %pt, (`.L3_PRODUCER_LOOP);
+        @%p0 bra.rel %pt, (`.L3_CONSUMER_LOOP);
+        exit %pt;       
+
+        .L3_PRODUCER_LOOP:
+        setp.u32.eq %p0 = %r12, %rz;
+        @%p0 exit %pt;
+
+        .L3_WAIT_CONSUMER:
+        yield %pt;
+        ld.global.policy %r7 = [{%r8:2} + 0x0], {%ur4:2}, %pt;
+        setp.u32.eq %p0 = %r7, %rz;
+        @!%p0 bra.rel %pt, (`.L3_WAIT_CONSUMER);
+
+        .L3_PRODUCE:
+        mov.b32 %r3 = 0x1;
+        st.global.policy [{%r8:2}], {%ur4:2}, %r3;
+        atom.global.add.relaxed.gpu.policy %pt, %r7 = [{%r10:2} + 0x0], {%ur4:2}, %r3;
+        add.s32 %r12 = %r12, -0x1;
+        bra.rel %pt, (`.L3_PRODUCER_LOOP);
+
+        .L3_CONSUMER_LOOP:
+        setp.u32.eq %p0 = %r12, %rz;
+        @%p0 exit %pt;
+
+        .L3_WAIT_PRODUCER:
+        yield %pt;
+        ld.global.policy %r7 = [{%r8:2} + 0x0], {%ur4:2}, %pt;
+        setp.u32.eq %p0 = %r7, %rz;
+        @%p0 bra.rel %pt, (`.L3_WAIT_PRODUCER);
+
+        .L3_CONSUME:
+        mov.b32 %r3 = 0x0;
+        st.global.policy [{%r8:2}], {%ur4:2}, %r3;
+        mov.b32 %r3 = 0x1;
+        atom.global.add.relaxed.gpu.policy %pt, %r7 = [{%r10:2} + 0x0], {%ur4:2}, %r3;
+        
+        .L3_DONE_CONSUME:
+        add.s32 %r12 = %r12, -0x1;
+        bra.rel %pt, (`.L3_CONSUMER_LOOP);
+ 
+        .L3_EXIT:
+        exit %pt;
+    }
+}

@@ -1,0 +1,16 @@
+// LWIDIA_COPYRIGHT_BEGIN
+//
+// Copyright 2007-2007 by LWPU Corporation.  All rights reserved.  All
+// information contained herein is proprietary and confidential to LWPU
+// Corporation.  Any use, reproduction, or disclosure without the written
+// permission of LWPU Corporation is prohibited.
+//
+// LWIDIA_COPYRIGHT_END
+
+Policy.Version(2);
+
+#include "default.pcy"
+AddFileId(Out.PriNormal, "$Id:  $");
+
+Policy.Define(Trigger.OnPercentMethodsWritten(Channel.Name(".*"),["list", 0, 2, 12, 32, 0]), Action.Print("Channel %c%[%m%] : Policy Manager Method Write"));
+Policy.Define(Trigger.OnPercentMethodsExelwted(Channel.Name(".*"),["list", "clamp", 5, 10, 50, 10]), Action.Print("Channel %c%[%m%] : Policy Manager Method Execute"));

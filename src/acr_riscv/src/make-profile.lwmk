@@ -1,0 +1,471 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2020-2021 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_RELEASE          ?= false
+INCLUDE_DT          ?= false
+ACR_FMODEL_BUILD    ?= false
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+LWUPROC        = $(LW_SOURCE)/uproc
+ACR_SW         = $(LW_SOURCE)/uproc/acr_riscv
+RESMAN_ROOT    = $(LW_SOURCE)/drivers/resman
+UPROC_LIBS     = $(LW_SOURCE)/uproc/libs
+UPROC_CMN_SRC  = $(UPROC_LIBS)/cmn
+LWRISCV        = $(LWUPROC)/lwriscv
+MEMMAP_PATH    = $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc/gsp
+LWRISCV_SDK_VERSION ?= lwriscv-sdk-3.0_dev
+LWRISCV_SDK_PROFILE ?= gsp-rm-proxy-gh100
+LWRISCVX_SDK_ROOT   ?= $(LW_SOURCE)/uproc/lwriscv/sdk/$(LWRISCV_SDK_VERSION)
+
+# LIBLWRISCV/libCCC configuration
+LWRISCVX_SDK_PREBUILT     :=$(LWRISCVX_SDK_ROOT)/prebuilt/$(LWRISCV_SDK_PROFILE)
+LWRISCVX_PREBUILT_INC_DIR :=$(LWRISCVX_SDK_PREBUILT)/inc
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target RISC-V
+# architecture (ex. lwriscv), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+include $(ACR_SW)/config/acr-profiles.mk
+
+###############################################################################
+# Load common RISC-V make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LWUPROC)/build/common/lwRiscvArch.lwmk
+override LW_TARGET_ARCH = $(RISCV_TOOLS_BUILD)
+override LW_TARGET_OS   = riscv
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Define the output directory paths for the ACR build and all sub-make builds.
+###############################################################################
+
+CHIPNAME  := $(subst acr_,,$(ACRCFG_PROFILE))
+CHIPNAME  := $(subst gsp-,,$(CHIPNAME))
+FALCONNAME := gsp
+
+OUTPUTDIR := _out/$(FALCONNAME)/$(CHIPNAME)
+
+###############################################################################
+# Setup acr-config make vars and ilwoke acr-config. Use acr-config's
+# makefile.mk to do all the work. The makefile will generate acr-config.mk in
+# the output directory and then include it.
+###############################################################################
+
+ACRSRC_ALL          :=
+ACRCFG_OPTIONS      :=
+ACRCFG_OUTPUTDIR    ?= $(OUTPUTDIR)/config
+ACRCFG_RESMAN_ROOT  := $(RESMAN_ROOT)
+ACRCFG_ACRSW_ROOT   := $(ACR_SW)/src
+
+include $(ACR_SW)/config/makefile.mk
+
+# include the generated list of source files
+ifdef ACRCFG_INITIALIZED
+  include $(ACRCFG_OUTPUTDIR)/g_sources.mk
+endif
+
+###############################################################################
+# Generate only halgen files
+###############################################################################
+
+.PHONY : gen_only_header
+gen_only_header : $(ACRCFG_OUTPUTDIR)/g_sources.mk
+
+
+###############################################################################
+# Include profile-specific make settings to account for profile-specific build
+# options/requirements.
+###############################################################################
+
+-include $(ACR_SW)/config/$(ACRCFG_PROFILE).mk
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+export LW_TARGET_ARCH
+export MANUAL_PATHS
+export ACR_SIG_VERIF
+export ACR_SKIP_SCRUB
+export ACR_FMODEL_BUILD
+export ACR_GSPRM_BUILD
+export ACR_RISCV_LS
+export FB_FRTS
+
+ENGINE_NAME = ""
+
+ifdef LWRISCV_DEBUG_PRINT_LEVEL
+    CONFIG_FLAGS += -DLWRISCV_DEBUG_PRINT_LEVEL=$(LWRISCV_DEBUG_PRINT_LEVEL)
+endif
+
+ifeq ($(PARTITION_BOOT_ENABLED),1)
+    CONFIG_FLAGS += -DPARTITION_BOOT_ENABLED
+    # TODO: PJAMBHLEKAR: review const value later
+    CONFIG_FLAGS += -DTCM_CARVEOUT_FOR_FMC=0x1000
+else
+    CONFIG_FLAGS += -DTCM_CARVEOUT_FOR_FMC=0
+endif
+
+ifeq ($(USE_CSB), true)
+    CONFIG_FLAGS += -DUSE_CSB=1
+else
+    CONFIG_FLAGS += -DUSE_CSB=0
+endif
+
+ifeq ($(USE_CBB), true)
+    CONFIG_FLAGS += -DUSE_CBB=1
+else
+    CONFIG_FLAGS += -DUSE_CBB=0
+endif
+
+ifeq ($(IS_LASSAHS_REQUIRED), true)
+    CONFIG_FLAGS += -DIS_LASSAHS_REQUIRED
+endif
+
+ifeq ($(LS_UCODE_MEASUREMENT), true)
+    CONFIG_FLAGS += -DLS_UCODE_MEASUREMENT
+endif
+
+CONFIG_FLAGS += -DUPROC_RISCV
+CONFIG_FLAGS += -DEMEM_SIZE=$(EMEM_SIZE) -DIMEM_SIZE=$(IMEM_SIZE) -DDMEM_SIZE=$(DMEM_SIZE)
+CONFIG_FLAGS += -DDMEM_END_CARVEOUT_SIZE=$(DMEM_END_CARVEOUT_SIZE)
+CONFIG_FLAGS += -DSTACK_SIZE=$(STACK_SIZE)
+
+ifeq ($(SSP_ENABLED), true)
+    CFLAGS += -fstack-protector-all -DIS_SSP_ENABLED
+    CFLAGS += -Wstack-protector --param ssp-buffer-size=4
+endif
+
+ifeq ($(ACR_FMODEL_BUILD), true)
+    CFLAGS += -DACR_FMODEL_BUILD
+endif
+
+# DMEM_BASE is defined for each BL profile.
+# LW_RISCV_AMAP_DMEM_START
+CFLAGS += -DDMEM_BASE=$(DMEM_BASE)
+ASMFLAGS += -DDMEM_BASE=$(DMEM_BASE)
+
+# AM-TODO: This needs to go somewhere else
+CFLAGS   += $(CONFIG_FLAGS)
+
+ASMFLAGS += $(addprefix -I,$(LW_INCLUDES)) $(CONFIG_FLAGS)
+
+CFLAGS += -DACR_GH100_UCODE_BUILD_VERSION=$(ACR_GH100_UCODE_BUILD_VERSION)
+
+UCODE_BUILD_VERSIONS :=
+
+  ifneq (,$(findstring gh100, $(CHIPNAME)))
+    UCODE_BUILD_VERSIONS := "\"ACR_GH100_UCODE_BUILD_VERSION 0x$(ACR_GH100_UCODE_BUILD_VERSION)\""
+  endif
+
+###############################################################################
+# Submake Configuration
+#
+# This makefile builds libraries and tools that are shared with other projects.
+# Many of these builds may be lwstomized based on the needs of the project
+# building it. It is therefore necessary to ensure isolation between the
+# projects. Isolation is also required to allow for parallelization of project
+# builds.
+#
+# Isolation is achieved by ensuring that all build output is kept separate
+# between the projects. Ideally, output could all be redirected to a path
+# defined within the ACR's/project's output directory. However, the common
+# lwmake rules require that each submake target's output directory be contained
+# within that target's source directory. As a result, the only way to ensure
+# isolation is by establishing proper namespacing within each submake target's
+# local output directory.
+###############################################################################
+
+SUBMAKE_NAMESPACE := acr
+SUBMAKE_OUTPUTDIR := \
+  _out/$(SUBMAKE_NAMESPACE)/$(UPROC_ARCH)_$(LW_BUILD_TYPE)
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(ACRSW)/inc
+LW_INCLUDES += $(ACRSW)/inc/hopper
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(UPROC_CMN_SRC)/inc
+LW_INCLUDES += $(OUTPUTDIR)
+LW_INCLUDES += $(UPROC_LIBS)/se/inc
+LW_INCLUDES += $(LWUPROC)/lwriscv/inc
+LW_INCLUDES += $(MEMMAP_PATH)
+LW_INCLUDES += $(ACR_SW)/inc/riscv
+LW_INCLUDES += $(LWUPROC)/gsp/inc
+LW_INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)
+LW_INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/libCCC
+LW_INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/libCCC/hwref
+LW_INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common
+LW_INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common_crypto
+LW_INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common_crypto/include
+LW_INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common_crypto_private
+LW_INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common_crypto_private/lwpka
+LW_INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)/liblwriscv
+LW_INCLUDES += $(LWRISCVX_SDK_ROOT)/inc
+LW_INCLUDES += $(LWRISCVX_SDK_ROOT)/inc/lwpu-sdk
+LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/conf_compute/inc
+
+ifeq ($(ACR_GSPRM_BUILD), true)
+    # ACR_GSPRM_BUILD populates a LibOS data structure
+    LW_INCLUDES += $(LW_SOURCE)/uproc/os/libos-v2.0.0/include
+endif
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+
+IMG_TARGET      := $(OUTPUTDIR)/g_acruc_$(CHIPNAME)
+
+IMG_ELF     := $(IMG_TARGET).out
+IMG_DT      := $(IMG_TARGET).dt
+
+# Don't delete the ELF
+.PRECIOUS: $(IMG_ELF)
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+
+ifeq ($(ACR_SIG_VERIF), true)
+    CFLAGS += -DACR_SIG_VERIF
+endif
+
+ifeq ($(ACR_SKIP_SCRUB), true)
+    CFLAGS += -DACR_SKIP_SCRUB
+endif
+
+ifeq ($(ACR_FMODEL_BUILD), true)
+    CFLAGS += -DACR_FMODEL_BUILD
+endif
+
+ifeq ($(ACR_RISCV_LS), true)
+    CFLAGS += -DACR_RISCV_LS
+endif
+
+ifeq ($(FB_FRTS), true)
+    CFLAGS += -DFB_FRTS
+endif
+
+ifeq ($(SEC2_PRESENT), true)
+    CFLAGS += -DSEC2_PRESENT
+endif
+
+ifeq ($(LWENC_PRESENT), true)
+    CFLAGS += -DLWENC_PRESENT
+endif
+
+ifeq ($(LWDEC_PRESENT), true)
+    CFLAGS += -DLWDEC_PRESENT
+endif
+
+ifeq ($(LWDEC_RISCV_PRESENT), true)
+    CFLAGS += -DLWDEC_RISCV_PRESENT
+endif
+
+ifeq ($(LWDEC_RISCV_EB_PRESENT), true)
+    CFLAGS += -DLWDEC_RISCV_EB_PRESENT
+endif
+
+ifeq ($(OFA_PRESENT), true)
+    CFLAGS += -DOFA_PRESENT
+endif
+
+ifeq ($(LWJPG_PRESENT), true)
+    CFLAGS += -DLWJPG_PRESENT
+endif
+
+ifeq ($(GSP_PRESENT), true)
+    CFLAGS += -DGSP_PRESENT
+endif
+
+ifeq ($(FBFALCON_PRESENT), true)
+    CFLAGS += -DFBFALCON_PRESENT
+endif
+
+ifeq ($(LW_TARGET_OS),riscv)
+    CFLAGS += -DUPROC_RISCV
+endif
+
+ifeq ($(PRI_SOURCE_ISOLATION_PLM), true)
+    CFLAGS += -DPRI_SOURCE_ISOLATION_PLM
+endif
+
+ifeq ($(PKC_LS_RSA3K_KEYS_GH100), true)
+    CFLAGS += -DPKC_LS_RSA3K_KEYS_GH100
+endif
+
+ifeq ($(BOOT_FROM_HS_BUILD), true)
+    CFLAGS += -DBOOT_FROM_HS_BUILD
+endif
+
+ifeq ($(WAR_BUG_200670718), true)
+    CFLAGS += -DWAR_BUG_200670718
+endif
+
+ifeq ($(ALLOW_FSP_TO_RESET_GSP), true)
+    CFLAGS += -DALLOW_FSP_TO_RESET_GSP
+endif
+
+ifeq ($(ACR_ENGINE), GSP_RISCV)
+    CFLAGS += -DACR_ENGINE_GSP_RISCV
+endif
+
+ifeq ($(ACR_GSPRM_BUILD), true)
+    CFLAGS += -DACR_GSPRM_BUILD
+endif
+
+ifeq ($(ACR_CMAC_KDF_ENABLED), true)
+    CFLAGS += -DACR_CMAC_KDF_ENABLED
+endif
+
+CFLAGS += -ffreestanding -ffast-math -fno-common -Os -g -fno-jump-tables
+CFLAGS += -Wformat -Wformat-security -fstack-clash-protection
+CFLAGS += -Wall -Werror -Wstrict-prototypes -ffunction-sections -fdata-sections
+CFLAGS += -Wno-unused-parameter -Wno-implicit-fallthrough -Wsign-colwersion -Wcolwersion -Wsign-compare -Wint-in-bool-context -Wtype-limits
+CFLAGS += -nostartfiles -nostdlib
+CFLAGS += -fdiagnostics-color=always
+CFLAGS += -fomit-frame-pointer -fno-strict-aliasing -mcmodel=medany
+CFLAGS += -D_FORTIFY_SOURCE=2
+# Following flags are ignored by toolchain version 8.2.0
+CFLAGS += -Wl,-z,now
+CFLAGS += -Wl,-z,relro
+
+# This flag is added to avoid errors caused by colwersion flags while using the DRF Macros
+CFLAGS += -DLW_MISRA_COMPLIANCE_REQUIRED
+
+CFLAGS += $(SUBMAKE_CFLAGS)
+ASMFLAGS += $(SUBMAKE_ASFLAGS)
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(.)); delete $$ELW{PWD}; \
+                          print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(ACRCFG_PROFILE)]"
+
+SOURCES     = $(ACRSRC_ALL)
+###############################################################################
+# Rules for building the ELF image and binary files
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+all: $(IMG_ELF) check_ifdef
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files script is the
+# prerequisite for this rule.
+###############################################################################
+$(IMG_ELF): CHECK_TOOLCHAIN_VERSION $(OBJECTS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(AR) -r -c $(IMG_TARGET).a $(OBJECTS)
+
+#
+# When not building for DVS, the output image files need copied over to the RM
+# so that they get picked up by the driver/mods build. Trigger the process by
+# adding a phony prerequisite to 'all' called 'install'. The rule to rebuild
+# that target will perform the install process and will copy the files to the
+# RM if necessary.  Skip this process if the user has requested that files NOT
+# be installed via NO_INSTALL=true.
+#
+ifneq ($(LW_DVS_BLD),1)
+  ifneq ("$(NO_RELEASE)","true")
+    .PHONY: install
+    all: install
+  endif
+endif
+
+###############################################################################
+# Rule for generating .dt/symdump file
+###############################################################################
+
+SYMDUMP_SCRIPT = $(LW_SOURCE)/pmu_sw/build/symdump/symdump.pl
+
+SYMDUMP_ARGS  += $(IMG_ELF) $(IMG_DT)
+SYMDUMP_ARGS  += --acl          $(APP_P4_CL)
+
+$(IMG_DT):
+	-$(PERL) $(SYMDUMP_SCRIPT) $(SYMDUMP_ARGS)
+
+ifeq ("$(INCLUDE_DT)","true")
+  all: $(IMG_DT)
+endif
+
+###############################################################################
+# Rule to run ifdef_checker script and fail the build if wrong ifdef is used
+###############################################################################
+
+IFDEF_CHECKER_SCRIPT       = $(LWUPROC)/utilities/ifdef_checker.pl
+IFDEF_CHECKER_SCRIPT_ARGS += --dir 'lwriscv/bootloader'
+IFDEF_CHECKER_SCRIPT_ARGS += --dir 'acr'
+IFDEF_CHECKER_SCRIPT_ARGS += --LWUPROC '$(LWUPROC)'
+check_ifdef: $(IMG_ELF)
+	$(PERL) $(IFDEF_CHECKER_SCRIPT) $(IFDEF_CHECKER_SCRIPT_ARGS)
+
+
+###############################################################################
+# Toolchain version check 
+###############################################################################
+CC_TOOLCHAIN_VERSION := $(shell $(CC) -dumpversion)
+
+CHECK_TOOLCHAIN_VERSION: 
+ifneq ("$(CC_TOOLCHAIN_VERSION)", $(TOOLCHAIN_VERSION))
+    $(error Toolchain being used $(CC_TOOLCHAIN_VERSION) is not equal to required $(TOOLCHAIN_VERSION))
+endif
+
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For riscv
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+.PHONY: clean
+clean:
+	-$(RMDIR) -rf $(OUTPUTDIR)

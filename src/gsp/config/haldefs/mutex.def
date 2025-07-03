@@ -1,0 +1,34 @@
+# -*- mode: perl; -*-
+
+# Mutex Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $mutexHal = [
+
+    # per-GPU defaults for mutex for all interfaces below
+    DEFAULTS => [
+        FLAGS          => ":DIRECT_HAL_CALLS",
+    ],
+
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        ESTABLISH_MAPPING => [
+            DESCRIPTION    => "Establish the mapping between the logical mutex ID and the HW engine",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            _TU10X         => [ TURING_and_later, ],
+            _T23XD         => [ T234D_and_later, ],
+            _STUB          => [ pre_TURING, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $mutexHal;
+

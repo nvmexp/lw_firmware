@@ -1,0 +1,509 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2019-2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+override LW_TARGET_OS := riscv
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD           ?= false
+NO_RELEASE               ?= false
+FREEABLE_HEAP            ?= true
+TASK_RESTART             ?= false
+EMEM_SUPPORTED           ?= true
+LIBS_A                   ?=
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+LWUPROC        := $(LW_SOURCE)/uproc
+LWRISCV        := $(LWUPROC)/lwriscv
+BUILD_SCRIPTS  := $(LWUPROC)/build/scripts
+SEPKERN_SW     := $(LWRISCV)/sepkern
+SEPKERN_SPARK  := $(LWRISCV)/sepkern_spark
+SEPKERN_SW_SRC := $(SEPKERN_SW)/src
+SEPKERN_CFG    := $(SEPKERN_SW)/config
+SEPKERN_BUILD  := $(SEPKERN_SW)/build
+MANIFEST_LOC   := $(SEPKERN_SPARK)/manifests
+###############################################################################
+# Set profile-specific make vars. This includes things like the target
+# architecture, the linker-script to use, the manual directory, etc ...).
+###############################################################################
+
+RISCVLIBCFG_PROFILE ?= $(ENGINE)_sepkern-$(LW_PROJ)
+ifdef SEPKERNCFG_PROFILE
+  RISCVLIBCFG_PROFILE := $(SEPKERNCFG_PROFILE)
+endif
+SEPKERNCFG_PROFILE := $(RISCVLIBCFG_PROFILE)
+include $(SEPKERN_CFG)/sepkern-profiles.mk
+
+###############################################################################
+# RTOS Configuration
+###############################################################################
+
+###############################################################################
+# Export a flag to inform which ucode is being built.
+###############################################################################
+
+###############################################################################
+# Load common Riscv make vars.
+###############################################################################
+
+include $(LWUPROC)/build/common/lwRiscvArch.lwmk
+
+###############################################################################
+# Additional defines to provide to the compiler and assembler.
+###############################################################################
+
+ifeq ($(DEBUG_BUILD),true)
+    CONFIG_FLAGS += -DDEBUG_BUILD
+endif
+
+ifeq ($(BOOT_PROFILING),true)
+    CONFIG_FLAGS += -DBOOT_PROFILING
+endif
+ifeq ($(USE_CSB), true)
+    CONFIG_FLAGS += -DUSE_CSB=1
+else
+    CONFIG_FLAGS += -DUSE_CSB=0
+endif
+
+ifeq ($(USE_CBB), true)
+    CONFIG_FLAGS += -DUSE_CBB=1
+else
+    CONFIG_FLAGS += -DUSE_CBB=0
+endif
+
+ifdef GSP_RTOS
+    CONFIG_FLAGS += -DGSP_RTOS
+    ifeq ($(RUN_ON_SEC), true)
+        CONFIG_FLAGS += -DRUN_ON_SEC
+    endif
+    ifeq ($(USE_GSCID), true)
+    	CONFIG_FLAGS += -DUSE_GSCID
+	endif
+endif
+
+ifdef PMU_RTOS
+    CONFIG_FLAGS += -DPMU_RTOS
+endif
+
+ifdef SEC2_RTOS
+    CONFIG_FLAGS += -DSEC2_RTOS
+endif
+
+###############################################################################
+# Additional defines to provide to the linker.
+###############################################################################
+
+LD_DEFINES += -D__LINKER__
+
+###############################################################################
+# Define the output directory paths for the SEPKERN build and all sub-make builds.
+###############################################################################
+
+OUTPUTDIR         := _out/$(ENGINE)/$(PROJ)
+SEPKERN_OUTPUTDIR := $(OUTPUTDIR)
+
+###############################################################################
+# Setup sepkern-config make vars and ilwoke sepkern-config. Use sepkern-config's
+# makefile.mk to do all the work. The makefile will generate sepkern-config.mk in
+# the output directory and then include it.
+###############################################################################
+
+RISCVLIBSRC_ALL           :=
+RISCVLIBCFG_OPTIONS       := --h_file sepkern-config.h --mk_file sepkern-config.mk
+SEPKERNCFG_OUTPUTDIR      ?= $(OUTPUTDIR)/config
+RISCVLIBCFG_OUTPUTDIR     := $(SEPKERNCFG_OUTPUTDIR)
+RISCVLIBCFG_HEADER        := $(RISCVLIBCFG_OUTPUTDIR)/sepkern-config.h
+RISCVLIBCFG_MAKEFRAGMENT  := $(RISCVLIBCFG_OUTPUTDIR)/sepkern-config.mk
+RISCVLIBCFG_CONFIGFILE    := $(SEPKERN_SW)/config/sepkern-config.cfg
+RISCVLIBCFG_SRC_ROOT      := $(SEPKERN_SW)/src
+
+# Stub defines to shut out warnings
+LWRISCV_CORE_DUMP         ?= false
+LWRISCV_MPU_DUMP_ENABLED  ?= false
+LWRISCV_SYMBOL_RESOLVER   ?= false
+SCHEDULER_ENABLED         ?= false
+LWRISCV_DEBUG_PRINT_LEVEL ?= 0
+
+include $(LWRISCV)/config/makefile.mk
+
+# include the generated list of source files
+ifdef RISCVLIBCFG_INITIALIZED
+  include $(RISCVLIBCFG_OUTPUTDIR)/g_sources.mk
+endif
+
+###############################################################################
+# Include profile-specific make settings to account for profile-specific build
+# options/requirements.
+###############################################################################
+
+-include $(SEPKERN_CFG)/$(SEPKERNCFG_PROFILE).mk
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(SEPKERN_SW)/inc
+LW_INCLUDES += $(SEPKERN_SW)/src
+LW_INCLUDES += $(LWRISCV)/inc
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc
+LW_INCLUDES += $(LW_SOURCE)/sdk/lwpu/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc/gsp #unused, to kill errors about VA accesses
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+IMG_PREFIX          := g_sepkern_$(ENGINE)_$(PROJ)_riscv
+IMG_TARGET          := $(OUTPUTDIR)/$(IMG_PREFIX)
+
+ELF_TARGET          := $(IMG_TARGET)
+ELF_FILE            := $(ELF_TARGET).elf
+ELF_NO_SYM          := $(ELF_TARGET)_nosym.elf
+ELF_OBJDUMP         := $(ELF_TARGET).objdump
+ELF_NM              := $(ELF_TARGET).nm
+ELF_MAP             := $(ELF_TARGET).map
+ELF_DBGLINE         := $(ELF_TARGET).dbgline
+ELF_READELF         := $(ELF_TARGET).readelf
+ELF_SECTIONS        := $(ELF_TARGET).sections
+
+IMG_BIN             := $(IMG_TARGET)_image.bin
+IMG_CODE            := $(IMG_TARGET)_image.text
+IMG_DATA            := $(IMG_TARGET)_image.data
+IMG_CODE_ENC_PRD    := $(IMG_TARGET)_image.text.encrypt.bin
+IMG_DATA_ENC_PRD    := $(IMG_TARGET)_image.data.encrypt.bin
+IMG_CODE_ENC_DBG    := $(IMG_TARGET)_debug_image.text.encrypt.bin
+IMG_DATA_ENC_DBG    := $(IMG_TARGET)_debug_image.data.encrypt.bin
+IMG_DESC_BIN        := $(IMG_TARGET)_desc.bin
+IMG_SIGN            := $(IMG_TARGET)_sign.bin
+IMG_SIG_H           := $(IMG_TARGET)_sig.h
+
+MANIFEST_BIN        := $(IMG_TARGET)_manifest.bin
+MANIFEST_OUT        := $(MANIFEST_BIN)_dbg_enc.bin
+
+MANIFEST_BIN_FILES  := $(MANIFEST_BIN)
+MANIFEST_OUT_FILES  := $(MANIFEST_OUT)
+MANIFEST_COUNT      := 1
+
+SIGGEN_INST_IN_SYS_MANIFEST_PARAM = 
+MANIFEST_BIN_INST = 
+ifneq (,$(findstring pmu, $(SEPKERNCFG_PROFILE)))
+  MANIFEST_BIN_INST   := $(IMG_TARGET)_manifest_inst.bin
+  MANIFEST_OUT_INST   := $(MANIFEST_BIN_INST)_dbg_enc.bin
+
+  MANIFEST_BIN_FILES  += $(MANIFEST_BIN_INST)
+  MANIFEST_OUT_FILES  += $(MANIFEST_OUT_INST)
+  MANIFEST_COUNT      += 2
+  SIGGEN_INST_IN_SYS_MANIFEST_PARAM =  -instInSysManifest $(MANIFEST_BIN_INST)
+
+ifeq ($(SK_MF_INST_IMG),true)
+  MANIFEST_INST_FMC_COMBINED_DBG_PREFIX = $(IMG_PREFIX)_signed_sk_mf_inst
+  MANIFEST_INST_FMC_COMBINED_DBG = $(IMG_TARGET)_signed_sk_mf_inst_img.bin_dbg_enc.bin
+  IMG_CODE_ENC_DBG_INST = $(IMG_TARGET)_inst_debug_image.text.encrypt.bin
+  IMG_CODE_ENC_PRD_INST = $(IMG_TARGET)_inst_image.text.encrypt.bin
+  IMG_DATA_ENC_DBG_INST = $(IMG_TARGET)_inst_debug_image.data.encrypt.bin
+  IMG_DATA_ENC_PRD_INST = $(IMG_TARGET)_inst_image.data.encrypt.bin
+endif
+endif
+
+MANIFEST_HEX_FILES  := $(patsubst %.bin,%.hex,$(MANIFEST_BIN_FILES))
+MANIFEST_SIGGEN     := /mnt/personal/siggen_manifest
+RELEASE_FILES       = $(ELF_FILE) $(ELF_NM) $(ELF_OBJDUMP) $(ELF_READELF) \
+                      $(IMG_BIN) $(IMG_DESC_BIN) $(IMG_CODE_ENC_DBG) $(IMG_DATA_ENC_DBG) \
+                      $(MANIFEST_OUT_FILES) $(MANIFEST_HEX_FILES)
+
+ifeq ($(SK_MF_INST_IMG), true)
+    RELEASE_FILES += $(MANIFEST_INST_FMC_COMBINED_DBG)
+    RELEASE_FILES += $(IMG_CODE_ENC_DBG_INST) $(IMG_DATA_ENC_DBG_INST)
+endif
+
+BUILD_FILES         = $(ELF_FILE) $(ELF_NM) $(ELF_OBJDUMP) $(ELF_READELF) \
+                      $(IMG_BIN) $(IMG_DESC_BIN) \
+                      $(MANIFEST_HEX_FILES) $(MANIFEST_BIN_FILES)
+RESTRICTED_RELEASE_FILES =
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+CFLAGS  += -fdiagnostics-color=always
+CFLAGS  += -fomit-frame-pointer -fno-strict-aliasing -mcmodel=medany
+CFLAGS  += -nostartfiles -nostdlib -static
+CFLAGS  += -Og -g -pipe -fno-jump-tables
+CFLAGS  += $(CONFIG_FLAGS)
+ASMFLAGS += $(CONFIG_FLAGS)
+
+LDSCRIPT ?= $(SEPKERN_BUILD)/ldscript.ld
+LDFLAGS += -L $(OUTPUTDIR) -fdiagnostics-color=always
+LDFLAGS += -T $(LDSCRIPT)
+LIBS += gcc
+LDFLAGS += -Wl,--start-group $(addprefix -l,$(LIBS)) $(LIBS_A) -Wl,--end-group -Og -g
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+
+ifdef RISCVLIBCFG_INITIALIZED
+  SOURCES := $(RISCVLIB_ALL)
+else
+  SOURCES :=
+endif
+
+MANIFEST_C := $(MANIFEST_LOC)/manifest_$(ENGINE)_$(PROJ).c
+ifneq (,$(findstring pmu, $(SEPKERNCFG_PROFILE)))
+  MANIFEST_C += $(MANIFEST_LOC)/manifest_$(ENGINE)_$(PROJ)_inst.c
+endif
+ifneq (,$(findstring gsp, $(SEPKERNCFG_PROFILE)))
+ifeq ($(RUN_ON_SEC), true)
+    MANIFEST_C := $(MANIFEST_LOC)/manifest_tsec_$(PROJ).c
+endif
+endif
+MANIFEST_H := $(MANIFEST_LOC)/manifest_$(PROJ).h
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(..)); delete $$ELW{PWD}; \
+                  print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(RISCVLIBCFG_PROFILE)]"
+
+###############################################################################
+# Load lwConfig to generate guardword list and also for using the guardword
+# scanner later
+###############################################################################
+
+# TODO
+CHECK_GUARDWORD = $(OUTPUTDIR)/_guardwordCheck
+
+###############################################################################
+# Additional dependencies of the ELF image
+###############################################################################
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files is the prerequisite
+# for this rule.
+###############################################################################
+$(ELF_FILE): $(OBJECTS) $(LDSCRIPT)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(CFLAGS) $(OBJECTS) -o $(ELF_FILE) $(LDFLAGS)
+
+# Not only .readelf, this recipe generates all debugging releated files, including
+# .nm, .objdump, .objdump.source... etc.
+$(ELF_DBGLINE) $(ELF_READELF) $(ELF_OBJDUMP) $(ELF_NM): $(ELF_FILE)
+	$(ECHO) "AppVersion: $(APP_P4_CL). " > $(ELF_OBJDUMP)
+	$(OBJDUMP) -S $(ELF_FILE) >> $(ELF_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL). " > $(ELF_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL). " > $(ELF_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(ELF_READELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(ELF_READELF))
+	$(READELF) --all $(ELF_FILE) >> $(ELF_READELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(ELF_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(ELF_FILE) >> $(ELF_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(ELF_FILE)
+	$(NM)      $(ELF_FILE) >> $(ELF_MAP)
+	$(READELF) -S $(ELF_FILE) >> $(ELF_SECTIONS)
+
+###############################################################################
+# Create the binary in OUTPUTDIR
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+all: $(BUILD_FILES)
+
+# AM-TODO: Move to lwRiscvHost.mk
+STRIP       = $(LWRISCV_TOOLS)/bin/$(LWRISCV_PREFIX)strip
+OBJCOPY     = $(LWRISCV_TOOLS)/bin/$(LWRISCV_PREFIX)objcopy
+
+$(ELF_OBJDUMP) $(ELF_NO_SYM) $(IMG_BIN) $(IMG_CODE) $(IMG_DATA): image_files
+.PHONY: image_files
+
+image_files: $(ELF_FILE)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_BIN))
+	$(COPY) $(ELF_FILE) $(ELF_NO_SYM)
+	$(COPY) $(ELF_FILE) $(IMG_BIN)
+	$(COPY) $(ELF_FILE) $(IMG_DESC_BIN)
+	$(STRIP) -w --strip-debug --strip-symbol='__FUNCTION__.*' $(ELF_NO_SYM)
+	$(OBJCOPY) --remove-section .comment  $(ELF_NO_SYM)
+	$(OBJDUMP) -D $(ELF_NO_SYM) >> $(ELF_OBJDUMP)
+	$(OBJDUMP) -D $(ELF_NO_SYM) >> $(ELF_OBJDUMP).source
+	$(NM) $(ELF_NO_SYM) >> $(ELF_NM)
+	$(READELF) -a $(ELF_NO_SYM) >> $(ELF_READELF)
+	$(OBJCOPY) -O binary -j .monitor_code $(ELF_NO_SYM) $(IMG_CODE)
+	$(OBJCOPY) -O binary -j .monitor_data $(ELF_NO_SYM) $(IMG_DATA)
+
+$(MANIFEST_BIN): $(MANIFEST_C) $(MANIFEST_H)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(MANIFEST_BIN))
+	$(foreach index,$(MANIFEST_COUNT),$(CC) $(word $(index), $(MANIFEST_C)) $(CFLAGS) -DIMEM_LIMIT=$(IMEM_LIMIT) -DDMEM_LIMIT=$(DMEM_LIMIT) -c -o $(word $(index), $(MANIFEST_BIN_FILES)).o;)
+	$(foreach file,$(MANIFEST_BIN_FILES), $(OBJCOPY) -O binary -j .rodata $(file).o $(file);)
+
+$(MANIFEST_OUT) $(IMG_CODE_ENC_DBG) $(IMG_DATA_ENC_DBG): sign_manifests
+.PHONY: sign_manifests
+
+ifeq ($(SIGGEN_CSG_PROD_SIGNING),true)
+  CSG_TAR_DIR = $(OUTPUTDIR)
+  CSG_ARCHIVE ?= $(SEPKERNCFG_PROFILE)_CSG_SIGNING_ARCHIVE
+  CSG_DIR ?= $(OUTPUTDIR)/$(CSG_ARCHIVE)
+  CSG_POST_SIGN_SCRIPT ?= "csg_post_sign.sh"
+  siggen_cftt_processing = $(MKDIR)  $(CSG_TAR_DIR)/$1 ; \
+                           $(MKDIR) -p $(CSG_TAR_DIR)/$1/$(OUTPUTDIR) ;\
+                           $(ECHO)  "-manifest $2 -code $(IMG_CODE) -data $(IMG_DATA) -chip $(SIGGEN_CHIPS) $(SIGGEN_PROD_SIGNING_OPTIONS) $3" > $(CSG_TAR_DIR)/$1/siggen_params.txt ; \
+                           $(ECHO) $(SEPKERNCFG_PROFILE) > $(CSG_TAR_DIR)/$1/profile.txt ; \
+                           $(COPY)  $(IMG_CODE) $(IMG_DATA) $2 $4 $(CSG_TAR_DIR)/$1/$(OUTPUTDIR)/ ; \
+                           /bin/tar -cf $(CSG_TAR_DIR)/$1.tar -C $(CSG_TAR_DIR) $1; \
+                           /bin/gzip $(CSG_TAR_DIR)/$1.tar ; 
+endif
+
+sign_manifests: $(MANIFEST_BIN) $(IMG_CODE) $(IMG_DATA)
+ifeq ($(SIGGEN_CSG_PROD_SIGNING),true)
+	$(ECHO) $(BUILD_PROJECT_NAME) Creating the archive for CSG signing...
+	$(call  siggen_cftt_processing,$(CSG_ARCHIVE),$(MANIFEST_BIN),$(SIGGEN_INST_IN_SYS_MANIFEST_PARAM),$(MANIFEST_BIN_INST))
+	$(ECHO) "$(MOVE) $(addsuffix .encrypt.bin.out.bin,$(MANIFEST_BIN))  $(addsuffix _dbg_enc.bin,$(MANIFEST_BIN));" >> $(CSG_POST_SIGN_SCRIPT);
+	$(ECHO) "$(MOVE) $(IMG_CODE_ENC_PRD) $(IMG_CODE_ENC_DBG);" >> $(CSG_POST_SIGN_SCRIPT) 
+	$(ECHO) "$(MOVE) $(IMG_DATA_ENC_PRD) $(IMG_DATA_ENC_DBG);" >> $(CSG_POST_SIGN_SCRIPT) 
+
+ifneq  (,$(findstring 2,$(MANIFEST_COUNT))) 
+	$(ECHO) "$(MOVE) $(addsuffix .encrypt.bin.out.bin,$(MANIFEST_BIN_INST))  $(addsuffix _dbg_enc.bin,$(MANIFEST_BIN_INST)) ;" >> $(CSG_POST_SIGN_SCRIPT)
+endif
+ifeq ($(SK_MF_INST_IMG),true)
+	$(ECHO) "$(MOVE) $(IMG_CODE)_inst.encrypt.bin $(IMG_CODE_ENC_DBG_INST) ;"               >> $(CSG_POST_SIGN_SCRIPT)
+	$(ECHO) "$(MOVE) $(IMG_DATA)_inst.encrypt.bin $(IMG_DATA_ENC_DBG_INST) ;"               >> $(CSG_POST_SIGN_SCRIPT)
+	$(ECHO) "$(PERL) $(BUILD_SCRIPTS)/mkimage/rvmkimg.pl --fmcCode $(IMG_CODE_ENC_DBG_INST) --fmcData $(IMG_DATA_ENC_DBG_INST) --manifest $(MANIFEST_OUT_INST) --outDir  $(OUTPUTDIR)  --outFilePrefix $(MANIFEST_INST_FMC_COMBINED_DBG_PREFIX);" >> $(CSG_POST_SIGN_SCRIPT)
+	$(ECHO) "$(MOVE)  $(addsuffix _image.bin,$(OUTPUTDIR)/$(MANIFEST_INST_FMC_COMBINED_DBG_PREFIX)) $(MANIFEST_INST_FMC_COMBINED_DBG);" >> $(CSG_POST_SIGN_SCRIPT)
+endif
+else
+	$(ECHO) $(BUILD_PROJECT_NAME) debug signing...
+	$(MANIFEST_SIGGEN) -manifest $(MANIFEST_BIN) -code $(IMG_CODE) -data $(IMG_DATA) -chip $(SIGGEN_CHIPS) -mode 0  $(SIGGEN_INST_IN_SYS_MANIFEST_PARAM)
+	$(MOVE) $(addsuffix .encrypt.bin.out.bin,$(MANIFEST_BIN))  $(addsuffix _dbg_enc.bin,$(MANIFEST_BIN))
+	$(MOVE) $(IMG_CODE_ENC_PRD) $(IMG_CODE_ENC_DBG)
+	$(MOVE) $(IMG_DATA_ENC_PRD) $(IMG_DATA_ENC_DBG)
+ifneq  (,$(findstring 2,$(MANIFEST_COUNT))) 
+	$(MOVE) $(addsuffix .encrypt.bin.out.bin,$(MANIFEST_BIN_INST))  $(addsuffix _dbg_enc.bin,$(MANIFEST_BIN_INST))
+endif	
+ifeq ($(SK_MF_INST_IMG),true)
+	$(MOVE) $(IMG_CODE)_inst.encrypt.bin $(IMG_CODE_ENC_DBG_INST)
+	$(MOVE) $(IMG_DATA)_inst.encrypt.bin $(IMG_DATA_ENC_DBG_INST)
+	$(PERL) $(BUILD_SCRIPTS)/mkimage/rvmkimg.pl --fmcCode $(IMG_CODE_ENC_DBG_INST) --fmcData $(IMG_DATA_ENC_DBG_INST) --manifest $(MANIFEST_OUT_INST) --outDir  $(OUTPUTDIR)  --outFilePrefix $(MANIFEST_INST_FMC_COMBINED_DBG_PREFIX)
+	$(MOVE)  $(addsuffix _image.bin,$(OUTPUTDIR)/$(MANIFEST_INST_FMC_COMBINED_DBG_PREFIX)) $(MANIFEST_INST_FMC_COMBINED_DBG)
+endif
+endif
+
+
+%.hex: %.bin
+	$(ECHO) Generating $(notdir $@)
+	/usr/bin/xxd $< $@
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+ASMFLAGS += $(CFLAGS)
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon/riscv
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clean_ucode
+clean: clean_ucode
+
+clobber_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clobber_ucode
+clobber: clobber_ucode
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(BUILD_SCRIPTS)/release-imgs-if-changed.pl
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_ARGS += --output-prefix $(BUILD_PROJECT_NAME)
+RELEASE_IMG_ARGS += --image         $(IMG_BIN)
+RELEASE_IMG_ARGS += --p4            $(P4)
+
+RELEASE_PATH = $(LW_SOURCE)/drivers/resman/kernel/inc/fmc/monitor/bin/$(ENGINE)/$(PROJ)
+ifneq (,$(findstring gsp, $(SEPKERNCFG_PROFILE)))
+  RELEASE_PATH = $(LW_SOURCE)/uproc/lwriscv/sepkern/bin/$(ENGINE)/$(PROJ)
+endif
+
+RELEASE_IMG_ARGS += --release-path $(RELEASE_PATH)
+
+RELEASE_IMG_ARGS += --release-files            \
+  $(subst $(SPACE),$(COMMA),$(RELEASE_FILES))
+
+ifdef FORCE_RELEASE
+  ifneq ("$(FORCE_RELEASE)",)
+    RELEASE_IMG_ARGS += --force
+  endif
+endif
+
+#
+# Trigger the process by adding a phony prerequisite to 'all' called 'install'.
+# The rule to rebuild that target will perform the install process and will copy
+# the files to the RM if necessary.
+# Skip this process if the user has requested that files NOT be installed via
+# NO_INSTALL=true.
+#
+ifneq ("$(NO_RELEASE)","true")
+  .PHONY: install
+  all: install
+endif
+
+# unless disabled, make sure the environment is fresh before installing
+ifneq ("$(NO_CHECK_BUILD)","true")
+  .PHONY: checkbuild
+  install: checkbuild
+endif
+
+install: $(IMG_BIN) sign_manifests 
+ifeq ($(SIGGEN_CSG_PROD_SIGNING), true)   
+	 $(ECHO) "$(ECHO) $(BUILD_PROJECT_NAME) releasing maybe... check timestamps... ;" >> $(CSG_POST_SIGN_SCRIPT)
+	 $(ECHO) "$(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS) ;" >> $(CSG_POST_SIGN_SCRIPT)
+else
+	$(ECHO) $(BUILD_PROJECT_NAME) releasing maybe... check timestamps...
+	$(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)
+endif

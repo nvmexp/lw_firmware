@@ -1,0 +1,25 @@
+// LWIDIA_COPYRIGHT_BEGIN
+//
+// Copyright 2006-2006 by LWPU Corporation.  All rights reserved.  All
+// information contained herein is proprietary and confidential to LWPU
+// Corporation.  Any use, reproduction, or disclosure without the written
+// permission of LWPU Corporation is prohibited.
+//
+// LWIDIA_COPYRIGHT_END
+
+Policy.Version(2);
+#include "default.pcy"
+AddFileId(Out.PriNormal, "$Id: //sw/integ/gpu_drv/stage_rel/diag/mods/mdiag/advschd/policyfiles/simple_surface_fault.pcy#1 $");
+
+Surface.Define("my_surfaces");
+    Surface.Name("[abCZ].*");
+Surface.End();
+
+ActionBlock.Define("surface_action");
+    Action.RemapFaultingSurface();
+    Action.ResubmitRunlist();
+ActionBlock.End();
+
+Policy.Define(Trigger.Start(), Action.UnmapSurfaces("my_surfaces"));
+Policy.Define(Trigger.Start(), Action.ProbeSurfaces("my_surfaces"));
+Policy.Define(Trigger.OnSurfaceFault("my_surfaces"), "surface_action");

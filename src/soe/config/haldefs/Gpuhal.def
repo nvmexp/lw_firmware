@@ -1,0 +1,18 @@
+# -*- mode: perl; -*-
+
+my $GpuHal = [
+
+    # optional per-GPU defaults for ALL engines
+    DEFAULTS => [
+
+        # allow these providers in addition to GPU names
+        LWSTOM_PROVIDERS => [ _LR10, _LS10, ],
+
+        # all setup code for hal will reside in init section
+        SETUP_CODE_GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+    ],
+
+];
+
+# return a reference to the Hal definition
+return $GpuHal;

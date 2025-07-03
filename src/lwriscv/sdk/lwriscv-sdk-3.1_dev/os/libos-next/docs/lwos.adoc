@@ -1,0 +1,640 @@
+:icons: font
+:toc: left
+:docinfo1:
+:source-highlighter: highlight.js
+
+# LWOS 1.0
+
+## Overview
+
+LWOS aims to provide a high security and reliability kernel
+through co-development of both the hardware and software stacks.
+
+This document covers the high level proposal to support LWOS for
+VGPU.
+
+Trusted Isolation::
+Two layers of protection for both spatial and temporal isolation.
+Ensures isolation for branch predictor and cache.
+
+High reliability::
+Our core messaging and interrupts systems guarantee
+message delivery -- no exceptions.
+
+Intuitive::
+Easily manage memory, tasks, and ports dynamically
+at runtime.  Creating a partition or task is as simple
+as running an ELF.
+
+Provable Characteristics::
+Our isolation kernel is provably free from runtime
+errors.  We plan to expand our use of Ada/Spark
+to the core kernel to ensure freedom from runtime
+and memory errors.
+
+Debuggable by Design::
+We provide secure logging, call stacks with line numbers,
+and soon task level debugging support.
+Full support for ASAN and GDB debugging.
+
+Predictable and fast performance::
+Our core messaging and scheduling subsystems use
+continuations to ensure maximum performance while
+retaining predictability.
+
+Scalable footprint::
+Firmwares as small as 4kb with full task isolation
+and asynchronous messaging.
+
+### Terminology
+
+LIBOS::
+  A traditional micro-kernel responsible for task isolation, memory management,
+  messaging, and interrupt delivery.
+
+LWOS Partition::
+  An instance of the paravirtualized LIBOS kernel.  One or more user tasks
+  may be running.  Each partition has seperate device map, io-pmp, and pmp
+  settings.
+
+Device Map::
+  The device map registers are designed to control the IO accesses to/from Peregrine when RISCV is running. Registers are grouped based on feature sets and each group is protected by a device map field. Device map is implemented at the master side of the control bus system. Please refer to MAS for detailed device map macro architecture.
+
+IO-PMP::
+  The IO-PMP controls the visibility of the Peregrine registers and memory to other engines on the chip.
+
+PMP::
+  The PMP controls the partitions access to Peregrine memory and apertures.  
+
+### Requirements
+
+#### Limits
+
+[%header,cols="2,1,4"]
+|===
+| Property | First Release | Reasoning       
+| Partitions | 64 | Includes root partition, LWOS root partition, and baremetal partitions 
+| Memory     | <256mb | LWOS lwrrently only supports a single NUMA node.  Memory lwrrently come from IFR scrubbed region (256mb).
+| Intra-partition message size | Unlimited | 
+| Inter-partition message size | 64kb | Will be lifted in future. 
+| Attached handles per message | 8    | Will be lifted in future. 
+|===
+
+#### Runtime configuration
+
+[%header,cols="2,2,4"]
+|===
+| Object | Policy | Notes 
+| Device Map    | Static per partition | Pri access configured in SK manifest   
+| IO-PMP        | Static per partition | Configured in SK manifest   
+| Memory | Dynamic at partition spawn. |
+  Each partition assigned a single contiguous chunk.
+  Dynamic load balancing not lwrrently supported.
+| Memory mapping     | Dynamic | @see LibosElfMap and LibosAddressSpaceMapPhysical. TBD more APIs. 
+| Partition Launch    | Dynamic | @see LwosRootPartitionLaunch and LibosPartitionLaunch 
+| Task Launch         | Dynamic | @see LibosTaskLaunch 
+| Ports         | Dynamic | @see LibosPortCreate 
+| Shuttles      | Dynamic | @see LibosShuttleCreate 
+| Address Space | Dynamic | @see LibosAddressSpaceCreate 
+| ELF           | Dynamic | @see LibosElfOpen and LibosElfMap 
+| Partition Interrupt Routing | Dynamic | @see LibosInterruptAsyncRecv
+| Page allocation  | Dynamic | Buddy allocator provides power of 2 page allocation 
+| Task/Port deallocation  | Partition only | Partition local resources such as ports and tasks may not be freed except through partition reclaim.  Limitation will be lifted in future release.
+|===
+
+#### General Requirements
+
+[%header,cols="2,4"]
+|===
+| Property | Requirement 
+| Partition Scheduling policy | Global priority scheduling.  Minimum timeslice provides hysteresis to reduce excessive partition switches.  
+| Interrupt handling | Interrupts will be delivered to partition calling LibosInterruptAsyncRecv.  Intention is for GSP-RM task to receive all interrupts 
+| Communication across partitions | The port API is fully functional across partition boundaries.  Port objects may be passed as part of a message across the partition boundary and will continue to function.
+| Watchdog for partition scheduler | SK will switch to the LWOS Root partition when a partition exceeds it's timeslice.  This will result in reclaim and shutdown of the offending partition.  
+| Tiny Profile | LWOS retains "Tiny" profile aimed at embedded firmware like FSP. No elf support, dynamic object creation, or transparent scheduling/messaging across partitions 
+| Shared code  | Code for all tasks must be shareable across partition 
+| Fast Async Interpartition Messaging | e.g. Transferrable pages for inter-partition messaging
+|===
+
+#### Scheduler Requirements
+
+[%header,cols="2,4"]
+|===
+| Property    | Requirement 
+| Tick        | Tickless scheduler
+| Priority    | Priority scheduler with fine grained priority (32-bit)
+| Hysteresis  | Configurable minimum partition timeslice to minimize partition switches.
+| Fairness    | All operations must be queued (port send, port wait, lock aquire)
+| Global      | Precise global scheduling across all partitions.
+| Kernel Pre-empt | Future: Non-constant time operations must be done in kernel tasks.
+|===
+
+#### Isolation Requirements
+
+  - Access control for physical memory regions
+  - Freedom from branch-predictor side-channels
+  - Basic temporal isolation (watch-dog)
+
+
+#### LWOS Root Partition
+
+The LWOS root partition is a thin baremetal partition trusted with managing memory isolation and partition reclaim.
+
+  - Launch instances of LWOS
+  - Manage partition reclaim
+  - Ensure memory isolation
+
+image::lwos-root.png[,120%,120%]
+
+[%header, cols="2,9"]
+|===
+| Property | Requirement 
+| runtime errors | Must be provable free of runtime errors
+| memory access | Retains access to all child partitions (e.g. all partitions running LIBOS)
+| memory allocation | Provides APIs for allocation of memory to supervisor mode code
+| partition reclaim | Handles secure memory scrubbing in partition reclaim.  
+| access control | Each action has an accompanying partition mask (e.g. spawn, reclaim, etc)
+| global page | Initializes the global page used for coordinated scheduling
+| cold path  | Shall not be ilwoked for normal operation such as interrupt delivery and partition switching.
+| memory     | Manages a single contiguous region of memory for all partitions
+| memory     | 2mb granularity of allocation
+| PMP        | Provides management API for launch-time mapping of memory
+| IO-PMP     | No API available. Configured through SK manifest.
+| DeviceMap  | No API available. Configured through SK manifest.
+| Baremetal  | Written in baremetal with MPU enabled using Ada Spark
+| DMA | Does not use the DMA engine for scrubbing (v1)
+|===
+
+## User-space APIs
+
+### Filesystem
+
+LWOS uses a simple read-only "root" filesystem.  The contents of this filesystem is mapped into all partitions.
+The kernel(s) as well as all tasks are individual ELF files.
+
+```
+LibosStatus LibosElfOpen(
+    const char      * elfName,
+    LibosElfHandle  * handle
+);
+```
+
+### Address Space
+
+Tasks may have their own address spaces, or may share the same space.
+These APIs are used to create the address space, map one or more elf files,
+or directly map physical memory.
+
+```
+// Security: Any task
+LibosStatus LibosAddressSpaceCreate(
+    LibosAddressSpaceHandle * handle
+);
+```
+
+```
+// Security: Any task
+LibosStatus LibosElfMap(LibosAddressSpaceHandle asid, LibosElfHandle elf, LwU64 * entry);
+```
+
+```
+// Restricted: Init partition
+LibosStatus LibosAddressSpaceMapPhysical(LibosAddressSpaceHandle asid, LwU64 va, LwU64 pa, LwU64 size, LwU64 flags);
+```
+
+FUTURE: Memory allocation API. Lwrrently heaps are expected to be declared as global variables in the .data section
+
+### Partition
+
+Partitions can be launched from user-space.  As each partition may have distinct device map and IO-PMP settings
+the user is required to register the partition to get back a handle.
+
+The LWOS root partition tracks the access controls to each partition.
+
+```
+// Restricted: Init partition
+LibosStatus LibosPartitionRegister(LibosPartitionHandle * outPartition, LwU64 partitionId)
+```
+
+```
+// Resets the partition to a non-running state with no assigned memory
+// The LWOS root partition will selwrely scrub all allocated memory 
+LibosStatus LibosPartitionReset(LibosPartitionHandle partition)
+
+// Grants access to physical memory that the current partition has access to
+// NOTE: This memory will not be scrubbed in the event the partition is killed
+// Restricted: Init partition
+LibosStatus LibosPartitionBindPhysical(LibosPartitionHandle partition, LwU64 physicalAddress, LwU64 size, LwU64 attributes);
+
+// Note: The PartitionHandle is also a valid port, you must send a message to that port to start
+//       exelwtion of this partition.  This is your chance to pass any port handles to use for
+//       later Communication
+LibosStatus LibosPartitionSpawn(LibosPartitionHandle partition, LibosElfHandle initTaskElf, LwU64 memorySize)
+```
+
+### Task 
+
+Creates a new task in the current partition.
+
+The task will be created in a waiting state.  Send a message to the LibosTaskHandle (it's a port)
+to wake up the task.  The payload will become the first 8 arguments to the task entry point.
+This is your opportunity to send any handles that will be required for future communication.
+
+```
+LibosStatus LibosTaskCreate(
+    LibosTaskHandle *       outHandle,
+    LibosPriority           priority, 
+    LibosAddressSpaceHandle addressSpace, 
+    LwU64                   entryPoint
+);
+```
+
+### Messaging
+
+Critical note: Lwrrently only port handles can be passed as part of a message.  This is due to complications with cross-partition messaging.
+
+TBD: API for attaching handles to the shuttle before SendRecvAndWait
+
+```
+LibosStatus LibosShuttleCreate(
+    LibosShuttleHandle * handle
+);
+
+LibosStatus LibosPortCreate(
+    LibosPortHandle * handle
+);
+```
+
+```
+LibosStatus LibosPortSendRecvAndWait(
+    // Send payload
+    LibosShuttleHandle sendShuttle, 
+    LibosPortHandle    sendPort,    
+    void *     sendPayload,  
+    LwU64              sendPayloadSize,
+
+    // Recv payload
+    LibosShuttleHandle recvShuttle,     
+    LibosPortHandle    recvPort,        
+    void *     recvPayload,     
+    LwU64              recvPayloadSize, 
+
+    // Wait
+    LibosShuttleHandle  waitId,              
+    LibosShuttleHandle *completedShuttle,    
+    LwU64 *             completedSize,       
+
+    LwU64               timeoutNs            
+);
+
+LibosStatus LibosPortSendAttachObject(
+  LibosShuttleHandle  sendShuttle;
+  LibosHandle         handle;
+  LwU64               permissionGrant;
+);
+
+LibosStatus LibosPortRecvDetachObject(
+  LibosShuttleHandle recvShuttle;
+  LibosHandle      * localHandle;
+  LwU64              permissionRequired;
+);
+
+```
+
+### Locking
+
+```
+void LibosCriticalSectionEnter(LibosCriticalSectionBehavior behavior);
+void LibosCriticalSectionLeave(void);
+```
+
+### Interrupts
+
+Design change in progress.
+
+Supervisor LWOS Root partition API will allow init task to designate a single
+partition as the interrupt target.  On any interrupt, other LWOS partitions
+will immediately yield back to the designated partition.
+
+Future: User-space API to delegate these permissions should exist.
+
+
+
+## Supervisor APIs
+
+The LWOS root partition is responsible for selwrely handling:
+ - Assignment of memory to partitions
+ - Launching partitions
+ - Partition reclaim and memory scrub
+ - Watchdog timer
+
+It is written in Ada/Spark against baremetal and retains mappings
+to all memory owned by any running partitions.
+
+### Interface
+
+```
+LwosRootInitPartition(LwU32 partitionId, LwU64 spawnGrantMask, LwU64 reclaimGrant)
+LwosRootInitMemory(LwU64 base, LwU64 size);
+
+LwosRootMemoryAllocate(LwU32 partitionOwner, LwU64 size) -> address
+
+LwosRootPartitionPrepare(LwU32 partition)
+LwosRootPartitionBindMemory(LwU64 base, LwU64 size, LwU64 attributes)
+LwosRootPartitionBindFilesystem(LwU64 base, LwU64 size, LwU32 fileIndex)
+LwosRootPartitionLaunch()
+
+LwosRootGlobalPortAllocate()
+LwosRootGlobalPortGrant(LwU32 port, LwU32 partitionId, PortGrantMask mask);
+LwosRootGlobalPortRelease()
+
+LwosRootPartitionReclaim(LwU32 partition)
+LwosRootGlobalPageGet(LwU64 * base, LwU64 * size);
+```
+
+### Global page: Scheduler
+
+These are not SBI's.  These are utility functions to work with the global page.
+
+```
+LwosRootSchedulerNextPartition()
+LwosRootSchedulePartition(LwU32 newPriority)  // set to highest priority ready task
+
+LwosRootPortNotifyRecv(LwU32 globalPort, LwU32 priority)
+LwosRootPortCancelRecv(LwU32 globalPort)
+
+LwosRootPortNotifySend(LwU32 globalPort, LwU32 priority)
+LwosRootPortCancelSend(LwU32 globalPort)
+
+LwosRootPortHasWaitingRecv(LwU32 globalPort)
+LwosRootPortHasWaitingSend(LwU32 globalPort)
+LwosRootPortSendToWaiter(LwU32 globalPort, void * buffer, LwU32 size) 
+LwosRootPortRecvFromWaiter(LwU32 globalPort, void * buffer, LwU32 size)
+```
+
+### Global page: Interrupts
+
+```
+// Designates a partition as the interrupt target
+LwosRootDesignateInterruptTarget(LwU64 partitionId);
+
+// On interrupt, a partition should call this API to find
+// the target partition (and immediately switch)
+LwU64 LwosRootGetDesignatedInterruptTarget();
+```
+
+### Partition Entry Point
+
+Each LIBOS enabled partition uses a0 as the reason for activation.
+Upon first activation this partition records the calling partition
+as the LIBOS Monitor partition.
+
+During first launch, each partition will copy its data section into
+the heap, and update the entry point to memoize this assignment.
+
+[%header, cols="1,8"]
+|===
+| register | description                   
+| a0 |  reason = LIBOS_PARTITION_CODE_BOOT 
+| a1 |  memory start                       
+| a2 |  memory size                        
+| a3 |  filesystem start                   
+| a4 |  filesystem offset for init task    
+|===
+
+## Straw-man
+
+### Direct Transparent Messaging
+
+Shadowing::
+- Ports may be passed in a message across partition boundary
+- Such ports are assigned a "global port" (managed by LWOS Root) 
+
+Global Port::
+ - Set of Senders
+ - Set of Receivers
+ - Set of Waiters and their task priorities
+ - Bitmaps storing per-partition send/recv/wait permissions on this port
+ - Stored in shared R/W memory
+
+Algorithm::
+ - Sending to a global port does nothing unless a paired sender/receiver is found
+ - Round trip partition switch performed to exchange data at this point
+ - Waiting partition scheduling priority updated based on awakened task priority
+  
+Limitations::
+ - Global ports are a scarce resource 
+ - Scheduling is co-operation through a shared page 
+   [substancial provided by watchdog]
+
+Algorithm. Send::
+```python
+  # No waiters? Mark ourselves as queued
+  if not proxyPort.waitingRecv:
+    proxyPort.waitingSend |= 1ULL << thisPartition
+  else:
+    # Tell target partition to copy data into recv buffer
+    PartitionIpc(anyBit(proxyPort.waitingRecv), [
+        :ActionSend,  # Target partition should switch back immediately
+        proxyPort, 
+        messageBody])
+    
+    CompleteSend()
+```
+   
+Algorithm. Recv::
+```python
+  # No waiters? Mark ourselves as queued
+  if not proxyPort.waitingSend:
+    proxyPort.waitingRecv |= 1ULL << thisPartition
+  else:
+    # Tell target partition to give us the data
+    message = PartitionIpc(anyBit(proxyPort.waitingRecv), [
+        :ActionRecv,  # Target partition should switch back immediately
+        proxyPort])
+
+    # @note: SK must provide the calling partition in a register    
+    CompleteRecv(message.sender, message.body)
+```
+   
+### Transparent Global Scheduling
+
+Algorithm::
+ - Priority scheduler (32-bit priority)
+ - Globally store per partition effective priority (highest priority of ready tasks)
+ - Partition updates this value when yielding to another partition
+ - Updated when message send/recv'd from global port (based on priority of waiter)
+ - Switch to highest effective priority partition
+ - Hysteresis timeslice for partition to avoid excessive switching
+
+The global scheduler tracks the priority of the highest priority running task of the ready tasks in each partition. The partitions with the highest priority are then run in a round-robin fashion until their partition timeslice is exhausted.
+
+
+Port-Wait/Port-Wait-Complete::
+```
+  // The PortWaitPriority table contains the priority of the highest
+  // priority waiter at all times
+  PortWaitPriority[port] = threadPriority(PortWaiters[port].head)
+```
+
+Port-Send/Port-Recv::
+```
+  if (port is remote)
+  {
+    // Update the partition priority
+    PartitionPriority[remotePartition] = min(PartitionPriority[remotePartition], PortWaitPriority[port])
+
+    // Should we partition switch
+    if (PartitionPriority[remotePartition] < threadPriority)
+      switchToPartition(remotePartition)
+  }
+```
+
+### Watchdog
+
+Under construction
+
+## Future
+
+### Kernel Tasks: Pre-emptable kernel
+
+The kernel is entirely written in contination passing style.
+Adding complex code like transparent management of separation kernel,
+and restore DMA's real time properties requires pre-emptable kernel
+tasks.
+
+KernelSwitchToRpcThread::
+ - Calls a LIBOS_NORETURN function passing all register
+ - Function changes the task pointer in tp
+ - Function resets the stack but leaves the registers intact
+ - Kernel re-enables the interrupt bits
+ - On return, the kernel restores the task pointer
+
+Initially, we may reserve one kernel thread per user thread
+to avoid blocking concerns and ensure simple and provable code.
+Better performance may be achieved by implementing blocking
+and re-using the most recent kernel thread.
+
+
+## Internal Requirements
+
+### Separation Kernel
+
+- All supervisor interrupts routed to lwrrently running partition
+- SK will provide a pool of 32-64 pre-baked partitions. Note that LWRTOS will be aware of partition id’s in the task creation call.
+- SK will provide an SBI for the init partition to manage partition PMP entries. This is intended to be used for partition spawning and cleanup.
+- SK will provide an SBI to change the partition entry point (required to locate .data section for partition from shared .code)
+- SK will provide secure mechanism to identify calling partition
+- LWRTOS will likely only use power-of-two PMP entries
+- SBI management API only usable by the init partition
+- Global page pool should have 128 entries
+- Page size is power of 2
+- Page allocation must not require partition switch
+- Page transfer must not require partition switch
+- Page transfer must succeed even if target partition PMP table is full
+- Page map must succeed  even if local partition PMP table is full
+
+### Inter-partition messaging convention
+
+LWRTOS will use a single shared 64kb page for inter-task communication.
+This enables LWRTOS to forward synchronous port calls across partition
+boundaries with good performance. 
+
+```
+def KernelPartitionSendSynchronous(target, buffer, size):
+   # Copy payload to global page (callee clears)
+   Copy(globalPage, buffer, size)
+
+   # Immediately switch to target partition
+   # Callee scrubs the buffer
+   PartitionSwitch(target)
+```
+
+ - All supervisor interrupts routed to lwrrently running partition
+ - SK will provide a pool of 32-64 pre-baked partitions.
+   Note that LWRTOS will be aware of partition id's in
+   the task creation call.
+ - SK will provide an SBI for the init partition to manage
+   partition PMP entries. This is intended to be used for
+   partition spawning and cleanup.
+ - SK will provide an SBI to change the partition entry point
+   (required to locate .data section for partition from shared .code)
+ - SK will provide secure mechanism to identify calling partition
+ - LWRTOS will likely only use power-of-two PMP entries
+
+###  Performance Requirements
+
+Asynchronous messaging performance is important for handling interrupts.
+A single global messaging page leads to a 3x increase in expensive partition
+switch calls. The solution is a pool of pages that any partition can allocate,
+fill, and transfer to other partitions.
+
+- Page allocation must not require partition switch
+- Page transfer must not require partition switch
+- Page transfer must succeed even if target partition PMP table is full
+
+These requirements suggest that we need a level of indirection between
+memory ownership validation and PMP entries.
+
+One possible implementation::
+- Fixed length global table of FB buffers in SK
+- Each buffer has a single owner, or no owner
+- Transfer() - Changes ownership of a buffer. Validates no mappings exist. Validates we own the buffer, or no one owns the buffer.
+- Map() - Maps the buffer into the current partition
+  (provided it has been unmapped)
+
+
+## Development Roadmap
+
+New Work::
+  Enhanced Isolation, Dynamic Tasks/Ports
+
+Leverages GSP-RM Development::
+  KASAN, SSP, Performance tuning, GDB support (forthcoming), Soft-TLB 
+
+Leverage FSP Development::
+  Drivers, New Scheduler, Investment in Ada Spark
+
+image::roadmap.png[,100%,100%]
+
+
+### Profiles 
+#### Tiny Profile (FSP)
+
+The tiny profile is designed to support embedded firmware
+requiring a minimum size. 
+
+Features::
+ - ~6kb footprint
+ - Full port messaging API
+ - Full memory isolation
+
+Limitations::
+ - Assumes VA=PA
+ - Single kernel per ELF
+   (diffilwlt to integrate into GSP-RM)
+ - Cannot run from FB
+ - Assumes single instance of each task
+ - No callstack printing
+
+#### Full Profile (GHV)
+
+This profile is being developed to support more complex
+firmwares such as GSP-RM and GHV.
+
+Features::
+ - User-mode mmap() APIs for scatter/gather
+ - Intuitive APIs for task, port, and partition management
+ - Multiple kernels in one firmware package 
+ - Supports running from FB in cached mode
+ - Native support for HWASAN
+ - Native ELF support
+
+This is the desired production target for GHV.  
+
+### Components
+
+Libos:: Microkernel operating system with realtime scheduler and full isolation
+Separation Kernel:: Machine monitor implementing secure spatial isolation immune from branch predictor and cache based covert channels.
+
+image::machine-modes.png[,50%,50%]

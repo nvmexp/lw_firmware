@@ -1,0 +1,103 @@
+# -*- mode: perl; -*-
+
+# DPU Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $lsfHal = [
+
+    # per-GPU defaults for LSF for all interfaces below
+    DEFAULTS => [
+        FLAGS       => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        INIT => [
+            DESCRIPTION     => "Initializes Light Secure Falcon settings",
+            ARGUMENTS       => "void",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _v02_05         => [ GM20X_thru_TURING, -DISPLAYLESS, ],
+            _v04_01         => [ GA102_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, DISPLAYLESS, ],
+        ],
+
+        ENABLE_ICD_DEBUGGING => [
+            DESCRIPTION     => "Enable ICD Debugging",
+            ARGUMENTS       => "void",
+            RETURN_TYPE     => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _v02_05         => [ GM20X_thru_TURING, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, GA102_and_later, DISPLAYLESS, ],
+        ],
+
+        INIT_DMEM_CARVEOUT_REGIONS => [
+            DESCRIPTION     => "Initializes DMEM carveout region settings",
+            ARGUMENTS       => "void",
+            RETURN_TYPE     => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _v02_05         => [ GM20X_thru_GP10X, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, DISPLAYLESS, VOLTA_and_later, ],
+        ],
+
+        INIT_APERTURE_SETTINGS => [
+            DESCRIPTION     => "Setup aperture settings (protected TRANSCONFIG regs)",
+            ARGUMENTS       => "void",
+            RETURN_TYPE     => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _v02_05         => [ GM20X_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, DISPLAYLESS, ],
+        ],
+
+        VERIFY_FALCON_SELWRE_RUN_MODE => [
+            DESCRIPTION     => "Checks secure run mode and level",
+            ARGUMENTS       => "void",
+            RETURN_TYPE     => LwBool,
+            STUB_RETURNS    => LW_FALSE,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            LIKE_INTERFACE  => INIT_APERTURE_SETTINGS,
+        ],
+
+        IS_DMA_IDX_PERMITTED => [
+            DESCRIPTION     => "Check whether an access using the specified dmaIdx is permitted",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => "LwU8 dmaIdx",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            STUB_RETURNS    => LW_FALSE,
+
+            LIKE_INTERFACE  => INIT_APERTURE_SETTINGS,
+        ],
+
+        RAISE_RESET_PRIV_LEVEL_MASK => [
+            DESCRIPTION     => "Raises the reset register PLM",
+            ARGUMENTS       => "void",
+            RETURN_TYPE     => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GV10X          => [ VOLTA_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_VOLTA, DISPLAYLESS, ],
+        ],
+
+        LOWER_RESET_PRIV_LEVEL_MASK => [
+            DESCRIPTION     => "Lowers the reset register PLM",
+            ARGUMENTS       => "void",
+            RETURN_TYPE     => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_mgmt", "__FUNC__")',
+
+            LIKE_INTERFACE  => RAISE_RESET_PRIV_LEVEL_MASK,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $lsfHal;

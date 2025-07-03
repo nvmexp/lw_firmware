@@ -1,0 +1,444 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2014-2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD ?= false
+NO_RELEASE     ?= false
+INCLUDE_DT     ?= false
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+SELWRESCRUBSW  = $(LW_SOURCE)/uproc/selwrescrub
+SELWRESCRUBCFG = $(LW_SOURCE)/uproc/selwrescrub/config
+LWUPROC        = $(LW_SOURCE)/uproc
+RESMAN_ROOT    = $(LW_SOURCE)/drivers/resman
+UPROC_CMN_SRC  = $(LW_SOURCE)/uproc/cmn
+UPROC_LWOS_SRC = $(LWUPROC)/libs/lwos/$(LWOS_VERSION)
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+include $(SELWRESCRUBSW)/config/selwrescrub-profiles.mk
+
+###############################################################################
+# Load common falcon make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LW_SOURCE)/uproc/build/common/lwFalconArch.lwmk
+
+override LW_TARGET_ARCH = $(FALCON_TOOLS_BUILD)
+override LW_TARGET_OS   = falcon
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+ifdef CHIP_MANUAL_PATH
+    include $(CHIP_MANUAL_PATH)/lwFalconSignParams.mk
+endif
+
+###############################################################################
+# Define the output directory paths for the SELWRESCRUB build and all sub-make builds.
+###############################################################################
+
+CHIP-AND-PROFILE-NAME  := $(subst selwrescrub-,,$(SELWRESCRUBCFG_PROFILE))
+OUTPUTDIR := _out/$(CHIP-AND-PROFILE-NAME)
+CHIPNAME  := $(subst lwdec_,,$(CHIP-AND-PROFILE-NAME))
+CHIPNAME  := $(subst sec2_,,$(CHIPNAME))
+###############################################################################
+# Setup selwrescrub-config make vars and ilwoke selwrescrub-config. Use selwrescrub-config's
+# makefile.mk to do all the work. The makefile will generate selwrescrub-config.mk in
+# the output directory and then include it.
+###############################################################################
+
+SELWRESCRUBSRC_ALL          :=
+SELWRESCRUBCFG_OPTIONS      :=
+SELWRESCRUBCFG_OUTPUTDIR    ?= $(OUTPUTDIR)/config
+SELWRESCRUBCFG_RESMAN_ROOT  := $(RESMAN_ROOT)
+SELWRESCRUBCFG_SELWRESCRUBSW_ROOT   := $(SELWRESCRUBSW)/src
+
+include $(SELWRESCRUBSW)/config/makefile.mk
+
+# include the generated list of source files
+ifdef SELWRESCRUBCFG_INITIALIZED
+  include $(SELWRESCRUBCFG_OUTPUTDIR)/g_sources.mk
+endif
+
+###############################################################################
+# Include profile-specific make settings to account for profile-specific build
+# options/requirements.
+###############################################################################
+-include $(SELWRESCRUBSW)/config/$(SELWRESCRUBCFG_PROFILE).mk
+
+
+#
+# Derive the chip we need to give to siggen during signing cmd. This is generally
+# common for multiple chips. For e.g. we use gm206 as signing chip for gm206, 
+# gp100, gp104, ...
+#
+#ifneq (,$(findstring gp104,  $(CHIPNAME)))
+#    CHIPNAME_FOR_SIGNING := gp104
+#endif
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+export LW_TARGET_ARCH
+export MANUAL_PATHS
+
+###############################################################################
+# Submake Configuration
+#
+# This makefile builds libraries and tools that are shared with other projects.
+# Many of these builds may be lwstomized based on the needs of the project
+# building it. It is therefore necessary to ensure isolation between the
+# projects. Isolation is also required to allow for parallelization of project
+# builds.
+#
+# Isolation is achieved by ensuring that all build output is kept separate
+# between the projects. Ideally, output could all be redirected to a path
+# defined within the SELWRESCRUB's/project's output directory. However, the common
+# lwmake rules require that each submake target's output directory be contained
+# within that target's source directory. As a result, the only way to ensure
+# isolation is by establishing proper namespacing within each submake target's
+# local output directory.
+###############################################################################
+
+SUBMAKE_NAMESPACE := selwrescrub
+SUBMAKE_OUTPUTDIR := \
+  _out/$(SUBMAKE_NAMESPACE)/$(FALCON_ARCH)_$(LW_BUILD_TYPE)
+
+include $(LWUPROC)/build/common/lwRtosVersion.lwmk
+##############################################################################
+# Additional include paths required
+##############################################################################
+LW_INCLUDES += $(LW_RTOS_INCLUDES)
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES += $(SELWRESCRUBSW)/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(RESMAN_ROOT)/kernel/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(FALCON_TOOLS)/include
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+LW_INCLUDES += $(UPROC_LWOS_SRC)/inc
+LW_INCLUDES += $(SELWRESCRUBSW)/inc/turing
+LW_INCLUDES += $(LWUPROC)/bootloader/inc
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+
+IMG_TARGET       := $(OUTPUTDIR)/g_selwrescrubuc_$(CHIP-AND-PROFILE-NAME)
+IMG_TARGET_DBG   := $(IMG_TARGET)_dbg
+IMG_TARGET_PROD  := $(IMG_TARGET)_prod
+
+IMG_ELF          := $(IMG_TARGET).out
+IMG_READELF      := $(IMG_TARGET).readelf
+IMG_SECTIONS     := $(IMG_TARGET).sections
+IMG_BIN          := $(IMG_TARGET).bin
+IMG_OBJDUMP      := $(IMG_TARGET).objdump
+IMG_NM           := $(IMG_TARGET).nm
+IMG_MAP          := $(IMG_TARGET).map
+IMG_DT           := $(IMG_TARGET).dt
+IMG_DBGLINE      := $(IMG_TARGET).dbgline
+IMG_SIG          := $(IMG_TARGET)_sig.h
+IMG_H            := $(IMG_TARGET).h
+
+IMG_ELF_DBG      := $(IMG_TARGET_DBG).out
+IMG_ELF_PROD     := $(IMG_TARGET_PROD).out
+IMG_H_DBG        := $(IMG_TARGET_DBG).h
+IMG_H_PROD       := $(IMG_TARGET_PROD).h
+
+ifeq ("$(IS_ENCRYPTED)", "true")
+    CFLAGS += -DENCRYPT_MODE=1
+    RELEASE_FILES = $(IMG_H_DBG) $(IMG_H_PROD)
+else
+    CFLAGS += -DENCRYPT_MODE=0
+    RELEASE_FILES = $(IMG_H)
+endif
+
+ifeq ($(SSP_ENABLED), true)
+RANDOM_CANARY_NS := $(shell $(PYTHON) -c 'from random import randint; print(randint(65535,1048576))')
+    CFLAGS += -DIS_SSP_ENABLED
+    CFLAGS += -fstack-protector-all
+    CFLAGS += -DRANDOM_CANARY_NS=$(RANDOM_CANARY_NS)
+endif
+
+RELEASE_FILES += $(IMG_NM) $(IMG_OBJDUMP) $(IMG_READELF)
+RESTRICTED_RELEASE_FILES =
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+LDFLAGS += -T $(SELWRESCRUBSW)/build/$(LDSCRIPT)
+
+CFLAGS += --save-temps
+# Disable jump tables, because they go to RO data section which is not covered under signature check
+CFLAGS += -fno-jump-tables
+
+CFLAGS += -DSIG_SIZE=$(SIGNATURE_SIZE)
+
+ifeq ($(IS_ENHANCED_AES), true)
+    CFLAGS += -DIS_ENHANCED_AES
+    CFLAGS += -DFUSE_VERSION=$(SIGGEN_FUSE_VER)
+    CFLAGS += -DUCODE_ID=$(SIGGEN_UCODE_ID)
+    CFLAGS += -DENGINE_ID=$(SIGGEN_ENGINE_ID)
+endif
+
+ifeq ($(PKC_ENABLED), true)
+    CFLAGS += -DPKC_ENABLED
+    CFLAGS += -DFUSE_VERSION=$(SIGGEN_FUSE_VER)
+    CFLAGS += -DUCODE_ID=$(SIGGEN_UCODE_ID)
+    CFLAGS += -DENGINE_ID=$(SIGGEN_ENGINE_ID)
+endif
+
+ifneq (,$(findstring selwrescrub-lwdec_ga10x,  $(SELWRESCRUBCFG_PROFILE)))
+    CFLAGS += -DSELWRESCRUB_GA102_UCODE_BUILD_VERSION=$(SELWRESCRUB_GA102_UCODE_BUILD_VERSION)
+endif
+ifneq (,$(findstring selwrescrub-lwdec_tu116,  $(SELWRESCRUBCFG_PROFILE)))
+    CFLAGS += -DSELWRESCRUB_TU116_UCODE_BUILD_VERSION=$(SELWRESCRUB_TU116_UCODE_BUILD_VERSION)
+    CFLAGS += -DSELWRESCRUB_TU117_UCODE_BUILD_VERSION=$(SELWRESCRUB_TU117_UCODE_BUILD_VERSION)
+endif
+ifneq (,$(findstring selwrescrub-lwdec_tu10x,  $(SELWRESCRUBCFG_PROFILE)))
+    CFLAGS += -DSELWRESCRUB_TU102_UCODE_BUILD_VERSION=$(SELWRESCRUB_TU102_UCODE_BUILD_VERSION)
+    CFLAGS += -DSELWRESCRUB_TU104_UCODE_BUILD_VERSION=$(SELWRESCRUB_TU104_UCODE_BUILD_VERSION)
+    CFLAGS += -DSELWRESCRUB_TU106_UCODE_BUILD_VERSION=$(SELWRESCRUB_TU106_UCODE_BUILD_VERSION)
+endif
+ifneq (,$(findstring selwrescrub-lwdec_gv10x,  $(SELWRESCRUBCFG_PROFILE)))
+    CFLAGS += -DSELWRESCRUB_GV10X_UCODE_BUILD_VERSION=$(SELWRESCRUB_GV10X_UCODE_BUILD_VERSION)
+endif
+ifneq (,$(findstring selwrescrub-lwdec_gp10x,  $(SELWRESCRUBCFG_PROFILE)))
+    CFLAGS += -DSELWRESCRUB_GP10X_UCODE_BUILD_VERSION=$(SELWRESCRUB_GP10X_UCODE_BUILD_VERSION)
+endif
+
+UCODE_BUILD_VERSIONS :=
+    ifneq (,$(findstring gp10x, $(CHIPNAME)))
+        UCODE_BUILD_VERSIONS := "\"SELWRESCRUB_GP10X_UCODE_BUILD_VERSION 0x$(SELWRESCRUB_GP10X_UCODE_BUILD_VERSION)\""
+    endif
+    ifneq (,$(findstring gv10x, $(CHIPNAME)))
+        UCODE_BUILD_VERSIONS := "\"SELWRESCRUB_GV10X_UCODE_BUILD_VERSION 0x$(SELWRESCRUB_GV10X_UCODE_BUILD_VERSION)\""
+    endif
+    ifneq (,$(findstring tu10x, $(CHIPNAME)))
+        UCODE_BUILD_VERSIONS := "\"SELWRESCRUB_TU102_UCODE_BUILD_VERSION 0x$(SELWRESCRUB_TU102_UCODE_BUILD_VERSION);SELWRESCRUB_TU104_UCODE_BUILD_VERSION 0x$(SELWRESCRUB_TU104_UCODE_BUILD_VERSION);SELWRESCRUB_TU106_UCODE_BUILD_VERSION 0x$(SELWRESCRUB_TU106_UCODE_BUILD_VERSION);\""
+    endif
+    ifneq (,$(findstring tu116, $(CHIPNAME)))
+        UCODE_BUILD_VERSIONS := "\"SELWRESCRUB_TU116_UCODE_BUILD_VERSION 0x$(SELWRESCRUB_TU116_UCODE_BUILD_VERSION);SELWRESCRUB_TU117_UCODE_BUILD_VERSION 0x$(SELWRESCRUB_TU117_UCODE_BUILD_VERSION)\""
+    endif
+    ifneq (,$(findstring ga10x, $(CHIPNAME)))
+        UCODE_BUILD_VERSIONS := "\"SELWRESCRUB_GA102_UCODE_BUILD_VERSION 0x$(SELWRESCRUB_GA102_UCODE_BUILD_VERSION)\""
+    endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+    CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+    CFLAGS += -DUPROC_RISCV
+endif
+
+ifeq ($(BOOT_FROM_HS_BUILD), true)
+    CFLAGS += -DBOOT_FROM_HS_BUILD
+endif
+
+ifeq ($(BOOT_FROM_HS_FALCON_LWDEC), true)
+    CFLAGS += -DBOOT_FROM_HS_FALCON_LWDEC
+endif
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(.)); delete $$ELW{PWD}; \
+		  print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(SELWRESCRUBCFG_PROFILE)]"
+
+###############################################################################
+# Parse the source files
+###############################################################################
+PERL_PARSER := $(SELWRESCRUBSW)/utilities/parse_files.pl
+ADD_OBJECTS = ./selwrescrub/lw/mulsi.o
+FILE_PARSER = $(shell $(PERL) $(PERL_PARSER) --suffix "p" $(SELWRESCRUBSRC_ALL))
+SOURCES     = $(FILE_PARSER)
+
+###############################################################################
+# Rules for buildig the ELF image and binary files
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+all: $(IMG_ELF) check_ifdef check sign release
+	$(ECHO) "Cleaning files... $(shell $(PERL) $(PERL_PARSER) --clean $(SOURCES))"
+	$(RM) $(SOURCES)
+
+###############################################################################
+# Sign the binary. Uses pre-build signing tool (linux only for now)
+###############################################################################
+
+SIG_GEN       = $(SELWRESCRUBSW)/utilities/siggen
+SIG_GEN_CFG   = $(SIGGEN_CFG)
+GEN_CLASS_PL  = $(SELWRESCRUBSW)/utilities/gen_class_os.pl
+SIGN_SCRIPT   = "tmpsign.sh"
+SIG_SCRIPT_EXP = $(foreach CHIP,$(SIGGEN_CHIPS), \
+         "$(COPY) $(RELEASE_PATH)/g_selwrescrubuc_$(CHIP-AND-PROFILE-NAME)_$(CHIP)_sig.h $(OUTPUTDIR)/g_selwrescrubuc_$(CHIP-AND-PROFILE-NAME)_$(CHIP)_sig.h; \
+          chmod u+w $(OUTPUTDIR)/g_selwrescrubuc_$(CHIP-AND-PROFILE-NAME)_$(CHIP)_sig.h; $(SIG_GEN) $(SIG_GEN_CFG) $(IMG_TARGET) $(IMG_TARGET) -app $(OUTPUTDIR)/g_selwrescrubuc_$(CHIP-AND-PROFILE-NAME)_$(CHIP)_sig.h \
+          -sig $(OUTPUTDIR)/g_selwrescrubuc_$(CHIP-AND-PROFILE-NAME)_$(CHIP)_sig.h  -chip $(CHIP) \
+          -fuseVer $(SIGGEN_FUSE_VER) -engineId $(SIGGEN_ENGINE_ID) -ucodeId $(SIGGEN_UCODE_ID)   \
+          -skipSigPatching -calcPrevNSignatures $$(($(NUM_SIG_PER_UCODE)-1))                      \
+          $(if $(filter $(IS_ENCRYPTED), true),-forceSign -encryptUcode -totAppFilePrefix $(RELEASE_PATH)/g_selwrescrubuc_$(CHIP-AND-PROFILE-NAME) -totAppFilePrefixDH $(RELEASE_PATH)/g_selwrescrub_$(CHIP-AND-PROFILE-NAME))")
+
+RELEASE_FILES +=  $(IMG_SECTIONS) $(IMG_MAP)
+RELEASE_FILES += $(foreach CHIP,$(SIGGEN_CHIPS),"$(OUTPUTDIR)/g_selwrescrubuc_$(CHIP-AND-PROFILE-NAME)_$(CHIP)_sig.h")
+
+sign: 
+	$(ECHO) $(SIG_SCRIPT_EXP) >> $(SIGN_SCRIPT)
+ifeq ("$(IS_ENCRYPTED)", "true")
+	$(ECHO) $(PERL) $(GEN_CLASS_PL) -dump app_os_images -hdr $(IMG_H_DBG) -bin $(IMG_ELF_DBG) -chip $(CHIPNAME) -version $(UCODE_BUILD_VERSIONS) >> $(SIGN_SCRIPT)
+	$(ECHO) $(PERL) $(GEN_CLASS_PL) -dump app_os_images -hdr $(IMG_H_PROD) -bin $(IMG_ELF_PROD) -chip $(CHIPNAME) -version $(UCODE_BUILD_VERSIONS) >> $(SIGN_SCRIPT)
+else
+	$(ECHO) $(PERL) $(GEN_CLASS_PL) -dump app_os_images -hdr $(IMG_H) -bin $(IMG_ELF) -chip $(CHIPNAME) -version $(UCODE_BUILD_VERSIONS) >> $(SIGN_SCRIPT)
+endif
+
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(LW_SOURCE)/uproc/build/scripts/release-imgs-if-changed.pl 
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_ARGS += --output-prefix $(BUILD_PROJECT_NAME)
+RELEASE_IMG_ARGS += --image         $(IMG_BIN)
+RELEASE_IMG_ARGS += --p4            $(P4)
+
+RELEASE_IMG_ARGS += --release-path $(RELEASE_PATH)
+
+RELEASE_IMG_ARGS += --release-files            \
+  $(subst $(SPACE),$(COMMA),$(RELEASE_FILES))
+
+# unless disabled, make sure the environment is fresh before installing
+ifneq ("$(NO_CHECK_BUILD)","true")
+  .PHONY: checkbuild
+  install: checkbuild
+endif
+release: $(IMG_ELF)
+	$(ECHO) $(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS) >> $(SIGN_SCRIPT)
+
+###############################################################################
+# Check the global initialized data in nm file and fail the build if the data
+# is not present in the exception list in perl script.
+###############################################################################
+
+CHECK_GLOBAL_DATA_PL = $(LWUPROC)/utilities/check_global_data.pl
+EXCEPTION_LIST_PATH = $(SELWRESCRUBSW)/utilities
+
+GLOBAL_DATA_SCRIPT_ARGS += --nm-file $(IMG_NM)
+GLOBAL_DATA_SCRIPT_ARGS += --nm-exception $(EXCEPTION_LIST_PATH)
+
+check: $(IMG_ELF)
+	$(PERL) $(CHECK_GLOBAL_DATA_PL) $(GLOBAL_DATA_SCRIPT_ARGS)
+
+###############################################################################
+# Run Ifdef checked script and fail the build in case wrong ifdef is used.
+###############################################################################
+
+IFDEF_CHECKER_SCRIPT       = $(LWUPROC)/utilities/ifdef_checker.pl
+IFDEF_CHECKER_SCRIPT_ARGS += --dir 'selwrescrub'
+IFDEF_CHECKER_SCRIPT_ARGS += --LWUPROC '$(LWUPROC)'
+check_ifdef: $(IMG_ELF)
+	$(PERL) $(IFDEF_CHECKER_SCRIPT) $(IFDEF_CHECKER_SCRIPT_ARGS) 
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files is the prerequisite
+# for this rule.
+###############################################################################
+
+$(IMG_ELF): $(OBJECTS) $(SELWRESCRUBSW)/build/$(LDSCRIPT)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(CFLAGS) $(OBJECTS) $(ADD_OBJECTS) -o $(IMG_ELF) $(LDFLAGS)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_READELF)
+	$(OBJDUMP) -d    $(IMG_ELF) >> $(IMG_OBJDUMP)
+	$(OBJDUMP) -S -d $(IMG_ELF) >> $(IMG_OBJDUMP).source
+	$(DUMPEXEC) -img $(IMG_ELF) -b $(IMG_ELF)
+	$(NM)      -S -n $(IMG_ELF) >> $(IMG_NM)
+	$(ECHO) $(NM)      $(IMG_ELF)       > $(IMG_MAP)
+	$(NM)      $(IMG_ELF)       >> $(IMG_MAP)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_READELF))
+	$(READELF) --all $(IMG_ELF) >> $(IMG_READELF)
+	$(READELF) -S $(IMG_ELF) >> $(IMG_SECTIONS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(IMG_ELF) >> $(IMG_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(IMG_ELF)
+
+###############################################################################
+# Rule for generating .dt/symdump file
+###############################################################################
+
+SYMDUMP_SCRIPT = $(LW_SOURCE)/pmu_sw/build/symdump/symdump.pl
+
+SYMDUMP_ARGS  += $(IMG_ELF) $(IMG_DT)
+SYMDUMP_ARGS  += --falcon-tools $(FALCON_TOOLS)
+SYMDUMP_ARGS  += --acl          $(APP_P4_CL)
+
+$(IMG_DT):
+	-$(PERL) $(SYMDUMP_SCRIPT) $(SYMDUMP_ARGS)
+
+ifeq ("$(INCLUDE_DT)","true")
+  all: $(IMG_DT)
+endif
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clean_ucode
+clean: clean_ucode

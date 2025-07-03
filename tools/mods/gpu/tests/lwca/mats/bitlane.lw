@@ -1,0 +1,302 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2009-2021 by LWPU Corporation.  All rights reserved.
+ * All information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "bitlane.h"
+
+#if (SM_VER > 70)
+#error "sm not supported!"
+#endif
+
+#define SHARED_MEM_SIZE_BYTES 47000
+
+// Obtains a pointer to device memory from a host-opaque type
+__device__ void* GetPtr(device_ptr ptr)
+{
+    return reinterpret_cast<void*>(static_cast<size_t>(ptr));
+}
+
+// Colwerts pointer to a host-compatible value
+__device__ device_ptr MakeHostPtr(void* ptr)
+{
+    return reinterpret_cast<size_t>(ptr);
+}
+
+// This function is for testing purposes only
+#if INJECT_ERRORS == 1
+__device__ UINT32 MakeError(void* ptr, void* basePtr)
+{
+    const UINT64 offset =
+        static_cast<char*>(ptr) - static_cast<char*>(basePtr);
+    UINT32 value = 0;
+    if (blockIdx.x == 0)
+    {
+        value = 0x80000000;
+    }
+    return value;
+}
+#else
+#define MakeError(ptr, basePtr) 0
+#endif
+
+// Builds error description
+__device__ void SetError
+(
+    volatile UINT32* ptr,
+    UINT32 actualValue,
+    UINT32 expectedValue,
+    UINT32 reread1,
+    UINT32 reread2,
+    BadValue* badValue,
+    UINT32 iteration
+)
+{
+    badValue->address = MakeHostPtr(const_cast<UINT32*>(ptr));
+    badValue->actual = actualValue;
+    badValue->expected = expectedValue;
+    badValue->reread1 = reread1;
+#if INJECT_ERRORS != 1
+    badValue->reread2 = reread2;
+#else
+    // If errors are injected, report thread and block
+    badValue->reread2 = threadIdx.x | static_cast<UINT32>(blockIdx.x) << 16;
+#endif
+    badValue->iteration = iteration;
+}
+
+__shared__ UINT32 s_NumErrors;
+__shared__ UINT32 s_NumReadErrors;
+__shared__ UINT32 s_NumWriteErrors;
+__shared__ UINT32 s_NumBitReadErrors[32];
+__shared__ UINT32 s_NumBitWriteErrors[32];
+const UINT32 s_MaxLocalErrors = (SHARED_MEM_SIZE_BYTES - maxBlocks*2 - maxChunks - maxBurstLengthTimesPatterns*4) / sizeof(BadValue);
+__shared__ BadValue s_Errors[s_MaxLocalErrors];
+
+// Reports an error
+__device__ void ReportError
+(
+    UINT32* ptr,
+    UINT32 actualValue,
+    UINT32 expectedValue,
+    UINT32 iteration
+)
+{
+    const UINT32 errorIndex = atomicAdd(&s_NumErrors, 1);
+    const UINT32 reread1 = *ptr;
+    const UINT32 reread2 = *ptr;
+    if (errorIndex < s_MaxLocalErrors)
+    {
+        BadValue& badValue = s_Errors[errorIndex];
+        SetError(ptr, actualValue, expectedValue, reread1, reread2, &badValue, iteration);
+    }
+    else
+    {
+        const bool readError = (reread1 != actualValue) || (reread2 != actualValue);
+        if (readError)
+        {
+            atomicAdd(&s_NumReadErrors, 1);
+        }
+        else
+        {
+            atomicAdd(&s_NumWriteErrors, 1);
+        }
+        for (UINT32 i=0; i < 32; i++)
+        {
+            const UINT32 mask = 1 << i;
+            if ((expectedValue ^ actualValue) & mask)
+            {
+                if (readError)
+                {
+                    atomicAdd(&s_NumBitReadErrors[i], 1);
+                }
+                else
+                {
+                    atomicAdd(&s_NumBitWriteErrors[i], 1);
+                }
+            }
+        }
+    }
+}
+
+// Init local error table
+__device__ void InitErrors()
+{
+    if (threadIdx.x == 0)
+    {
+        s_NumErrors = 0;
+        s_NumReadErrors = 0;
+        s_NumWriteErrors = 0;
+        for (UINT32 i=0; i < 32; i++)
+        {
+            s_NumBitReadErrors[i] = 0;
+            s_NumBitWriteErrors[i] = 0;
+        }
+    }
+    __syncthreads();
+}
+
+// Store local errors in output table
+__device__ void StoreErrors(const FunctionParam& input)
+{
+    if ((threadIdx.x == 0) && s_NumErrors)
+    {
+        void* const ptr = static_cast<char*>(GetPtr(input.results));
+        RangeErrors& errors = *static_cast<RangeErrors*>(ptr);
+
+        atomicAdd(&errors.numReadErrors[blockIdx.x], s_NumReadErrors);
+        atomicAdd(&errors.numWriteErrors[blockIdx.x], s_NumWriteErrors);
+        for (UINT32 i=0; i < 32; i++)
+        {
+            atomicAdd(&errors.numBitReadErrors[blockIdx.x][i], s_NumBitReadErrors[i]);
+            atomicAdd(&errors.numBitWriteErrors[blockIdx.x][i], s_NumBitWriteErrors[i]);
+        }
+
+        // Copy reported error values
+        UINT32 numErrors = s_MaxLocalErrors;
+        if (s_NumErrors < s_MaxLocalErrors)
+        {
+            numErrors = s_NumErrors;
+        }
+        atomicAdd(&errors.numEncounteredErrors, s_NumErrors);
+        const UINT32 maxErrors =
+            (input.resultsSize - sizeof(RangeErrors) + sizeof(BadValue)) / sizeof(BadValue);
+        for (UINT32 i=0; i < numErrors; i++)
+        {
+            const UINT32 idx = atomicAdd(&errors.numReportedErrors, 1);
+            if (idx >= maxErrors)
+            {
+                atomicAdd(&errors.numReportedErrors, static_cast<UINT32>(-1));
+                break;
+            }
+            errors.reportedValues[idx] = s_Errors[i];
+        }
+    }
+}
+
+enum Operation
+{
+    READ,
+    WRITE
+};
+
+__device__ void Copy(UINT32* src, UINT32 numDwords, UINT32* dest)
+{
+    UINT32* const end = src + numDwords;
+    src += threadIdx.x;
+    dest += threadIdx.x;
+    while (src < end)
+    {
+        *dest = *src;
+        src += blockDim.x;
+        dest += blockDim.x;
+    }
+    __syncthreads();
+}
+
+template<Operation op>
+__device__ void Action(const FunctionParam& input)
+{
+    const UINT32 partChan = (gridDim.x == 1) ? (input.partChan&0xFF) : blockIdx.x;
+
+    // Copy block indices to shared memory
+    __shared__ UINT16 s_Blocks[maxBlocks];
+    Copy(
+        static_cast<UINT32*>(GetPtr(input.blocks)),
+        1+(input.numBlocks-1)/(sizeof(UINT32)/sizeof(UINT16)),
+        (UINT32*)&s_Blocks[0]);
+
+    // Copy chunk identifiers to shared memory
+    __shared__ UINT08 s_Chunks[maxChunks];
+    if (partChan != 0xFF)
+    {
+        Copy(
+            static_cast<UINT32*>(GetPtr(input.chunks)),
+            1+(input.chunksPerBlock-1)/(sizeof(UINT32)/sizeof(UINT08)),
+            (UINT32*)&s_Chunks[0]);
+    }
+    else
+    {
+        const UINT32 value = partChan | (partChan << 8) |
+            (partChan << 16) | (partChan << 24);
+        for (unsigned i=threadIdx.x; i < maxChunks/4; i+=blockDim.x)
+        {
+            *(UINT32*)(&s_Chunks[i*4]) = value;
+        }
+        __syncthreads();
+    }
+
+    // Copy patterns to shared memory
+    __shared__ UINT32 s_Patterns[maxBurstLengthTimesPatterns];
+    Copy(
+        static_cast<UINT32*>(GetPtr(input.patterns))
+            + ((partChan != 0xFF) ? (partChan*input.numPatterns) : 0),
+        input.numPatterns,
+        &s_Patterns[0]);
+
+    // Initialize errors
+    InitErrors();
+
+    // Verification mask
+    const UINT32 verifmask =
+        input.verif ? ((partChan << 26) | (threadIdx.x << 16)) : 0;
+
+    // Perform the requested operation
+    UINT32 ipat = threadIdx.x % input.numPatterns;
+    for (UINT32 iblk=0; iblk < input.numBlocks; iblk++)
+    {
+        UINT32* ptr = static_cast<UINT32*>(
+                GetPtr(input.mem + input.blockSize*s_Blocks[iblk])) + threadIdx.x;
+        for (UINT32 ichunk=0; ichunk < input.chunksPerBlock; ichunk++)
+        {
+            if (s_Chunks[ichunk] == partChan)
+            {
+                UINT32 numLoops = input.dwordsPerChunk / blockDim.x;
+                for ( ; numLoops; numLoops--)
+                {
+                    const UINT32 pattern = verifmask | s_Patterns[ipat];
+                    if (op == WRITE)
+                    {
+                        *ptr = pattern;
+                    }
+                    else /* read */
+                    {
+                        const UINT32 value = *ptr ^ MakeError(ptr, GetPtr(input.mem));
+                        if (value != pattern)
+                        {
+                            ReportError(ptr, value, pattern, input.iteration);
+                        }
+                    }
+                    ptr += blockDim.x;
+                    ipat = (ipat + blockDim.x) % input.numPatterns;
+                }
+            }
+            else
+            {
+                ptr += input.dwordsPerChunk;
+            }
+            __syncthreads();
+        }
+    }
+
+    // Store results in memory
+    StoreErrors(input);
+}
+
+extern "C" __global__ void Read(const FunctionParam input)
+{
+    Action<READ>(input);
+}
+
+extern "C" __global__ void Write(const FunctionParam input)
+{
+    Action<WRITE>(input);
+}
+
+// vim:ft=cpp

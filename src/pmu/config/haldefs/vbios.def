@@ -1,0 +1,80 @@
+# -*- mode: perl; -*-
+
+# VBIOS Interfaces
+# For a brief introduction to file format, see README in this directory.
+
+my $vbiosHal = [
+
+    DEFAULTS => [
+
+        FLAGS => ":DIRECT_HAL_CALLS",
+
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+        OPCODE_PATCH_ADDR =>
+        [
+            DESCRIPTION    => "patch address for opcode",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "VBIOS_IED_CONTEXT *pCtx, LwU32 addr",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES=> 'GCC_ATTRIB_SECTION("imem_libVbios", "__FUNC__")',
+
+            _GP10X         => [ PASCAL, -GP100, ],
+            _TU10X         => [ dTURING_and_later, ],
+            _STUB          => [ MAXWELL, VOLTA, GP100, ],
+        ], 
+
+        FRTS_CONFIG_READ =>
+        [
+            DESCRIPTION    => "Reads the configuration data for the Firmware Runtime Security model",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "VBIOS_FRTS_CONFIG *pConfig",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, ],
+            _STUB          => [ pre_dAMPERE, ],
+        ], 
+
+        FRTS_CONFIG_DMA_IDX_VERIFY =>
+        [
+            DESCRIPTION    => "Verifies that the Firmware Runtime Security configuration is accessible via the given DMA index",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "const VBIOS_FRTS_CONFIG *pConfig, LwU32 dmaIdx",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            LIKE_INTERFACE => FRTS_CONFIG_READ,
+        ], 
+
+        FRTS_SUB_WPR_RANGE_GET =>
+        [
+            DESCRIPTION    => "Retrieves the expected offset and size for FRTS based on its sub-WPR configuration",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 wprId, LwU64 *pOffset, LwU64 *pSize",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            LIKE_INTERFACE => FRTS_CONFIG_READ,
+        ], 
+
+        FRTS_WPR_ACCESS_SELWRE_VERIFY =>
+        [
+            DESCRIPTION    => "Verifies whether access to the FRTS via WPR can be considered secure",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 wprId, LwU64 frtsWprOffset, LwU64 frtsWprSize",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            LIKE_INTERFACE => FRTS_CONFIG_READ,
+        ], 
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $vbiosHal;
+

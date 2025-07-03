@@ -1,0 +1,41 @@
+// I know that this wouldn't actually work as a
+// MuCC program (it doesn't obey the timing
+// discipline with its memory commands); the
+// point is just to have something that tests the
+// logic when enforcing timing isn't implemented
+
+LOAD R0 0; // Address
+LOAD R1 0; // Bank
+LOAD R2 all_zeros; // Right patram
+LOAD R3 all_ones;  // Wrong patram
+
+BRDE end
+P0 WR R0 R1 R2
+P1 RNOP
+P2 RD R0 R1 R3 // Should trigger read error that will trigger branch
+P3 RNOP;
+
+HOLD 5;
+
+end:
+STOP;
+
+all_zeros:
+PATRAM 0x00000000 0 0
+PATRAM 0x00000000 0 0
+PATRAM 0x00000000 0 0
+PATRAM 0x00000000 0 0
+PATRAM 0x00000000 0 0
+PATRAM 0x00000000 0 0
+PATRAM 0x00000000 0 0
+PATRAM 0x00000000 0 0;
+
+all_ones:
+PATRAM 0xFFFFFFFF 0xF 0xF
+PATRAM 0xFFFFFFFF 0xF 0xF
+PATRAM 0xFFFFFFFF 0xF 0xF
+PATRAM 0xFFFFFFFF 0xF 0xF
+PATRAM 0xFFFFFFFF 0xF 0xF
+PATRAM 0xFFFFFFFF 0xF 0xF
+PATRAM 0xFFFFFFFF 0xF 0xF
+PATRAM 0xFFFFFFFF 0xF 0xF;

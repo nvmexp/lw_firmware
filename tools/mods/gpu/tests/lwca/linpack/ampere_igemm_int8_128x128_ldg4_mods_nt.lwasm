@@ -1,0 +1,1410 @@
+.headerflags	@"EF_LWDA_TEXMODE_UNIFIED EF_LWDA_64BIT_ADDRESS EF_LWDA_SM80 EF_LWDA_PTX_SM(EF_LWDA_SM80) "
+
+	.section       .text.ampere_igemm_int8_128x128_ldg4_mods_nt,"ax",@progbits
+	.sectionflags	@"SHF_BARRIERS=1"
+	.align 128
+	.global        ampere_igemm_int8_128x128_ldg4_mods_nt
+	.type          ampere_igemm_int8_128x128_ldg4_mods_nt,@function
+	.size          ampere_igemm_int8_128x128_ldg4_mods_nt,(ampere_igemm_int8_128x128_ldg4_mods_nt_END - ampere_igemm_int8_128x128_ldg4_mods_nt)
+	.other         ampere_igemm_int8_128x128_ldg4_mods_nt,@"STO_LWDA_ENTRY STV_DEFAULT"
+ampere_igemm_int8_128x128_ldg4_mods_nt:
+.text.ampere_igemm_int8_128x128_ldg4_mods_nt:
+      MOV  R93, RZ ?W2;                                      // MOV ctaRow_HI, RZ
+      MOV R0, c[0][0x1d4] ?W2;                               // MOV mode, Mode
+      S2R R1, SR_CTAid.Z &wr=4 ?W2;                          // S2R batchIdx, SR_CTAid.Z
+      S2R R2, SR_VirtId &wr=4 ?W2;                           // S2R smId, SR_VirtId
+      S2R         R94, SR_Tid.X &wr=4 ?W2;                   // S2R tid, SR_Tid.X
+      ISETP.NE    P0, RZ, c[0][0x1f0] ?W2;                   // ISETP.NE P0, RZ, AbByRef
+      S2R         R92, SR_CTAid.X &wr=4 ?W2;                 // S2R ctaRow, SR_CTAid.X
+      S2R         R91, SR_CTAid.Y &wr=4 ?W2;                 // S2R ctaCol, SR_CTAid.Y
+      LOP.AND P3, RZ, R0, 4 ?W2;                             // LOP.AND P3, RZ, mode, 4
+      IMAD.LO.U32 R3, R1, c[0][0x1d0], RZ &req=4 ?W5;        // IMAD.LO.U32 temp0, batchIdx, ChunkK, RZ
+      IADD    R3, -R3, c[0][0x1c4] ?W2;                      // IADD temp0, -temp0, CountK
+      MOV     R81, c[0][0x1c4] ?W2;                          // MOV counterK, CountK
+      ISETP.LT.AND  P4, PT, R3, c[0][0x1d0], P3 ?W2;         // ISETP.LT.AND P4, PT, temp0, ChunkK, P3
+(P3)  MOV        R81, c[0][0x1d0] ?W11;                      // @P3 MOV counterK, ChunkK
+(P4)  MOV        R81, R3 ?W4;                                // @P4 MOV counterK, temp0
+      LOP.AND  R3, R0, 0xf00 ?W2;                            // LOP.AND log2GroupCols, mode, 0xf00
+      LOP.AND  P5, RZ, R0, 0x1000 ?W2;                       // LOP.AND P5, RZ, mode, 0x1000
+      SHR.U32  R3, R3, 8 ?W4;                                // SHR.U32 log2GroupCols, log2GroupCols, 8
+      BMSK     R4, R3, 1 ?W2;                                // BMSK groupCols, log2GroupCols, 1
+      BMSK     R5, RZ, R3 ?W2;                               // BMSK mask, RZ, log2GroupCols
+      PSETP.AND P4, !PT, !PT ?W2;                            // PSETP.AND P4, !PT, !PT
+ampere_igemm_int8_128x128_ldg4_mods_nt_prolog_cta_swizzle_loop:
+      LOP.OR   R6, R91, R5 &req=4 ?W2;                       // LOP.OR testCol, ctaCol, mask
+      ISETP.EQ P3, R5, 3 ?W2;                                // ISETP.EQ P3, mask, 3
+      ISETP.LT P2, R6, c[0x0][0x010] ?W2;                    // ISETP.LT P2, testCol, GridDimY
+      LOP.AND  R7,  R91.reuse,  R5.reuse ?W2;                // LOP.AND colMod, ctaCol.reuse, mask.reuse
+      LOP.AND  R10,  R91,        R4 ?W2;                     // LOP.AND colBit, ctaCol, groupCols
+      ISETP.EQ.AND P3, PT, R6, c[0x0][0x010], P3 ?W2;        // ISETP.EQ.AND P3, PT, testCol, GridDimY, P3
+      LOP.AND  R8, R91.reuse, ~R5 ?W1;                       // LOP.AND colBase, ctaCol.reuse, ~mask
+      IMAD.U32 R9, R7, c[0x0][0x00c], R92 &req=4 ?W1;        // IMAD.U32 linear, colMod, GridDimX, ctaRow
+(P5)  ISETP.EQ.XOR P4, PT, R10, R4, P4 ?W2;                  // @P5 ISETP.EQ.XOR P4, PT, colBit, groupCols, P4
+      SHR.U32 R4, R4, 1 ?W2;                                 // SHR.U32 groupCols, groupCols, 1
+(P2)  BRA ampere_igemm_int8_128x128_ldg4_mods_nt_prolog_cta_swizzle_group_col_pow2 ?W5; // @P2 BRA ampere_igemm_int8_128x128_ldg4_mods_nt_prolog_cta_swizzle_group_col_pow2
+(!P3) SHR.U32  R5, R5, 1 ?W2;                                // @!P3 SHR.U32 mask, mask, 1
+(!P3) IADD     R3, R3, -1 ?W2;                               // @!P3 IADD log2GroupCols, log2GroupCols, -1
+(!P3) BRA ampere_igemm_int8_128x128_ldg4_mods_nt_prolog_cta_swizzle_loop ?W5; // @!P3 BRA ampere_igemm_int8_128x128_ldg4_mods_nt_prolog_cta_swizzle_loop
+      IMUL.WIDE.U32 R12, R9, 0x55555556 ?W1;                 // IMUL.WIDE.U32 swizRow64, linear, 0x55555556
+      IADD  R91, R8, R9 ?W5;                                 // IADD ctaCol, colBase, linear
+      IMAD.U32 R91, R13, -3, R91 ?W1;                        // IMAD.U32 ctaCol, swizRow, -3, ctaCol
+(!P4) MOV R92, R13 ?W2;                                      // @!P4 MOV ctaRow, swizRow
+(P4)  IADD.X R92, ~R13, c[0x0][0x00c], !PT ?W2;              // @P4 IADD.X ctaRow, ~swizRow, GridDimX, !PT
+      BRA ampere_igemm_int8_128x128_ldg4_mods_nt_prolog_cta_swizzle_done ?W5; // BRA ampere_igemm_int8_128x128_ldg4_mods_nt_prolog_cta_swizzle_done
+ampere_igemm_int8_128x128_ldg4_mods_nt_prolog_cta_swizzle_group_col_pow2:
+      SHR.U32 R92, R9, R3 ?W2;                               // SHR.U32 ctaRow, linear, log2GroupCols
+      LOP3.LUT  R91, R8, R9, R5, 0xf8 ?W2;                   // LOP3.LUT ctaCol, colBase, linear, mask, B_AND_C__OR_A ?WiT
+(P4)  IADD.X R92, ~R92, c[0x0][0x00c], !PT ?W4;              // @P4 IADD.X ctaRow, ~ctaRow, GridDimX, !PT
+ampere_igemm_int8_128x128_ldg4_mods_nt_prolog_cta_swizzle_done:
+      SHR.U32 R2, R2, 20 ?W2;                                // SHR.U32 smId, smId, 20
+      LOP.AND P3, RZ, R0, 0x10000 ?W2;                       // LOP.AND P3, RZ, mode, 0x10000
+      IMAD.LO.U32 R6, R1, c[0x0][0x010], R91 ?W5;            // IMAD.LO.U32 ctaIdx, batchIdx, GridDimY, ctaCol
+      IMAD.WIDE.U32 R6, R6, c[0x0][0x00c], R92 ?W5;          // IMAD.WIDE.U32 ctaIdx, ctaIdx, GridDimX, ctaRow
+      LOP.AND R2, R2, 0x1ff ?W2;                             // LOP.AND smId, smId, 0x1ff
+      LEA.LO   R4, P2, R6.reuse, c[0][0x1c8], 1 ?W4;         // LEA.LO syncPointer, predCarry, ctaIdx.reuse, Sync, 1
+      LEA.HI.X R5, R6, c[0][0x1cc], R7, 1, P2 ?W8;           // LEA.HI.X syncPointer_HI, ctaIdx, Sync_HI, ctaIdx_HI, 1, predCarry
+(P3)  STG.E.EN.U16.WEAK [R4], R2 &rd=3 ?W2;                  // @P3 STG.E.EN.U16.WEAK [syncPointer], smId
+      MOV           R78, c[0][0x1e0] ?W2;                    // MOV readPtr, BetaRef
+      MOV           R79, c[0][0x1e4] ?W8;                    // MOV readPtr_HI, BetaRef_HI
+(P0)  LDG.E.EN.LTC128B.32.CONSTANT    R77, [R78] &req=3 &rd=3 &wr=2 ?W2; // @P0 LDG.E.EN.LTC128B.32.CONSTANT beta, [readPtr]
+      ISETP.GE      P1, R81, 32 ?W2;                         // ISETP.GE P1, counterK, 32
+(!P0) MOV  R77, c[0][0x1ec] ?W1EG;                           // @!P0 MOV beta, BetaVal
+      SHL R95, R94, 2 &req=4 ?W2;                            // SHL sharedZeroOffset, tid, 2
+      MOV  R7, RZ ?W2;                                       // MOV absRowCol_HI, RZ
+      ISETP.LT   P0, R94, 128 &req=4 ?W2;                    // ISETP.LT P0, tid, 128
+      SHR.U32    R2, R94, 5 ?W2;                             // SHR.U32 maskedWid, tid, 5
+      LOP.AND    R3, R94, 31 ?W2;                            // LOP.AND thread, tid, 31
+      LOP.AND    R2, R2, 0x3 ?W2;                            // LOP.AND maskedWid, maskedWid, 0x3
+      MOV        R76, c[0][0x1b4] ?W2;                       // MOV readStride, StrideB
+      MOV        R78, c[0][0x168] &req=3 ?W2;                // MOV readPtr, BaseB
+      MOV        R79, c[0][0x16c] ?W2;                       // MOV readPtr_HI, BaseB_HI
+      MOV R11, c[0][0x1c0] ?W2;                              // MOV limit, CountN
+      SHL  R80, R2, 9 ?W2;                                   // SHL sharedWrite, maskedWid, 9
+      SHL  R2, R2, 2 ?W2;                                    // SHL maskedWid, maskedWid, 2
+      ISCADD   R80, R3, R80, 4 ?W2;                          // ISCADD sharedWrite, thread, sharedWrite, 4
+(P0)  MOV      R76, c[0][0x1b0] ?W2;                         // @P0 MOV readStride, StrideA
+(P0)  MOV R11, c[0][0x1bc] ?W2;                              // @P0 MOV limit, CountM
+      SHL        R6, R3, 2 ?W2;                              // SHL absRowCol, thread, 2
+      SEL        R8, R92, R91, P0 ?W2;                       // SEL ctaId, ctaRow, ctaCol, P0
+(P0)  MOV        R78, c[0][0x160] &req=2 ?W2;                // @P0 MOV readPtr, BaseA
+(P0)  MOV        R79, c[0][0x164] ?W2;                       // @P0 MOV readPtr_HI, BaseA_HI ?WiL-4*iT
+(!P0) IADD32I   R80, R80, 0x1000 ?W2;                        // @!P0 IADD32I sharedWrite, sharedWrite, 0x1000
+      ISCADD     R6, R8, R6, 7 ?W5;                          // ISCADD absRowCol, ctaId, absRowCol, 7
+(!P0) MOV      R12,    c[0][0x1a0] ?W2;                      // @!P0 MOV matrixStride, MatrixStrideB
+(!P0) MOV      R13, c[0][0x1a4] ?W2;                         // @!P0 MOV matrixStride_HI, MatrixStrideB_HI
+(P0)  MOV       R12,    c[0][0x198] ?W2;                     // @P0 MOV matrixStride, MatrixStrideA
+(P0)  MOV       R13, c[0][0x19c] ?W2;                        // @P0 MOV matrixStride_HI, MatrixStrideA_HI
+      LOP.AND P2, R9, R0, 7 ?W13EG;                          // LOP.AND predCarry, temp0, mode, 7
+(!P2) BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_CALCA_PROLOG ?W5; // @!predCarry BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_CALCA_PROLOG
+      ISETP.EQ  P2, R9, 2 ?W13EG;                            // ISETP.EQ predCarry, temp0, 2
+(!P2) BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_BATCHED_CONTIG_PTR_CALCA_PROLOG ?W5; // @!predCarry BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_BATCHED_CONTIG_PTR_CALCA_PROLOG
+      LEA.LO   R4, P2, R1.reuse, R78, 3 &req=4 ?W4;          // LEA.LO readPtrMul, predCarry, batchIdx.reuse, readPtr, 3
+      LEA.HI.X R5, R1, R79, RZ, 3, P2 ?W8;                   // LEA.HI.X readPtrMul_HI, batchIdx, readPtr_HI, RZ, 3, predCarry
+      LDG.E.EN.LTC128B.64.CONSTANT R78, [R4 + 0x00] &rd=3 &wr=2 ?W2; // LDG.E.EN.LTC128B.64.CONSTANT readPtr, [readPtrMul + 0x00]
+      BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_CALCA_PROLOG ?W5; // BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_CALCA_PROLOG
+ampere_igemm_int8_128x128_ldg4_mods_nt_BATCHED_CONTIG_PTR_CALCA_PROLOG:
+      IMAD.WIDE.U32 R4,    R1, R12,    RZ &req=4 ?W4;        // IMAD.WIDE.U32 readPtrMul, batchIdx, matrixStride, RZ
+      IMAD.LO.U32   R5, R1, R13, R5 ?W2;                     // IMAD.LO.U32 readPtrMul_HI, batchIdx, matrixStride_HI, readPtrMul_HI
+      LEA.LO   R78, P2, R4.reuse, R78, 0 ?W4;                // LEA.LO readPtr, predCarry, readPtrMul.reuse, readPtr, 0
+      LEA.HI.X R79, R4, R79, R5, 0, P2 ?W2;                  // LEA.HI.X readPtr_HI, readPtrMul, readPtr_HI, readPtrMul_HI, 0, predCarry
+ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_CALCA_PROLOG:
+      IMAD.WIDE.U32 R4, R2, R76, R6 &req=3 ?W5;              // IMAD.WIDE.U32 readPtrMul, maskedWid, readStride, absRowCol
+      LEA.LO   R78, P2, R4.reuse, R78, 0 &req=2 ?W4;         // LEA.LO readPtr, predCarry, readPtrMul.reuse, readPtr, 0
+      LEA.HI.X R79, R4, R79, R5, 0, P2 ?W4;                  // LEA.HI.X readPtr_HI, readPtrMul, readPtr_HI, readPtrMul_HI, 0, predCarry
+      LEA.LO   R82, P2, R76.reuse, R76, 4 ?W4;               // LEA.LO incSlow, predCarry, readStride.reuse, readStride, 4
+      LEA.HI.X R83, R76, RZ, RZ, 4, P2 ?W4;                  // LEA.HI.X incSlow_HI, readStride, readStride_HI, RZ, 4, predCarry
+      LEA.LO   R82, P2, -R76.reuse, R82, 2 ?W4;              // LEA.LO incSlow, predCarry, -readStride.reuse, incSlow, 2
+      LEA.HI.X R83, ~R76, R83, RZ, 2, P2 ?W2;                // LEA.HI.X incSlow_HI, ~readStride, incSlow_HI, RZ, 2, predCarry
+      IADD R6, R6, -R11 ?W4;                                 // IADD absRowCol, absRowCol, -limit
+      ISETP.LT P3, R6, 0 ?W13EG;                             // ISETP.LT P3, absRowCol, 0
+      P2R.B0 R90, PR, RZ, 0x8 ?W2;                           // P2R.B0 raggedMnPreds0, PR, RZ, 0x8
+      STS.32  [R95 + 0x2000], RZ &rd=1 ?W2;                  // STS.32 [sharedZeroOffset + 0x2000], RZ
+      BAR.SYNC.DEFER_BLOCKING 0 ?W6;                         // BAR.SYNC.DEFER_BLOCKING 0
+(!P1) R2P PR, RZ.B0, 0x78 ?W2;                               // @!P1 R2P PR, RZ.B0, 0x78
+(P1)  R2P PR, R90.B0, 0x78 ?W13EG;                           // @P1 R2P PR, raggedMnPreds0.B0, 0x78
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R64, [R78 + 0x0] &rd=3 &wr=2 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg0, [readPtr + 0x0]
+(!P3) MOV R64, RZ ?W2;                                       // @!P3 MOV fetchReg0_0, RZ
+(P1)  LEA.LO   R84, P2, R76.reuse, R78, 0 ?W4;               // @P1 LEA.LO readPtr1, predCarry, readStride.reuse, readPtr, 0
+(P1)  LEA.HI.X R85, R76, R79, RZ, 0, P2 ?W8;                 // @P1 LEA.HI.X readPtr1_HI, readStride, readPtr_HI, RZ, 0, predCarry
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R65, [R84 + 0x0] &rd=3 &wr=2 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg4, [readPtr1 + 0x0]
+(!P3) MOV R65, RZ ?W2;                                       // @!P3 MOV fetchReg4_0, RZ
+(P1)  LEA.LO   R86, P2, R76.reuse, R84, 0 ?W4;               // @P1 LEA.LO readPtr2, predCarry, readStride.reuse, readPtr1, 0
+(P1)  LEA.HI.X R87, R76, R85, RZ, 0, P2 ?W8;                 // @P1 LEA.HI.X readPtr2_HI, readStride, readPtr1_HI, RZ, 0, predCarry
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R66, [R86 + 0x0] &rd=3 &wr=2 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg8, [readPtr2 + 0x0]
+(!P3) MOV R66, RZ ?W2;                                       // @!P3 MOV fetchReg8_0, RZ
+(P1)  LEA.LO   R88, P2, R76.reuse, R86, 0 ?W4;               // @P1 LEA.LO readPtr3, predCarry, readStride.reuse, readPtr2, 0
+(P1)  LEA.HI.X R89, R76, R87, RZ, 0, P2 ?W8;                 // @P1 LEA.HI.X readPtr3_HI, readStride, readPtr2_HI, RZ, 0, predCarry
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R67, [R88 + 0x0] &rd=3 &wr=2 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg12, [readPtr3 + 0x0]
+(!P3) MOV R67, RZ ?W2;                                       // @!P3 MOV fetchReg12_0, RZ
+(P1)  LEA.LO   R78, P2, R82.reuse, R88, 0 &req=3 ?W4;        // @P1 LEA.LO readPtr, predCarry, incSlow.reuse, readPtr3, 0
+(P1)  LEA.HI.X R79, R82, R89, RZ, 0, P2 ?W8;                 // @P1 LEA.HI.X readPtr_HI, incSlow, readPtr3_HI, RZ, 0, predCarry
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R68, [R78 + 0x0] &rd=3 &wr=2 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg16, [readPtr + 0x0]
+(!P3) MOV R68, RZ ?W2;                                       // @!P3 MOV fetchReg16_0, RZ
+(P1)  LEA.LO   R84, P2, R76.reuse, R78, 0 ?W4;               // @P1 LEA.LO readPtr1, predCarry, readStride.reuse, readPtr, 0
+(P1)  LEA.HI.X R85, R76, R79, RZ, 0, P2 ?W8;                 // @P1 LEA.HI.X readPtr1_HI, readStride, readPtr_HI, RZ, 0, predCarry
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R69, [R84 + 0x0] &rd=3 &wr=2 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg20, [readPtr1 + 0x0]
+(!P3) MOV R69, RZ ?W2;                                       // @!P3 MOV fetchReg20_0, RZ
+(P1)  LEA.LO   R86, P2, R76.reuse, R84, 0 ?W4;               // @P1 LEA.LO readPtr2, predCarry, readStride.reuse, readPtr1, 0
+(P1)  LEA.HI.X R87, R76, R85, RZ, 0, P2 ?W8;                 // @P1 LEA.HI.X readPtr2_HI, readStride, readPtr1_HI, RZ, 0, predCarry
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R70, [R86 + 0x0] &rd=3 &wr=2 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg24, [readPtr2 + 0x0]
+(!P3) MOV R70, RZ ?W2;                                       // @!P3 MOV fetchReg24_0, RZ
+(P1)  LEA.LO   R88, P2, R76.reuse, R86, 0 ?W4;               // @P1 LEA.LO readPtr3, predCarry, readStride.reuse, readPtr2, 0
+(P1)  LEA.HI.X R89, R76, R87, RZ, 0, P2 ?W8;                 // @P1 LEA.HI.X readPtr3_HI, readStride, readPtr2_HI, RZ, 0, predCarry
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R71, [R88 + 0x0] &rd=3 &wr=2 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg28, [readPtr3 + 0x0]
+(!P3) MOV R71, RZ ?W2;                                       // @!P3 MOV fetchReg28_0, RZ
+(P1)  LEA.LO   R78, P2, R82.reuse, R88, 0 &req=3 ?W4;        // @P1 LEA.LO readPtr, predCarry, incSlow.reuse, readPtr3, 0
+(P1)  LEA.HI.X R79, R82, R89, RZ, 0, P2 ?W8;                 // @P1 LEA.HI.X readPtr_HI, incSlow, readPtr3_HI, RZ, 0, predCarry
+      SHR         R1, R94.reuse, 7 ?W2;                      // SHR awTid, tid.reuse, 7
+      SHR         R0, R94.reuse, 1 ?W2;                      // SHR aiTid, tid.reuse, 1
+      SHL         R1, R1, 4 ?W2;                             // SHL awTid, awTid, 4
+      LOP.AND     R72, R0, 0x7 ?W4;                          // LOP.AND sharedA, aiTid, 0x7
+      LOP.OR      R72, R72, R1 ?W4;                          // LOP.OR sharedA, sharedA, awTid
+      SHL         R72, R72, 4 ?W2;                           // SHL sharedA, sharedA, 4
+      SHR         R3, R94.reuse, 5 ?W2;                      // SHR bwTid, tid.reuse, 5
+      SHR         R2, R94.reuse, 3 ?W2;                      // SHR bmTid, tid.reuse, 3
+      LOP.AND     R73, R94.reuse, 1 ?W2;                     // LOP.AND sharedB, tid.reuse, 1
+      LOP.AND     R3, R3, 3 ?W2;                             // LOP.AND bwTid, bwTid, 3
+      LOP.AND     R2, R2, 2 ?W4;                             // LOP.AND bmTid, bmTid, 2
+      SHL         R3, R3, 3 ?W4;                             // SHL bwTid, bwTid, 3
+      LOP3.OR     R73, R73, R2, R3 ?W4;                      // LOP3.OR sharedB, sharedB, bmTid, bwTid
+      ISCADD      R73, R73, 0x1000, 4 ?W2;                   // ISCADD sharedB, sharedB, 0x1000, 4
+// Virtual ?REQ_BAR found on next instruction, stop putting ?BARRIER_EXEMPT on decoupled instructions
+      LDS.128   R0, [0x2000] &wr=0 ?W2;                      // LDS.128 R0, [0x2000]
+      LDS.128   R4, [0x2000] &wr=0 ?W2;                      // LDS.128 R4, [0x2000]
+      LDS.128   R8, [0x2000] &wr=0 ?W2;                      // LDS.128 R8, [0x2000]
+      LDS.128   R12, [0x2000] &wr=0 ?W2;                     // LDS.128 R12, [0x2000]
+      LDS.128   R16, [0x2000] &wr=0 ?W2;                     // LDS.128 R16, [0x2000]
+      LDS.128   R20, [0x2000] &wr=0 ?W2;                     // LDS.128 R20, [0x2000]
+      LDS.128   R24, [0x2000] &wr=0 ?W2;                     // LDS.128 R24, [0x2000]
+      LDS.128   R28, [0x2000] &wr=0 ?W2;                     // LDS.128 R28, [0x2000]
+      LDS.128   R32, [0x2000] &wr=0 ?W2;                     // LDS.128 R32, [0x2000]
+      LDS.128   R36, [0x2000] &wr=0 ?W2;                     // LDS.128 R36, [0x2000]
+      LDS.128   R40, [0x2000] &wr=0 ?W2;                     // LDS.128 R40, [0x2000]
+      LDS.128   R44, [0x2000] &wr=0 ?W2;                     // LDS.128 R44, [0x2000]
+      LDS.128   R48, [0x2000] &wr=0 ?W2;                     // LDS.128 R48, [0x2000]
+      LDS.128   R52, [0x2000] &wr=0 ?W2;                     // LDS.128 R52, [0x2000]
+      LDS.128   R56, [0x2000] &wr=0 ?W2;                     // LDS.128 R56, [0x2000]
+      LDS.128   R60, [0x2000] &wr=0 ?W2;                     // LDS.128 R60, [0x2000]
+(!P1) BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_K_RESIDUE ?W5; // @!P1 BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_K_RESIDUE
+      R2P PR, R90.B0, 0x78 ?W2;                              // R2P PR, raggedMnPreds0.B0, 0x78
+ampere_igemm_int8_128x128_ldg4_mods_nt_PRELOOP:
+      PRMT.IDX R74,  R66.reuse, 0x5140, R67.reuse &req=2 ?W2; // PRMT.IDX swiz0, fetchReg8.reuse, 0x5140, fetchReg12.reuse
+      PRMT.IDX R75,  R66,       0x7362, R67 ?W2EG;           // PRMT.IDX swiz1, fetchReg8, 0x7362, fetchReg12
+      PRMT.IDX R66, R64.reuse, 0x5140, R65.reuse ?W2;        // PRMT.IDX fetchReg8, fetchReg0.reuse, 0x5140, fetchReg4.reuse
+      PRMT.IDX R67, R64,       0x7362, R65 ?W2;              // PRMT.IDX fetchReg12, fetchReg0, 0x7362, fetchReg4
+      PRMT.IDX R64, R66.reuse, 0x5410, R74.reuse ?W2;        // PRMT.IDX fetchReg0, fetchReg8.reuse, 0x5410, swiz0.reuse
+      PRMT.IDX R65, R66,       0x7632, R74 ?W2EG;            // PRMT.IDX fetchReg4, fetchReg8, 0x7632, swiz0
+      PRMT.IDX R66, R67.reuse, 0x5410, R75.reuse ?W2;        // PRMT.IDX fetchReg8, fetchReg12.reuse, 0x5410, swiz1.reuse
+      PRMT.IDX R67, R67,       0x7632, R75 ?W2EG;            // PRMT.IDX fetchReg12, fetchReg12, 0x7632, swiz1
+      PRMT.IDX R74,  R70.reuse, 0x5140, R71.reuse &req=2 ?W2; // PRMT.IDX swiz0, fetchReg24.reuse, 0x5140, fetchReg28.reuse
+      PRMT.IDX R75,  R70,       0x7362, R71 ?W2EG;           // PRMT.IDX swiz1, fetchReg24, 0x7362, fetchReg28
+      PRMT.IDX R70, R68.reuse, 0x5140, R69.reuse ?W2;        // PRMT.IDX fetchReg24, fetchReg16.reuse, 0x5140, fetchReg20.reuse
+      PRMT.IDX R71, R68,       0x7362, R69 ?W2;              // PRMT.IDX fetchReg28, fetchReg16, 0x7362, fetchReg20
+      PRMT.IDX R68, R70.reuse, 0x5410, R74.reuse ?W2;        // PRMT.IDX fetchReg16, fetchReg24.reuse, 0x5410, swiz0.reuse
+      PRMT.IDX R69, R70,       0x7632, R74 ?W2EG;            // PRMT.IDX fetchReg20, fetchReg24, 0x7632, swiz0
+      PRMT.IDX R70, R71.reuse, 0x5410, R75.reuse ?W2;        // PRMT.IDX fetchReg24, fetchReg28.reuse, 0x5410, swiz1.reuse
+      PRMT.IDX R71, R71,       0x7632, R75 ?W6;              // PRMT.IDX fetchReg28, fetchReg28, 0x7632, swiz1
+      STS.128    [R80 + 0x0], R64 &req=2 ?W2;                // STS.128 [sharedWrite + 0x0], fetchReg0
+      STS.128    [R80 + 0x800], R68 &rd=1 ?W2;               // STS.128 [sharedWrite + 0x800], fetchReg16
+      BAR.SYNC.DEFER_BLOCKING  0 ?W6;                        // BAR.SYNC.DEFER_BLOCKING 0
+      LOP.XOR   R80, R80, 0x2000 &req=1 ?W2;                 // LOP.XOR sharedWrite, sharedWrite, 0x2000
+// Virtual ?REQ_BAR found on next instruction, stop putting ?BARRIER_EXEMPT on decoupled instructions
+      LDS.128 R92, [R72 + 0x0] &wr=0 ?W2;                    // LDS.128 A_r0_k0, [sharedA + 0x0]
+      LDS.128 R108, [R73 + 0x0] &wr=0 ?W2;                   // LDS.128 B_c0_k0, [sharedB + 0x0]
+      LDS.128 R96, [R72 + 0x80] &wr=0 ?W2;                   // LDS.128 A_r4_k0, [sharedA + 0x80]
+      LDS.128 R112, [R73 + 0x40] &rd=1 &wr=0 ?W2;            // LDS.128 B_c4_k0, [sharedB + 0x40]
+ampere_igemm_int8_128x128_ldg4_mods_nt_LOOP:
+      IDP.4A.S8.S8 R1, R92.reuse, R108.reuse, R1 &req={0,4} ?W1; // IDP.4A.S8.S8 C_r0_c0, A_r0_k0.reuse, B_c0_k0.reuse, C_r0_c0
+      ISETP.GE  P1, R81, 64 ?W1;                             // ISETP.GE P1, counterK, 64
+      IDP.4A.S8.S8 R0, R92, R109.reuse, R0 ?W2;              // IDP.4A.S8.S8 C_r0_c1, A_r0_k0, B_c1_k0.reuse, C_r0_c1
+      IDP.4A.S8.S8 R9, R93.reuse, R108.reuse, R9 ?W1;        // IDP.4A.S8.S8 C_r1_c0, A_r1_k0.reuse, B_c0_k0.reuse, C_r1_c0
+      IADD32I   R81, R81, -32 ?W1;                           // IADD32I counterK, counterK, -32
+      IDP.4A.S8.S8 R8, R93, R109.reuse, R8 ?W2;              // IDP.4A.S8.S8 C_r1_c1, A_r1_k0, B_c1_k0.reuse, C_r1_c1
+      IDP.4A.S8.S8 R17, R94.reuse, R108.reuse, R17 ?W1;      // IDP.4A.S8.S8 C_r2_c0, A_r2_k0.reuse, B_c0_k0.reuse, C_r2_c0
+      LDS.128 R100, [R72 + 0x200] &wr=0 ?W1;                 // LDS.128 A_r0_k1, [sharedA + 0x200]
+      IDP.4A.S8.S8 R16, R94, R109.reuse, R16 ?W2;            // IDP.4A.S8.S8 C_r2_c1, A_r2_k0, B_c1_k0.reuse, C_r2_c1
+      IDP.4A.S8.S8 R25, R95.reuse, R108.reuse, R25 ?W1;      // IDP.4A.S8.S8 C_r3_c0, A_r3_k0.reuse, B_c0_k0.reuse, C_r3_c0
+      LDS.128 R116, [R73 + 0x200] &wr=0 ?W1;                 // LDS.128 B_c0_k1, [sharedB + 0x200]
+      IDP.4A.S8.S8 R24, R95, R109.reuse, R24 ?W2;            // IDP.4A.S8.S8 C_r3_c1, A_r3_k0, B_c1_k0.reuse, C_r3_c1
+      IDP.4A.S8.S8 R33, R96.reuse, R108.reuse, R33 ?W1;      // IDP.4A.S8.S8 C_r4_c0, A_r4_k0.reuse, B_c0_k0.reuse, C_r4_c0
+      LDS.128 R104, [R72 + 0x280] &wr=0 ?W1;                 // LDS.128 A_r4_k1, [sharedA + 0x280]
+      IDP.4A.S8.S8 R32, R96, R109.reuse, R32 ?W2;            // IDP.4A.S8.S8 C_r4_c1, A_r4_k0, B_c1_k0.reuse, C_r4_c1
+      IDP.4A.S8.S8 R41, R97.reuse, R108.reuse, R41 ?W1;      // IDP.4A.S8.S8 C_r5_c0, A_r5_k0.reuse, B_c0_k0.reuse, C_r5_c0
+(!P1) R2P PR, RZ.B0, 0x78 ?W1;                               // @!P1 R2P PR, RZ.B0, 0x78
+      IDP.4A.S8.S8 R40, R97, R109.reuse, R40 ?W2;            // IDP.4A.S8.S8 C_r5_c1, A_r5_k0, B_c1_k0.reuse, C_r5_c1
+      IDP.4A.S8.S8 R49, R98.reuse, R108.reuse, R49 ?W1;      // IDP.4A.S8.S8 C_r6_c0, A_r6_k0.reuse, B_c0_k0.reuse, C_r6_c0
+      LDS.128 R120, [R73 + 0x240] &rd=1 &wr=0 ?W1;           // LDS.128 B_c4_k1, [sharedB + 0x240]
+      IDP.4A.S8.S8 R48, R98.reuse, R109.reuse, R48 ?W2;      // IDP.4A.S8.S8 C_r6_c1, A_r6_k0.reuse, B_c1_k0.reuse, C_r6_c1
+      IDP.4A.S8.S8 R57, R99.reuse, R108, R57 ?W2;            // IDP.4A.S8.S8 C_r7_c0, A_r7_k0.reuse, B_c0_k0, C_r7_c0
+      IDP.4A.S8.S8 R56, R99.reuse, R109, R56 ?W2;            // IDP.4A.S8.S8 C_r7_c1, A_r7_k0.reuse, B_c1_k0, C_r7_c1
+      IDP.4A.S8.S8 R59, R99.reuse, R110.reuse, R59 ?W2;      // IDP.4A.S8.S8 C_r7_c2, A_r7_k0.reuse, B_c2_k0.reuse, C_r7_c2
+      IDP.4A.S8.S8 R58, R99, R111.reuse, R58 ?W2;            // IDP.4A.S8.S8 C_r7_c3, A_r7_k0, B_c3_k0.reuse, C_r7_c3
+      IDP.4A.S8.S8 R51, R98.reuse, R110.reuse, R51 ?W2;      // IDP.4A.S8.S8 C_r6_c2, A_r6_k0.reuse, B_c2_k0.reuse, C_r6_c2
+      IDP.4A.S8.S8 R50, R98, R111.reuse, R50 ?W2;            // IDP.4A.S8.S8 C_r6_c3, A_r6_k0, B_c3_k0.reuse, C_r6_c3
+      IDP.4A.S8.S8 R43, R97.reuse, R110.reuse, R43 ?W2;      // IDP.4A.S8.S8 C_r5_c2, A_r5_k0.reuse, B_c2_k0.reuse, C_r5_c2
+      IDP.4A.S8.S8 R42, R97, R111.reuse, R42 ?W2;            // IDP.4A.S8.S8 C_r5_c3, A_r5_k0, B_c3_k0.reuse, C_r5_c3
+      IDP.4A.S8.S8 R35, R96.reuse, R110.reuse, R35 ?W2;      // IDP.4A.S8.S8 C_r4_c2, A_r4_k0.reuse, B_c2_k0.reuse, C_r4_c2
+      IDP.4A.S8.S8 R34, R96, R111.reuse, R34 ?W2;            // IDP.4A.S8.S8 C_r4_c3, A_r4_k0, B_c3_k0.reuse, C_r4_c3
+      IDP.4A.S8.S8 R27, R95.reuse, R110.reuse, R27 ?W2;      // IDP.4A.S8.S8 C_r3_c2, A_r3_k0.reuse, B_c2_k0.reuse, C_r3_c2
+      IDP.4A.S8.S8 R26, R95, R111.reuse, R26 ?W2;            // IDP.4A.S8.S8 C_r3_c3, A_r3_k0, B_c3_k0.reuse, C_r3_c3
+      IDP.4A.S8.S8 R19, R94.reuse, R110.reuse, R19 ?W2;      // IDP.4A.S8.S8 C_r2_c2, A_r2_k0.reuse, B_c2_k0.reuse, C_r2_c2
+      IDP.4A.S8.S8 R18, R94, R111.reuse, R18 ?W2;            // IDP.4A.S8.S8 C_r2_c3, A_r2_k0, B_c3_k0.reuse, C_r2_c3
+      IDP.4A.S8.S8 R11, R93.reuse, R110.reuse, R11 ?W2;      // IDP.4A.S8.S8 C_r1_c2, A_r1_k0.reuse, B_c2_k0.reuse, C_r1_c2
+      IDP.4A.S8.S8 R10, R93.reuse, R111.reuse, R10 ?W2;      // IDP.4A.S8.S8 C_r1_c3, A_r1_k0.reuse, B_c3_k0.reuse, C_r1_c3
+      IDP.4A.S8.S8 R3, R92.reuse, R110, R3 ?W2;              // IDP.4A.S8.S8 C_r0_c2, A_r0_k0.reuse, B_c2_k0, C_r0_c2
+      IDP.4A.S8.S8 R2, R92.reuse, R111, R2 ?W2;              // IDP.4A.S8.S8 C_r0_c3, A_r0_k0.reuse, B_c3_k0, C_r0_c3
+      IDP.4A.S8.S8 R5, R92.reuse, R112.reuse, R5 ?W1;        // IDP.4A.S8.S8 C_r0_c4, A_r0_k0.reuse, B_c4_k0.reuse, C_r0_c4
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R64, [R78 + 0x0] &rd=3 &wr=2 ?W1; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg0, [readPtr + 0x0]
+      IDP.4A.S8.S8 R4, R92, R113.reuse, R4 ?W2;              // IDP.4A.S8.S8 C_r0_c5, A_r0_k0, B_c5_k0.reuse, C_r0_c5
+      IDP.4A.S8.S8 R13, R93.reuse, R112.reuse, R13 ?W1;      // IDP.4A.S8.S8 C_r1_c4, A_r1_k0.reuse, B_c4_k0.reuse, C_r1_c4
+(P1)  LEA.LO   R84, P2, R76.reuse, R78, 0 ?W1;               // @P1 LEA.LO readPtr1, predCarry, readStride.reuse, readPtr, 0
+      IDP.4A.S8.S8 R12, R93, R113.reuse, R12 ?W2;            // IDP.4A.S8.S8 C_r1_c5, A_r1_k0, B_c5_k0.reuse, C_r1_c5
+      IDP.4A.S8.S8 R21, R94.reuse, R112.reuse, R21 ?W1;      // IDP.4A.S8.S8 C_r2_c4, A_r2_k0.reuse, B_c4_k0.reuse, C_r2_c4
+(P1)  LEA.HI.X R85, R76, R79, RZ, 0, P2 ?W1;                 // @P1 LEA.HI.X readPtr1_HI, readStride, readPtr_HI, RZ, 0, predCarry
+      IDP.4A.S8.S8 R20, R94, R113.reuse, R20 ?W2;            // IDP.4A.S8.S8 C_r2_c5, A_r2_k0, B_c5_k0.reuse, C_r2_c5
+      IDP.4A.S8.S8 R29, R95.reuse, R112.reuse, R29 ?W5;      // IDP.4A.S8.S8 C_r3_c4, A_r3_k0.reuse, B_c4_k0.reuse, C_r3_c4
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R65, [R84 + 0x0] &rd=3 &wr=2 ?W1; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg4, [readPtr1 + 0x0]
+      IDP.4A.S8.S8 R28, R95, R113.reuse, R28 ?W2;            // IDP.4A.S8.S8 C_r3_c5, A_r3_k0, B_c5_k0.reuse, C_r3_c5
+      IDP.4A.S8.S8 R37, R96.reuse, R112.reuse, R37 ?W1;      // IDP.4A.S8.S8 C_r4_c4, A_r4_k0.reuse, B_c4_k0.reuse, C_r4_c4
+(P1)  LEA.LO   R86, P2, R76.reuse, R84, 0 ?W1;               // @P1 LEA.LO readPtr2, predCarry, readStride.reuse, readPtr1, 0
+      IDP.4A.S8.S8 R36, R96, R113.reuse, R36 ?W2;            // IDP.4A.S8.S8 C_r4_c5, A_r4_k0, B_c5_k0.reuse, C_r4_c5
+      IDP.4A.S8.S8 R45, R97.reuse, R112.reuse, R45 ?W1;      // IDP.4A.S8.S8 C_r5_c4, A_r5_k0.reuse, B_c4_k0.reuse, C_r5_c4
+(P1)  LEA.HI.X R87, R76, R85, RZ, 0, P2 ?W1;                 // @P1 LEA.HI.X readPtr2_HI, readStride, readPtr1_HI, RZ, 0, predCarry
+      IDP.4A.S8.S8 R44, R97, R113.reuse, R44 ?W2;            // IDP.4A.S8.S8 C_r5_c5, A_r5_k0, B_c5_k0.reuse, C_r5_c5
+      IDP.4A.S8.S8 R53, R98.reuse, R112.reuse, R53 ?W5;      // IDP.4A.S8.S8 C_r6_c4, A_r6_k0.reuse, B_c4_k0.reuse, C_r6_c4
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R66, [R86 + 0x0] &rd=3 &wr=2 ?W1; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg8, [readPtr2 + 0x0]
+      IDP.4A.S8.S8 R52, R98.reuse, R113.reuse, R52 ?W2;      // IDP.4A.S8.S8 C_r6_c5, A_r6_k0.reuse, B_c5_k0.reuse, C_r6_c5
+      IDP.4A.S8.S8 R61, R99.reuse, R112, R61 ?W1;            // IDP.4A.S8.S8 C_r7_c4, A_r7_k0.reuse, B_c4_k0, C_r7_c4
+(P1)  LEA.LO   R88, P2, R76.reuse, R86, 0 ?W1;               // @P1 LEA.LO readPtr3, predCarry, readStride.reuse, readPtr2, 0
+      IDP.4A.S8.S8 R60, R99.reuse, R113, R60 ?W2;            // IDP.4A.S8.S8 C_r7_c5, A_r7_k0.reuse, B_c5_k0, C_r7_c5
+      IDP.4A.S8.S8 R63, R99.reuse, R114.reuse, R63 ?W1;      // IDP.4A.S8.S8 C_r7_c6, A_r7_k0.reuse, B_c6_k0.reuse, C_r7_c6
+(P1)  LEA.HI.X R89, R76, R87, RZ, 0, P2 ?W1;                 // @P1 LEA.HI.X readPtr3_HI, readStride, readPtr2_HI, RZ, 0, predCarry
+      IDP.4A.S8.S8 R62, R99, R115.reuse, R62 ?W2;            // IDP.4A.S8.S8 C_r7_c7, A_r7_k0, B_c7_k0.reuse, C_r7_c7
+      IDP.4A.S8.S8 R55, R98.reuse, R114.reuse, R55 ?W5;      // IDP.4A.S8.S8 C_r6_c6, A_r6_k0.reuse, B_c6_k0.reuse, C_r6_c6
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R67, [R88 + 0x0] &rd=3 &wr=2 ?W1; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg12, [readPtr3 + 0x0]
+      IDP.4A.S8.S8 R54, R98, R115.reuse, R54 ?W2;            // IDP.4A.S8.S8 C_r6_c7, A_r6_k0, B_c7_k0.reuse, C_r6_c7
+      IDP.4A.S8.S8 R47, R97.reuse, R114.reuse, R47 ?W2;      // IDP.4A.S8.S8 C_r5_c6, A_r5_k0.reuse, B_c6_k0.reuse, C_r5_c6
+      IDP.4A.S8.S8 R46, R97, R115.reuse, R46 ?W2;            // IDP.4A.S8.S8 C_r5_c7, A_r5_k0, B_c7_k0.reuse, C_r5_c7
+      IDP.4A.S8.S8 R39, R96.reuse, R114.reuse, R39 ?W2;      // IDP.4A.S8.S8 C_r4_c6, A_r4_k0.reuse, B_c6_k0.reuse, C_r4_c6
+      IDP.4A.S8.S8 R38, R96, R115.reuse, R38 ?W2;            // IDP.4A.S8.S8 C_r4_c7, A_r4_k0, B_c7_k0.reuse, C_r4_c7
+      IDP.4A.S8.S8 R31, R95.reuse, R114.reuse, R31 ?W2;      // IDP.4A.S8.S8 C_r3_c6, A_r3_k0.reuse, B_c6_k0.reuse, C_r3_c6
+      IDP.4A.S8.S8 R30, R95, R115.reuse, R30 ?W2;            // IDP.4A.S8.S8 C_r3_c7, A_r3_k0, B_c7_k0.reuse, C_r3_c7
+      IDP.4A.S8.S8 R23, R94.reuse, R114.reuse, R23 ?W2;      // IDP.4A.S8.S8 C_r2_c6, A_r2_k0.reuse, B_c6_k0.reuse, C_r2_c6
+      IDP.4A.S8.S8 R22, R94, R115.reuse, R22 ?W2;            // IDP.4A.S8.S8 C_r2_c7, A_r2_k0, B_c7_k0.reuse, C_r2_c7
+      IDP.4A.S8.S8 R15, R93.reuse, R114.reuse, R15 ?W2;      // IDP.4A.S8.S8 C_r1_c6, A_r1_k0.reuse, B_c6_k0.reuse, C_r1_c6
+      IDP.4A.S8.S8 R14, R93, R115.reuse, R14 ?W2;            // IDP.4A.S8.S8 C_r1_c7, A_r1_k0, B_c7_k0.reuse, C_r1_c7
+      IDP.4A.S8.S8 R7, R92.reuse, R114, R7 ?W2;              // IDP.4A.S8.S8 C_r0_c6, A_r0_k0.reuse, B_c6_k0, C_r0_c6
+      IDP.4A.S8.S8 R6, R92, R115, R6 ?W2EG;                  // IDP.4A.S8.S8 C_r0_c7, A_r0_k0, B_c7_k0, C_r0_c7
+      IDP.4A.S8.S8 R1, R100.reuse, R116.reuse, R1 &req={0,4} ?W1; // IDP.4A.S8.S8 C_r0_c0, A_r0_k1.reuse, B_c0_k1.reuse, C_r0_c0
+(P1)  LEA.LO   R78, P2, R82.reuse, R88, 0 &req=3 ?W1;        // @P1 LEA.LO readPtr, predCarry, incSlow.reuse, readPtr3, 0
+      IDP.4A.S8.S8 R0, R100, R117.reuse, R0 ?W2;             // IDP.4A.S8.S8 C_r0_c1, A_r0_k1, B_c1_k1.reuse, C_r0_c1
+      IDP.4A.S8.S8 R9, R101.reuse, R116.reuse, R9 ?W1;       // IDP.4A.S8.S8 C_r1_c0, A_r1_k1.reuse, B_c0_k1.reuse, C_r1_c0
+(P1)  LEA.HI.X R79, R82, R89, RZ, 0, P2 ?W1;                 // @P1 LEA.HI.X readPtr_HI, incSlow, readPtr3_HI, RZ, 0, predCarry
+      IDP.4A.S8.S8 R8, R101, R117.reuse, R8 ?W2;             // IDP.4A.S8.S8 C_r1_c1, A_r1_k1, B_c1_k1.reuse, C_r1_c1
+      IDP.4A.S8.S8 R17, R102.reuse, R116.reuse, R17 ?W1;     // IDP.4A.S8.S8 C_r2_c0, A_r2_k1.reuse, B_c0_k1.reuse, C_r2_c0
+      LDS.128 R92, [R72 + 0x400] &wr=0 ?W1;                  // LDS.128 A_r0_k0, [sharedA + 0x400]
+      IDP.4A.S8.S8 R16, R102, R117.reuse, R16 ?W2;           // IDP.4A.S8.S8 C_r2_c1, A_r2_k1, B_c1_k1.reuse, C_r2_c1
+      IDP.4A.S8.S8 R25, R103.reuse, R116.reuse, R25 ?W1;     // IDP.4A.S8.S8 C_r3_c0, A_r3_k1.reuse, B_c0_k1.reuse, C_r3_c0
+      LDS.128 R108, [R73 + 0x400] &wr=0 ?W1;                 // LDS.128 B_c0_k0, [sharedB + 0x400]
+      IDP.4A.S8.S8 R24, R103, R117.reuse, R24 ?W2;           // IDP.4A.S8.S8 C_r3_c1, A_r3_k1, B_c1_k1.reuse, C_r3_c1
+      IDP.4A.S8.S8 R33, R104.reuse, R116.reuse, R33 ?W1;     // IDP.4A.S8.S8 C_r4_c0, A_r4_k1.reuse, B_c0_k1.reuse, C_r4_c0
+      LDS.128 R96, [R72 + 0x480] &wr=0 ?W1;                  // LDS.128 A_r4_k0, [sharedA + 0x480]
+      IDP.4A.S8.S8 R32, R104, R117.reuse, R32 ?W2;           // IDP.4A.S8.S8 C_r4_c1, A_r4_k1, B_c1_k1.reuse, C_r4_c1
+      IDP.4A.S8.S8 R41, R105.reuse, R116.reuse, R41 ?W1;     // IDP.4A.S8.S8 C_r5_c0, A_r5_k1.reuse, B_c0_k1.reuse, C_r5_c0
+      LDS.128 R112, [R73 + 0x440] &rd=1 &wr=0 ?W1;           // LDS.128 B_c4_k0, [sharedB + 0x440]
+      IDP.4A.S8.S8 R40, R105, R117.reuse, R40 ?W2;           // IDP.4A.S8.S8 C_r5_c1, A_r5_k1, B_c1_k1.reuse, C_r5_c1
+      IDP.4A.S8.S8 R49, R106.reuse, R116.reuse, R49 ?W2;     // IDP.4A.S8.S8 C_r6_c0, A_r6_k1.reuse, B_c0_k1.reuse, C_r6_c0
+      IDP.4A.S8.S8 R48, R106.reuse, R117.reuse, R48 ?W2;     // IDP.4A.S8.S8 C_r6_c1, A_r6_k1.reuse, B_c1_k1.reuse, C_r6_c1
+      IDP.4A.S8.S8 R57, R107.reuse, R116, R57 ?W2;           // IDP.4A.S8.S8 C_r7_c0, A_r7_k1.reuse, B_c0_k1, C_r7_c0
+      IDP.4A.S8.S8 R56, R107.reuse, R117, R56 ?W2;           // IDP.4A.S8.S8 C_r7_c1, A_r7_k1.reuse, B_c1_k1, C_r7_c1
+      IDP.4A.S8.S8 R59, R107.reuse, R118.reuse, R59 ?W2;     // IDP.4A.S8.S8 C_r7_c2, A_r7_k1.reuse, B_c2_k1.reuse, C_r7_c2
+      IDP.4A.S8.S8 R58, R107, R119.reuse, R58 ?W2;           // IDP.4A.S8.S8 C_r7_c3, A_r7_k1, B_c3_k1.reuse, C_r7_c3
+      IDP.4A.S8.S8 R51, R106.reuse, R118.reuse, R51 ?W2;     // IDP.4A.S8.S8 C_r6_c2, A_r6_k1.reuse, B_c2_k1.reuse, C_r6_c2
+      IDP.4A.S8.S8 R50, R106, R119.reuse, R50 ?W2;           // IDP.4A.S8.S8 C_r6_c3, A_r6_k1, B_c3_k1.reuse, C_r6_c3
+      IDP.4A.S8.S8 R43, R105.reuse, R118.reuse, R43 ?W2;     // IDP.4A.S8.S8 C_r5_c2, A_r5_k1.reuse, B_c2_k1.reuse, C_r5_c2
+      IDP.4A.S8.S8 R42, R105, R119.reuse, R42 ?W2;           // IDP.4A.S8.S8 C_r5_c3, A_r5_k1, B_c3_k1.reuse, C_r5_c3
+      IDP.4A.S8.S8 R35, R104.reuse, R118.reuse, R35 ?W2;     // IDP.4A.S8.S8 C_r4_c2, A_r4_k1.reuse, B_c2_k1.reuse, C_r4_c2
+      IDP.4A.S8.S8 R34, R104, R119.reuse, R34 ?W2;           // IDP.4A.S8.S8 C_r4_c3, A_r4_k1, B_c3_k1.reuse, C_r4_c3
+      IDP.4A.S8.S8 R27, R103.reuse, R118.reuse, R27 ?W2;     // IDP.4A.S8.S8 C_r3_c2, A_r3_k1.reuse, B_c2_k1.reuse, C_r3_c2
+      IDP.4A.S8.S8 R26, R103, R119.reuse, R26 ?W2;           // IDP.4A.S8.S8 C_r3_c3, A_r3_k1, B_c3_k1.reuse, C_r3_c3
+      IDP.4A.S8.S8 R19, R102.reuse, R118.reuse, R19 ?W2;     // IDP.4A.S8.S8 C_r2_c2, A_r2_k1.reuse, B_c2_k1.reuse, C_r2_c2
+      IDP.4A.S8.S8 R18, R102, R119.reuse, R18 ?W2;           // IDP.4A.S8.S8 C_r2_c3, A_r2_k1, B_c3_k1.reuse, C_r2_c3
+      IDP.4A.S8.S8 R11, R101.reuse, R118.reuse, R11 ?W2;     // IDP.4A.S8.S8 C_r1_c2, A_r1_k1.reuse, B_c2_k1.reuse, C_r1_c2
+      IDP.4A.S8.S8 R10, R101.reuse, R119.reuse, R10 ?W2;     // IDP.4A.S8.S8 C_r1_c3, A_r1_k1.reuse, B_c3_k1.reuse, C_r1_c3
+      IDP.4A.S8.S8 R3, R100.reuse, R118, R3 ?W2;             // IDP.4A.S8.S8 C_r0_c2, A_r0_k1.reuse, B_c2_k1, C_r0_c2
+      IDP.4A.S8.S8 R2, R100.reuse, R119, R2 ?W2;             // IDP.4A.S8.S8 C_r0_c3, A_r0_k1.reuse, B_c3_k1, C_r0_c3
+      IDP.4A.S8.S8 R5, R100.reuse, R120.reuse, R5 ?W1;       // IDP.4A.S8.S8 C_r0_c4, A_r0_k1.reuse, B_c4_k1.reuse, C_r0_c4
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R68, [R78 + 0x0] &rd=3 &wr=2 ?W1; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg16, [readPtr + 0x0]
+      IDP.4A.S8.S8 R4, R100, R121.reuse, R4 ?W2;             // IDP.4A.S8.S8 C_r0_c5, A_r0_k1, B_c5_k1.reuse, C_r0_c5
+      IDP.4A.S8.S8 R13, R101.reuse, R120.reuse, R13 ?W1;     // IDP.4A.S8.S8 C_r1_c4, A_r1_k1.reuse, B_c4_k1.reuse, C_r1_c4
+(P1)  LEA.LO   R84, P2, R76.reuse, R78, 0 ?W1;               // @P1 LEA.LO readPtr1, predCarry, readStride.reuse, readPtr, 0
+      IDP.4A.S8.S8 R12, R101, R121.reuse, R12 ?W2;           // IDP.4A.S8.S8 C_r1_c5, A_r1_k1, B_c5_k1.reuse, C_r1_c5
+      IDP.4A.S8.S8 R21, R102.reuse, R120.reuse, R21 ?W1;     // IDP.4A.S8.S8 C_r2_c4, A_r2_k1.reuse, B_c4_k1.reuse, C_r2_c4
+(P1)  LEA.HI.X R85, R76, R79, RZ, 0, P2 ?W1;                 // @P1 LEA.HI.X readPtr1_HI, readStride, readPtr_HI, RZ, 0, predCarry
+      IDP.4A.S8.S8 R20, R102, R121.reuse, R20 ?W2;           // IDP.4A.S8.S8 C_r2_c5, A_r2_k1, B_c5_k1.reuse, C_r2_c5
+      IDP.4A.S8.S8 R29, R103.reuse, R120.reuse, R29 ?W5;     // IDP.4A.S8.S8 C_r3_c4, A_r3_k1.reuse, B_c4_k1.reuse, C_r3_c4
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R69, [R84 + 0x0] &rd=3 &wr=2 ?W1; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg20, [readPtr1 + 0x0]
+      IDP.4A.S8.S8 R28, R103, R121.reuse, R28 ?W2;           // IDP.4A.S8.S8 C_r3_c5, A_r3_k1, B_c5_k1.reuse, C_r3_c5
+      IDP.4A.S8.S8 R37, R104.reuse, R120.reuse, R37 ?W1;     // IDP.4A.S8.S8 C_r4_c4, A_r4_k1.reuse, B_c4_k1.reuse, C_r4_c4
+(P1)  LEA.LO   R86, P2, R76.reuse, R84, 0 ?W1;               // @P1 LEA.LO readPtr2, predCarry, readStride.reuse, readPtr1, 0
+      IDP.4A.S8.S8 R36, R104, R121.reuse, R36 ?W2;           // IDP.4A.S8.S8 C_r4_c5, A_r4_k1, B_c5_k1.reuse, C_r4_c5
+      IDP.4A.S8.S8 R45, R105.reuse, R120.reuse, R45 ?W1;     // IDP.4A.S8.S8 C_r5_c4, A_r5_k1.reuse, B_c4_k1.reuse, C_r5_c4
+(P1)  LEA.HI.X R87, R76, R85, RZ, 0, P2 ?W1;                 // @P1 LEA.HI.X readPtr2_HI, readStride, readPtr1_HI, RZ, 0, predCarry
+      IDP.4A.S8.S8 R44, R105, R121.reuse, R44 ?W2;           // IDP.4A.S8.S8 C_r5_c5, A_r5_k1, B_c5_k1.reuse, C_r5_c5
+      IDP.4A.S8.S8 R53, R106.reuse, R120.reuse, R53 ?W5;     // IDP.4A.S8.S8 C_r6_c4, A_r6_k1.reuse, B_c4_k1.reuse, C_r6_c4
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R70, [R86 + 0x0] &rd=3 &wr=2 ?W1; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg24, [readPtr2 + 0x0]
+      IDP.4A.S8.S8 R52, R106.reuse, R121.reuse, R52 ?W2;     // IDP.4A.S8.S8 C_r6_c5, A_r6_k1.reuse, B_c5_k1.reuse, C_r6_c5
+      IDP.4A.S8.S8 R61, R107.reuse, R120, R61 ?W1;           // IDP.4A.S8.S8 C_r7_c4, A_r7_k1.reuse, B_c4_k1, C_r7_c4
+(P1)  LEA.LO   R88, P2, R76.reuse, R86, 0 ?W1;               // @P1 LEA.LO readPtr3, predCarry, readStride.reuse, readPtr2, 0
+      IDP.4A.S8.S8 R60, R107.reuse, R121, R60 ?W2;           // IDP.4A.S8.S8 C_r7_c5, A_r7_k1.reuse, B_c5_k1, C_r7_c5
+      IDP.4A.S8.S8 R63, R107.reuse, R122.reuse, R63 ?W1;     // IDP.4A.S8.S8 C_r7_c6, A_r7_k1.reuse, B_c6_k1.reuse, C_r7_c6
+(P1)  LEA.HI.X R89, R76, R87, RZ, 0, P2 ?W1;                 // @P1 LEA.HI.X readPtr3_HI, readStride, readPtr2_HI, RZ, 0, predCarry
+      IDP.4A.S8.S8 R62, R107, R123.reuse, R62 ?W2;           // IDP.4A.S8.S8 C_r7_c7, A_r7_k1, B_c7_k1.reuse, C_r7_c7
+      IDP.4A.S8.S8 R55, R106.reuse, R122.reuse, R55 ?W5;     // IDP.4A.S8.S8 C_r6_c6, A_r6_k1.reuse, B_c6_k1.reuse, C_r6_c6
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R71, [R88 + 0x0] &rd=3 &wr=2 ?W1; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg28, [readPtr3 + 0x0]
+      IDP.4A.S8.S8 R54, R106, R123.reuse, R54 ?W2;           // IDP.4A.S8.S8 C_r6_c7, A_r6_k1, B_c7_k1.reuse, C_r6_c7
+      IDP.4A.S8.S8 R47, R105.reuse, R122.reuse, R47 ?W2;     // IDP.4A.S8.S8 C_r5_c6, A_r5_k1.reuse, B_c6_k1.reuse, C_r5_c6
+      IDP.4A.S8.S8 R46, R105, R123.reuse, R46 ?W2;           // IDP.4A.S8.S8 C_r5_c7, A_r5_k1, B_c7_k1.reuse, C_r5_c7
+      IDP.4A.S8.S8 R39, R104.reuse, R122.reuse, R39 ?W2;     // IDP.4A.S8.S8 C_r4_c6, A_r4_k1.reuse, B_c6_k1.reuse, C_r4_c6
+      IDP.4A.S8.S8 R38, R104, R123.reuse, R38 ?W2;           // IDP.4A.S8.S8 C_r4_c7, A_r4_k1, B_c7_k1.reuse, C_r4_c7
+      IDP.4A.S8.S8 R31, R103.reuse, R122.reuse, R31 ?W2;     // IDP.4A.S8.S8 C_r3_c6, A_r3_k1.reuse, B_c6_k1.reuse, C_r3_c6
+      IDP.4A.S8.S8 R30, R103, R123.reuse, R30 ?W2;           // IDP.4A.S8.S8 C_r3_c7, A_r3_k1, B_c7_k1.reuse, C_r3_c7
+      IDP.4A.S8.S8 R23, R102.reuse, R122.reuse, R23 ?W2;     // IDP.4A.S8.S8 C_r2_c6, A_r2_k1.reuse, B_c6_k1.reuse, C_r2_c6
+      IDP.4A.S8.S8 R22, R102, R123.reuse, R22 ?W2;           // IDP.4A.S8.S8 C_r2_c7, A_r2_k1, B_c7_k1.reuse, C_r2_c7
+      IDP.4A.S8.S8 R15, R101.reuse, R122.reuse, R15 ?W2;     // IDP.4A.S8.S8 C_r1_c6, A_r1_k1.reuse, B_c6_k1.reuse, C_r1_c6
+      IDP.4A.S8.S8 R14, R101, R123.reuse, R14 ?W2;           // IDP.4A.S8.S8 C_r1_c7, A_r1_k1, B_c7_k1.reuse, C_r1_c7
+      IDP.4A.S8.S8 R7, R100.reuse, R122, R7 ?W2;             // IDP.4A.S8.S8 C_r0_c6, A_r0_k1.reuse, B_c6_k1, C_r0_c6
+      IDP.4A.S8.S8 R6, R100, R123, R6 ?W2EG;                 // IDP.4A.S8.S8 C_r0_c7, A_r0_k1, B_c7_k1, C_r0_c7
+      IDP.4A.S8.S8 R1, R92.reuse, R108.reuse, R1 &req={0,4} ?W1; // IDP.4A.S8.S8 C_r0_c0, A_r0_k0.reuse, B_c0_k0.reuse, C_r0_c0
+(P1)  LEA.LO   R78, P2, R82.reuse, R88, 0 &req=3 ?W1;        // @P1 LEA.LO readPtr, predCarry, incSlow.reuse, readPtr3, 0
+      IDP.4A.S8.S8 R0, R92, R109.reuse, R0 ?W2;              // IDP.4A.S8.S8 C_r0_c1, A_r0_k0, B_c1_k0.reuse, C_r0_c1
+      IDP.4A.S8.S8 R9, R93.reuse, R108.reuse, R9 ?W1;        // IDP.4A.S8.S8 C_r1_c0, A_r1_k0.reuse, B_c0_k0.reuse, C_r1_c0
+(P1)  LEA.HI.X R79, R82, R89, RZ, 0, P2 ?W1;                 // @P1 LEA.HI.X readPtr_HI, incSlow, readPtr3_HI, RZ, 0, predCarry
+      IDP.4A.S8.S8 R8, R93, R109.reuse, R8 ?W2;              // IDP.4A.S8.S8 C_r1_c1, A_r1_k0, B_c1_k0.reuse, C_r1_c1
+      IDP.4A.S8.S8 R17, R94.reuse, R108.reuse, R17 ?W1;      // IDP.4A.S8.S8 C_r2_c0, A_r2_k0.reuse, B_c0_k0.reuse, C_r2_c0
+      LDS.128 R100, [R72 + 0x600] &wr=0 ?W1;                 // LDS.128 A_r0_k1, [sharedA + 0x600]
+      IDP.4A.S8.S8 R16, R94, R109.reuse, R16 ?W2;            // IDP.4A.S8.S8 C_r2_c1, A_r2_k0, B_c1_k0.reuse, C_r2_c1
+      IDP.4A.S8.S8 R25, R95.reuse, R108.reuse, R25 ?W1;      // IDP.4A.S8.S8 C_r3_c0, A_r3_k0.reuse, B_c0_k0.reuse, C_r3_c0
+      LDS.128 R116, [R73 + 0x600] &wr=0 ?W1;                 // LDS.128 B_c0_k1, [sharedB + 0x600]
+      IDP.4A.S8.S8 R24, R95, R109.reuse, R24 ?W2;            // IDP.4A.S8.S8 C_r3_c1, A_r3_k0, B_c1_k0.reuse, C_r3_c1
+      IDP.4A.S8.S8 R33, R96.reuse, R108.reuse, R33 ?W1;      // IDP.4A.S8.S8 C_r4_c0, A_r4_k0.reuse, B_c0_k0.reuse, C_r4_c0
+      LDS.128 R104, [R72 + 0x680] &wr=0 ?W1;                 // LDS.128 A_r4_k1, [sharedA + 0x680]
+      IDP.4A.S8.S8 R32, R96, R109.reuse, R32 ?W2;            // IDP.4A.S8.S8 C_r4_c1, A_r4_k0, B_c1_k0.reuse, C_r4_c1
+      IDP.4A.S8.S8 R41, R97.reuse, R108.reuse, R41 ?W1;      // IDP.4A.S8.S8 C_r5_c0, A_r5_k0.reuse, B_c0_k0.reuse, C_r5_c0
+      LDS.128 R120, [R73 + 0x640] &rd=1 &wr=0 ?W1;           // LDS.128 B_c4_k1, [sharedB + 0x640]
+      IDP.4A.S8.S8 R40, R97, R109.reuse, R40 ?W2;            // IDP.4A.S8.S8 C_r5_c1, A_r5_k0, B_c1_k0.reuse, C_r5_c1
+      IDP.4A.S8.S8 R49, R98.reuse, R108.reuse, R49 ?W2;      // IDP.4A.S8.S8 C_r6_c0, A_r6_k0.reuse, B_c0_k0.reuse, C_r6_c0
+      IDP.4A.S8.S8 R48, R98.reuse, R109.reuse, R48 ?W2;      // IDP.4A.S8.S8 C_r6_c1, A_r6_k0.reuse, B_c1_k0.reuse, C_r6_c1
+      IDP.4A.S8.S8 R57, R99.reuse, R108, R57 ?W2;            // IDP.4A.S8.S8 C_r7_c0, A_r7_k0.reuse, B_c0_k0, C_r7_c0
+      IDP.4A.S8.S8 R56, R99.reuse, R109, R56 ?W2;            // IDP.4A.S8.S8 C_r7_c1, A_r7_k0.reuse, B_c1_k0, C_r7_c1
+      IDP.4A.S8.S8 R59, R99.reuse, R110.reuse, R59 ?W2;      // IDP.4A.S8.S8 C_r7_c2, A_r7_k0.reuse, B_c2_k0.reuse, C_r7_c2
+      IDP.4A.S8.S8 R58, R99, R111.reuse, R58 ?W2;            // IDP.4A.S8.S8 C_r7_c3, A_r7_k0, B_c3_k0.reuse, C_r7_c3
+      IDP.4A.S8.S8 R51, R98.reuse, R110.reuse, R51 ?W2;      // IDP.4A.S8.S8 C_r6_c2, A_r6_k0.reuse, B_c2_k0.reuse, C_r6_c2
+      IDP.4A.S8.S8 R50, R98, R111.reuse, R50 ?W2;            // IDP.4A.S8.S8 C_r6_c3, A_r6_k0, B_c3_k0.reuse, C_r6_c3
+      IDP.4A.S8.S8 R43, R97.reuse, R110.reuse, R43 ?W2;      // IDP.4A.S8.S8 C_r5_c2, A_r5_k0.reuse, B_c2_k0.reuse, C_r5_c2
+      IDP.4A.S8.S8 R42, R97, R111.reuse, R42 ?W2;            // IDP.4A.S8.S8 C_r5_c3, A_r5_k0, B_c3_k0.reuse, C_r5_c3
+      IDP.4A.S8.S8 R35, R96.reuse, R110.reuse, R35 ?W2;      // IDP.4A.S8.S8 C_r4_c2, A_r4_k0.reuse, B_c2_k0.reuse, C_r4_c2
+      IDP.4A.S8.S8 R34, R96, R111.reuse, R34 ?W2;            // IDP.4A.S8.S8 C_r4_c3, A_r4_k0, B_c3_k0.reuse, C_r4_c3
+      IDP.4A.S8.S8 R27, R95.reuse, R110.reuse, R27 ?W2;      // IDP.4A.S8.S8 C_r3_c2, A_r3_k0.reuse, B_c2_k0.reuse, C_r3_c2
+      IDP.4A.S8.S8 R26, R95, R111.reuse, R26 ?W2;            // IDP.4A.S8.S8 C_r3_c3, A_r3_k0, B_c3_k0.reuse, C_r3_c3
+      IDP.4A.S8.S8 R19, R94.reuse, R110.reuse, R19 ?W2;      // IDP.4A.S8.S8 C_r2_c2, A_r2_k0.reuse, B_c2_k0.reuse, C_r2_c2
+      IDP.4A.S8.S8 R18, R94, R111.reuse, R18 ?W2;            // IDP.4A.S8.S8 C_r2_c3, A_r2_k0, B_c3_k0.reuse, C_r2_c3
+      IDP.4A.S8.S8 R11, R93.reuse, R110.reuse, R11 ?W2;      // IDP.4A.S8.S8 C_r1_c2, A_r1_k0.reuse, B_c2_k0.reuse, C_r1_c2
+      IDP.4A.S8.S8 R10, R93.reuse, R111.reuse, R10 ?W2;      // IDP.4A.S8.S8 C_r1_c3, A_r1_k0.reuse, B_c3_k0.reuse, C_r1_c3
+      IDP.4A.S8.S8 R3, R92.reuse, R110, R3 ?W2;              // IDP.4A.S8.S8 C_r0_c2, A_r0_k0.reuse, B_c2_k0, C_r0_c2
+      IDP.4A.S8.S8 R2, R92.reuse, R111, R2 ?W2;              // IDP.4A.S8.S8 C_r0_c3, A_r0_k0.reuse, B_c3_k0, C_r0_c3
+      IDP.4A.S8.S8 R5, R92.reuse, R112.reuse, R5 ?W2;        // IDP.4A.S8.S8 C_r0_c4, A_r0_k0.reuse, B_c4_k0.reuse, C_r0_c4
+      IDP.4A.S8.S8 R4, R92, R113.reuse, R4 ?W2;              // IDP.4A.S8.S8 C_r0_c5, A_r0_k0, B_c5_k0.reuse, C_r0_c5
+      IDP.4A.S8.S8 R13, R93.reuse, R112.reuse, R13 ?W2;      // IDP.4A.S8.S8 C_r1_c4, A_r1_k0.reuse, B_c4_k0.reuse, C_r1_c4
+      IDP.4A.S8.S8 R12, R93, R113.reuse, R12 ?W2;            // IDP.4A.S8.S8 C_r1_c5, A_r1_k0, B_c5_k0.reuse, C_r1_c5
+      IDP.4A.S8.S8 R21, R94.reuse, R112.reuse, R21 ?W2;      // IDP.4A.S8.S8 C_r2_c4, A_r2_k0.reuse, B_c4_k0.reuse, C_r2_c4
+      IDP.4A.S8.S8 R20, R94, R113.reuse, R20 ?W2;            // IDP.4A.S8.S8 C_r2_c5, A_r2_k0, B_c5_k0.reuse, C_r2_c5
+      IDP.4A.S8.S8 R29, R95.reuse, R112.reuse, R29 ?W2;      // IDP.4A.S8.S8 C_r3_c4, A_r3_k0.reuse, B_c4_k0.reuse, C_r3_c4
+      IDP.4A.S8.S8 R28, R95, R113.reuse, R28 ?W2;            // IDP.4A.S8.S8 C_r3_c5, A_r3_k0, B_c5_k0.reuse, C_r3_c5
+      IDP.4A.S8.S8 R37, R96.reuse, R112.reuse, R37 ?W2;      // IDP.4A.S8.S8 C_r4_c4, A_r4_k0.reuse, B_c4_k0.reuse, C_r4_c4
+      IDP.4A.S8.S8 R36, R96, R113.reuse, R36 ?W2;            // IDP.4A.S8.S8 C_r4_c5, A_r4_k0, B_c5_k0.reuse, C_r4_c5
+      IDP.4A.S8.S8 R45, R97.reuse, R112.reuse, R45 ?W2;      // IDP.4A.S8.S8 C_r5_c4, A_r5_k0.reuse, B_c4_k0.reuse, C_r5_c4
+      IDP.4A.S8.S8 R44, R97, R113.reuse, R44 ?W2;            // IDP.4A.S8.S8 C_r5_c5, A_r5_k0, B_c5_k0.reuse, C_r5_c5
+      IDP.4A.S8.S8 R53, R98.reuse, R112.reuse, R53 ?W2;      // IDP.4A.S8.S8 C_r6_c4, A_r6_k0.reuse, B_c4_k0.reuse, C_r6_c4
+      IDP.4A.S8.S8 R52, R98.reuse, R113.reuse, R52 ?W2;      // IDP.4A.S8.S8 C_r6_c5, A_r6_k0.reuse, B_c5_k0.reuse, C_r6_c5
+      IDP.4A.S8.S8 R61, R99.reuse, R112, R61 ?W2;            // IDP.4A.S8.S8 C_r7_c4, A_r7_k0.reuse, B_c4_k0, C_r7_c4
+      IDP.4A.S8.S8 R60, R99.reuse, R113, R60 ?W2;            // IDP.4A.S8.S8 C_r7_c5, A_r7_k0.reuse, B_c5_k0, C_r7_c5
+      IDP.4A.S8.S8 R63, R99.reuse, R114.reuse, R63 ?W2;      // IDP.4A.S8.S8 C_r7_c6, A_r7_k0.reuse, B_c6_k0.reuse, C_r7_c6
+      IDP.4A.S8.S8 R62, R99, R115.reuse, R62 ?W2;            // IDP.4A.S8.S8 C_r7_c7, A_r7_k0, B_c7_k0.reuse, C_r7_c7
+      IDP.4A.S8.S8 R55, R98.reuse, R114.reuse, R55 ?W2;      // IDP.4A.S8.S8 C_r6_c6, A_r6_k0.reuse, B_c6_k0.reuse, C_r6_c6
+      IDP.4A.S8.S8 R54, R98, R115.reuse, R54 ?W2;            // IDP.4A.S8.S8 C_r6_c7, A_r6_k0, B_c7_k0.reuse, C_r6_c7
+      IDP.4A.S8.S8 R47, R97.reuse, R114.reuse, R47 ?W2;      // IDP.4A.S8.S8 C_r5_c6, A_r5_k0.reuse, B_c6_k0.reuse, C_r5_c6
+      IDP.4A.S8.S8 R46, R97, R115.reuse, R46 ?W2;            // IDP.4A.S8.S8 C_r5_c7, A_r5_k0, B_c7_k0.reuse, C_r5_c7
+      IDP.4A.S8.S8 R39, R96.reuse, R114.reuse, R39 ?W2;      // IDP.4A.S8.S8 C_r4_c6, A_r4_k0.reuse, B_c6_k0.reuse, C_r4_c6
+      IDP.4A.S8.S8 R38, R96, R115.reuse, R38 ?W2;            // IDP.4A.S8.S8 C_r4_c7, A_r4_k0, B_c7_k0.reuse, C_r4_c7
+      IDP.4A.S8.S8 R31, R95.reuse, R114.reuse, R31 ?W2;      // IDP.4A.S8.S8 C_r3_c6, A_r3_k0.reuse, B_c6_k0.reuse, C_r3_c6
+      IDP.4A.S8.S8 R30, R95, R115.reuse, R30 ?W2;            // IDP.4A.S8.S8 C_r3_c7, A_r3_k0, B_c7_k0.reuse, C_r3_c7
+      IDP.4A.S8.S8 R23, R94.reuse, R114.reuse, R23 ?W2;      // IDP.4A.S8.S8 C_r2_c6, A_r2_k0.reuse, B_c6_k0.reuse, C_r2_c6
+      IDP.4A.S8.S8 R22, R94, R115.reuse, R22 ?W2;            // IDP.4A.S8.S8 C_r2_c7, A_r2_k0, B_c7_k0.reuse, C_r2_c7
+      IDP.4A.S8.S8 R15, R93.reuse, R114.reuse, R15 ?W2;      // IDP.4A.S8.S8 C_r1_c6, A_r1_k0.reuse, B_c6_k0.reuse, C_r1_c6
+      IDP.4A.S8.S8 R14, R93, R115.reuse, R14 ?W2;            // IDP.4A.S8.S8 C_r1_c7, A_r1_k0, B_c7_k0.reuse, C_r1_c7
+      IDP.4A.S8.S8 R7, R92.reuse, R114, R7 ?W2;              // IDP.4A.S8.S8 C_r0_c6, A_r0_k0.reuse, B_c6_k0, C_r0_c6
+      IDP.4A.S8.S8 R6, R92, R115, R6 ?W2EG;                  // IDP.4A.S8.S8 C_r0_c7, A_r0_k0, B_c7_k0, C_r0_c7
+      IDP.4A.S8.S8 R1, R100.reuse, R116.reuse, R1 &req={0,4} ?W1; // IDP.4A.S8.S8 C_r0_c0, A_r0_k1.reuse, B_c0_k1.reuse, C_r0_c0
+      LDS.128 R92, [R72 + 0x800] &wr=0 ?W1;                  // LDS.128 A_r0_k0, [sharedA + 0x800]
+      IDP.4A.S8.S8 R0, R100, R117.reuse, R0 ?W2;             // IDP.4A.S8.S8 C_r0_c1, A_r0_k1, B_c1_k1.reuse, C_r0_c1
+      IDP.4A.S8.S8 R9, R101.reuse, R116.reuse, R9 ?W1;       // IDP.4A.S8.S8 C_r1_c0, A_r1_k1.reuse, B_c0_k1.reuse, C_r1_c0
+      LDS.128 R108, [R73 + 0x800] &wr=0 ?W1;                 // LDS.128 B_c0_k0, [sharedB + 0x800]
+      IDP.4A.S8.S8 R8, R101, R117.reuse, R8 ?W2;             // IDP.4A.S8.S8 C_r1_c1, A_r1_k1, B_c1_k1.reuse, C_r1_c1
+      IDP.4A.S8.S8 R17, R102.reuse, R116.reuse, R17 ?W1;     // IDP.4A.S8.S8 C_r2_c0, A_r2_k1.reuse, B_c0_k1.reuse, C_r2_c0
+      LDS.128 R96, [R72 + 0x880] &wr=0 ?W1;                  // LDS.128 A_r4_k0, [sharedA + 0x880]
+      IDP.4A.S8.S8 R16, R102, R117.reuse, R16 ?W2;           // IDP.4A.S8.S8 C_r2_c1, A_r2_k1, B_c1_k1.reuse, C_r2_c1
+      IDP.4A.S8.S8 R25, R103.reuse, R116.reuse, R25 ?W1;     // IDP.4A.S8.S8 C_r3_c0, A_r3_k1.reuse, B_c0_k1.reuse, C_r3_c0
+      LDS.128 R112, [R73 + 0x840] &rd=1 &wr=0 ?W1;           // LDS.128 B_c4_k0, [sharedB + 0x840]
+      IDP.4A.S8.S8 R24, R103, R117.reuse, R24 ?W2;           // IDP.4A.S8.S8 C_r3_c1, A_r3_k1, B_c1_k1.reuse, C_r3_c1
+      IDP.4A.S8.S8 R33, R104.reuse, R116.reuse, R33 ?W2;     // IDP.4A.S8.S8 C_r4_c0, A_r4_k1.reuse, B_c0_k1.reuse, C_r4_c0
+      IDP.4A.S8.S8 R32, R104, R117.reuse, R32 ?W2;           // IDP.4A.S8.S8 C_r4_c1, A_r4_k1, B_c1_k1.reuse, C_r4_c1
+      IDP.4A.S8.S8 R41, R105.reuse, R116.reuse, R41 ?W2;     // IDP.4A.S8.S8 C_r5_c0, A_r5_k1.reuse, B_c0_k1.reuse, C_r5_c0
+      IDP.4A.S8.S8 R40, R105, R117.reuse, R40 ?W2;           // IDP.4A.S8.S8 C_r5_c1, A_r5_k1, B_c1_k1.reuse, C_r5_c1
+      IDP.4A.S8.S8 R49, R106.reuse, R116.reuse, R49 ?W2;     // IDP.4A.S8.S8 C_r6_c0, A_r6_k1.reuse, B_c0_k1.reuse, C_r6_c0
+      IDP.4A.S8.S8 R48, R106.reuse, R117.reuse, R48 ?W2;     // IDP.4A.S8.S8 C_r6_c1, A_r6_k1.reuse, B_c1_k1.reuse, C_r6_c1
+      IDP.4A.S8.S8 R57, R107.reuse, R116, R57 ?W2;           // IDP.4A.S8.S8 C_r7_c0, A_r7_k1.reuse, B_c0_k1, C_r7_c0
+      IDP.4A.S8.S8 R56, R107.reuse, R117, R56 ?W2;           // IDP.4A.S8.S8 C_r7_c1, A_r7_k1.reuse, B_c1_k1, C_r7_c1
+      IDP.4A.S8.S8 R59, R107.reuse, R118.reuse, R59 ?W2;     // IDP.4A.S8.S8 C_r7_c2, A_r7_k1.reuse, B_c2_k1.reuse, C_r7_c2
+      IDP.4A.S8.S8 R58, R107, R119.reuse, R58 ?W2;           // IDP.4A.S8.S8 C_r7_c3, A_r7_k1, B_c3_k1.reuse, C_r7_c3
+      IDP.4A.S8.S8 R51, R106.reuse, R118.reuse, R51 ?W2;     // IDP.4A.S8.S8 C_r6_c2, A_r6_k1.reuse, B_c2_k1.reuse, C_r6_c2
+      IDP.4A.S8.S8 R50, R106, R119.reuse, R50 ?W2;           // IDP.4A.S8.S8 C_r6_c3, A_r6_k1, B_c3_k1.reuse, C_r6_c3
+      IDP.4A.S8.S8 R43, R105.reuse, R118.reuse, R43 ?W2;     // IDP.4A.S8.S8 C_r5_c2, A_r5_k1.reuse, B_c2_k1.reuse, C_r5_c2
+      IDP.4A.S8.S8 R42, R105, R119.reuse, R42 ?W2;           // IDP.4A.S8.S8 C_r5_c3, A_r5_k1, B_c3_k1.reuse, C_r5_c3
+      IDP.4A.S8.S8 R35, R104.reuse, R118.reuse, R35 ?W2;     // IDP.4A.S8.S8 C_r4_c2, A_r4_k1.reuse, B_c2_k1.reuse, C_r4_c2
+      IDP.4A.S8.S8 R34, R104, R119.reuse, R34 ?W2;           // IDP.4A.S8.S8 C_r4_c3, A_r4_k1, B_c3_k1.reuse, C_r4_c3
+      IDP.4A.S8.S8 R27, R103.reuse, R118.reuse, R27 ?W2;     // IDP.4A.S8.S8 C_r3_c2, A_r3_k1.reuse, B_c2_k1.reuse, C_r3_c2
+      IDP.4A.S8.S8 R26, R103, R119.reuse, R26 ?W2;           // IDP.4A.S8.S8 C_r3_c3, A_r3_k1, B_c3_k1.reuse, C_r3_c3
+      IDP.4A.S8.S8 R19, R102.reuse, R118.reuse, R19 ?W2;     // IDP.4A.S8.S8 C_r2_c2, A_r2_k1.reuse, B_c2_k1.reuse, C_r2_c2
+      IDP.4A.S8.S8 R18, R102, R119.reuse, R18 ?W2;           // IDP.4A.S8.S8 C_r2_c3, A_r2_k1, B_c3_k1.reuse, C_r2_c3
+      IDP.4A.S8.S8 R11, R101.reuse, R118.reuse, R11 ?W2;     // IDP.4A.S8.S8 C_r1_c2, A_r1_k1.reuse, B_c2_k1.reuse, C_r1_c2
+      IDP.4A.S8.S8 R10, R101.reuse, R119.reuse, R10 ?W2;     // IDP.4A.S8.S8 C_r1_c3, A_r1_k1.reuse, B_c3_k1.reuse, C_r1_c3
+      IDP.4A.S8.S8 R3, R100.reuse, R118, R3 ?W2;             // IDP.4A.S8.S8 C_r0_c2, A_r0_k1.reuse, B_c2_k1, C_r0_c2
+      IDP.4A.S8.S8 R2, R100.reuse, R119, R2 ?W2;             // IDP.4A.S8.S8 C_r0_c3, A_r0_k1.reuse, B_c3_k1, C_r0_c3
+      IDP.4A.S8.S8 R5, R100.reuse, R120.reuse, R5 ?W2;       // IDP.4A.S8.S8 C_r0_c4, A_r0_k1.reuse, B_c4_k1.reuse, C_r0_c4
+      IDP.4A.S8.S8 R4, R100, R121.reuse, R4 ?W2;             // IDP.4A.S8.S8 C_r0_c5, A_r0_k1, B_c5_k1.reuse, C_r0_c5
+      IDP.4A.S8.S8 R13, R101.reuse, R120.reuse, R13 ?W2;     // IDP.4A.S8.S8 C_r1_c4, A_r1_k1.reuse, B_c4_k1.reuse, C_r1_c4
+      IDP.4A.S8.S8 R12, R101, R121.reuse, R12 ?W2;           // IDP.4A.S8.S8 C_r1_c5, A_r1_k1, B_c5_k1.reuse, C_r1_c5
+      IDP.4A.S8.S8 R21, R102.reuse, R120.reuse, R21 ?W2;     // IDP.4A.S8.S8 C_r2_c4, A_r2_k1.reuse, B_c4_k1.reuse, C_r2_c4
+      IDP.4A.S8.S8 R20, R102, R121.reuse, R20 ?W2;           // IDP.4A.S8.S8 C_r2_c5, A_r2_k1, B_c5_k1.reuse, C_r2_c5
+      IDP.4A.S8.S8 R29, R103.reuse, R120.reuse, R29 ?W2;     // IDP.4A.S8.S8 C_r3_c4, A_r3_k1.reuse, B_c4_k1.reuse, C_r3_c4
+      IDP.4A.S8.S8 R28, R103, R121.reuse, R28 ?W2;           // IDP.4A.S8.S8 C_r3_c5, A_r3_k1, B_c5_k1.reuse, C_r3_c5
+      IDP.4A.S8.S8 R37, R104.reuse, R120.reuse, R37 ?W2;     // IDP.4A.S8.S8 C_r4_c4, A_r4_k1.reuse, B_c4_k1.reuse, C_r4_c4
+      IDP.4A.S8.S8 R36, R104, R121.reuse, R36 ?W2;           // IDP.4A.S8.S8 C_r4_c5, A_r4_k1, B_c5_k1.reuse, C_r4_c5
+      IDP.4A.S8.S8 R45, R105.reuse, R120.reuse, R45 ?W2;     // IDP.4A.S8.S8 C_r5_c4, A_r5_k1.reuse, B_c4_k1.reuse, C_r5_c4
+      IDP.4A.S8.S8 R44, R105, R121.reuse, R44 ?W2;           // IDP.4A.S8.S8 C_r5_c5, A_r5_k1, B_c5_k1.reuse, C_r5_c5
+      IDP.4A.S8.S8 R53, R106.reuse, R120.reuse, R53 ?W2;     // IDP.4A.S8.S8 C_r6_c4, A_r6_k1.reuse, B_c4_k1.reuse, C_r6_c4
+      IDP.4A.S8.S8 R52, R106.reuse, R121.reuse, R52 ?W2;     // IDP.4A.S8.S8 C_r6_c5, A_r6_k1.reuse, B_c5_k1.reuse, C_r6_c5
+      IDP.4A.S8.S8 R61, R107.reuse, R120, R61 ?W2;           // IDP.4A.S8.S8 C_r7_c4, A_r7_k1.reuse, B_c4_k1, C_r7_c4
+      IDP.4A.S8.S8 R60, R107.reuse, R121, R60 ?W2;           // IDP.4A.S8.S8 C_r7_c5, A_r7_k1.reuse, B_c5_k1, C_r7_c5
+      IDP.4A.S8.S8 R63, R107.reuse, R122.reuse, R63 ?W2;     // IDP.4A.S8.S8 C_r7_c6, A_r7_k1.reuse, B_c6_k1.reuse, C_r7_c6
+      IDP.4A.S8.S8 R62, R107, R123.reuse, R62 ?W2;           // IDP.4A.S8.S8 C_r7_c7, A_r7_k1, B_c7_k1.reuse, C_r7_c7
+      IDP.4A.S8.S8 R55, R106.reuse, R122.reuse, R55 ?W2;     // IDP.4A.S8.S8 C_r6_c6, A_r6_k1.reuse, B_c6_k1.reuse, C_r6_c6
+      IDP.4A.S8.S8 R54, R106, R123.reuse, R54 ?W2;           // IDP.4A.S8.S8 C_r6_c7, A_r6_k1, B_c7_k1.reuse, C_r6_c7
+      IDP.4A.S8.S8 R47, R105.reuse, R122.reuse, R47 ?W2;     // IDP.4A.S8.S8 C_r5_c6, A_r5_k1.reuse, B_c6_k1.reuse, C_r5_c6
+      IDP.4A.S8.S8 R46, R105, R123.reuse, R46 ?W2;           // IDP.4A.S8.S8 C_r5_c7, A_r5_k1, B_c7_k1.reuse, C_r5_c7
+      IDP.4A.S8.S8 R39, R104.reuse, R122.reuse, R39 ?W2;     // IDP.4A.S8.S8 C_r4_c6, A_r4_k1.reuse, B_c6_k1.reuse, C_r4_c6
+      IDP.4A.S8.S8 R38, R104, R123.reuse, R38 ?W2;           // IDP.4A.S8.S8 C_r4_c7, A_r4_k1, B_c7_k1.reuse, C_r4_c7
+      IDP.4A.S8.S8 R31, R103.reuse, R122.reuse, R31 ?W2;     // IDP.4A.S8.S8 C_r3_c6, A_r3_k1.reuse, B_c6_k1.reuse, C_r3_c6
+      IDP.4A.S8.S8 R30, R103, R123.reuse, R30 ?W2;           // IDP.4A.S8.S8 C_r3_c7, A_r3_k1, B_c7_k1.reuse, C_r3_c7
+      IDP.4A.S8.S8 R23, R102.reuse, R122.reuse, R23 ?W2;     // IDP.4A.S8.S8 C_r2_c6, A_r2_k1.reuse, B_c6_k1.reuse, C_r2_c6
+      IDP.4A.S8.S8 R22, R102, R123.reuse, R22 ?W2;           // IDP.4A.S8.S8 C_r2_c7, A_r2_k1, B_c7_k1.reuse, C_r2_c7
+      IDP.4A.S8.S8 R15, R101.reuse, R122.reuse, R15 ?W2;     // IDP.4A.S8.S8 C_r1_c6, A_r1_k1.reuse, B_c6_k1.reuse, C_r1_c6
+      IDP.4A.S8.S8 R14, R101, R123.reuse, R14 ?W2;           // IDP.4A.S8.S8 C_r1_c7, A_r1_k1, B_c7_k1.reuse, C_r1_c7
+      IDP.4A.S8.S8 R7, R100.reuse, R122, R7 ?W2;             // IDP.4A.S8.S8 C_r0_c6, A_r0_k1.reuse, B_c6_k1, C_r0_c6
+      IDP.4A.S8.S8 R6, R100, R123, R6 ?W2EG;                 // IDP.4A.S8.S8 C_r0_c7, A_r0_k1, B_c7_k1, C_r0_c7
+      IDP.4A.S8.S8 R1, R92.reuse, R108.reuse, R1 &req={0,4} ?W1; // IDP.4A.S8.S8 C_r0_c0, A_r0_k0.reuse, B_c0_k0.reuse, C_r0_c0
+      LDS.128 R100, [R72 + 0xa00] &wr=0 ?W1;                 // LDS.128 A_r0_k1, [sharedA + 0xa00]
+      IDP.4A.S8.S8 R0, R92, R109.reuse, R0 ?W2;              // IDP.4A.S8.S8 C_r0_c1, A_r0_k0, B_c1_k0.reuse, C_r0_c1
+      IDP.4A.S8.S8 R9, R93.reuse, R108.reuse, R9 ?W1;        // IDP.4A.S8.S8 C_r1_c0, A_r1_k0.reuse, B_c0_k0.reuse, C_r1_c0
+      LDS.128 R116, [R73 + 0xa00] &wr=0 ?W1;                 // LDS.128 B_c0_k1, [sharedB + 0xa00]
+      IDP.4A.S8.S8 R8, R93, R109.reuse, R8 ?W2;              // IDP.4A.S8.S8 C_r1_c1, A_r1_k0, B_c1_k0.reuse, C_r1_c1
+      IDP.4A.S8.S8 R17, R94.reuse, R108.reuse, R17 ?W1;      // IDP.4A.S8.S8 C_r2_c0, A_r2_k0.reuse, B_c0_k0.reuse, C_r2_c0
+      LDS.128 R104, [R72 + 0xa80] &wr=0 ?W1;                 // LDS.128 A_r4_k1, [sharedA + 0xa80]
+      IDP.4A.S8.S8 R16, R94, R109.reuse, R16 ?W2;            // IDP.4A.S8.S8 C_r2_c1, A_r2_k0, B_c1_k0.reuse, C_r2_c1
+      IDP.4A.S8.S8 R25, R95.reuse, R108.reuse, R25 ?W1;      // IDP.4A.S8.S8 C_r3_c0, A_r3_k0.reuse, B_c0_k0.reuse, C_r3_c0
+      LDS.128 R120, [R73 + 0xa40] &rd=1 &wr=0 ?W1;           // LDS.128 B_c4_k1, [sharedB + 0xa40]
+      IDP.4A.S8.S8 R24, R95, R109.reuse, R24 ?W2;            // IDP.4A.S8.S8 C_r3_c1, A_r3_k0, B_c1_k0.reuse, C_r3_c1
+      IDP.4A.S8.S8 R33, R96.reuse, R108.reuse, R33 ?W2;      // IDP.4A.S8.S8 C_r4_c0, A_r4_k0.reuse, B_c0_k0.reuse, C_r4_c0
+      IDP.4A.S8.S8 R32, R96, R109.reuse, R32 ?W2;            // IDP.4A.S8.S8 C_r4_c1, A_r4_k0, B_c1_k0.reuse, C_r4_c1
+      IDP.4A.S8.S8 R41, R97.reuse, R108.reuse, R41 ?W2;      // IDP.4A.S8.S8 C_r5_c0, A_r5_k0.reuse, B_c0_k0.reuse, C_r5_c0
+      IDP.4A.S8.S8 R40, R97, R109.reuse, R40 ?W2;            // IDP.4A.S8.S8 C_r5_c1, A_r5_k0, B_c1_k0.reuse, C_r5_c1
+      IDP.4A.S8.S8 R49, R98.reuse, R108.reuse, R49 ?W2;      // IDP.4A.S8.S8 C_r6_c0, A_r6_k0.reuse, B_c0_k0.reuse, C_r6_c0
+      IDP.4A.S8.S8 R48, R98.reuse, R109.reuse, R48 ?W2;      // IDP.4A.S8.S8 C_r6_c1, A_r6_k0.reuse, B_c1_k0.reuse, C_r6_c1
+      IDP.4A.S8.S8 R57, R99.reuse, R108, R57 ?W2;            // IDP.4A.S8.S8 C_r7_c0, A_r7_k0.reuse, B_c0_k0, C_r7_c0
+      IDP.4A.S8.S8 R56, R99.reuse, R109, R56 ?W2;            // IDP.4A.S8.S8 C_r7_c1, A_r7_k0.reuse, B_c1_k0, C_r7_c1
+      IDP.4A.S8.S8 R59, R99.reuse, R110.reuse, R59 ?W2;      // IDP.4A.S8.S8 C_r7_c2, A_r7_k0.reuse, B_c2_k0.reuse, C_r7_c2
+      IDP.4A.S8.S8 R58, R99, R111.reuse, R58 ?W2;            // IDP.4A.S8.S8 C_r7_c3, A_r7_k0, B_c3_k0.reuse, C_r7_c3
+      IDP.4A.S8.S8 R51, R98.reuse, R110.reuse, R51 ?W2;      // IDP.4A.S8.S8 C_r6_c2, A_r6_k0.reuse, B_c2_k0.reuse, C_r6_c2
+      IDP.4A.S8.S8 R50, R98, R111.reuse, R50 ?W2;            // IDP.4A.S8.S8 C_r6_c3, A_r6_k0, B_c3_k0.reuse, C_r6_c3
+      IDP.4A.S8.S8 R43, R97.reuse, R110.reuse, R43 ?W2;      // IDP.4A.S8.S8 C_r5_c2, A_r5_k0.reuse, B_c2_k0.reuse, C_r5_c2
+      IDP.4A.S8.S8 R42, R97, R111.reuse, R42 ?W2;            // IDP.4A.S8.S8 C_r5_c3, A_r5_k0, B_c3_k0.reuse, C_r5_c3
+      IDP.4A.S8.S8 R35, R96.reuse, R110.reuse, R35 ?W2;      // IDP.4A.S8.S8 C_r4_c2, A_r4_k0.reuse, B_c2_k0.reuse, C_r4_c2
+      IDP.4A.S8.S8 R34, R96, R111.reuse, R34 ?W2;            // IDP.4A.S8.S8 C_r4_c3, A_r4_k0, B_c3_k0.reuse, C_r4_c3
+      IDP.4A.S8.S8 R27, R95.reuse, R110.reuse, R27 ?W2;      // IDP.4A.S8.S8 C_r3_c2, A_r3_k0.reuse, B_c2_k0.reuse, C_r3_c2
+      IDP.4A.S8.S8 R26, R95, R111.reuse, R26 ?W2;            // IDP.4A.S8.S8 C_r3_c3, A_r3_k0, B_c3_k0.reuse, C_r3_c3
+      IDP.4A.S8.S8 R19, R94.reuse, R110.reuse, R19 ?W2;      // IDP.4A.S8.S8 C_r2_c2, A_r2_k0.reuse, B_c2_k0.reuse, C_r2_c2
+      IDP.4A.S8.S8 R18, R94, R111.reuse, R18 ?W2;            // IDP.4A.S8.S8 C_r2_c3, A_r2_k0, B_c3_k0.reuse, C_r2_c3
+      IDP.4A.S8.S8 R11, R93.reuse, R110.reuse, R11 ?W2;      // IDP.4A.S8.S8 C_r1_c2, A_r1_k0.reuse, B_c2_k0.reuse, C_r1_c2
+      IDP.4A.S8.S8 R10, R93.reuse, R111.reuse, R10 ?W2;      // IDP.4A.S8.S8 C_r1_c3, A_r1_k0.reuse, B_c3_k0.reuse, C_r1_c3
+      IDP.4A.S8.S8 R3, R92.reuse, R110, R3 ?W2;              // IDP.4A.S8.S8 C_r0_c2, A_r0_k0.reuse, B_c2_k0, C_r0_c2
+      IDP.4A.S8.S8 R2, R92.reuse, R111, R2 ?W2;              // IDP.4A.S8.S8 C_r0_c3, A_r0_k0.reuse, B_c3_k0, C_r0_c3
+      IDP.4A.S8.S8 R5, R92.reuse, R112.reuse, R5 ?W2;        // IDP.4A.S8.S8 C_r0_c4, A_r0_k0.reuse, B_c4_k0.reuse, C_r0_c4
+      IDP.4A.S8.S8 R4, R92, R113.reuse, R4 ?W2;              // IDP.4A.S8.S8 C_r0_c5, A_r0_k0, B_c5_k0.reuse, C_r0_c5
+      IDP.4A.S8.S8 R13, R93.reuse, R112.reuse, R13 ?W2;      // IDP.4A.S8.S8 C_r1_c4, A_r1_k0.reuse, B_c4_k0.reuse, C_r1_c4
+      IDP.4A.S8.S8 R12, R93, R113.reuse, R12 ?W2;            // IDP.4A.S8.S8 C_r1_c5, A_r1_k0, B_c5_k0.reuse, C_r1_c5
+      IDP.4A.S8.S8 R21, R94.reuse, R112.reuse, R21 ?W2;      // IDP.4A.S8.S8 C_r2_c4, A_r2_k0.reuse, B_c4_k0.reuse, C_r2_c4
+      IDP.4A.S8.S8 R20, R94, R113.reuse, R20 ?W2;            // IDP.4A.S8.S8 C_r2_c5, A_r2_k0, B_c5_k0.reuse, C_r2_c5
+      IDP.4A.S8.S8 R29, R95.reuse, R112.reuse, R29 ?W2;      // IDP.4A.S8.S8 C_r3_c4, A_r3_k0.reuse, B_c4_k0.reuse, C_r3_c4
+      IDP.4A.S8.S8 R28, R95, R113.reuse, R28 ?W2;            // IDP.4A.S8.S8 C_r3_c5, A_r3_k0, B_c5_k0.reuse, C_r3_c5
+      IDP.4A.S8.S8 R37, R96.reuse, R112.reuse, R37 ?W2;      // IDP.4A.S8.S8 C_r4_c4, A_r4_k0.reuse, B_c4_k0.reuse, C_r4_c4
+      IDP.4A.S8.S8 R36, R96, R113.reuse, R36 ?W2;            // IDP.4A.S8.S8 C_r4_c5, A_r4_k0, B_c5_k0.reuse, C_r4_c5
+      IDP.4A.S8.S8 R45, R97.reuse, R112.reuse, R45 ?W2;      // IDP.4A.S8.S8 C_r5_c4, A_r5_k0.reuse, B_c4_k0.reuse, C_r5_c4
+      IDP.4A.S8.S8 R44, R97, R113.reuse, R44 ?W2;            // IDP.4A.S8.S8 C_r5_c5, A_r5_k0, B_c5_k0.reuse, C_r5_c5
+      IDP.4A.S8.S8 R53, R98.reuse, R112.reuse, R53 ?W2;      // IDP.4A.S8.S8 C_r6_c4, A_r6_k0.reuse, B_c4_k0.reuse, C_r6_c4
+      IDP.4A.S8.S8 R52, R98.reuse, R113.reuse, R52 ?W2;      // IDP.4A.S8.S8 C_r6_c5, A_r6_k0.reuse, B_c5_k0.reuse, C_r6_c5
+      IDP.4A.S8.S8 R61, R99.reuse, R112, R61 ?W2;            // IDP.4A.S8.S8 C_r7_c4, A_r7_k0.reuse, B_c4_k0, C_r7_c4
+      IDP.4A.S8.S8 R60, R99.reuse, R113, R60 ?W2;            // IDP.4A.S8.S8 C_r7_c5, A_r7_k0.reuse, B_c5_k0, C_r7_c5
+      IDP.4A.S8.S8 R63, R99.reuse, R114.reuse, R63 ?W2;      // IDP.4A.S8.S8 C_r7_c6, A_r7_k0.reuse, B_c6_k0.reuse, C_r7_c6
+      IDP.4A.S8.S8 R62, R99, R115.reuse, R62 ?W2;            // IDP.4A.S8.S8 C_r7_c7, A_r7_k0, B_c7_k0.reuse, C_r7_c7
+      IDP.4A.S8.S8 R55, R98.reuse, R114.reuse, R55 ?W2;      // IDP.4A.S8.S8 C_r6_c6, A_r6_k0.reuse, B_c6_k0.reuse, C_r6_c6
+      IDP.4A.S8.S8 R54, R98, R115.reuse, R54 ?W2;            // IDP.4A.S8.S8 C_r6_c7, A_r6_k0, B_c7_k0.reuse, C_r6_c7
+      IDP.4A.S8.S8 R47, R97.reuse, R114.reuse, R47 ?W2;      // IDP.4A.S8.S8 C_r5_c6, A_r5_k0.reuse, B_c6_k0.reuse, C_r5_c6
+      IDP.4A.S8.S8 R46, R97, R115.reuse, R46 ?W2;            // IDP.4A.S8.S8 C_r5_c7, A_r5_k0, B_c7_k0.reuse, C_r5_c7
+      IDP.4A.S8.S8 R39, R96.reuse, R114.reuse, R39 ?W2;      // IDP.4A.S8.S8 C_r4_c6, A_r4_k0.reuse, B_c6_k0.reuse, C_r4_c6
+      IDP.4A.S8.S8 R38, R96, R115.reuse, R38 ?W2;            // IDP.4A.S8.S8 C_r4_c7, A_r4_k0, B_c7_k0.reuse, C_r4_c7
+      IDP.4A.S8.S8 R31, R95.reuse, R114.reuse, R31 ?W2;      // IDP.4A.S8.S8 C_r3_c6, A_r3_k0.reuse, B_c6_k0.reuse, C_r3_c6
+      IDP.4A.S8.S8 R30, R95, R115.reuse, R30 ?W2;            // IDP.4A.S8.S8 C_r3_c7, A_r3_k0, B_c7_k0.reuse, C_r3_c7
+      IDP.4A.S8.S8 R23, R94.reuse, R114.reuse, R23 ?W2;      // IDP.4A.S8.S8 C_r2_c6, A_r2_k0.reuse, B_c6_k0.reuse, C_r2_c6
+      IDP.4A.S8.S8 R22, R94, R115.reuse, R22 ?W2;            // IDP.4A.S8.S8 C_r2_c7, A_r2_k0, B_c7_k0.reuse, C_r2_c7
+      IDP.4A.S8.S8 R15, R93.reuse, R114.reuse, R15 ?W2;      // IDP.4A.S8.S8 C_r1_c6, A_r1_k0.reuse, B_c6_k0.reuse, C_r1_c6
+      IDP.4A.S8.S8 R14, R93, R115.reuse, R14 ?W2;            // IDP.4A.S8.S8 C_r1_c7, A_r1_k0, B_c7_k0.reuse, C_r1_c7
+      IDP.4A.S8.S8 R7, R92.reuse, R114, R7 ?W2;              // IDP.4A.S8.S8 C_r0_c6, A_r0_k0.reuse, B_c6_k0, C_r0_c6
+      IDP.4A.S8.S8 R6, R92, R115, R6 ?W2EG;                  // IDP.4A.S8.S8 C_r0_c7, A_r0_k0, B_c7_k0, C_r0_c7
+      IDP.4A.S8.S8 R1, R100.reuse, R116.reuse, R1 &req={0,4} ?W1; // IDP.4A.S8.S8 C_r0_c0, A_r0_k1.reuse, B_c0_k1.reuse, C_r0_c0
+      LDS.128 R92, [R72 + 0xc00] &wr=0 ?W1;                  // LDS.128 A_r0_k0, [sharedA + 0xc00]
+      IDP.4A.S8.S8 R0, R100, R117.reuse, R0 ?W2;             // IDP.4A.S8.S8 C_r0_c1, A_r0_k1, B_c1_k1.reuse, C_r0_c1
+      IDP.4A.S8.S8 R9, R101.reuse, R116.reuse, R9 ?W1;       // IDP.4A.S8.S8 C_r1_c0, A_r1_k1.reuse, B_c0_k1.reuse, C_r1_c0
+      LDS.128 R108, [R73 + 0xc00] &wr=0 ?W1;                 // LDS.128 B_c0_k0, [sharedB + 0xc00]
+      IDP.4A.S8.S8 R8, R101, R117.reuse, R8 ?W2;             // IDP.4A.S8.S8 C_r1_c1, A_r1_k1, B_c1_k1.reuse, C_r1_c1
+      IDP.4A.S8.S8 R17, R102.reuse, R116.reuse, R17 ?W1;     // IDP.4A.S8.S8 C_r2_c0, A_r2_k1.reuse, B_c0_k1.reuse, C_r2_c0
+      LDS.128 R96, [R72 + 0xc80] &wr=0 ?W1;                  // LDS.128 A_r4_k0, [sharedA + 0xc80]
+      IDP.4A.S8.S8 R16, R102, R117.reuse, R16 ?W2;           // IDP.4A.S8.S8 C_r2_c1, A_r2_k1, B_c1_k1.reuse, C_r2_c1
+      IDP.4A.S8.S8 R25, R103.reuse, R116.reuse, R25 ?W1;     // IDP.4A.S8.S8 C_r3_c0, A_r3_k1.reuse, B_c0_k1.reuse, C_r3_c0
+      LDS.128 R112, [R73 + 0xc40] &rd=1 &wr=0 ?W1;           // LDS.128 B_c4_k0, [sharedB + 0xc40]
+      IDP.4A.S8.S8 R24, R103, R117.reuse, R24 ?W2;           // IDP.4A.S8.S8 C_r3_c1, A_r3_k1, B_c1_k1.reuse, C_r3_c1
+      IDP.4A.S8.S8 R33, R104.reuse, R116.reuse, R33 ?W2;     // IDP.4A.S8.S8 C_r4_c0, A_r4_k1.reuse, B_c0_k1.reuse, C_r4_c0
+      IDP.4A.S8.S8 R32, R104, R117.reuse, R32 ?W2;           // IDP.4A.S8.S8 C_r4_c1, A_r4_k1, B_c1_k1.reuse, C_r4_c1
+      IDP.4A.S8.S8 R41, R105.reuse, R116.reuse, R41 ?W2;     // IDP.4A.S8.S8 C_r5_c0, A_r5_k1.reuse, B_c0_k1.reuse, C_r5_c0
+      IDP.4A.S8.S8 R40, R105, R117.reuse, R40 ?W2;           // IDP.4A.S8.S8 C_r5_c1, A_r5_k1, B_c1_k1.reuse, C_r5_c1
+      IDP.4A.S8.S8 R49, R106.reuse, R116.reuse, R49 ?W2;     // IDP.4A.S8.S8 C_r6_c0, A_r6_k1.reuse, B_c0_k1.reuse, C_r6_c0
+      IDP.4A.S8.S8 R48, R106.reuse, R117.reuse, R48 ?W2;     // IDP.4A.S8.S8 C_r6_c1, A_r6_k1.reuse, B_c1_k1.reuse, C_r6_c1
+      IDP.4A.S8.S8 R57, R107.reuse, R116, R57 ?W2;           // IDP.4A.S8.S8 C_r7_c0, A_r7_k1.reuse, B_c0_k1, C_r7_c0
+      IDP.4A.S8.S8 R56, R107.reuse, R117, R56 ?W2;           // IDP.4A.S8.S8 C_r7_c1, A_r7_k1.reuse, B_c1_k1, C_r7_c1
+      IDP.4A.S8.S8 R59, R107.reuse, R118.reuse, R59 ?W2;     // IDP.4A.S8.S8 C_r7_c2, A_r7_k1.reuse, B_c2_k1.reuse, C_r7_c2
+      IDP.4A.S8.S8 R58, R107, R119.reuse, R58 ?W2;           // IDP.4A.S8.S8 C_r7_c3, A_r7_k1, B_c3_k1.reuse, C_r7_c3
+      IDP.4A.S8.S8 R51, R106.reuse, R118.reuse, R51 ?W2;     // IDP.4A.S8.S8 C_r6_c2, A_r6_k1.reuse, B_c2_k1.reuse, C_r6_c2
+      IDP.4A.S8.S8 R50, R106, R119.reuse, R50 ?W2;           // IDP.4A.S8.S8 C_r6_c3, A_r6_k1, B_c3_k1.reuse, C_r6_c3
+      IDP.4A.S8.S8 R43, R105.reuse, R118.reuse, R43 ?W2;     // IDP.4A.S8.S8 C_r5_c2, A_r5_k1.reuse, B_c2_k1.reuse, C_r5_c2
+      IDP.4A.S8.S8 R42, R105, R119.reuse, R42 ?W2;           // IDP.4A.S8.S8 C_r5_c3, A_r5_k1, B_c3_k1.reuse, C_r5_c3
+      IDP.4A.S8.S8 R35, R104.reuse, R118.reuse, R35 ?W2;     // IDP.4A.S8.S8 C_r4_c2, A_r4_k1.reuse, B_c2_k1.reuse, C_r4_c2
+      IDP.4A.S8.S8 R34, R104, R119.reuse, R34 ?W2;           // IDP.4A.S8.S8 C_r4_c3, A_r4_k1, B_c3_k1.reuse, C_r4_c3
+      IDP.4A.S8.S8 R27, R103.reuse, R118.reuse, R27 ?W2;     // IDP.4A.S8.S8 C_r3_c2, A_r3_k1.reuse, B_c2_k1.reuse, C_r3_c2
+      IDP.4A.S8.S8 R26, R103, R119.reuse, R26 ?W2;           // IDP.4A.S8.S8 C_r3_c3, A_r3_k1, B_c3_k1.reuse, C_r3_c3
+      IDP.4A.S8.S8 R19, R102.reuse, R118.reuse, R19 ?W2;     // IDP.4A.S8.S8 C_r2_c2, A_r2_k1.reuse, B_c2_k1.reuse, C_r2_c2
+      IDP.4A.S8.S8 R18, R102, R119.reuse, R18 ?W2;           // IDP.4A.S8.S8 C_r2_c3, A_r2_k1, B_c3_k1.reuse, C_r2_c3
+      IDP.4A.S8.S8 R11, R101.reuse, R118.reuse, R11 ?W2;     // IDP.4A.S8.S8 C_r1_c2, A_r1_k1.reuse, B_c2_k1.reuse, C_r1_c2
+      IDP.4A.S8.S8 R10, R101.reuse, R119.reuse, R10 ?W2;     // IDP.4A.S8.S8 C_r1_c3, A_r1_k1.reuse, B_c3_k1.reuse, C_r1_c3
+      IDP.4A.S8.S8 R3, R100.reuse, R118, R3 ?W2;             // IDP.4A.S8.S8 C_r0_c2, A_r0_k1.reuse, B_c2_k1, C_r0_c2
+      IDP.4A.S8.S8 R2, R100.reuse, R119, R2 ?W2;             // IDP.4A.S8.S8 C_r0_c3, A_r0_k1.reuse, B_c3_k1, C_r0_c3
+      IDP.4A.S8.S8 R5, R100.reuse, R120.reuse, R5 ?W1;       // IDP.4A.S8.S8 C_r0_c4, A_r0_k1.reuse, B_c4_k1.reuse, C_r0_c4
+      PRMT.IDX R74,  R66.reuse, 0x5140, R67.reuse &req=2 ?W1; // PRMT.IDX swiz0, fetchReg8.reuse, 0x5140, fetchReg12.reuse
+      IDP.4A.S8.S8 R4, R100, R121.reuse, R4 ?W2;             // IDP.4A.S8.S8 C_r0_c5, A_r0_k1, B_c5_k1.reuse, C_r0_c5
+      IDP.4A.S8.S8 R13, R101.reuse, R120.reuse, R13 ?W1;     // IDP.4A.S8.S8 C_r1_c4, A_r1_k1.reuse, B_c4_k1.reuse, C_r1_c4
+      PRMT.IDX R75,  R66,       0x7362, R67 ?W1EG;           // PRMT.IDX swiz1, fetchReg8, 0x7362, fetchReg12
+      IDP.4A.S8.S8 R12, R101, R121.reuse, R12 ?W2;           // IDP.4A.S8.S8 C_r1_c5, A_r1_k1, B_c5_k1.reuse, C_r1_c5
+      IDP.4A.S8.S8 R21, R102.reuse, R120.reuse, R21 ?W1;     // IDP.4A.S8.S8 C_r2_c4, A_r2_k1.reuse, B_c4_k1.reuse, C_r2_c4
+      PRMT.IDX R66, R64.reuse, 0x5140, R65.reuse ?W1;        // PRMT.IDX fetchReg8, fetchReg0.reuse, 0x5140, fetchReg4.reuse
+      IDP.4A.S8.S8 R20, R102, R121.reuse, R20 ?W2;           // IDP.4A.S8.S8 C_r2_c5, A_r2_k1, B_c5_k1.reuse, C_r2_c5
+      IDP.4A.S8.S8 R29, R103.reuse, R120.reuse, R29 ?W1;     // IDP.4A.S8.S8 C_r3_c4, A_r3_k1.reuse, B_c4_k1.reuse, C_r3_c4
+      PRMT.IDX R67, R64,       0x7362, R65 ?W1;              // PRMT.IDX fetchReg12, fetchReg0, 0x7362, fetchReg4
+      IDP.4A.S8.S8 R28, R103, R121.reuse, R28 ?W2;           // IDP.4A.S8.S8 C_r3_c5, A_r3_k1, B_c5_k1.reuse, C_r3_c5
+      IDP.4A.S8.S8 R37, R104.reuse, R120.reuse, R37 ?W2;     // IDP.4A.S8.S8 C_r4_c4, A_r4_k1.reuse, B_c4_k1.reuse, C_r4_c4
+      IDP.4A.S8.S8 R36, R104, R121.reuse, R36 ?W2;           // IDP.4A.S8.S8 C_r4_c5, A_r4_k1, B_c5_k1.reuse, C_r4_c5
+      IDP.4A.S8.S8 R45, R105.reuse, R120.reuse, R45 ?W2;     // IDP.4A.S8.S8 C_r5_c4, A_r5_k1.reuse, B_c4_k1.reuse, C_r5_c4
+      IDP.4A.S8.S8 R44, R105, R121.reuse, R44 ?W2;           // IDP.4A.S8.S8 C_r5_c5, A_r5_k1, B_c5_k1.reuse, C_r5_c5
+      IDP.4A.S8.S8 R53, R106.reuse, R120.reuse, R53 ?W2;     // IDP.4A.S8.S8 C_r6_c4, A_r6_k1.reuse, B_c4_k1.reuse, C_r6_c4
+      IDP.4A.S8.S8 R52, R106.reuse, R121.reuse, R52 ?W2;     // IDP.4A.S8.S8 C_r6_c5, A_r6_k1.reuse, B_c5_k1.reuse, C_r6_c5
+      IDP.4A.S8.S8 R61, R107.reuse, R120, R61 ?W2;           // IDP.4A.S8.S8 C_r7_c4, A_r7_k1.reuse, B_c4_k1, C_r7_c4
+      IDP.4A.S8.S8 R60, R107.reuse, R121, R60 ?W2;           // IDP.4A.S8.S8 C_r7_c5, A_r7_k1.reuse, B_c5_k1, C_r7_c5
+      IDP.4A.S8.S8 R63, R107.reuse, R122.reuse, R63 ?W2;     // IDP.4A.S8.S8 C_r7_c6, A_r7_k1.reuse, B_c6_k1.reuse, C_r7_c6
+      IDP.4A.S8.S8 R62, R107, R123.reuse, R62 ?W2;           // IDP.4A.S8.S8 C_r7_c7, A_r7_k1, B_c7_k1.reuse, C_r7_c7
+      IDP.4A.S8.S8 R55, R106.reuse, R122.reuse, R55 ?W2;     // IDP.4A.S8.S8 C_r6_c6, A_r6_k1.reuse, B_c6_k1.reuse, C_r6_c6
+      IDP.4A.S8.S8 R54, R106, R123.reuse, R54 ?W2;           // IDP.4A.S8.S8 C_r6_c7, A_r6_k1, B_c7_k1.reuse, C_r6_c7
+      IDP.4A.S8.S8 R47, R105.reuse, R122.reuse, R47 ?W2;     // IDP.4A.S8.S8 C_r5_c6, A_r5_k1.reuse, B_c6_k1.reuse, C_r5_c6
+      IDP.4A.S8.S8 R46, R105, R123.reuse, R46 ?W2;           // IDP.4A.S8.S8 C_r5_c7, A_r5_k1, B_c7_k1.reuse, C_r5_c7
+      IDP.4A.S8.S8 R39, R104.reuse, R122.reuse, R39 ?W2;     // IDP.4A.S8.S8 C_r4_c6, A_r4_k1.reuse, B_c6_k1.reuse, C_r4_c6
+      IDP.4A.S8.S8 R38, R104, R123.reuse, R38 ?W2;           // IDP.4A.S8.S8 C_r4_c7, A_r4_k1, B_c7_k1.reuse, C_r4_c7
+      IDP.4A.S8.S8 R31, R103.reuse, R122.reuse, R31 ?W2;     // IDP.4A.S8.S8 C_r3_c6, A_r3_k1.reuse, B_c6_k1.reuse, C_r3_c6
+      IDP.4A.S8.S8 R30, R103, R123.reuse, R30 ?W2;           // IDP.4A.S8.S8 C_r3_c7, A_r3_k1, B_c7_k1.reuse, C_r3_c7
+      IDP.4A.S8.S8 R23, R102.reuse, R122.reuse, R23 ?W2;     // IDP.4A.S8.S8 C_r2_c6, A_r2_k1.reuse, B_c6_k1.reuse, C_r2_c6
+      IDP.4A.S8.S8 R22, R102, R123.reuse, R22 ?W2;           // IDP.4A.S8.S8 C_r2_c7, A_r2_k1, B_c7_k1.reuse, C_r2_c7
+      IDP.4A.S8.S8 R15, R101.reuse, R122.reuse, R15 ?W2;     // IDP.4A.S8.S8 C_r1_c6, A_r1_k1.reuse, B_c6_k1.reuse, C_r1_c6
+      IDP.4A.S8.S8 R14, R101, R123.reuse, R14 ?W2;           // IDP.4A.S8.S8 C_r1_c7, A_r1_k1, B_c7_k1.reuse, C_r1_c7
+      IDP.4A.S8.S8 R7, R100.reuse, R122, R7 ?W2;             // IDP.4A.S8.S8 C_r0_c6, A_r0_k1.reuse, B_c6_k1, C_r0_c6
+      IDP.4A.S8.S8 R6, R100, R123, R6 ?W2EG;                 // IDP.4A.S8.S8 C_r0_c7, A_r0_k1, B_c7_k1, C_r0_c7
+      IDP.4A.S8.S8 R1, R92.reuse, R108.reuse, R1 &req={0,4} ?W1; // IDP.4A.S8.S8 C_r0_c0, A_r0_k0.reuse, B_c0_k0.reuse, C_r0_c0
+      LDS.128 R100, [R72 + 0xe00] &wr=0 ?W1;                 // LDS.128 A_r0_k1, [sharedA + 0xe00]
+      IDP.4A.S8.S8 R0, R92, R109.reuse, R0 ?W2;              // IDP.4A.S8.S8 C_r0_c1, A_r0_k0, B_c1_k0.reuse, C_r0_c1
+      IDP.4A.S8.S8 R9, R93.reuse, R108.reuse, R9 ?W1;        // IDP.4A.S8.S8 C_r1_c0, A_r1_k0.reuse, B_c0_k0.reuse, C_r1_c0
+      LDS.128 R116, [R73 + 0xe00] &wr=0 ?W1;                 // LDS.128 B_c0_k1, [sharedB + 0xe00]
+      IDP.4A.S8.S8 R8, R93, R109.reuse, R8 ?W2;              // IDP.4A.S8.S8 C_r1_c1, A_r1_k0, B_c1_k0.reuse, C_r1_c1
+      IDP.4A.S8.S8 R17, R94.reuse, R108.reuse, R17 ?W1;      // IDP.4A.S8.S8 C_r2_c0, A_r2_k0.reuse, B_c0_k0.reuse, C_r2_c0
+      LDS.128 R104, [R72 + 0xe80] &wr=0 ?W1;                 // LDS.128 A_r4_k1, [sharedA + 0xe80]
+      IDP.4A.S8.S8 R16, R94, R109.reuse, R16 ?W2;            // IDP.4A.S8.S8 C_r2_c1, A_r2_k0, B_c1_k0.reuse, C_r2_c1
+      IDP.4A.S8.S8 R25, R95.reuse, R108.reuse, R25 ?W1;      // IDP.4A.S8.S8 C_r3_c0, A_r3_k0.reuse, B_c0_k0.reuse, C_r3_c0
+      LDS.128 R120, [R73 + 0xe40] &rd=1 &wr=0 ?W1;           // LDS.128 B_c4_k1, [sharedB + 0xe40]
+      IDP.4A.S8.S8 R24, R95, R109.reuse, R24 ?W2;            // IDP.4A.S8.S8 C_r3_c1, A_r3_k0, B_c1_k0.reuse, C_r3_c1
+      IDP.4A.S8.S8 R33, R96.reuse, R108.reuse, R33 ?W2;      // IDP.4A.S8.S8 C_r4_c0, A_r4_k0.reuse, B_c0_k0.reuse, C_r4_c0
+      IDP.4A.S8.S8 R32, R96, R109.reuse, R32 ?W2;            // IDP.4A.S8.S8 C_r4_c1, A_r4_k0, B_c1_k0.reuse, C_r4_c1
+      IDP.4A.S8.S8 R41, R97.reuse, R108.reuse, R41 ?W2;      // IDP.4A.S8.S8 C_r5_c0, A_r5_k0.reuse, B_c0_k0.reuse, C_r5_c0
+      IDP.4A.S8.S8 R40, R97, R109.reuse, R40 ?W2;            // IDP.4A.S8.S8 C_r5_c1, A_r5_k0, B_c1_k0.reuse, C_r5_c1
+      IDP.4A.S8.S8 R49, R98.reuse, R108.reuse, R49 ?W2;      // IDP.4A.S8.S8 C_r6_c0, A_r6_k0.reuse, B_c0_k0.reuse, C_r6_c0
+      IDP.4A.S8.S8 R48, R98.reuse, R109.reuse, R48 ?W2;      // IDP.4A.S8.S8 C_r6_c1, A_r6_k0.reuse, B_c1_k0.reuse, C_r6_c1
+      IDP.4A.S8.S8 R57, R99.reuse, R108, R57 ?W2;            // IDP.4A.S8.S8 C_r7_c0, A_r7_k0.reuse, B_c0_k0, C_r7_c0
+      IDP.4A.S8.S8 R56, R99.reuse, R109, R56 ?W2;            // IDP.4A.S8.S8 C_r7_c1, A_r7_k0.reuse, B_c1_k0, C_r7_c1
+      IDP.4A.S8.S8 R59, R99.reuse, R110.reuse, R59 ?W2;      // IDP.4A.S8.S8 C_r7_c2, A_r7_k0.reuse, B_c2_k0.reuse, C_r7_c2
+      IDP.4A.S8.S8 R58, R99, R111.reuse, R58 ?W2;            // IDP.4A.S8.S8 C_r7_c3, A_r7_k0, B_c3_k0.reuse, C_r7_c3
+      IDP.4A.S8.S8 R51, R98.reuse, R110.reuse, R51 ?W2;      // IDP.4A.S8.S8 C_r6_c2, A_r6_k0.reuse, B_c2_k0.reuse, C_r6_c2
+      IDP.4A.S8.S8 R50, R98, R111.reuse, R50 ?W2;            // IDP.4A.S8.S8 C_r6_c3, A_r6_k0, B_c3_k0.reuse, C_r6_c3
+      IDP.4A.S8.S8 R43, R97.reuse, R110.reuse, R43 ?W2;      // IDP.4A.S8.S8 C_r5_c2, A_r5_k0.reuse, B_c2_k0.reuse, C_r5_c2
+      IDP.4A.S8.S8 R42, R97, R111.reuse, R42 ?W2;            // IDP.4A.S8.S8 C_r5_c3, A_r5_k0, B_c3_k0.reuse, C_r5_c3
+      IDP.4A.S8.S8 R35, R96.reuse, R110.reuse, R35 ?W2;      // IDP.4A.S8.S8 C_r4_c2, A_r4_k0.reuse, B_c2_k0.reuse, C_r4_c2
+      IDP.4A.S8.S8 R34, R96, R111.reuse, R34 ?W2;            // IDP.4A.S8.S8 C_r4_c3, A_r4_k0, B_c3_k0.reuse, C_r4_c3
+      IDP.4A.S8.S8 R27, R95.reuse, R110.reuse, R27 ?W2;      // IDP.4A.S8.S8 C_r3_c2, A_r3_k0.reuse, B_c2_k0.reuse, C_r3_c2
+      IDP.4A.S8.S8 R26, R95, R111.reuse, R26 ?W2;            // IDP.4A.S8.S8 C_r3_c3, A_r3_k0, B_c3_k0.reuse, C_r3_c3
+      IDP.4A.S8.S8 R19, R94.reuse, R110.reuse, R19 ?W2;      // IDP.4A.S8.S8 C_r2_c2, A_r2_k0.reuse, B_c2_k0.reuse, C_r2_c2
+      IDP.4A.S8.S8 R18, R94, R111.reuse, R18 ?W2;            // IDP.4A.S8.S8 C_r2_c3, A_r2_k0, B_c3_k0.reuse, C_r2_c3
+      IDP.4A.S8.S8 R11, R93.reuse, R110.reuse, R11 ?W2;      // IDP.4A.S8.S8 C_r1_c2, A_r1_k0.reuse, B_c2_k0.reuse, C_r1_c2
+      IDP.4A.S8.S8 R10, R93.reuse, R111.reuse, R10 ?W2;      // IDP.4A.S8.S8 C_r1_c3, A_r1_k0.reuse, B_c3_k0.reuse, C_r1_c3
+      IDP.4A.S8.S8 R3, R92.reuse, R110, R3 ?W2;              // IDP.4A.S8.S8 C_r0_c2, A_r0_k0.reuse, B_c2_k0, C_r0_c2
+      IDP.4A.S8.S8 R2, R92.reuse, R111, R2 ?W2;              // IDP.4A.S8.S8 C_r0_c3, A_r0_k0.reuse, B_c3_k0, C_r0_c3
+      IDP.4A.S8.S8 R5, R92.reuse, R112.reuse, R5 ?W1;        // IDP.4A.S8.S8 C_r0_c4, A_r0_k0.reuse, B_c4_k0.reuse, C_r0_c4
+      PRMT.IDX R64, R66.reuse, 0x5410, R74.reuse ?W1;        // PRMT.IDX fetchReg0, fetchReg8.reuse, 0x5410, swiz0.reuse
+      IDP.4A.S8.S8 R4, R92, R113.reuse, R4 ?W2;              // IDP.4A.S8.S8 C_r0_c5, A_r0_k0, B_c5_k0.reuse, C_r0_c5
+      IDP.4A.S8.S8 R13, R93.reuse, R112.reuse, R13 ?W1;      // IDP.4A.S8.S8 C_r1_c4, A_r1_k0.reuse, B_c4_k0.reuse, C_r1_c4
+      PRMT.IDX R65, R66,       0x7632, R74 ?W1EG;            // PRMT.IDX fetchReg4, fetchReg8, 0x7632, swiz0
+      IDP.4A.S8.S8 R12, R93, R113.reuse, R12 ?W2;            // IDP.4A.S8.S8 C_r1_c5, A_r1_k0, B_c5_k0.reuse, C_r1_c5
+      IDP.4A.S8.S8 R21, R94.reuse, R112.reuse, R21 ?W1;      // IDP.4A.S8.S8 C_r2_c4, A_r2_k0.reuse, B_c4_k0.reuse, C_r2_c4
+      PRMT.IDX R66, R67.reuse, 0x5410, R75.reuse ?W1;        // PRMT.IDX fetchReg8, fetchReg12.reuse, 0x5410, swiz1.reuse
+      IDP.4A.S8.S8 R20, R94, R113.reuse, R20 ?W2;            // IDP.4A.S8.S8 C_r2_c5, A_r2_k0, B_c5_k0.reuse, C_r2_c5
+      IDP.4A.S8.S8 R29, R95.reuse, R112.reuse, R29 ?W1;      // IDP.4A.S8.S8 C_r3_c4, A_r3_k0.reuse, B_c4_k0.reuse, C_r3_c4
+      PRMT.IDX R67, R67,       0x7632, R75 ?W1EG;            // PRMT.IDX fetchReg12, fetchReg12, 0x7632, swiz1
+      IDP.4A.S8.S8 R28, R95, R113.reuse, R28 ?W2;            // IDP.4A.S8.S8 C_r3_c5, A_r3_k0, B_c5_k0.reuse, C_r3_c5
+      IDP.4A.S8.S8 R37, R96.reuse, R112.reuse, R37 ?W1;      // IDP.4A.S8.S8 C_r4_c4, A_r4_k0.reuse, B_c4_k0.reuse, C_r4_c4
+      PRMT.IDX R74,  R70.reuse, 0x5140, R71.reuse &req=2 ?W1; // PRMT.IDX swiz0, fetchReg24.reuse, 0x5140, fetchReg28.reuse
+      IDP.4A.S8.S8 R36, R96, R113.reuse, R36 ?W2;            // IDP.4A.S8.S8 C_r4_c5, A_r4_k0, B_c5_k0.reuse, C_r4_c5
+      IDP.4A.S8.S8 R45, R97.reuse, R112.reuse, R45 ?W1;      // IDP.4A.S8.S8 C_r5_c4, A_r5_k0.reuse, B_c4_k0.reuse, C_r5_c4
+      PRMT.IDX R75,  R70,       0x7362, R71 ?W1EG;           // PRMT.IDX swiz1, fetchReg24, 0x7362, fetchReg28
+      IDP.4A.S8.S8 R44, R97, R113.reuse, R44 ?W2;            // IDP.4A.S8.S8 C_r5_c5, A_r5_k0, B_c5_k0.reuse, C_r5_c5
+      IDP.4A.S8.S8 R53, R98.reuse, R112.reuse, R53 ?W1;      // IDP.4A.S8.S8 C_r6_c4, A_r6_k0.reuse, B_c4_k0.reuse, C_r6_c4
+      PRMT.IDX R70, R68.reuse, 0x5140, R69.reuse ?W1;        // PRMT.IDX fetchReg24, fetchReg16.reuse, 0x5140, fetchReg20.reuse
+      IDP.4A.S8.S8 R52, R98.reuse, R113.reuse, R52 ?W2;      // IDP.4A.S8.S8 C_r6_c5, A_r6_k0.reuse, B_c5_k0.reuse, C_r6_c5
+      IDP.4A.S8.S8 R61, R99.reuse, R112, R61 ?W1;            // IDP.4A.S8.S8 C_r7_c4, A_r7_k0.reuse, B_c4_k0, C_r7_c4
+      PRMT.IDX R71, R68,       0x7362, R69 ?W1;              // PRMT.IDX fetchReg28, fetchReg16, 0x7362, fetchReg20
+      IDP.4A.S8.S8 R60, R99.reuse, R113, R60 ?W2;            // IDP.4A.S8.S8 C_r7_c5, A_r7_k0.reuse, B_c5_k0, C_r7_c5
+      IDP.4A.S8.S8 R63, R99.reuse, R114.reuse, R63 ?W1;      // IDP.4A.S8.S8 C_r7_c6, A_r7_k0.reuse, B_c6_k0.reuse, C_r7_c6
+      PRMT.IDX R68, R70.reuse, 0x5410, R74.reuse ?W1;        // PRMT.IDX fetchReg16, fetchReg24.reuse, 0x5410, swiz0.reuse
+      IDP.4A.S8.S8 R62, R99, R115.reuse, R62 ?W2;            // IDP.4A.S8.S8 C_r7_c7, A_r7_k0, B_c7_k0.reuse, C_r7_c7
+      IDP.4A.S8.S8 R55, R98.reuse, R114.reuse, R55 ?W1;      // IDP.4A.S8.S8 C_r6_c6, A_r6_k0.reuse, B_c6_k0.reuse, C_r6_c6
+      PRMT.IDX R69, R70,       0x7632, R74 ?W1EG;            // PRMT.IDX fetchReg20, fetchReg24, 0x7632, swiz0
+      IDP.4A.S8.S8 R54, R98, R115.reuse, R54 ?W2;            // IDP.4A.S8.S8 C_r6_c7, A_r6_k0, B_c7_k0.reuse, C_r6_c7
+      IDP.4A.S8.S8 R47, R97.reuse, R114.reuse, R47 ?W1;      // IDP.4A.S8.S8 C_r5_c6, A_r5_k0.reuse, B_c6_k0.reuse, C_r5_c6
+      PRMT.IDX R70, R71.reuse, 0x5410, R75.reuse ?W1;        // PRMT.IDX fetchReg24, fetchReg28.reuse, 0x5410, swiz1.reuse
+      IDP.4A.S8.S8 R46, R97, R115.reuse, R46 ?W2;            // IDP.4A.S8.S8 C_r5_c7, A_r5_k0, B_c7_k0.reuse, C_r5_c7
+      IDP.4A.S8.S8 R39, R96.reuse, R114.reuse, R39 ?W1;      // IDP.4A.S8.S8 C_r4_c6, A_r4_k0.reuse, B_c6_k0.reuse, C_r4_c6
+      PRMT.IDX R71, R71,       0x7632, R75 ?W1;              // PRMT.IDX fetchReg28, fetchReg28, 0x7632, swiz1
+      IDP.4A.S8.S8 R38, R96, R115.reuse, R38 ?W2;            // IDP.4A.S8.S8 C_r4_c7, A_r4_k0, B_c7_k0.reuse, C_r4_c7
+      IDP.4A.S8.S8 R31, R95.reuse, R114.reuse, R31 ?W3;      // IDP.4A.S8.S8 C_r3_c6, A_r3_k0.reuse, B_c6_k0.reuse, C_r3_c6
+(P1)  STS.128    [R80 + 0x0], R64 &req=2 ?W1;                // @P1 STS.128 [sharedWrite + 0x0], fetchReg0
+      IDP.4A.S8.S8 R30, R95, R115.reuse, R30 ?W2;            // IDP.4A.S8.S8 C_r3_c7, A_r3_k0, B_c7_k0.reuse, C_r3_c7
+      IDP.4A.S8.S8 R23, R94.reuse, R114.reuse, R23 ?W1;      // IDP.4A.S8.S8 C_r2_c6, A_r2_k0.reuse, B_c6_k0.reuse, C_r2_c6
+(P1)  STS.128    [R80 + 0x800], R68 &rd=1 ?W1;               // @P1 STS.128 [sharedWrite + 0x800], fetchReg16
+      IDP.4A.S8.S8 R22, R94, R115.reuse, R22 ?W2;            // IDP.4A.S8.S8 C_r2_c7, A_r2_k0, B_c7_k0.reuse, C_r2_c7
+      IDP.4A.S8.S8 R15, R93.reuse, R114.reuse, R15 ?W1;      // IDP.4A.S8.S8 C_r1_c6, A_r1_k0.reuse, B_c6_k0.reuse, C_r1_c6
+(P1)  BAR.SYNC.DEFER_BLOCKING 0 ?W6;                         // @P1 BAR.SYNC.DEFER_BLOCKING 0
+      IDP.4A.S8.S8 R14, R93, R115.reuse, R14 ?W2;            // IDP.4A.S8.S8 C_r1_c7, A_r1_k0, B_c7_k0.reuse, C_r1_c7
+      IDP.4A.S8.S8 R7, R92.reuse, R114, R7 ?W2;              // IDP.4A.S8.S8 C_r0_c6, A_r0_k0.reuse, B_c6_k0, C_r0_c6
+      IDP.4A.S8.S8 R6, R92, R115, R6 ?W2EG;                  // IDP.4A.S8.S8 C_r0_c7, A_r0_k0, B_c7_k0, C_r0_c7
+      IDP.4A.S8.S8 R1, R100.reuse, R116.reuse, R1 &req={0,4} ?W1; // IDP.4A.S8.S8 C_r0_c0, A_r0_k1.reuse, B_c0_k1.reuse, C_r0_c0
+      LOP.XOR   R72, R72, 0x2000 &req=1 ?W1;                 // LOP.XOR sharedA, sharedA, 0x2000
+      IDP.4A.S8.S8 R0, R100, R117.reuse, R0 ?W2;             // IDP.4A.S8.S8 C_r0_c1, A_r0_k1, B_c1_k1.reuse, C_r0_c1
+      IDP.4A.S8.S8 R9, R101.reuse, R116.reuse, R9 ?W1;       // IDP.4A.S8.S8 C_r1_c0, A_r1_k1.reuse, B_c0_k1.reuse, C_r1_c0
+      LOP.XOR   R73, R73, 0x2000 &req=1 ?W1;                 // LOP.XOR sharedB, sharedB, 0x2000
+      IDP.4A.S8.S8 R8, R101, R117.reuse, R8 ?W2;             // IDP.4A.S8.S8 C_r1_c1, A_r1_k1, B_c1_k1.reuse, C_r1_c1
+      IDP.4A.S8.S8 R17, R102.reuse, R116.reuse, R17 ?W1;     // IDP.4A.S8.S8 C_r2_c0, A_r2_k1.reuse, B_c0_k1.reuse, C_r2_c0
+(P1)  LOP.XOR   R80, R80, 0x2000 &req=1 ?W1;                 // @P1 LOP.XOR sharedWrite, sharedWrite, 0x2000
+      IDP.4A.S8.S8 R16, R102, R117.reuse, R16 ?W2;           // IDP.4A.S8.S8 C_r2_c1, A_r2_k1, B_c1_k1.reuse, C_r2_c1
+      IDP.4A.S8.S8 R25, R103.reuse, R116.reuse, R25 ?W1;     // IDP.4A.S8.S8 C_r3_c0, A_r3_k1.reuse, B_c0_k1.reuse, C_r3_c0
+// Virtual ?REQ_BAR found on next instruction, stop putting ?BARRIER_EXEMPT on decoupled instructions
+(P1)  LDS.128 R92, [R72 + 0x0] &wr=0 ?W1;                    // @P1 LDS.128 A_r0_k0, [sharedA + 0x0]
+      IDP.4A.S8.S8 R24, R103, R117.reuse, R24 ?W2;           // IDP.4A.S8.S8 C_r3_c1, A_r3_k1, B_c1_k1.reuse, C_r3_c1
+      IDP.4A.S8.S8 R33, R104.reuse, R116.reuse, R33 ?W1;     // IDP.4A.S8.S8 C_r4_c0, A_r4_k1.reuse, B_c0_k1.reuse, C_r4_c0
+(P1)  LDS.128 R108, [R73 + 0x0] &wr=0 ?W1;                   // @P1 LDS.128 B_c0_k0, [sharedB + 0x0]
+      IDP.4A.S8.S8 R32, R104, R117.reuse, R32 ?W2;           // IDP.4A.S8.S8 C_r4_c1, A_r4_k1, B_c1_k1.reuse, C_r4_c1
+      IDP.4A.S8.S8 R41, R105.reuse, R116.reuse, R41 ?W1;     // IDP.4A.S8.S8 C_r5_c0, A_r5_k1.reuse, B_c0_k1.reuse, C_r5_c0
+(P1)  LDS.128 R96, [R72 + 0x80] &wr=0 ?W1;                   // @P1 LDS.128 A_r4_k0, [sharedA + 0x80]
+      IDP.4A.S8.S8 R40, R105, R117.reuse, R40 ?W2;           // IDP.4A.S8.S8 C_r5_c1, A_r5_k1, B_c1_k1.reuse, C_r5_c1
+      IDP.4A.S8.S8 R49, R106.reuse, R116.reuse, R49 ?W1;     // IDP.4A.S8.S8 C_r6_c0, A_r6_k1.reuse, B_c0_k1.reuse, C_r6_c0
+(P1)  LDS.128 R112, [R73 + 0x40] &rd=1 &wr=0 ?W1;            // @P1 LDS.128 B_c4_k0, [sharedB + 0x40]
+      IDP.4A.S8.S8 R48, R106.reuse, R117.reuse, R48 ?W2;     // IDP.4A.S8.S8 C_r6_c1, A_r6_k1.reuse, B_c1_k1.reuse, C_r6_c1
+      IDP.4A.S8.S8 R57, R107.reuse, R116, R57 ?W2;           // IDP.4A.S8.S8 C_r7_c0, A_r7_k1.reuse, B_c0_k1, C_r7_c0
+      IDP.4A.S8.S8 R56, R107.reuse, R117, R56 ?W2;           // IDP.4A.S8.S8 C_r7_c1, A_r7_k1.reuse, B_c1_k1, C_r7_c1
+      IDP.4A.S8.S8 R59, R107.reuse, R118.reuse, R59 ?W2;     // IDP.4A.S8.S8 C_r7_c2, A_r7_k1.reuse, B_c2_k1.reuse, C_r7_c2
+      IDP.4A.S8.S8 R58, R107, R119.reuse, R58 ?W2;           // IDP.4A.S8.S8 C_r7_c3, A_r7_k1, B_c3_k1.reuse, C_r7_c3
+      IDP.4A.S8.S8 R51, R106.reuse, R118.reuse, R51 ?W2;     // IDP.4A.S8.S8 C_r6_c2, A_r6_k1.reuse, B_c2_k1.reuse, C_r6_c2
+      IDP.4A.S8.S8 R50, R106, R119.reuse, R50 ?W2;           // IDP.4A.S8.S8 C_r6_c3, A_r6_k1, B_c3_k1.reuse, C_r6_c3
+      IDP.4A.S8.S8 R43, R105.reuse, R118.reuse, R43 ?W2;     // IDP.4A.S8.S8 C_r5_c2, A_r5_k1.reuse, B_c2_k1.reuse, C_r5_c2
+      IDP.4A.S8.S8 R42, R105, R119.reuse, R42 ?W2;           // IDP.4A.S8.S8 C_r5_c3, A_r5_k1, B_c3_k1.reuse, C_r5_c3
+      IDP.4A.S8.S8 R35, R104.reuse, R118.reuse, R35 ?W2;     // IDP.4A.S8.S8 C_r4_c2, A_r4_k1.reuse, B_c2_k1.reuse, C_r4_c2
+      IDP.4A.S8.S8 R34, R104, R119.reuse, R34 ?W2;           // IDP.4A.S8.S8 C_r4_c3, A_r4_k1, B_c3_k1.reuse, C_r4_c3
+      IDP.4A.S8.S8 R27, R103.reuse, R118.reuse, R27 ?W2;     // IDP.4A.S8.S8 C_r3_c2, A_r3_k1.reuse, B_c2_k1.reuse, C_r3_c2
+      IDP.4A.S8.S8 R26, R103, R119.reuse, R26 ?W2;           // IDP.4A.S8.S8 C_r3_c3, A_r3_k1, B_c3_k1.reuse, C_r3_c3
+      IDP.4A.S8.S8 R19, R102.reuse, R118.reuse, R19 ?W2;     // IDP.4A.S8.S8 C_r2_c2, A_r2_k1.reuse, B_c2_k1.reuse, C_r2_c2
+      IDP.4A.S8.S8 R18, R102, R119.reuse, R18 ?W2;           // IDP.4A.S8.S8 C_r2_c3, A_r2_k1, B_c3_k1.reuse, C_r2_c3
+      IDP.4A.S8.S8 R11, R101.reuse, R118.reuse, R11 ?W2;     // IDP.4A.S8.S8 C_r1_c2, A_r1_k1.reuse, B_c2_k1.reuse, C_r1_c2
+      IDP.4A.S8.S8 R10, R101.reuse, R119.reuse, R10 ?W2;     // IDP.4A.S8.S8 C_r1_c3, A_r1_k1.reuse, B_c3_k1.reuse, C_r1_c3
+      IDP.4A.S8.S8 R3, R100.reuse, R118, R3 ?W2;             // IDP.4A.S8.S8 C_r0_c2, A_r0_k1.reuse, B_c2_k1, C_r0_c2
+      IDP.4A.S8.S8 R2, R100.reuse, R119, R2 ?W2;             // IDP.4A.S8.S8 C_r0_c3, A_r0_k1.reuse, B_c3_k1, C_r0_c3
+      IDP.4A.S8.S8 R5, R100.reuse, R120.reuse, R5 ?W2;       // IDP.4A.S8.S8 C_r0_c4, A_r0_k1.reuse, B_c4_k1.reuse, C_r0_c4
+      IDP.4A.S8.S8 R4, R100, R121.reuse, R4 ?W2;             // IDP.4A.S8.S8 C_r0_c5, A_r0_k1, B_c5_k1.reuse, C_r0_c5
+      IDP.4A.S8.S8 R13, R101.reuse, R120.reuse, R13 ?W2;     // IDP.4A.S8.S8 C_r1_c4, A_r1_k1.reuse, B_c4_k1.reuse, C_r1_c4
+      IDP.4A.S8.S8 R12, R101, R121.reuse, R12 ?W2;           // IDP.4A.S8.S8 C_r1_c5, A_r1_k1, B_c5_k1.reuse, C_r1_c5
+      IDP.4A.S8.S8 R21, R102.reuse, R120.reuse, R21 ?W2;     // IDP.4A.S8.S8 C_r2_c4, A_r2_k1.reuse, B_c4_k1.reuse, C_r2_c4
+      IDP.4A.S8.S8 R20, R102, R121.reuse, R20 ?W2;           // IDP.4A.S8.S8 C_r2_c5, A_r2_k1, B_c5_k1.reuse, C_r2_c5
+      IDP.4A.S8.S8 R29, R103.reuse, R120.reuse, R29 ?W2;     // IDP.4A.S8.S8 C_r3_c4, A_r3_k1.reuse, B_c4_k1.reuse, C_r3_c4
+      IDP.4A.S8.S8 R28, R103, R121.reuse, R28 ?W2;           // IDP.4A.S8.S8 C_r3_c5, A_r3_k1, B_c5_k1.reuse, C_r3_c5
+      IDP.4A.S8.S8 R37, R104.reuse, R120.reuse, R37 ?W2;     // IDP.4A.S8.S8 C_r4_c4, A_r4_k1.reuse, B_c4_k1.reuse, C_r4_c4
+      IDP.4A.S8.S8 R36, R104, R121.reuse, R36 ?W2;           // IDP.4A.S8.S8 C_r4_c5, A_r4_k1, B_c5_k1.reuse, C_r4_c5
+      IDP.4A.S8.S8 R45, R105.reuse, R120.reuse, R45 ?W2;     // IDP.4A.S8.S8 C_r5_c4, A_r5_k1.reuse, B_c4_k1.reuse, C_r5_c4
+      IDP.4A.S8.S8 R44, R105, R121.reuse, R44 ?W2;           // IDP.4A.S8.S8 C_r5_c5, A_r5_k1, B_c5_k1.reuse, C_r5_c5
+      IDP.4A.S8.S8 R53, R106.reuse, R120.reuse, R53 ?W2;     // IDP.4A.S8.S8 C_r6_c4, A_r6_k1.reuse, B_c4_k1.reuse, C_r6_c4
+      IDP.4A.S8.S8 R52, R106.reuse, R121.reuse, R52 ?W2;     // IDP.4A.S8.S8 C_r6_c5, A_r6_k1.reuse, B_c5_k1.reuse, C_r6_c5
+      IDP.4A.S8.S8 R61, R107.reuse, R120, R61 ?W2;           // IDP.4A.S8.S8 C_r7_c4, A_r7_k1.reuse, B_c4_k1, C_r7_c4
+      IDP.4A.S8.S8 R60, R107.reuse, R121, R60 ?W2;           // IDP.4A.S8.S8 C_r7_c5, A_r7_k1.reuse, B_c5_k1, C_r7_c5
+      IDP.4A.S8.S8 R63, R107.reuse, R122.reuse, R63 ?W2;     // IDP.4A.S8.S8 C_r7_c6, A_r7_k1.reuse, B_c6_k1.reuse, C_r7_c6
+      IDP.4A.S8.S8 R62, R107, R123.reuse, R62 ?W2;           // IDP.4A.S8.S8 C_r7_c7, A_r7_k1, B_c7_k1.reuse, C_r7_c7
+      IDP.4A.S8.S8 R55, R106.reuse, R122.reuse, R55 ?W2;     // IDP.4A.S8.S8 C_r6_c6, A_r6_k1.reuse, B_c6_k1.reuse, C_r6_c6
+      IDP.4A.S8.S8 R54, R106, R123.reuse, R54 ?W2;           // IDP.4A.S8.S8 C_r6_c7, A_r6_k1, B_c7_k1.reuse, C_r6_c7
+      IDP.4A.S8.S8 R47, R105.reuse, R122.reuse, R47 ?W2;     // IDP.4A.S8.S8 C_r5_c6, A_r5_k1.reuse, B_c6_k1.reuse, C_r5_c6
+      IDP.4A.S8.S8 R46, R105, R123.reuse, R46 ?W2;           // IDP.4A.S8.S8 C_r5_c7, A_r5_k1, B_c7_k1.reuse, C_r5_c7
+      IDP.4A.S8.S8 R39, R104.reuse, R122.reuse, R39 ?W2;     // IDP.4A.S8.S8 C_r4_c6, A_r4_k1.reuse, B_c6_k1.reuse, C_r4_c6
+      IDP.4A.S8.S8 R38, R104, R123.reuse, R38 ?W2;           // IDP.4A.S8.S8 C_r4_c7, A_r4_k1, B_c7_k1.reuse, C_r4_c7
+      IDP.4A.S8.S8 R31, R103.reuse, R122.reuse, R31 ?W2;     // IDP.4A.S8.S8 C_r3_c6, A_r3_k1.reuse, B_c6_k1.reuse, C_r3_c6
+      IDP.4A.S8.S8 R30, R103, R123.reuse, R30 ?W2;           // IDP.4A.S8.S8 C_r3_c7, A_r3_k1, B_c7_k1.reuse, C_r3_c7
+      IDP.4A.S8.S8 R23, R102.reuse, R122.reuse, R23 ?W2;     // IDP.4A.S8.S8 C_r2_c6, A_r2_k1.reuse, B_c6_k1.reuse, C_r2_c6
+      IDP.4A.S8.S8 R22, R102, R123.reuse, R22 ?W2;           // IDP.4A.S8.S8 C_r2_c7, A_r2_k1, B_c7_k1.reuse, C_r2_c7
+      IDP.4A.S8.S8 R15, R101.reuse, R122.reuse, R15 ?W2;     // IDP.4A.S8.S8 C_r1_c6, A_r1_k1.reuse, B_c6_k1.reuse, C_r1_c6
+      IDP.4A.S8.S8 R14, R101, R123.reuse, R14 ?W2;           // IDP.4A.S8.S8 C_r1_c7, A_r1_k1, B_c7_k1.reuse, C_r1_c7
+      IDP.4A.S8.S8 R7, R100.reuse, R122, R7 ?W2;             // IDP.4A.S8.S8 C_r0_c6, A_r0_k1.reuse, B_c6_k1, C_r0_c6
+      IDP.4A.S8.S8 R6, R100, R123, R6 ?W1EG;                 // IDP.4A.S8.S8 C_r0_c7, A_r0_k1, B_c7_k1, C_r0_c7
+(P1)  BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_LOOP ?W5; // @P1 BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_LOOP
+ampere_igemm_int8_128x128_ldg4_mods_nt_END_OF_LOOP:
+      LOP.AND P0, RZ, R81, 0x1f ?W13EG;                      // LOP.AND P0, RZ, counterK, 0x1f
+(!P0) BRA.U  ampere_igemm_int8_128x128_ldg4_mods_nt_EPILOG ?W5; // @!P0 BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_EPILOG
+ampere_igemm_int8_128x128_ldg4_mods_nt_K_RESIDUE:
+      NOP &req={0, 3, 4} ?W2;                                // NOP &req={SB_LDS_WR, SB_LDG_RD, SB_R_WR}
+      S2R  R100, SR_Tid.X &wr=4 ?W2;                         // S2R wid, SR_Tid.X
+      LOP.AND R102, R100, 0x60 &req=4 ?W4;                   // LOP.AND diff, wid, 0x60
+      SHR.U32 R102, R102, 3 ?W4;                             // SHR.U32 diff, diff, 3
+      IADD    R102, R102, -R81 ?W4;                          // IADD diff, diff, -counterK
+      ISETP.LT    P0, R102, 0 ?W2;                           // ISETP.LT P0, diff, 0
+      ISETP.LT    P1, R102, -1 ?W13EG;                       // ISETP.LT P1, diff, -1
+(!P0) R2P PR, RZ.B0, 0x78 ?W2;                               // @!P0 R2P PR, RZ.B0, 0x78
+(P0)  R2P PR, R90.B0, 0x78 ?W13EG;                           // @P0 R2P PR, raggedMnPreds0.B0, 0x78
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R64, [R78 + 0x0] &rd=3 &wr=2 ?W2; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg0, [readPtr + 0x0]
+(!P3) MOV R64, RZ ?W2;                                       // @!P3 MOV fetchReg0_0, RZ
+(P0)  LEA.LO   R84, P2, R76.reuse, R78, 0 ?W4;               // @P0 LEA.LO readPtr1, predCarry, readStride.reuse, readPtr, 0
+(P0)  LEA.HI.X R85, R76, R79, RZ, 0, P2 ?W8;                 // @P0 LEA.HI.X readPtr1_HI, readStride, readPtr_HI, RZ, 0, predCarry
+(!P1) R2P PR, RZ.B0, 0x78 ?W2;                               // @!P1 R2P PR, RZ.B0, 0x78
+(P1)  R2P PR, R90.B0, 0x78 ?W13EG;                           // @P1 R2P PR, raggedMnPreds0.B0, 0x78
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R65, [R84 + 0x0] &rd=3 &wr=2 ?W2; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg4, [readPtr1 + 0x0]
+(!P3) MOV R65, RZ ?W2;                                       // @!P3 MOV fetchReg4_0, RZ
+(P1)  LEA.LO   R86, P2, R76.reuse, R84, 0 ?W4;               // @P1 LEA.LO readPtr2, predCarry, readStride.reuse, readPtr1, 0
+(P1)  LEA.HI.X R87, R76, R85, RZ, 0, P2 ?W8;                 // @P1 LEA.HI.X readPtr2_HI, readStride, readPtr1_HI, RZ, 0, predCarry
+      ISETP.LT    P0, R102, -2 ?W2;                          // ISETP.LT P0, diff, -2
+      ISETP.LT    P1, R102, -3 ?W13EG;                       // ISETP.LT P1, diff, -3
+(!P0) R2P PR, RZ.B0, 0x78 ?W2;                               // @!P0 R2P PR, RZ.B0, 0x78
+(P0)  R2P PR, R90.B0, 0x78 ?W13EG;                           // @P0 R2P PR, raggedMnPreds0.B0, 0x78
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R66, [R86 + 0x0] &rd=3 &wr=2 ?W2; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg8, [readPtr2 + 0x0]
+(!P3) MOV R66, RZ ?W2;                                       // @!P3 MOV fetchReg8_0, RZ
+(P0)  LEA.LO   R88, P2, R76.reuse, R86, 0 ?W4;               // @P0 LEA.LO readPtr3, predCarry, readStride.reuse, readPtr2, 0
+(P0)  LEA.HI.X R89, R76, R87, RZ, 0, P2 ?W8;                 // @P0 LEA.HI.X readPtr3_HI, readStride, readPtr2_HI, RZ, 0, predCarry
+(!P1) R2P PR, RZ.B0, 0x78 ?W2;                               // @!P1 R2P PR, RZ.B0, 0x78
+(P1)  R2P PR, R90.B0, 0x78 ?W13EG;                           // @P1 R2P PR, raggedMnPreds0.B0, 0x78
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R67, [R88 + 0x0] &rd=3 &wr=2 ?W2; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg12, [readPtr3 + 0x0]
+(!P3) MOV R67, RZ ?W2;                                       // @!P3 MOV fetchReg12_0, RZ
+(P1)  LEA.LO   R78, P2, R82.reuse, R88, 0 &req=3 ?W4;        // @P1 LEA.LO readPtr, predCarry, incSlow.reuse, readPtr3, 0
+(P1)  LEA.HI.X R79, R82, R89, RZ, 0, P2 ?W8;                 // @P1 LEA.HI.X readPtr_HI, incSlow, readPtr3_HI, RZ, 0, predCarry
+      ISETP.LT    P0, R102, -16 ?W2;                         // ISETP.LT P0, diff, -16
+      ISETP.LT    P1, R102, -17 ?W13EG;                      // ISETP.LT P1, diff, -17
+(!P0) R2P PR, RZ.B0, 0x78 ?W2;                               // @!P0 R2P PR, RZ.B0, 0x78
+(P0)  R2P PR, R90.B0, 0x78 ?W13EG;                           // @P0 R2P PR, raggedMnPreds0.B0, 0x78
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R68, [R78 + 0x0] &rd=3 &wr=2 ?W2; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg16, [readPtr + 0x0]
+(!P3) MOV R68, RZ ?W2;                                       // @!P3 MOV fetchReg16_0, RZ
+(P0)  LEA.LO   R84, P2, R76.reuse, R78, 0 ?W4;               // @P0 LEA.LO readPtr1, predCarry, readStride.reuse, readPtr, 0
+(P0)  LEA.HI.X R85, R76, R79, RZ, 0, P2 ?W8;                 // @P0 LEA.HI.X readPtr1_HI, readStride, readPtr_HI, RZ, 0, predCarry
+(!P1) R2P PR, RZ.B0, 0x78 ?W2;                               // @!P1 R2P PR, RZ.B0, 0x78
+(P1)  R2P PR, R90.B0, 0x78 ?W13EG;                           // @P1 R2P PR, raggedMnPreds0.B0, 0x78
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R69, [R84 + 0x0] &rd=3 &wr=2 ?W2; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg20, [readPtr1 + 0x0]
+(!P3) MOV R69, RZ ?W2;                                       // @!P3 MOV fetchReg20_0, RZ
+(P1)  LEA.LO   R86, P2, R76.reuse, R84, 0 ?W4;               // @P1 LEA.LO readPtr2, predCarry, readStride.reuse, readPtr1, 0
+(P1)  LEA.HI.X R87, R76, R85, RZ, 0, P2 ?W8;                 // @P1 LEA.HI.X readPtr2_HI, readStride, readPtr1_HI, RZ, 0, predCarry
+      ISETP.LT    P0, R102, -18 ?W2;                         // ISETP.LT P0, diff, -18
+      ISETP.LT    P1, R102, -19 ?W13EG;                      // ISETP.LT P1, diff, -19
+(!P0) R2P PR, RZ.B0, 0x78 ?W2;                               // @!P0 R2P PR, RZ.B0, 0x78
+(P0)  R2P PR, R90.B0, 0x78 ?W13EG;                           // @P0 R2P PR, raggedMnPreds0.B0, 0x78
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R70, [R86 + 0x0] &rd=3 &wr=2 ?W2; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg24, [readPtr2 + 0x0]
+(!P3) MOV R70, RZ ?W2;                                       // @!P3 MOV fetchReg24_0, RZ
+(P0)  LEA.LO   R88, P2, R76.reuse, R86, 0 ?W4;               // @P0 LEA.LO readPtr3, predCarry, readStride.reuse, readPtr2, 0
+(P0)  LEA.HI.X R89, R76, R87, RZ, 0, P2 ?W8;                 // @P0 LEA.HI.X readPtr3_HI, readStride, readPtr2_HI, RZ, 0, predCarry
+(!P1) R2P PR, RZ.B0, 0x78 ?W2;                               // @!P1 R2P PR, RZ.B0, 0x78
+(P1)  R2P PR, R90.B0, 0x78 ?W13EG;                           // @P1 R2P PR, raggedMnPreds0.B0, 0x78
+(P3)  LDG.E.EN.LTC128B.32.CONSTANT  R71, [R88 + 0x0] &rd=3 &wr=2 ?W2; // @P3 LDG.E.EN.LTC128B.32.CONSTANT fetchReg28, [readPtr3 + 0x0]
+(!P3) MOV R71, RZ ?W2;                                       // @!P3 MOV fetchReg28_0, RZ
+      LOP32I.AND  R81, R81, 0xffffffe0 ?W2;                  // LOP32I.AND counterK, counterK, 0xffffffe0
+      BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_PRELOOP ?W5; // BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_PRELOOP
+ampere_igemm_int8_128x128_ldg4_mods_nt_EPILOG:
+      ISETP.NE    P0, RZ, c[0][0x1f0] &req={0,1,2,3,4,5} ?W2; // ISETP.NE P0, RZ, AbByRef
+      MOV         R82, c[0][0x1d8] ?W2;                      // MOV alphaPtr, AlphaRef
+      MOV         R83, c[0][0x1dc] ?W2;                      // MOV alphaPtr_HI, AlphaRef_HI
+      MOV         R76, c[0][0x1d4] ?W2;                      // MOV mode, Mode
+      S2R         R68, SR_Tid.X &wr=4 ?W2;                   // S2R tid, SR_Tid.X
+      S2R         R69, SR_CTAid.X &wr=4 ?W2;                 // S2R ctaRow, SR_CTAid.X
+      S2R         R70, SR_CTAid.Y &wr=4 ?W2;                 // S2R ctaCol, SR_CTAid.Y
+      S2R         R71, SR_CTAid.Z &wr=4 ?W2;                 // S2R batchIdx, SR_CTAid.Z
+(P0)  LDG.E.EN.LTC128B.32.CONSTANT R80, [R82] &rd=3 &wr=0 ?W2; // @P0 LDG.E.EN.LTC128B.32.CONSTANT alpha, [alphaPtr]
+      ISETP.NE   P1, R77, RZ ?W1;                            // ISETP.NE P1, beta, RZ
+(!P0) MOV        R80, c[0][0x1e8] ?W1;                       // @!P0 MOV alpha, AlphaVal
+      BAR.SYNC.DEFER_BLOCKING 0 &req=3 ?W6;                  // BAR.SYNC.DEFER_BLOCKING 0
+      MOV  R83, RZ ?W2;                                      // MOV row_HI, RZ
+      LOP.AND  R86, R76, 0xf00 ?W2;                          // LOP.AND log2GroupCols, mode, 0xf00
+      LOP.AND  P5, RZ, R76, 0x1000 ?W2;                      // LOP.AND P5, RZ, mode, 0x1000
+      SHR.U32  R86, R86, 8 ?W4;                              // SHR.U32 log2GroupCols, log2GroupCols, 8
+      BMSK     R87, R86, 1 ?W2;                              // BMSK groupCols, log2GroupCols, 1
+      BMSK     R88, RZ, R86 ?W2;                             // BMSK mask, RZ, log2GroupCols
+      PSETP.AND P4, !PT, !PT ?W2;                            // PSETP.AND P4, !PT, !PT
+ampere_igemm_int8_128x128_ldg4_mods_nt_epilog_cta_swizzle_loop:
+      LOP.OR   R89, R70, R88 &req=4 ?W2;                     // LOP.OR testCol, ctaCol, mask
+      ISETP.EQ P3, R88, 3 ?W2;                               // ISETP.EQ P3, mask, 3
+      ISETP.LT P2, R89, c[0x0][0x010] ?W2;                   // ISETP.LT P2, testCol, GridDimY
+      LOP.AND  R90,  R70.reuse,  R88.reuse ?W2;              // LOP.AND colMod, ctaCol.reuse, mask.reuse
+      LOP.AND  R93,  R70,        R87 ?W2;                    // LOP.AND colBit, ctaCol, groupCols
+      ISETP.EQ.AND P3, PT, R89, c[0x0][0x010], P3 ?W2;       // ISETP.EQ.AND P3, PT, testCol, GridDimY, P3
+      LOP.AND  R91, R70.reuse, ~R88 ?W1;                     // LOP.AND colBase, ctaCol.reuse, ~mask
+      IMAD.U32 R92, R90, c[0x0][0x00c], R69 &req=4 ?W1;      // IMAD.U32 linear, colMod, GridDimX, ctaRow
+(P5)  ISETP.EQ.XOR P4, PT, R93, R87, P4 ?W2;                 // @P5 ISETP.EQ.XOR P4, PT, colBit, groupCols, P4
+      SHR.U32 R87, R87, 1 ?W2;                               // SHR.U32 groupCols, groupCols, 1
+(P2)  BRA ampere_igemm_int8_128x128_ldg4_mods_nt_epilog_cta_swizzle_group_col_pow2 ?W5EG ?BARRIER_EXEMPT; // @P2 BRA ampere_igemm_int8_128x128_ldg4_mods_nt_epilog_cta_swizzle_group_col_pow2
+(!P3) SHR.U32  R88, R88, 1 ?W2;                              // @!P3 SHR.U32 mask, mask, 1
+(!P3) IADD     R86, R86, -1 ?W2;                             // @!P3 IADD log2GroupCols, log2GroupCols, -1
+(!P3) BRA ampere_igemm_int8_128x128_ldg4_mods_nt_epilog_cta_swizzle_loop ?W5EG ?BARRIER_EXEMPT; // @!P3 BRA ampere_igemm_int8_128x128_ldg4_mods_nt_epilog_cta_swizzle_loop
+      IMUL.WIDE.U32 R94, R92, 0x55555556 ?W1;                // IMUL.WIDE.U32 swizRow64, linear, 0x55555556
+      IADD  R70, R91, R92 ?W5;                               // IADD ctaCol, colBase, linear
+      IMAD.U32 R70, R95, -3, R70 ?W1;                        // IMAD.U32 ctaCol, swizRow, -3, ctaCol
+(!P4) MOV R69, R95 ?W2;                                      // @!P4 MOV ctaRow, swizRow
+(P4)  IADD.X R69, ~R95, c[0x0][0x00c], !PT ?W2;              // @P4 IADD.X ctaRow, ~swizRow, GridDimX, !PT
+      BRA ampere_igemm_int8_128x128_ldg4_mods_nt_epilog_cta_swizzle_done ?W5EG ?BARRIER_EXEMPT; // BRA ampere_igemm_int8_128x128_ldg4_mods_nt_epilog_cta_swizzle_done
+ampere_igemm_int8_128x128_ldg4_mods_nt_epilog_cta_swizzle_group_col_pow2:
+      SHR.U32 R69, R92, R86 ?W2;                             // SHR.U32 ctaRow, linear, log2GroupCols
+      LOP3.LUT  R70, R91, R92, R88, 0xf8 ?W2;                // LOP3.LUT ctaCol, colBase, linear, mask, B_AND_C__OR_A ?WiT
+(P4)  IADD.X R69, ~R69, c[0x0][0x00c], !PT ?W4;              // @P4 IADD.X ctaRow, ~ctaRow, GridDimX, !PT
+ampere_igemm_int8_128x128_ldg4_mods_nt_epilog_cta_swizzle_done:
+      SHL         R90, R68.reuse, 5 &req=4 ?W2;              // SHL scratch3, tid.reuse, 5
+      SHL         R89, R68.reuse, 8 ?W2;                     // SHL scratch2, tid.reuse, 8
+      SHL         R88, R68.reuse, 3 ?W2;                     // SHL scratch1, tid.reuse, 3
+      LOP.AND     R66, R90, 0x1e00 ?W4;                      // LOP.AND stsWritePtr, scratch3, 0x1e00
+      LOP3.LUT    R66, R66, 0x100, R89, 0xf8 ?W4;            // LOP3.LUT stsWritePtr, stsWritePtr, 0x100, scratch2, 0xf8
+      LOP3.LUT    R66, R66, 0x70, R88, 0xf8 ?W2;             // LOP3.LUT stsWritePtr, stsWritePtr, 0x70, scratch1, 0xf8
+      SHL        R67, R68.reuse, 3 ?W4;                      // SHL ldsReadPtr, tid.reuse, 3
+      LOP.AND    R67, R67, 0x700 ?W4;                        // LOP.AND ldsReadPtr, ldsReadPtr, 0x700
+      LOP3.LUT   R67, R67, 0x1f, R68, 0xf8 ?W4;              // LOP3.LUT ldsReadPtr, ldsReadPtr, 0x1f, tid, 0xf8
+      SHL        R67, R67, 2 ?W2;                            // SHL ldsReadPtr, ldsReadPtr, 2
+      LOP.AND  R86, R68, 0x1f ?W1;                           // LOP.AND intraWarpRow, tid, 0x1f
+      MOV32I   R87, 0 ?W1;                                   // MOV32I intraWarpCol, 0
+      SHR.U32 R89, R68.reuse, 5 ?W4;                         // SHR.U32 warpCol, tid.reuse, 5
+      LOP.AND R89, R89, 0x3 ?W2;                             // LOP.AND warpCol, warpCol, 0x3
+      LEA  R85, R70, R87, 7 ?W2;                             // LEA col, ctaCol, intraWarpCol, 7
+      SHR  R88, R68.reuse, 7 ?W2;                            // SHR warpRow, tid.reuse, 7
+      MOV  R79, c[0][0x1b8] ?W2;                             // MOV strideC, StrideC
+      LEA  R82, R69,  R86, 7 ?W2;                            // LEA row, ctaRow, intraWarpRow, 7
+      LEA  R85, R89, R85,          5 ?W2;                    // LEA col, warpCol, col, 5
+      LEA  R82, R88, R82,          6 ?W5;                    // LEA row, warpRow, row, 6
+      LOP.AND P2, RZ, R76, 8 ?W2;                            // LOP.AND P2, RZ, mode, 8
+      IMAD.WIDE.U32 R86, R85, c[0][0x1b8], R82 ?W5;          // IMAD.WIDE.U32 readPtrMul, col, StrideC, row
+      LOP.AND P6, R90, R76, 3 ?W13EG;                        // LOP.AND P6, scratch1, mode, 3
+(!P6) BRA.U   ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_CALC1_EPILOG ?W5EG ?BARRIER_EXEMPT; // @!P6 BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_CALC1_EPILOG
+      ISETP.EQ P3,    R90, 2 ?W13EG;                         // ISETP.EQ P3, scratch1, 2
+(P3)  LEA.LO   R74, P4, R71.reuse, c[0][0x170], 3 &req=4 ?W4; // @P3 LEA.LO writePtr, P4, batchIdx.reuse, BaseC, 3
+(P3)  LEA.HI.X R75, R71, c[0][0x174], RZ, 3, P4 ?W8;         // @P3 LEA.HI.X writePtr_HI, batchIdx, BaseC_HI, RZ, 3, P4
+(P3)  LDG.E.EN.LTC128B.64.CONSTANT R88, [R74 + 0x00] &wr=2 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.LTC128B.64.CONSTANT batchPtrMul, [writePtr + 0x00]
+(P3)  LEA.LO   R74, P4, R86.reuse, R88, 2 &req=2 ?W4;        // @P3 LEA.LO writePtr, P4, readPtrMul.reuse, batchPtrMul, 2
+(P3)  LEA.HI.X R75, R86, R89, R87, 2, P4 ?W2;                // @P3 LEA.HI.X writePtr_HI, readPtrMul, batchPtrMul_HI, readPtrMul_HI, 2, P4
+(!P3) LEA.LO   R74, P4, R86.reuse, c[0][0x170], 2 ?W4;       // @!P3 LEA.LO writePtr, P4, readPtrMul.reuse, BaseC, 2
+(!P3) LEA.HI.X R75, R86, c[0][0x174], R87, 2, P4 ?W2;        // @!P3 LEA.HI.X writePtr_HI, readPtrMul, BaseC_HI, readPtrMul_HI, 2, P4
+(!P3) IMAD.WIDE.U32 R88,    R71, c[0][0x1a8],    RZ &req=4 ?W4; // @!P3 IMAD.WIDE.U32 batchPtrMul, batchIdx, MatrixStrideC, RZ
+(!P3) IMAD.LO.U32   R89, R71, c[0][0x1ac], R89 ?W2;          // @!P3 IMAD.LO.U32 batchPtrMul_HI, batchIdx, MatrixStrideC_HI, batchPtrMul_HI
+(!P3) LEA.LO   R74, P4, R88.reuse, R74, 2 ?W4;               // @!P3 LEA.LO writePtr, P4, batchPtrMul.reuse, writePtr, 2
+(!P3) LEA.HI.X R75, R88, R75, R87, 2, P4 ?W2;                // @!P3 LEA.HI.X writePtr_HI, batchPtrMul, writePtr_HI, readPtrMul_HI, 2, P4
+      BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_SYNC1_EPILOG ?W5EG ?BARRIER_EXEMPT; // BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_SYNC1_EPILOG
+ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_CALC1_EPILOG:
+      LEA.LO   R74, P4, R86.reuse, c[0][0x170], 2 ?W4;       // LEA.LO writePtr, P4, readPtrMul.reuse, BaseC, 2
+      LEA.HI.X R75, R86, c[0][0x174], R87, 2, P4 ?W8;        // LEA.HI.X writePtr_HI, readPtrMul, BaseC_HI, readPtrMul_HI, 2, P4
+ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_SYNC1_EPILOG:
+      LOP.AND P3, RZ, R76, 32 ?W13EG;                        // LOP.AND P3, RZ, mode, 32
+(P3)  IMAD.WIDE.U32 R88,    R71, c[0][0x1a8],    RZ &req=4 ?W4; // @P3 IMAD.WIDE.U32 batchPtrMul, batchIdx, MatrixStrideC, RZ
+(P3)  IMAD.LO.U32   R89, R71, c[0][0x1ac], R89 ?W2;          // @P3 IMAD.LO.U32 batchPtrMul_HI, batchIdx, MatrixStrideC_HI, batchPtrMul_HI
+(P3)  LEA.LO   R74, P4, R88.reuse, R74, 2 ?W4;               // @P3 LEA.LO writePtr, P4, batchPtrMul.reuse, writePtr, 2
+(P3)  LEA.HI.X R75, R88, R75, R87, 2, P4 ?W2;                // @P3 LEA.HI.X writePtr_HI, batchPtrMul, writePtr_HI, readPtrMul_HI, 2, P4
+      ISETP.NE.AND  P5, PT, R71, RZ, P2 ?W2;                 // ISETP.NE.AND P5, PT, batchIdx, RZ, P2
+      MOV  R72,    c[0][0x170] ?W2;                          // MOV readPtr, BaseC
+      MOV  R73, c[0][0x174] ?W2;                             // MOV readPtr_HI, BaseC_HI
+      ISETP.EQ      P4, R72, c[0][0x1f8] ?W13EG;             // ISETP.EQ P4, readPtr, BaseD
+      ISETP.EQ.AND  P4, PT, R73, c[0][0x1fc], P4 ?W13EG;     // ISETP.EQ.AND P4, PT, readPtr_HI, BaseD_HI, P4
+      PSETP.OR      P4, P4, P5 ?W13EG;                       // PSETP.OR P4, P4, P5
+(!P4) BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_BASED_NEQ_BASEC_CALC_EPILOG ?W5EG ?BARRIER_EXEMPT; // @!P4 BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_BASED_NEQ_BASEC_CALC_EPILOG
+      MOV       R72, R74 &req=3 ?W2;                         // MOV readPtr, writePtr
+      MOV       R73, R75 ?W2;                                // MOV readPtr_HI, writePtr_HI
+      BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_BASEC_CALC_EPILOG ?W5EG ?BARRIER_EXEMPT; // BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_BASEC_CALC_EPILOG
+ampere_igemm_int8_128x128_ldg4_mods_nt_BASED_NEQ_BASEC_CALC_EPILOG:
+      LOP.AND P6, R90, R76, 3 ?W13EG;                        // LOP.AND P6, scratch1, mode, 3
+(!P6) BRA.U   ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_CALC0_EPILOG ?W5EG ?BARRIER_EXEMPT; // @!P6 BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_CALC0_EPILOG
+      ISETP.EQ P3,    R90, 2 ?W13EG;                         // ISETP.EQ P3, scratch1, 2
+(P3)  LEA.LO   R72, P4, R71.reuse, c[0][0x1f8], 3 &req=4 ?W4; // @P3 LEA.LO readPtr, P4, batchIdx.reuse, BaseD, 3
+(P3)  LEA.HI.X R73, R71, c[0][0x1fc], RZ, 3, P4 ?W8;         // @P3 LEA.HI.X readPtr_HI, batchIdx, BaseD_HI, RZ, 3, P4
+(P3)  LDG.E.EN.LTC128B.64.CONSTANT R88, [R72 + 0x00] &wr=2 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.LTC128B.64.CONSTANT batchPtrMul, [readPtr + 0x00]
+(P3)  LEA.LO   R72, P4, R86.reuse, R88, 2 &req=2 ?W4;        // @P3 LEA.LO readPtr, P4, readPtrMul.reuse, batchPtrMul, 2
+(P3)  LEA.HI.X R73, R86, R89, R87, 2, P4 ?W2;                // @P3 LEA.HI.X readPtr_HI, readPtrMul, batchPtrMul_HI, readPtrMul_HI, 2, P4
+(!P3) LEA.LO   R72, P4, R86.reuse, c[0][0x1f8], 2 ?W4;       // @!P3 LEA.LO readPtr, P4, readPtrMul.reuse, BaseD, 2
+(!P3) LEA.HI.X R73, R86, c[0][0x1fc], R87, 2, P4 ?W2;        // @!P3 LEA.HI.X readPtr_HI, readPtrMul, BaseD_HI, readPtrMul_HI, 2, P4
+(!P3) IMAD.WIDE.U32 R88,    R71, c[0][0x1a8],    RZ &req=4 ?W4; // @!P3 IMAD.WIDE.U32 batchPtrMul, batchIdx, MatrixStrideC, RZ
+(!P3) IMAD.LO.U32   R89, R71, c[0][0x1ac], R89 ?W2;          // @!P3 IMAD.LO.U32 batchPtrMul_HI, batchIdx, MatrixStrideC_HI, batchPtrMul_HI
+(!P3) LEA.LO   R72, P4, R88.reuse, R72, 2 ?W4;               // @!P3 LEA.LO readPtr, P4, batchPtrMul.reuse, readPtr, 2
+(!P3) LEA.HI.X R73, R88, R73, R87, 2, P4 ?W2;                // @!P3 LEA.HI.X readPtr_HI, batchPtrMul, readPtr_HI, readPtrMul_HI, 2, P4
+      BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_SYNC0_EPILOG ?W5EG ?BARRIER_EXEMPT; // BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_SYNC0_EPILOG
+ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_CALC0_EPILOG:
+      LEA.LO   R72, P4, R86.reuse, c[0][0x1f8], 2 ?W4;       // LEA.LO readPtr, P4, readPtrMul.reuse, BaseD, 2
+      LEA.HI.X R73, R86, c[0][0x1fc], R87, 2, P4 ?W8;        // LEA.HI.X readPtr_HI, readPtrMul, BaseD_HI, readPtrMul_HI, 2, P4
+ampere_igemm_int8_128x128_ldg4_mods_nt_END_BATCH_PTR_SYNC0_EPILOG:
+      LOP.AND P3, RZ, R76, 32 ?W13EG;                        // LOP.AND P3, RZ, mode, 32
+(P3)  IMAD.WIDE.U32 R88,    R71, c[0][0x1a8],    RZ &req=4 ?W4; // @P3 IMAD.WIDE.U32 batchPtrMul, batchIdx, MatrixStrideC, RZ
+(P3)  IMAD.LO.U32   R89, R71, c[0][0x1ac], R89 ?W2;          // @P3 IMAD.LO.U32 batchPtrMul_HI, batchIdx, MatrixStrideC_HI, batchPtrMul_HI
+(P3)  LEA.LO   R72, P4, R88.reuse, R72, 2 ?W4;               // @P3 LEA.LO readPtr, P4, batchPtrMul.reuse, readPtr, 2
+(P3)  LEA.HI.X R73, R88, R73, R87, 2, P4 ?W2;                // @P3 LEA.HI.X readPtr_HI, batchPtrMul, readPtr_HI, readPtrMul_HI, 2, P4
+ampere_igemm_int8_128x128_ldg4_mods_nt_END_BASEC_CALC_EPILOG:
+(P5)  PSETP.AND P1, PT, PT ?W2;                              // @P5 PSETP.AND P1, PT, PT
+      IMAD.WIDE.U32 R86, R79, 11, RZ ?W5;                    // IMAD.WIDE.U32 backStride, strideC, 11, RZ
+      IADD  R81, R82, -c[0][0x1bc] ?W2;                      // IADD cRowMinusM, row, -CountM
+      IADD  R84, R85, -c[0][0x1c0] ?W11;                     // IADD cColMinusN, col, -CountN
+(!P2) BRA  ampere_igemm_int8_128x128_ldg4_mods_nt_EPILOG_SPIN_WAIT_END ?W5EG ?BARRIER_EXEMPT; // @!P2 BRA ampere_igemm_int8_128x128_ldg4_mods_nt_EPILOG_SPIN_WAIT_END
+      IMAD.LO.U32  R107, R70, c[0x0][0x00c], R69 ?W5;        // IMAD.LO.U32 spinLockOffset, ctaCol, GridDimX, ctaRow
+      LEA.LO   R104, P2, R107.reuse, c[0][0x1c8], 2 &req=3 ?W4; // LEA.LO spinLockPtr, predCarry, spinLockOffset.reuse, Sync, 2
+      LEA.HI.X R105, R107, c[0][0x1cc], RZ, 2, P2 ?W2;       // LEA.HI.X spinLockPtr_HI, spinLockOffset, Sync_HI, RZ, 2, predCarry
+      MOV R106, RZ ?W4;                                      // MOV spinLock, RZ
+ampere_igemm_int8_128x128_ldg4_mods_nt_EPILOG_SPIN_WAIT:
+      ISETP.NE    P2, R106, R71 &req=2 ?W13EG;               // ISETP.NE P2, spinLock, batchIdx
+(P2)  LDG.E.EL.LTC128B.32.STRONG.GPU R106, [R104] &wr=2 ?W2 ?BARRIER_EXEMPT; // @P2 LDG.E.EL.LTC128B.32.STRONG.GPU spinLock, [spinLockPtr]
+(P2)  BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_EPILOG_SPIN_WAIT ?W5EG ?BARRIER_EXEMPT; // @P2 BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_EPILOG_SPIN_WAIT
+ampere_igemm_int8_128x128_ldg4_mods_nt_EPILOG_SPIN_WAIT_END:
+      ISETP.LT.AND  P3, PT, R81.reuse, 0, PT ?W2;            // ISETP.LT.AND P3, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P4, PT, R81.reuse, -32, PT ?W2;          // ISETP.LT.AND P4, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P5, PT, R81.reuse, 0, PT ?W2;            // ISETP.LT.AND P5, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P6, PT, R81.reuse, -32, PT ?W2;          // ISETP.LT.AND P6, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P3, PT, R84.reuse, 0, P3 ?W2;            // ISETP.LT.AND P3, PT, cColMinusN.reuse, 0, P3
+      ISETP.LT.AND  P4, PT, R84.reuse, 0, P4 ?W2;            // ISETP.LT.AND P4, PT, cColMinusN.reuse, 0, P4
+      ISETP.LT.AND  P5, PT, R84.reuse, -4, P5 ?W2;           // ISETP.LT.AND P5, PT, cColMinusN.reuse, -4, P5
+      ISETP.LT.AND  P6, PT, R84      , -4, P6 ?W4;           // ISETP.LT.AND P6, PT, cColMinusN , -4, P6
+      P2R.B0 R78, PR, RZ, 0x78 ?W4;                          // P2R.B0 readPreds, PR, RZ, 0x78
+      ISETP.LT.AND  P3, PT, R81.reuse, 0, PT ?W2;            // ISETP.LT.AND P3, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P4, PT, R81.reuse, -32, PT ?W2;          // ISETP.LT.AND P4, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P5, PT, R81.reuse, 0, PT ?W2;            // ISETP.LT.AND P5, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P6, PT, R81.reuse, -32, PT ?W2;          // ISETP.LT.AND P6, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P3, PT, R84.reuse, -8, P3 ?W2;           // ISETP.LT.AND P3, PT, cColMinusN.reuse, -8, P3
+      ISETP.LT.AND  P4, PT, R84.reuse, -8, P4 ?W2;           // ISETP.LT.AND P4, PT, cColMinusN.reuse, -8, P4
+      ISETP.LT.AND  P5, PT, R84.reuse, -12, P5 ?W2;          // ISETP.LT.AND P5, PT, cColMinusN.reuse, -12, P5
+      ISETP.LT.AND  P6, PT, R84      , -12, P6 ?W4;          // ISETP.LT.AND P6, PT, cColMinusN , -12, P6
+      P2R.B1 R78, PR, R78, 0x78 ?W4;                         // P2R.B1 readPreds, PR, readPreds, 0x78
+(!P1) R2P PR, RZ.B0, 0x78 ?W2;                               // @!P1 R2P PR, RZ.B0, 0x78
+(P1)  R2P PR, R78.B0, 0x78 ?W13EG;                           // @P1 R2P PR, readPreds.B0, 0x78
+(P3)  LDG.E.EN.LTC128B.32.STRONG.GPU  R88, [R72 + 0x0000] &wr=2 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC0, [readPtr + 0x0000]
+(!P3) MOV R88, RZ ?W2;                                       // @!P3 MOV fetchRegC0, RZ
+(P4)  LDG.E.EN.LTC128B.32.STRONG.GPU  R89, [R72 + 0x0080] &rd=3 &wr=2 ?W2 ?BARRIER_EXEMPT; // @P4 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC1, [readPtr + 0x0080]
+(!P4) MOV R89, RZ ?W2;                                       // @!P4 MOV fetchRegC1, RZ
+      LEA.LO   R72, P2, R79.reuse, R72, 4 &req=3 ?W4;        // LEA.LO readPtr, predCarry, strideC.reuse, readPtr, 4
+      LEA.HI.X R73, R79, R73, RZ, 4, P2 ?W8;                 // LEA.HI.X readPtr_HI, strideC, readPtr_HI, strideC_HI, 4, predCarry
+(P5)  LDG.E.EN.LTC128B.32.STRONG.GPU  R90, [R72 + 0x0000] &wr=2 ?W2 ?BARRIER_EXEMPT; // @P5 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC2, [readPtr + 0x0000]
+(!P5) MOV R90, RZ ?W2;                                       // @!P5 MOV fetchRegC2, RZ
+(P6)  LDG.E.EN.LTC128B.32.STRONG.GPU  R91, [R72 + 0x0080] &rd=3 &wr=2 ?W2 ?BARRIER_EXEMPT; // @P6 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC3, [readPtr + 0x0080]
+(!P6) MOV R91, RZ ?W2;                                       // @!P6 MOV fetchRegC3, RZ
+      LEA.LO   R72, P2, R79.reuse, R72, 4 &req=3 ?W4;        // LEA.LO readPtr, predCarry, strideC.reuse, readPtr, 4
+      LEA.HI.X R73, R79, R73, RZ, 4, P2 ?W8;                 // LEA.HI.X readPtr_HI, strideC, readPtr_HI, strideC_HI, 4, predCarry
+(P1)  R2P PR, R78.B1, 0x78 ?W13EG;                           // @P1 R2P PR, readPreds.B1, 0x78
+(P3)  LDG.E.EN.LTC128B.32.STRONG.GPU  R92, [R72 + 0x0000] &wr=2 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC4, [readPtr + 0x0000]
+(!P3) MOV R92, RZ ?W2;                                       // @!P3 MOV fetchRegC4, RZ
+(P4)  LDG.E.EN.LTC128B.32.STRONG.GPU  R93, [R72 + 0x0080] &rd=3 &wr=2 ?W2 ?BARRIER_EXEMPT; // @P4 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC5, [readPtr + 0x0080]
+(!P4) MOV R93, RZ ?W2;                                       // @!P4 MOV fetchRegC5, RZ
+      LEA.LO   R72, P2, R79.reuse, R72, 4 &req=3 ?W4;        // LEA.LO readPtr, predCarry, strideC.reuse, readPtr, 4
+      LEA.HI.X R73, R79, R73, RZ, 4, P2 ?W8;                 // LEA.HI.X readPtr_HI, strideC, readPtr_HI, strideC_HI, 4, predCarry
+(P5)  LDG.E.EN.LTC128B.32.STRONG.GPU  R94, [R72 + 0x0000] &wr=2 ?W2 ?BARRIER_EXEMPT; // @P5 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC6, [readPtr + 0x0000]
+(!P5) MOV R94, RZ ?W2;                                       // @!P5 MOV fetchRegC6, RZ
+(P6)  LDG.E.EN.LTC128B.32.STRONG.GPU  R95, [R72 + 0x0080] &rd=3 &wr=2 ?W2 ?BARRIER_EXEMPT; // @P6 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC7, [readPtr + 0x0080]
+(!P6) MOV R95, RZ ?W2;                                       // @!P6 MOV fetchRegC7, RZ
+      LEA.LO   R72, P2, -R86.reuse, R72, 2 &req=3 ?W4;       // LEA.LO readPtr, predCarry, -backStride.reuse, readPtr, 2
+      LEA.HI.X R73, ~R86, R73, R87, 2, P2 ?W2;               // LEA.HI.X readPtr_HI, ~backStride, readPtr_HI, backStride_HI, 2, predCarry
+      ISETP.EQ P2, R80, RZ &req=0 ?W13EG;                    // ISETP.EQ P2, alpha, RZ
+      SEL  R80, RZ, 0xffffffff, P2 ?W4;                      // SEL alpha, RZ, 0xffffffff, P2
+      PSETP.AND  P0, P1, P1 ?W1;                             // PSETP.AND P0, P1, P1
+      LOP.AND R96, R80, R1 &req=0 ?W2;                       // LOP.AND storeReg0, alpha, C_r0_c0
+      LOP.AND R97, R80, R9 ?W2;                              // LOP.AND storeReg1, alpha, C_r1_c0
+      LOP.AND R98, R80, R17 ?W2;                             // LOP.AND storeReg2, alpha, C_r2_c0
+      LOP.AND R99, R80, R25 ?W2;                             // LOP.AND storeReg3, alpha, C_r3_c0
+      LOP.AND R100, R80, R33 ?W2;                            // LOP.AND storeReg4, alpha, C_r4_c0
+      LOP.AND R101, R80, R41 ?W2;                            // LOP.AND storeReg5, alpha, C_r5_c0
+      LOP.AND R102, R80, R49 ?W2;                            // LOP.AND storeReg6, alpha, C_r6_c0
+      LOP.AND R103, R80, R57 ?W2;                            // LOP.AND storeReg7, alpha, C_r7_c0
+      IADD  R84,   R84,    1 ?W2;                            // IADD cColMinusN, cColMinusN, 1
+      LEPC R64 &req=3 ?W2;                                   // LEPC pc
+// Virtual ?REQ_BAR found on next instruction, stop putting ?BARRIER_EXEMPT on decoupled instructions
+      CALL.REL  ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL ?W5; // CALL.REL ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL
+      LEA.LO   R74, P2, -R86.reuse, R74, 2 &req=3 ?W4;       // LEA.LO writePtr, predCarry, -backStride.reuse, writePtr, 2
+      LEA.HI.X R75, ~R86, R75, R87, 2, P2 ?W2;               // LEA.HI.X writePtr_HI, ~backStride, writePtr_HI, backStride_HI, 2, predCarry
+      LEA.LO   R72, P2, -R86.reuse, R72, 2 &req=3 ?W4;       // LEA.LO readPtr, predCarry, -backStride.reuse, readPtr, 2
+      LEA.HI.X R73, ~R86, R73, R87, 2, P2 ?W2;               // LEA.HI.X readPtr_HI, ~backStride, readPtr_HI, backStride_HI, 2, predCarry
+      LOP.AND R96, R80, R0 ?W2;                              // LOP.AND storeReg0, alpha, C_r0_c1
+      LOP.AND R97, R80, R8 ?W2;                              // LOP.AND storeReg1, alpha, C_r1_c1
+      LOP.AND R98, R80, R16 ?W2;                             // LOP.AND storeReg2, alpha, C_r2_c1
+      LOP.AND R99, R80, R24 ?W2;                             // LOP.AND storeReg3, alpha, C_r3_c1
+      LOP.AND R100, R80, R32 ?W2;                            // LOP.AND storeReg4, alpha, C_r4_c1
+      LOP.AND R101, R80, R40 ?W2;                            // LOP.AND storeReg5, alpha, C_r5_c1
+      LOP.AND R102, R80, R48 ?W2;                            // LOP.AND storeReg6, alpha, C_r6_c1
+      LOP.AND R103, R80, R56 ?W2;                            // LOP.AND storeReg7, alpha, C_r7_c1
+      IADD  R84,   R84,    1 ?W2;                            // IADD cColMinusN, cColMinusN, 1
+      LEPC R64 &req=3 ?W2;                                   // LEPC pc
+      CALL.REL  ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL ?W5; // CALL.REL ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL
+      LEA.LO   R74, P2, -R86.reuse, R74, 2 &req=3 ?W4;       // LEA.LO writePtr, predCarry, -backStride.reuse, writePtr, 2
+      LEA.HI.X R75, ~R86, R75, R87, 2, P2 ?W2;               // LEA.HI.X writePtr_HI, ~backStride, writePtr_HI, backStride_HI, 2, predCarry
+      LEA.LO   R72, P2, -R86.reuse, R72, 2 &req=3 ?W4;       // LEA.LO readPtr, predCarry, -backStride.reuse, readPtr, 2
+      LEA.HI.X R73, ~R86, R73, R87, 2, P2 ?W2;               // LEA.HI.X readPtr_HI, ~backStride, readPtr_HI, backStride_HI, 2, predCarry
+      LOP.AND R96, R80, R3 ?W2;                              // LOP.AND storeReg0, alpha, C_r0_c2
+      LOP.AND R97, R80, R11 ?W2;                             // LOP.AND storeReg1, alpha, C_r1_c2
+      LOP.AND R98, R80, R19 ?W2;                             // LOP.AND storeReg2, alpha, C_r2_c2
+      LOP.AND R99, R80, R27 ?W2;                             // LOP.AND storeReg3, alpha, C_r3_c2
+      LOP.AND R100, R80, R35 ?W2;                            // LOP.AND storeReg4, alpha, C_r4_c2
+      LOP.AND R101, R80, R43 ?W2;                            // LOP.AND storeReg5, alpha, C_r5_c2
+      LOP.AND R102, R80, R51 ?W2;                            // LOP.AND storeReg6, alpha, C_r6_c2
+      LOP.AND R103, R80, R59 ?W2;                            // LOP.AND storeReg7, alpha, C_r7_c2
+      IADD  R84,   R84,    1 ?W2;                            // IADD cColMinusN, cColMinusN, 1
+      LEPC R64 &req=3 ?W2;                                   // LEPC pc
+      CALL.REL  ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL ?W5; // CALL.REL ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL
+      LEA.LO   R74, P2, -R86.reuse, R74, 2 &req=3 ?W4;       // LEA.LO writePtr, predCarry, -backStride.reuse, writePtr, 2
+      LEA.HI.X R75, ~R86, R75, R87, 2, P2 ?W2;               // LEA.HI.X writePtr_HI, ~backStride, writePtr_HI, backStride_HI, 2, predCarry
+      LEA.LO   R72, P2, R79.reuse, R72, 2 &req=3 ?W4;        // LEA.LO readPtr, predCarry, strideC.reuse, readPtr, 2
+      LEA.HI.X R73, R79, R73, RZ, 2, P2 ?W2;                 // LEA.HI.X readPtr_HI, strideC, readPtr_HI, strideC_HI, 2, predCarry
+      LOP.AND R96, R80, R2 ?W2;                              // LOP.AND storeReg0, alpha, C_r0_c3
+      LOP.AND R97, R80, R10 ?W2;                             // LOP.AND storeReg1, alpha, C_r1_c3
+      LOP.AND R98, R80, R18 ?W2;                             // LOP.AND storeReg2, alpha, C_r2_c3
+      LOP.AND R99, R80, R26 ?W2;                             // LOP.AND storeReg3, alpha, C_r3_c3
+      LOP.AND R100, R80, R34 ?W2;                            // LOP.AND storeReg4, alpha, C_r4_c3
+      LOP.AND R101, R80, R42 ?W2;                            // LOP.AND storeReg5, alpha, C_r5_c3
+      LOP.AND R102, R80, R50 ?W2;                            // LOP.AND storeReg6, alpha, C_r6_c3
+      LOP.AND R103, R80, R58 ?W2;                            // LOP.AND storeReg7, alpha, C_r7_c3
+      IADD  R84,   R84,    13 ?W2;                           // IADD cColMinusN, cColMinusN, 13
+      LEPC R64 &req=3 ?W2;                                   // LEPC pc
+      CALL.REL  ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL ?W5; // CALL.REL ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL
+      LEA.LO   R74, P2, R79.reuse, R74, 2 &req=3 ?W4;        // LEA.LO writePtr, predCarry, strideC.reuse, writePtr, 2
+      LEA.HI.X R75, R79, R75, RZ, 2, P2 ?W2;                 // LEA.HI.X writePtr_HI, strideC, writePtr_HI, strideC_HI, 2, predCarry
+      LEA.LO   R72, P2, -R86.reuse, R72, 2 &req=3 ?W4;       // LEA.LO readPtr, predCarry, -backStride.reuse, readPtr, 2
+      LEA.HI.X R73, ~R86, R73, R87, 2, P2 ?W2;               // LEA.HI.X readPtr_HI, ~backStride, readPtr_HI, backStride_HI, 2, predCarry
+      LOP.AND R96, R80, R5 ?W2;                              // LOP.AND storeReg0, alpha, C_r0_c4
+      LOP.AND R97, R80, R13 ?W2;                             // LOP.AND storeReg1, alpha, C_r1_c4
+      LOP.AND R98, R80, R21 ?W2;                             // LOP.AND storeReg2, alpha, C_r2_c4
+      LOP.AND R99, R80, R29 ?W2;                             // LOP.AND storeReg3, alpha, C_r3_c4
+      LOP.AND R100, R80, R37 ?W2;                            // LOP.AND storeReg4, alpha, C_r4_c4
+      LOP.AND R101, R80, R45 ?W2;                            // LOP.AND storeReg5, alpha, C_r5_c4
+      LOP.AND R102, R80, R53 ?W2;                            // LOP.AND storeReg6, alpha, C_r6_c4
+      LOP.AND R103, R80, R61 ?W2;                            // LOP.AND storeReg7, alpha, C_r7_c4
+      IADD  R84,   R84,    1 ?W2;                            // IADD cColMinusN, cColMinusN, 1
+      LEPC R64 &req=3 ?W2;                                   // LEPC pc
+      CALL.REL  ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL ?W5; // CALL.REL ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL
+      LEA.LO   R74, P2, -R86.reuse, R74, 2 &req=3 ?W4;       // LEA.LO writePtr, predCarry, -backStride.reuse, writePtr, 2
+      LEA.HI.X R75, ~R86, R75, R87, 2, P2 ?W2;               // LEA.HI.X writePtr_HI, ~backStride, writePtr_HI, backStride_HI, 2, predCarry
+      LEA.LO   R72, P2, -R86.reuse, R72, 2 &req=3 ?W4;       // LEA.LO readPtr, predCarry, -backStride.reuse, readPtr, 2
+      LEA.HI.X R73, ~R86, R73, R87, 2, P2 ?W2;               // LEA.HI.X readPtr_HI, ~backStride, readPtr_HI, backStride_HI, 2, predCarry
+      LOP.AND R96, R80, R4 ?W2;                              // LOP.AND storeReg0, alpha, C_r0_c5
+      LOP.AND R97, R80, R12 ?W2;                             // LOP.AND storeReg1, alpha, C_r1_c5
+      LOP.AND R98, R80, R20 ?W2;                             // LOP.AND storeReg2, alpha, C_r2_c5
+      LOP.AND R99, R80, R28 ?W2;                             // LOP.AND storeReg3, alpha, C_r3_c5
+      LOP.AND R100, R80, R36 ?W2;                            // LOP.AND storeReg4, alpha, C_r4_c5
+      LOP.AND R101, R80, R44 ?W2;                            // LOP.AND storeReg5, alpha, C_r5_c5
+      LOP.AND R102, R80, R52 ?W2;                            // LOP.AND storeReg6, alpha, C_r6_c5
+      LOP.AND R103, R80, R60 ?W2;                            // LOP.AND storeReg7, alpha, C_r7_c5
+      IADD  R84,   R84,    1 ?W2;                            // IADD cColMinusN, cColMinusN, 1
+      LEPC R64 &req=3 ?W2;                                   // LEPC pc
+      CALL.REL  ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL ?W5; // CALL.REL ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL
+      LEA.LO   R74, P2, -R86.reuse, R74, 2 &req=3 ?W4;       // LEA.LO writePtr, predCarry, -backStride.reuse, writePtr, 2
+      LEA.HI.X R75, ~R86, R75, R87, 2, P2 ?W2;               // LEA.HI.X writePtr_HI, ~backStride, writePtr_HI, backStride_HI, 2, predCarry
+      LEA.LO   R72, P2, -R86.reuse, R72, 2 &req=3 ?W4;       // LEA.LO readPtr, predCarry, -backStride.reuse, readPtr, 2
+      LEA.HI.X R73, ~R86, R73, R87, 2, P2 ?W2;               // LEA.HI.X readPtr_HI, ~backStride, readPtr_HI, backStride_HI, 2, predCarry
+      LOP.AND R96, R80, R7 ?W2;                              // LOP.AND storeReg0, alpha, C_r0_c6
+      LOP.AND R97, R80, R15 ?W2;                             // LOP.AND storeReg1, alpha, C_r1_c6
+      LOP.AND R98, R80, R23 ?W2;                             // LOP.AND storeReg2, alpha, C_r2_c6
+      LOP.AND R99, R80, R31 ?W2;                             // LOP.AND storeReg3, alpha, C_r3_c6
+      LOP.AND R100, R80, R39 ?W2;                            // LOP.AND storeReg4, alpha, C_r4_c6
+      LOP.AND R101, R80, R47 ?W2;                            // LOP.AND storeReg5, alpha, C_r5_c6
+      LOP.AND R102, R80, R55 ?W2;                            // LOP.AND storeReg6, alpha, C_r6_c6
+      LOP.AND R103, R80, R63 ?W2;                            // LOP.AND storeReg7, alpha, C_r7_c6
+      IADD  R84,   R84,    1 ?W2;                            // IADD cColMinusN, cColMinusN, 1
+      LEPC R64 &req=3 ?W2;                                   // LEPC pc
+      CALL.REL  ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL ?W5; // CALL.REL ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL
+      LEA.LO   R74, P2, -R86.reuse, R74, 2 &req=3 ?W4;       // LEA.LO writePtr, predCarry, -backStride.reuse, writePtr, 2
+      LEA.HI.X R75, ~R86, R75, R87, 2, P2 ?W2;               // LEA.HI.X writePtr_HI, ~backStride, writePtr_HI, backStride_HI, 2, predCarry
+      PSETP.AND P0, PT, !PT ?W1;                             // PSETP.AND P0, PT, !PT
+      LOP.AND R96, R80, R6 ?W2;                              // LOP.AND storeReg0, alpha, C_r0_c7
+      LOP.AND R97, R80, R14 ?W2;                             // LOP.AND storeReg1, alpha, C_r1_c7
+      LOP.AND R98, R80, R22 ?W2;                             // LOP.AND storeReg2, alpha, C_r2_c7
+      LOP.AND R99, R80, R30 ?W2;                             // LOP.AND storeReg3, alpha, C_r3_c7
+      LOP.AND R100, R80, R38 ?W2;                            // LOP.AND storeReg4, alpha, C_r4_c7
+      LOP.AND R101, R80, R46 ?W2;                            // LOP.AND storeReg5, alpha, C_r5_c7
+      LOP.AND R102, R80, R54 ?W2;                            // LOP.AND storeReg6, alpha, C_r6_c7
+      LOP.AND R103, R80, R62 ?W2;                            // LOP.AND storeReg7, alpha, C_r7_c7
+      LEPC R64 &req=3 ?W2;                                   // LEPC pc
+      CALL.REL  ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL ?W5; // CALL.REL ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL
+      LOP.AND P1, RZ, R76, 8 ?W4;                            // LOP.AND P1, RZ, mode, 8
+      ISETP.EQ.AND P5, PT, R68, 0, P1 &req=4 ?W9;            // ISETP.EQ.AND P5, PT, tid, 0, P1
+(P1)  IADD32I  R71, R71, 1 &req=4 ?W2;                       // @P1 IADD32I batchIdx, batchIdx, 1
+(P1)  BAR.SYNC 0 ?W6;                                        // @P1 BAR.SYNC 0
+(P5)  MEMBAR.GPU ?W6;                                        // @P5 MEMBAR.GPU
+// Virtual ?REQ_BAR found on next instruction, stop putting ?BARRIER_EXEMPT on decoupled instructions
+(P5)  STG.E.EF.32.STRONG.GPU [R104], R71 ?W2;                // @P5 STG.E.EF.32.STRONG.GPU [spinLockPtr], batchIdx
+      EXIT ?W5;                                              // EXIT
+ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL:
+      STS.128   [R66 + 0x0000], R96 ?W2;                     // STS.128 [stsWritePtr + 0x0000], storeReg0
+      STS.128   [R66 + 0x0080], R100 ?W2;                    // STS.128 [stsWritePtr + 0x0080], storeReg4
+      BAR.SYNC.DEFER_BLOCKING 0 ?W6;                         // BAR.SYNC.DEFER_BLOCKING 0
+      MOV R106, R78 ?W2;                                     // MOV writePreds, readPreds
+      ISETP.LT.AND  P3, PT, R81.reuse, 0, PT ?W2;            // ISETP.LT.AND P3, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P4, PT, R81.reuse, -32, PT ?W2;          // ISETP.LT.AND P4, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P5, PT, R81.reuse, 0, PT ?W2;            // ISETP.LT.AND P5, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P6, PT, R81.reuse, -32, PT ?W2;          // ISETP.LT.AND P6, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P3, PT, R84.reuse, 0, P3 ?W2;            // ISETP.LT.AND P3, PT, cColMinusN.reuse, 0, P3
+      ISETP.LT.AND  P4, PT, R84.reuse, 0, P4 ?W2;            // ISETP.LT.AND P4, PT, cColMinusN.reuse, 0, P4
+      ISETP.LT.AND  P5, PT, R84.reuse, -4, P5 ?W2;           // ISETP.LT.AND P5, PT, cColMinusN.reuse, -4, P5
+      ISETP.LT.AND  P6, PT, R84      , -4, P6 ?W4;           // ISETP.LT.AND P6, PT, cColMinusN , -4, P6
+      P2R.B0 R78, PR, RZ, 0x78 ?W4;                          // P2R.B0 readPreds, PR, RZ, 0x78
+      ISETP.LT.AND  P3, PT, R81.reuse, 0, PT ?W2;            // ISETP.LT.AND P3, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P4, PT, R81.reuse, -32, PT ?W2;          // ISETP.LT.AND P4, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P5, PT, R81.reuse, 0, PT ?W2;            // ISETP.LT.AND P5, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P6, PT, R81.reuse, -32, PT ?W2;          // ISETP.LT.AND P6, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P3, PT, R84.reuse, -8, P3 ?W2;           // ISETP.LT.AND P3, PT, cColMinusN.reuse, -8, P3
+      ISETP.LT.AND  P4, PT, R84.reuse, -8, P4 ?W2;           // ISETP.LT.AND P4, PT, cColMinusN.reuse, -8, P4
+      ISETP.LT.AND  P5, PT, R84.reuse, -12, P5 ?W2;          // ISETP.LT.AND P5, PT, cColMinusN.reuse, -12, P5
+      ISETP.LT.AND  P6, PT, R84      , -12, P6 ?W4;          // ISETP.LT.AND P6, PT, cColMinusN , -12, P6
+      P2R.B1 R78, PR, R78, 0x78 ?W4;                         // P2R.B1 readPreds, PR, readPreds, 0x78
+// Virtual ?REQ_BAR found on next instruction, stop putting ?BARRIER_EXEMPT on decoupled instructions
+      LDS.32   R96, [R67 + 0x0000] &wr=0 ?W1;                // LDS.32 storeReg0, [ldsReadPtr + 0x0000]
+      LDS.32   R97, [R67 + 0x0080] &wr=0 ?W1;                // LDS.32 storeReg1, [ldsReadPtr + 0x0080]
+      LDS.32   R98, [R67 + 0x0100] &wr=0 ?W1;                // LDS.32 storeReg2, [ldsReadPtr + 0x0100]
+      LDS.32   R99, [R67 + 0x0180] &wr=0 ?W1;                // LDS.32 storeReg3, [ldsReadPtr + 0x0180]
+      LDS.32   R100, [R67 + 0x0200] &wr=0 ?W1;               // LDS.32 storeReg4, [ldsReadPtr + 0x0200]
+      LDS.32   R101, [R67 + 0x0280] &wr=0 ?W1;               // LDS.32 storeReg5, [ldsReadPtr + 0x0280]
+      LDS.32   R102, [R67 + 0x0300] &wr=0 ?W1;               // LDS.32 storeReg6, [ldsReadPtr + 0x0300]
+      LDS.32   R103, [R67 + 0x0380] &wr=0 ?W1;               // LDS.32 storeReg7, [ldsReadPtr + 0x0380]
+      BAR.SYNC.DEFER_BLOCKING 0 ?W6;                         // BAR.SYNC.DEFER_BLOCKING 0
+      LOP.AND P2, RZ, R76, 32 ?W13EG;                        // LOP.AND P2, RZ, mode, 32
+      ISETP.GT.AND P2, PT, R71, 0, P2 ?W13EG;                // ISETP.GT.AND P2, PT, batchIdx, 0, P2
+(P2)  BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_BIAS ?W5EG ?BARRIER_EXEMPT; // @P2 BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_BIAS
+ampere_igemm_int8_128x128_ldg4_mods_nt_END_BIAS:
+(!P1) BRA  ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL_WRITE ?W5EG ?BARRIER_EXEMPT; // @!P1 BRA ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL_WRITE
+(P2)  BRA.U   ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL_WRITE ?W5EG ?BARRIER_EXEMPT; // @P2 BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL_WRITE
+(!P0) R2P PR, RZ.B0, 0x78 ?W2;                               // @!P0 R2P PR, RZ.B0, 0x78
+(P0)  R2P PR, R78.B0, 0x78 ?W13EG;                           // @P0 R2P PR, readPreds.B0, 0x78
+      IADD R96, R96, R88 &req={2,0} ?W2;                     // IADD storeReg0, storeReg0, fetchRegC0
+(P3)  LDG.E.EN.LTC128B.32.STRONG.GPU    R88, [R72 + 0x0000] &wr=2 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC0, [readPtr + 0x0000]
+      IADD R97, R97, R89 ?W2;                                // IADD storeReg1, storeReg1, fetchRegC1
+(P4)  LDG.E.EN.LTC128B.32.STRONG.GPU    R89, [R72 + 0x0080] &rd=3  &wr=2 ?W2 ?BARRIER_EXEMPT; // @P4 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC1, [readPtr + 0x0080]
+      LEA.LO   R72, P2, R79.reuse, R72, 4 &req=3 ?W4;        // LEA.LO readPtr, predCarry, strideC.reuse, readPtr, 4
+      LEA.HI.X R73, R79, R73, RZ, 4, P2 ?W6;                 // LEA.HI.X readPtr_HI, strideC, readPtr_HI, strideC_HI, 4, predCarry
+      IADD R98, R98, R90 ?W2;                                // IADD storeReg2, storeReg2, fetchRegC2
+(P5)  LDG.E.EN.LTC128B.32.STRONG.GPU    R90, [R72 + 0x0000] &wr=2 ?W2 ?BARRIER_EXEMPT; // @P5 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC2, [readPtr + 0x0000]
+      IADD R99, R99, R91 ?W2;                                // IADD storeReg3, storeReg3, fetchRegC3
+(P6)  LDG.E.EN.LTC128B.32.STRONG.GPU    R91, [R72 + 0x0080] &rd=3  &wr=2 ?W2 ?BARRIER_EXEMPT; // @P6 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC3, [readPtr + 0x0080]
+      LEA.LO   R72, P2, R79.reuse, R72, 4 &req=3 ?W4;        // LEA.LO readPtr, predCarry, strideC.reuse, readPtr, 4
+      LEA.HI.X R73, R79, R73, RZ, 4, P2 ?W6;                 // LEA.HI.X readPtr_HI, strideC, readPtr_HI, strideC_HI, 4, predCarry
+(P0)  R2P PR, R78.B1, 0x78 ?W13EG;                           // @P0 R2P PR, readPreds.B1, 0x78
+      IADD R100, R100, R92 ?W2;                              // IADD storeReg4, storeReg4, fetchRegC4
+(P3)  LDG.E.EN.LTC128B.32.STRONG.GPU    R92, [R72 + 0x0000] &wr=2 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC4, [readPtr + 0x0000]
+      IADD R101, R101, R93 ?W2;                              // IADD storeReg5, storeReg5, fetchRegC5
+(P4)  LDG.E.EN.LTC128B.32.STRONG.GPU    R93, [R72 + 0x0080] &rd=3  &wr=2 ?W2 ?BARRIER_EXEMPT; // @P4 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC5, [readPtr + 0x0080]
+      LEA.LO   R72, P2, R79.reuse, R72, 4 &req=3 ?W4;        // LEA.LO readPtr, predCarry, strideC.reuse, readPtr, 4
+      LEA.HI.X R73, R79, R73, RZ, 4, P2 ?W6;                 // LEA.HI.X readPtr_HI, strideC, readPtr_HI, strideC_HI, 4, predCarry
+      IADD R102, R102, R94 ?W2;                              // IADD storeReg6, storeReg6, fetchRegC6
+(P5)  LDG.E.EN.LTC128B.32.STRONG.GPU    R94, [R72 + 0x0000] &wr=2 ?W2 ?BARRIER_EXEMPT; // @P5 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC6, [readPtr + 0x0000]
+      IADD R103, R103, R95 ?W2;                              // IADD storeReg7, storeReg7, fetchRegC7
+(P6)  LDG.E.EN.LTC128B.32.STRONG.GPU    R95, [R72 + 0x0080] &rd=3  &wr=2 ?W2 ?BARRIER_EXEMPT; // @P6 LDG.E.EN.LTC128B.32.STRONG.GPU fetchRegC7, [readPtr + 0x0080]
+ampere_igemm_int8_128x128_ldg4_mods_nt_STORE_COL_WRITE:
+      LOP.AND P2, RZ, R76, 32 ?W13EG;                        // LOP.AND P2, RZ, mode, 32
+(P2)  BRA.U   ampere_igemm_int8_128x128_ldg4_mods_nt_END_RELU_EPILOG ?W5EG ?BARRIER_EXEMPT; // @P2 BRA.U ampere_igemm_int8_128x128_ldg4_mods_nt_END_RELU_EPILOG
+ampere_igemm_int8_128x128_ldg4_mods_nt_END_RELU_EPILOG:
+      R2P PR, R106.B0, 0x78 ?W13EG;                          // R2P PR, writePreds.B0, 0x78
+(P3)  STG.E.EF.32.WEAK [R74 + 0x0000], R96 &req={0,4} ?W2 ?BARRIER_EXEMPT; // @P3 STG.E.EF.32.WEAK [writePtr + 0x0000], storeReg0
+(P4)  STG.E.EF.32.WEAK [R74 + 0x0080], R97 &rd=3 ?W2 ?BARRIER_EXEMPT; // @P4 STG.E.EF.32.WEAK [writePtr + 0x0080], storeReg1
+      LEA.LO   R74, P2, R79.reuse, R74, 4 &req=3 ?W4;        // LEA.LO writePtr, predCarry, strideC.reuse, writePtr, 4
+      LEA.HI.X R75, R79, R75, RZ, 4, P2 ?W8;                 // LEA.HI.X writePtr_HI, strideC, writePtr_HI, strideC_HI, 4, predCarry
+(P5)  STG.E.EF.32.WEAK [R74 + 0x0000], R98 ?W2 ?BARRIER_EXEMPT; // @P5 STG.E.EF.32.WEAK [writePtr + 0x0000], storeReg2
+(P6)  STG.E.EF.32.WEAK [R74 + 0x0080], R99 &rd=3 ?W2 ?BARRIER_EXEMPT; // @P6 STG.E.EF.32.WEAK [writePtr + 0x0080], storeReg3
+      LEA.LO   R74, P2, R79.reuse, R74, 4 &req=3 ?W4;        // LEA.LO writePtr, predCarry, strideC.reuse, writePtr, 4
+      LEA.HI.X R75, R79, R75, RZ, 4, P2 ?W8;                 // LEA.HI.X writePtr_HI, strideC, writePtr_HI, strideC_HI, 4, predCarry
+      R2P PR, R106.B1, 0x78 ?W13EG;                          // R2P PR, writePreds.B1, 0x78
+(P3)  STG.E.EF.32.WEAK [R74 + 0x0000], R100 ?W2 ?BARRIER_EXEMPT; // @P3 STG.E.EF.32.WEAK [writePtr + 0x0000], storeReg4
+(P4)  STG.E.EF.32.WEAK [R74 + 0x0080], R101 &rd=3 ?W2 ?BARRIER_EXEMPT; // @P4 STG.E.EF.32.WEAK [writePtr + 0x0080], storeReg5
+      LEA.LO   R74, P2, R79.reuse, R74, 4 &req=3 ?W4;        // LEA.LO writePtr, predCarry, strideC.reuse, writePtr, 4
+      LEA.HI.X R75, R79, R75, RZ, 4, P2 ?W8;                 // LEA.HI.X writePtr_HI, strideC, writePtr_HI, strideC_HI, 4, predCarry
+(P5)  STG.E.EF.32.WEAK [R74 + 0x0000], R102 ?W2 ?BARRIER_EXEMPT; // @P5 STG.E.EF.32.WEAK [writePtr + 0x0000], storeReg6
+(P6)  STG.E.EF.32.WEAK [R74 + 0x0080], R103 &rd=3 ?W2 ?BARRIER_EXEMPT; // @P6 STG.E.EF.32.WEAK [writePtr + 0x0080], storeReg7
+// Virtual ?REQ_BAR found on next instruction, stop putting ?BARRIER_EXEMPT on decoupled instructions
+      RET.ABS  R64 + 32 ?W5;                                 // RET.ABS pc + 32
+ampere_igemm_int8_128x128_ldg4_mods_nt_END:
+	.sectioninfo	@"SHI_REGISTERS=126"
+//--------------------- .lw.info.ampere_igemm_int8_128x128_ldg4_mods_nt
+
+	.section	.lw.info.ampere_igemm_int8_128x128_ldg4_mods_nt,"",@SHT_LWDA_INFO
+	// ---- lwinfo : EIATTR_PARAM_CBANK
+	.align 4
+ampere_igemm_int8_128x128_ldg4_mods_nt_1:
+	.byte  0x04, 0xa
+	.short  (ampere_igemm_int8_128x128_ldg4_mods_nt_3 - ampere_igemm_int8_128x128_ldg4_mods_nt_2)
+	.align 4
+ampere_igemm_int8_128x128_ldg4_mods_nt_2:
+	.word	index@(.lw.constant0.ampere_igemm_int8_128x128_ldg4_mods_nt)
+	.short  0x0160
+	.short  0xa0
+
+	// ---- lwinfo : EIATTR_CBANK_PARAM_SIZE
+	.align 4
+ampere_igemm_int8_128x128_ldg4_mods_nt_3:
+	.byte	0x03, 0x19
+	.short  0xa0
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+ampere_igemm_int8_128x128_ldg4_mods_nt_4:
+	.byte  0x04, 0x17
+	.short (ampere_igemm_int8_128x128_ldg4_mods_nt_6 - ampere_igemm_int8_128x128_ldg4_mods_nt_5)
+ampere_igemm_int8_128x128_ldg4_mods_nt_5:
+	.word	0x00000000
+	.short  0x0
+	.short  0x0
+	.byte  0x00, 0xf0, 0x81, 0x02
+
+ampere_igemm_int8_128x128_ldg4_mods_nt_6:
+//--------------------- .lw.shared.ampere_igemm_int8_128x128_ldg4_mods_nt
+
+	.section	.lw.shared.ampere_igemm_int8_128x128_ldg4_mods_nt,"aw",@nobits
+	.align 4
+	.zero 16380
+	.word shmem_reloc_ampere_igemm_int8_128x128_ldg4_mods_nt
+//--------------------- .lw.callgraph             --------------------------
+	.section	.lw.callgraph,"",@"SHT_CALLGRAPH"
+	.sectionentsize	8
+	.align 4
+	.byte	0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff
+	.align 4
+	.byte	0x00, 0x00, 0x00, 0x00, 0xfe, 0xff, 0xff, 0xff
+	.byte	0x00, 0x00, 0x00, 0x00, 0xfd, 0xff, 0xff, 0xff
+
+// ------------------- lwinfo        --------
+	.section	.lw.info,"",@SHT_LWDA_INFO
+
+	// ---- lwinfo : EIATTR_MIN_STACK_SIZE
+	.align 4
+.ampere_igemm_int8_128x128_ldg4_mods_nt_L1:
+	.byte  0x04, 0x12
+	.short  (.ampere_igemm_int8_128x128_ldg4_mods_nt_L3 - .ampere_igemm_int8_128x128_ldg4_mods_nt_L2)
+	.align 4
+.ampere_igemm_int8_128x128_ldg4_mods_nt_L2:
+	.word	index@(ampere_igemm_int8_128x128_ldg4_mods_nt)
+	.word  0x0
+
+	// ---- lwinfo : EIATTR_FRAME_SIZE
+	.align 4
+.ampere_igemm_int8_128x128_ldg4_mods_nt_L3:
+	.byte  0x04, 0x11
+	.short  (.ampere_igemm_int8_128x128_ldg4_mods_nt_L5 - .ampere_igemm_int8_128x128_ldg4_mods_nt_L4)
+	.align 4
+.ampere_igemm_int8_128x128_ldg4_mods_nt_L4:
+	.word	index@(ampere_igemm_int8_128x128_ldg4_mods_nt)
+	.word  0x0
+
+.ampere_igemm_int8_128x128_ldg4_mods_nt_L5:
+
+//--------------------- .lw.constant0.ampere_igemm_int8_128x128_ldg4_mods_nt
+	.section	.lw.constant0.ampere_igemm_int8_128x128_ldg4_mods_nt,"a",@progbits
+	.align 4
+.ampere_igemm_int8_128x128_ldg4_mods_nt_L6:
+	.zero     512
+
+// ------------------- Symbol --------
+
+// const ShaderParams ampere_igemm_int8_128x128_ldg4_mods_nt_params = {
+//     /* version             */ 1,
+//     /* name                */ "ampere_igemm_int8_128x128_ldg4_mods_nt",
+//     /* kernel              */ (void*)ampere_igemm_int8_128x128_ldg4_mods_nt,
+//     /* chipFamily          */ GEMM_CHIP_AMPERE,
+//     /* gemmType            */ IGEMM,
+//     /* typeA               */ R_8I,
+//     /* typeAm              */ R_32I,
+//     /* packCountA             1, */
+//     /* typeB               */ R_8I,
+//     /* packCountB             1, */
+//     /* typeC               */ R_32I,
+//     /* packCountC             1, */
+//     /* typeEpilog          */ R_32F,
+//     /* packCountEpilog        1, */
+//     /* shapeC              */ RECT,
+//     /* layoutA             */ N,
+//     /* layoutB             */ T,
+//     /* log2ElementsPerLdgA */ 2,
+//     /* log2ElementsPerLdgB */ 2,
+//     /* reLuAndBias         */ 0,
+//     /* isReleaseKernel     */ 1,
+//     /* numRegisters        */ 124,
+//     /* usedRegisters          123, */
+//     /* sharedMemSize       */ 16384,  /* 16.000 KB */
+//     /* elementRowsPerCta   */ 128,
+//     /* elementRowsPerWarp     64, */
+//     /* elementColsperCta   */ 128,
+//     /* elementColsPerWarp     32, */
+//     /* threadsPerCta       */ 256,
+//     /* raggedMn            */ true,
+//     /* warpStrideK         */ 4,
+//     /* shiftFastA          */ 0,
+//     /* multiplierSlowA     */ 13,
+//     /* offsetSlowA         */ 0,
+//     /* shiftFastB          */ 0,
+//     /* multiplierSlowB     */ 13,
+//     /* offsetSlowB         */ 0,
+//     /* shiftFastAm         */ 0,
+//     /* multiplierSlowAm    */ 0,
+//     /* offsetSlowAm        */ 0,
+//     /* kBlock              */ 32,
+//     /* lwDnnEdges          */ LWDNN_NONE,
+//     /* lwDnnLayout         */ NCHW,
+//     /* lwDnnStridedB       */ false,
+//     /* lwDnnSplitK         */ false,
+//     /* lwDnnDgrad          */ false,
+//     /* lwDnnWgrad          */ false,
+//     /* sliceRows           */ 1,
+//     /* sliceCols           */ 1,
+//     /* abiVersion          */ ABI_AMPERE_G
+// };
+// raggedMnNumPreds 1, R2P's in loop 1

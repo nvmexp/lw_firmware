@@ -1,0 +1,263 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2016-2017 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+//********************************************************************
+// This file contains assembly part of the lwca kernel for the LwdaEccL2 Test.
+//
+// The LwdaEccL2 kernel is written in both LWCA and SASS. The two parts are compiled
+// separately then linked together. The LWCA portion only calls SASS when necessary.
+//
+// The reason for this hybrid structure is that the compiler tends tooptimize or rearrange
+// memory accesses, even if written in PTX. For ECC error injection we need to ensure memory
+// instruction ordering in order to inject the correct number of errors at the correct locations.
+//
+// Guides for programming LWASM can be found at:
+//
+// - //sw/compiler/gpgpu/doc/spec/abi/next/abi-fermi.pdf
+// - //sw/compiler/gpgpu/doc/spec/abi/next/abi-kepler.pdf
+// - //sw/compiler/gpgpu/doc/spec/DCI/Maxwell_DCI.txt
+// - //sw/compiler/gpgpu/doc/spec/DCI/Pascal_DCI.txt
+// - https://wiki.lwpu.com/engwiki/index.php/Compiler_and_OCG/Compute_Compiler/ptxas#Dolwments
+// - //hw/class/fermi/SASS/doc/opcodes.htm
+// - //hw/doc/gpu/kepler/kepler/design/IAS/SML1/ISA/opcodes.htm
+// - //hw/doc/gpu/maxwell/maxwell/design/IAS/SM/ISA/opcodes.htm
+//
+//********************************************************************
+#include "lwdaeccl2.h"
+
+#if (SM_VER < 75)
+    #define HOST_PROCEED       HOST_PROCEED_64x8
+    #define SM_READY           SM_READY_64x8
+    #define SM_DISABLE_CHKBITS SM_DISABLE_CHKBITS_64x8
+    #define SM_ENABLE_CHKBITS  SM_ENABLE_CHKBITS_64x8
+    #define SM_RESET_ERRS      SM_RESET_ERRS_64x8
+    #define SM_DONE            SM_DONE_64x8
+#else
+    #define HOST_PROCEED       HOST_PROCEED_256x16
+    #define SM_READY           SM_READY_256x16
+    #define SM_DISABLE_CHKBITS SM_DISABLE_CHKBITS_256x16
+    #define SM_ENABLE_CHKBITS  SM_ENABLE_CHKBITS_256x16
+    #define SM_RESET_ERRS      SM_RESET_ERRS_256x16
+    #define SM_DONE            SM_DONE_256x16
+#endif
+
+#if SM_VER == 60
+    .headerflags @"EF_LWDA_SM60 EF_LWDA_PTX_SM(EF_LWDA_SM60) EF_LWDA_64BIT_ADDRESS"
+
+.section .text.critical_section, "ax", @progbits
+    .sectionflags @"SHF_BARRIERS=1"
+    .sectioninfo @"SHI_REGISTERS=24"
+    .align 4
+
+.global critical_section
+.type critical_section, @function
+.other critical_section, @"STV_DEFAULT"
+
+critical_section:
+    //  ABI: r4-r15 are used for arguments and ret values
+    //
+    //  r4 cmdlow
+    //  r5 cmdhigh
+    //  r6 sectorbaselow
+    //  r7 sectorbasehigh
+    //  r8 sectortoplow
+    //  r9 sectortophigh
+    // r10 offsetlow
+    // r11 offsethigh
+    // r12 val
+    // r13 error
+    // r14 threadIdx
+    //
+    // r0, r15 SCRATCH
+
+    BAR.SYNC 0x0;
+    ISETP.NE P1, R14, RZ;
+
+// Write value to ECC sector
+//
+// We have to write the whole ECC sector otherwise error injection won't work.
+// It seems that the checkbits aren't guaranteed to be updated immediately
+// if only partial writes are made to the ECC sector.
+//
+.L_SectorWriteLoop:
+    STG.E.CG [R6], R12;
+    IADD R6.CC, R6, 0x4;
+    IADD.X  R7, R7, RZ;
+
+    IADD RZ.CC, R6, -R8;
+    ISETP.LT.U32.X P0, R7, R9;
+@P0 BRA `(.L_SectorWriteLoop);
+
+
+//  Disable Checkbits
+//
+    BAR.SYNC 0x0;
+    SSY `(.L_InjectErrors);
+@P1 SYNC;
+    MOV32I R15, SM_DISABLE_CHKBITS;
+    STG.E.WT [R4], R15;
+
+    MOV32I R15, HOST_PROCEED;
+.L_WaitOnHost:
+    LDG.E.CV R0, [R4];
+    ISETP.NE.U32 P0, R0, R15;
+@P0 BRA `(.L_WaitOnHost);
+    SYNC;
+
+
+//  Inject ECC Error
+//
+.L_InjectErrors:
+    BAR.SYNC 0x0;
+    LOP.XOR R13, R13, R12;
+    STG.E.CG [R10], R13;
+
+
+//  Enable Checkbits
+//
+    BAR.SYNC 0x0;
+    SSY `(.L_ResetValue);
+@P1 SYNC;
+    MOV32I R15, SM_ENABLE_CHKBITS;
+    STG.E.WT [R4], R15;
+
+    MOV32I R15, HOST_PROCEED;
+.L_WaitOnHost2:
+    LDG.E.CV R0, [R4];
+    ISETP.NE P0, R0, R15;
+@P0 BRA `(.L_WaitOnHost2);
+    SYNC;
+
+
+// Reset value (error counter gets incremented here)
+//
+.L_ResetValue:
+    BAR.SYNC 0x0;
+    STG.E.CG [R10], R12;
+
+.L_Exit:
+    BAR.SYNC 0x0;
+    RET;
+
+#elif SM_VER >= 70
+
+#if SM_VER == 70
+    .headerflags @"EF_LWDA_SM70 EF_LWDA_PTX_SM(EF_LWDA_SM70) EF_LWDA_64BIT_ADDRESS"
+#elif SM_VER == 75
+    .headerflags @"EF_LWDA_SM75 EF_LWDA_PTX_SM(EF_LWDA_SM75) EF_LWDA_64BIT_ADDRESS"
+#elif SM_VER == 80
+    .headerflags @"EF_LWDA_SM80 EF_LWDA_PTX_SM(EF_LWDA_SM80) EF_LWDA_64BIT_ADDRESS"
+#else
+    #error Update .headerflags block for new SM version
+#endif
+
+
+.section .text.critical_section, "ax", @progbits
+    .sectionflags @"SHF_BARRIERS=1"
+    .sectioninfo @"SHI_REGISTERS=24"
+    .align 4
+
+.global critical_section
+.type critical_section, @function
+.other critical_section, @"STV_DEFAULT"
+
+critical_section:
+    //  ABI: r4-r15 are used for arguments and ret values
+    //
+    //  r0 SCRATCH
+    //
+    //  r4 cmdlow
+    //  r5 cmdhigh
+    //  r6 sectorbaselow
+    //  r7 sectorbasehigh
+    //  r8 sectortoplow
+    //  r9 sectortophigh
+    // r10 offsetlow
+    // r11 offsethigh
+    // r12 val
+    // r13 error
+    // r14 threadIdx
+    //
+    // r15 SCRATCH
+    //
+    // r20 retlow
+    // r21 rethigh
+    //
+
+    BAR.SYNC 0x0;
+    ISETP.NE P1, R14, RZ;
+
+// Write value to ECC sector
+//
+// We have to write the whole ECC sector otherwise error injection won't work.
+// It seems that the checkbits aren't guaranteed to be updated immediately
+// if only partial writes are made to the ECC sector.
+//
+.L_SectorWriteLoop:
+    STG.E.STRONG.GPU [R6], R12;
+    IADD R6, P2, R6, 0x4;
+    IADD.X R7, R7, RZ, P2;
+
+    ISETP.LT.U32    P2,   R6, R8;
+    ISETP.LT.U32.EX P0,   R7, R9, P2;
+@P0 BRA `(.L_SectorWriteLoop);
+
+
+//  Disable Checkbits
+//
+    BAR.SYNC 0x0;
+    BSSY B0, `(.L_InjectErrors);
+@P1 BRA `(.L_InjectErrors);
+    MOV32I R15, SM_DISABLE_CHKBITS;
+    STG.E.STRONG.SYS [R4], R15;
+
+    MOV32I R15, HOST_PROCEED;
+.L_WaitOnHost:
+    LDG.E.STRONG.SYS R0, [R4];
+    ISETP.NE.U32 P0, R0, R15;
+@P0 BRA `(.L_WaitOnHost);
+
+
+//  Inject ECC Error
+//
+.L_InjectErrors:
+    BSYNC B0;
+    BAR.SYNC 0x0;
+    LOP.XOR R13, R13, R12;
+    STG.E.STRONG.GPU [R10], R13;
+
+
+//  Enable Checkbits
+//
+    BAR.SYNC 0x0;
+    BSSY B0, `(.L_ResetValue);
+@P1 BRA `(.L_ResetValue);
+    MOV32I R15, SM_ENABLE_CHKBITS;
+    STG.E.STRONG.SYS [R4], R15;
+
+    MOV32I R15, HOST_PROCEED;
+.L_WaitOnHost2:
+    LDG.E.STRONG.SYS R0, [R4];
+    ISETP.NE P0, R0, R15;
+@P0 BRA `(.L_WaitOnHost2);
+
+
+// Reset value (error counter gets incremented here)
+//
+.L_ResetValue:
+    BSYNC B0;
+    BAR.SYNC 0x0;
+    STG.E.STRONG.GPU [R10], R12;
+
+.L_Exit:
+    BAR.SYNC 0x0;
+    RET.ABS.NODEC R20;
+#endif

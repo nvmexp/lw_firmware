@@ -1,0 +1,866 @@
+# -*- mode: perl; -*-
+
+# FUB Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $fubHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+        _STUB           => [ pre_TURING, ]
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        SET_BAR0_TIMEOUT => [
+                DESCRIPTION    => "Set timeout for BAR0 transactions",
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'void',
+                RETURN_TYPE    => 'FUB_STATUS',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        BAR0_WAIT_IDLE => [
+                DESCRIPTION    => "Wait for previous BAR0 command to complete or return error",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'void',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        READ_BAR0 => [
+                DESCRIPTION    => "Read from BAR0 address",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'LwU32, LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        WRITE_BAR0 => [
+                DESCRIPTION    => "Write to Bar0 address",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'LwU32, LwU32',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        READ_REGISTER => [
+                DESCRIPTION    => "Read register over CSB Bus",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'LwU32, LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        WRITE_REGISTER => [
+                DESCRIPTION    => "Write Register over CSB bus",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'LwU32, LwU32',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        REPORT_STATUS => [
+                DESCRIPTION    => "Write Status to Mailbox",
+                RETURN_TYPE    => 'void',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'LwU32',
+                STUB_RETURNS   => 'void',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        REPORT_APPLICABILITY_FAILURE => [
+                DESCRIPTION    => "Write applicability failure to Mailbox1",
+                RETURN_TYPE    => 'void',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'LwU32',
+                STUB_RETURNS   => 'void',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        WRITE_FIELD_PROG_FUSE => [
+                DESCRIPTION    => "Issue Burn command to blow fuse",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'LwU32, LwU32',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _GA100         => [ GA100, ],
+                _STUB          => [ GA102_and_later, ],
+        ],
+
+        CHECK_IF_FUB_NEEDS_TO_RUN => [
+                DESCRIPTION    => "Check if FUB needs to run else return",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'void',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        RESENSE_FUSE => [
+                DESCRIPTION    => "Resense all fuses after burning is complete",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'void',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => WRITE_FIELD_PROG_FUSE,
+        ],
+
+        CHECK_LWVDD => [
+                DESCRIPTION    => "Check if LWVDD is acceptable",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'void',
+                STUB_RETURNS   => 'FUB_OK',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        PROGRAM_VQPS_FOR_VOLTAGE_SHIFT => [
+                DESCRIPTION    => "Program VQPS source to change voltage",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'FUB_VQPS_OPERATION',
+                STUB_RETURNS   => 'FUB_OK',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        IN_GC6_EXIT => [
+                DESCRIPTION    => "Early exit if FUB ilwoked from GC6 exit path",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'void',
+                STUB_RETURNS   => 'FUB_OK',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        WAIT_FOR_VOLTAGE_SHIFT => [
+                DESCRIPTION    => "Wait for Voltage to shift",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'void',
+                STUB_RETURNS   => 'FUB_OK',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        CLEAR_FPF_REGISTERS => [
+                DESCRIPTION    => "Clear all registers before Exit",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'void',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _GA100         => [ GA100, ],
+                _STUB          => [ GA102_and_later, ],
+        ],
+
+        PROTECT_REGISTERS => [
+                DESCRIPTION    => "Raise PLM of registers which if changed will fail fuse burn",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'FUB_PRIV_MASKS_RESTORE *, LwBool ',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _GA100         => [ GA100, ],
+                _STUB          => [ GA102_and_later, ],
+        ],
+
+        FILL_FUSE_INFORMATION_STRUCTURE => [
+                DESCRIPTION    => "Create structure containing all information required for fuse burning",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'FPF_FUSE_INFO *, LwU32',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        CHECK_AND_BURN_GSYNC_ENABLING_FUSE => [
+                DESCRIPTION    => "Check and burn GSYNC enabling fuse",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        CHECK_AND_BURN_DEVID_LICENSE_REVOCATION_FUSE => [
+                DESCRIPTION    => "Check and burn DevId based license revocation fuse",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        CHECK_AND_BURN_ALLOWING_DRAM_CHIPID_READ_FUSE => [
+                DESCRIPTION    => "Check and burn Allowing DRAM CHIPID read fuse",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        CHECK_AND_BURN_BLOCKING_DRAM_CHIPID_READ_FUSE => [
+                DESCRIPTION    => "Check and burn Blocking DRAM CHIPID read fuse",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        CHECK_AND_BURN_GEFORCE_SKU_RECOVERY_FUSE => [
+                DESCRIPTION    => "Check and burn VdChip SKU recovery fuse",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TU102, TU104, TU106, ],
+                _STUB          => [ TU116, TU117, AMPERE_and_later, ],
+        ],
+
+        CHECK_AND_BURN_GEFORCE_SKU_RECOVERY_GFW_REV_FUSE => [
+                DESCRIPTION    => "Check and burn VdChip SKU recovery GFW_REV fuse",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => CHECK_AND_BURN_GEFORCE_SKU_RECOVERY_FUSE,
+        ],
+
+        CHECK_AND_BURN_LWFLASH_REV_FOR_WP_BYPASS_FUSE => [
+                DESCRIPTION    => "Check and burn ROM_FLASH_REV for WP_BYPASS mitigation",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TU102, TU104, TU106, ],
+                _STUB          => [ TU116, TU117, AMPERE_and_later, ],
+        ],
+
+        CHECK_AND_BURN_GFW_REV_FOR_WP_BYPASS_FUSE => [
+                DESCRIPTION    => "Check and burn GFW_REV fuse for WP_BYPASS mitigation",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TU102, TU104, TU106, ],
+                _STUB          => [ TU116, TU117, AMPERE_and_later, ],
+        ],
+        
+        CHECK_AND_BURN_AUTO_QS2_AHESASC_FUSE => [
+                DESCRIPTION    => "Check and burn QS2 enabling fuse for ahesasc",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU104         => [ TU104, ],
+                _STUB          => [ ALL, -TU104, ],
+        ],
+
+        CHECK_AND_BURN_AUTO_QS2_ASB_FUSE => [
+                DESCRIPTION    => "Check and burn QS2 enabling fuse for asb",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU104         => [ TU104, ],
+                _STUB          => [ ALL, -TU104, ],
+        ],
+        
+        CHECK_AND_BURN_AUTO_QS2_IMAGE_SELECT_FUSE => [
+                DESCRIPTION    => "Check and burn QS2 enabling fuse for imageselect bin",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU104         => [ TU104, ],
+                _STUB          => [ ALL, -TU104, ],
+        ],
+        
+        CHECK_AND_BURN_AUTO_QS2_LWFLASH_FUSE => [
+                DESCRIPTION    => "Check and burn QS2 enabling fuse for lwflash",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU104         => [ TU104, ],
+                _STUB          => [ ALL, -TU104, ],
+        ],
+
+
+        CHECK_AND_BURN_AUTO_QS2_HULK_FUSE => [
+                DESCRIPTION    => "Check and burn QS2 enabling fuse for Hulk",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU104         => [ TU104, ],
+                _STUB          => [ ALL, -TU104, ],
+        ],
+        
+        CHECK_AND_BURN_AUTO_QS2_FW_SEC_FUSE => [
+                DESCRIPTION    => "Check and burn QS2 enabling fuse for FwSec",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU104         => [ TU104, ],
+                _STUB          => [ ALL, -TU104, ],
+        ],
+
+        FUSE_BURN_CHECK => [
+                DESCRIPTION    => "Check if Fuse burn was successful",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwU32',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => FILL_FUSE_INFORMATION_STRUCTURE,
+        ],
+
+        REVOKE_HS_BIN => [
+                DESCRIPTION    => "revoke fub binary",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'void',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _GA100         => [ GA100, ],
+                _STUB          => [ GA102_and_later, ],
+        ],
+
+        GET_HW_FUSE_VERSION => [
+                DESCRIPTION    => "Returns HW fuse version",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => REVOKE_HS_BIN,
+        ],
+
+        IS_VALID_FALCON_ENGINE => [
+                DESCRIPTION    => "Check if FUB is exelwting on LWDEC/SEC2 falcon as per profile",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'void',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, GA100, ],
+                _STUB          => [ GA102_and_later, ],
+        ],
+
+        GET_SW_UCODE_VERSION => [
+                DESCRIPTION    => "Get SW Ucode version of binary",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TU102, TU104, TU106, ],
+                _TU116         => [ TU116, TU117, ],
+                _GA100         => [ GA100, ],
+                _STUB          => [ GA102_and_later, ],
+        ],
+
+        IS_CHIP_SUPPORTED => [
+                DESCRIPTION    => "Validate if the ucode running supports the current chip",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'void',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => GET_SW_UCODE_VERSION,
+        ],
+
+        CHECK_IF_BURNING_GSYNC_ENABLING_IS_APPLICABLE => [
+                DESCRIPTION    => "FUB decides to burn GSYNC enabling fuse based on DEVID of GPU",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TU102, TU104, TU106, ],
+                _TU116         => [ TU116, TU117, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        CHECK_IF_BURNING_DEVID_REVOCATION_IS_APPLICABLE => [
+                DESCRIPTION    => "FUB decides to burn Devid based license revocation fuse based on DEVID of GPU",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TU102, TU104, TU106, ],
+                _TU116         => [ TU116, TU117, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        CHECK_IF_ALLOWING_DRAM_CHIPID_READ_IS_APPLICABLE => [
+                DESCRIPTION    => "FUB decides to burn fuse to allow DRAM CHIPID read based on DEVID of GPU and flag passed from test command line",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TU102, TU104, TU106, TU116, TU117, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        CHECK_IF_BLOCKING_DRAM_CHIPID_READ_IS_APPLICABLE  => [
+                DESCRIPTION    => "FUB decides to burn fuse to block DRAM CHIPID read based on DEVID of GPU and flag passed from test command line",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TU102, TU104, TU106, TU116, TU117, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        CHECK_DEV_ID_FOR_HULK_TO_READ_DRAM_CHIPID => [
+                DESCRIPTION    => "DEVID check is for both fuse burns of Enabling/Revoking HULK to read DRAM chipid",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TU102, TU104, TU106, ],
+                _TU116         => [ TU116, TU117, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        MITIGATE_NS_RESTART_FROM_HS => [
+            DESCRIPTION    => "Make sure different initiator cannot restart FUB in case it halts in HS mode ",
+            ARGUMENTS      => 'void',
+            FLAGS          => ":STATIC",
+            RETURN_TYPE    => void,
+            STUB_RETURNS   => void,  # This should be supported only on Turing onwards
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+            INTERFACE_TAG  => 'fubMitigateNSRestartFromHS',
+
+            _TU10X         => [ TU102, TU104, TU106, TU116, TU117, GA100, ],
+            _STUB          => [ GA102_and_later, ],
+        ],
+
+        CHECK_IF_VHR_EMPTY => [
+            DESCRIPTION    => "Check if VHR is empty, current PKC policy wont' save any cached value in VHR",
+            ARGUMENTS      => 'void', 
+            FLAGS          => ":STATIC",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+            RETURN_TYPE    => FUB_STATUS, 
+            STUB_RETURNS   => FUB_OK,
+            
+            _TU104         => [ TU104, ],
+            _STUB          => [ ALL, -TU104, ],
+        ],
+
+        SELWRE_BUS_SEND_REQUEST => [
+            DESCRIPTION    => "Sends read or write request to Secure Bus",
+            RETURN_TYPE    => FUB_STATUS,
+            FLAGS          => ":STATIC",
+            STUB_RETURNS   => FUB_ERR_SELWRE_BUS_NOT_SUPPORTED,
+            ARGUMENTS      => 'LwBool, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+            
+            _TU10X         => [ TU10X_and_later, ],
+
+        ],
+
+        SELWRE_BUS_GET_DATA => [
+            DESCRIPTION    => "On a read request, this function returns read value",
+            RETURN_TYPE    => FUB_STATUS,
+            FLAGS          => ":STATIC",
+            STUB_RETURNS   => FUB_ERR_SELWRE_BUS_NOT_SUPPORTED,
+            ARGUMENTS      => 'LwU32, LwU32*',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+            LIKE_INTERFACE => SELWRE_BUS_SEND_REQUEST,
+        ],
+
+        SELWRE_BUS_READ_REGISTER => [
+            DESCRIPTION    => "Reads a register via secure bus",
+            RETURN_TYPE    => FUB_STATUS,
+            FLAGS          => ":STATIC",
+            STUB_RETURNS   => FUB_ERR_SELWRE_BUS_NOT_SUPPORTED,
+            ARGUMENTS      => 'LwU32, LwU32*',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+            LIKE_INTERFACE => SELWRE_BUS_SEND_REQUEST,
+        ],
+
+        SELWRE_BUS_WRITE_REGISTER => [
+            DESCRIPTION    => "Reads a register via secure bus",
+            RETURN_TYPE    => FUB_STATUS,
+            FLAGS          => ":STATIC",
+            STUB_RETURNS   => FUB_ERR_SELWRE_BUS_NOT_SUPPORTED,
+            ARGUMENTS      => 'LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+            LIKE_INTERFACE => SELWRE_BUS_SEND_REQUEST,
+        ],
+
+        SCP_GET_RANDOM_NUMBER => [
+                DESCRIPTION    => "Get Random number from SCP",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TU10X, GA100, ],
+                _STUB          => [ GA102_and_later, ],
+        ],
+
+        CHECK_IF_GEFORCE_SKU_RECOVERY_IS_APPLICABLE => [
+                DESCRIPTION    => "FUB decides to burn fuse for VdChip SKU recovery based on DEVID of GPU and flag passed from test command line",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => CHECK_AND_BURN_GEFORCE_SKU_RECOVERY_FUSE,
+        ],
+
+        CHECK_DEV_ID_AND_STRAP_FOR_GEFORCE_SKU_RECOVERY => [
+                DESCRIPTION    => "DEVID+STRAP check for VdChip SKU recovery",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => CHECK_AND_BURN_GEFORCE_SKU_RECOVERY_FUSE,
+        ],
+
+        CHECK_IF_GEFORCE_SKU_RECOVERY_GFW_REV_IS_APPLICABLE => [
+                DESCRIPTION    => "FUB decides to burn GFW_REV fuse for VdChip SKU recovery based on DEVID of GPU and flag passed from test command line",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => CHECK_AND_BURN_GEFORCE_SKU_RECOVERY_FUSE,
+        ],
+
+        CHECK_IF_GFW_REV_FOR_WP_BYPASS_IS_APPLICABLE => [
+                DESCRIPTION    => "FUB decides to burn GFW_REV fuse for WP_BYPASS mitigation based on DEVID of GPU and flag passed from test command line",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => CHECK_AND_BURN_GFW_REV_FOR_WP_BYPASS_FUSE,
+        ],
+
+        CHECK_IF_LWFLASH_REV_FOR_WP_BYPASS_IS_APPLICABLE => [
+                DESCRIPTION    => "FUB decides to burn ROM_FLASH_REV mitigation fuse for WP_BYPASS mitigation based on DEVID of GPU and flag passed from test command line",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => CHECK_AND_BURN_LWFLASH_REV_FOR_WP_BYPASS_FUSE,
+        ],
+
+        CHECK_IF_WP_BYPASS_IS_APPLICABLE_COMMON_CHECKS => [
+                DESCRIPTION    => "Common checks for 2 Fuse burns of WP_BYPASS mitigation use case",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => CHECK_AND_BURN_LWFLASH_REV_FOR_WP_BYPASS_FUSE,
+        ],
+        
+        CHECK_IF_AUTO_QS2_IS_APPLICABLE_COMMON_CHECKS => [
+                DESCRIPTION    => "Common checks to verify that it is auto sku on which FUB is running",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU104         => [ TU104, ],
+                _STUB          => [ ALL, -TU104, ],
+        ],
+
+       
+        CHECK_IF_AUTO_QS2_AHESASC_IS_APPLICABLE => [
+                DESCRIPTION    => "FUB decides whether to burn AHESASC QS2 fuse",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => CHECK_IF_AUTO_QS2_IS_APPLICABLE_COMMON_CHECKS,
+        ],
+
+
+        CHECK_IF_AUTO_QS2_ASB_IS_APPLICABLE => [
+                DESCRIPTION    => "FUB decides whether to burn ASB QS2 fuse",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => CHECK_IF_AUTO_QS2_IS_APPLICABLE_COMMON_CHECKS,
+        ],
+
+
+        CHECK_IF_AUTO_QS2_IMAGE_SELECT_IS_APPLICABLE => [
+                DESCRIPTION    => "FUB decides whether to burn ImageSelect QS2 fuse",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => CHECK_IF_AUTO_QS2_IS_APPLICABLE_COMMON_CHECKS,
+        ],
+
+
+        CHECK_IF_AUTO_QS2_LWFLASH_IS_APPLICABLE => [
+                DESCRIPTION    => "FUB decides whether to burn LWFLASH QS2 fuse",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => CHECK_IF_AUTO_QS2_IS_APPLICABLE_COMMON_CHECKS,
+        ],
+
+        CHECK_IF_AUTO_QS2_HULK_IS_APPLICABLE => [
+                DESCRIPTION    => "FUB decides whether to burn HULK QS2 fuse",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => CHECK_IF_AUTO_QS2_IS_APPLICABLE_COMMON_CHECKS,
+        ],
+
+        CHECK_IF_AUTO_QS2_FW_SEC_IS_APPLICABLE => [
+                DESCRIPTION    => "FUB decides whether to burn FwSec QS2 fuse",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => CHECK_IF_AUTO_QS2_IS_APPLICABLE_COMMON_CHECKS,
+        ],
+
+
+        SELF_REVOKE => [
+                DESCRIPTION    => "Self Revoke FUB",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'void',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        FILL_FUSE_INFO_FOR_SELF_REVOCATION => [
+                DESCRIPTION    => "Get Info to Self Revoke FUB",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'FPF_FUSE_INFO *',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => SELF_REVOKE,
+        ],
+
+        IS_HYPERVISOR_BLESSED => [
+                DESCRIPTION    => "Check if Hypervisor write protection is enabled or not",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'LwBool*',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING, ],
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        SMBPBI_WRITE_PROTECTION_DISABLED => [
+                DESCRIPTION    => "Check if SMBPBI write protection is disabled or not",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'void',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => IS_HYPERVISOR_BLESSED,
+        ],
+
+        AWS_UDE_VERSION_CHECK => [
+                DESCRIPTION    => "Check if correct AWS UDE is flashed or not",
+                RETURN_TYPE    => 'FUB_STATUS',
+                ARGUMENTS      => 'void',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                LIKE_INTERFACE => IS_HYPERVISOR_BLESSED,
+        ],
+
+        READ_SCI_SEC_TIMER => [
+                DESCRIPTION    => "Read SCI SEC TIMER",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ':STATIC',
+                ARGUMENTS      => 'LwU32 *',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TURING_and_later, ],
+        ],
+
+        READ_FALCON_PTIMER0 => [
+                DESCRIPTION    => "Read PTIMER0",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ':STATIC',
+                ARGUMENTS      => 'LwU32 *',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub","__FUNC__")',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                INTERFACE_TAG  => 'fubReadFalconPTimer0',
+
+                _TU10X         => [ TURING_and_later, ],
+        ],
+
+        FALCON_PTIMER0_GET_ELAPSED_TIME => [
+                DESCRIPTION    => "Get PTIMER0 elapsed time",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ':STATIC',
+                ARGUMENTS      => 'LwU32, LwU32 *',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub","__FUNC__")',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                INTERFACE_TAG  => 'fubFalconPTimer0GetElapsedTime',
+
+                _TU10X         => [ TURING_and_later, ],
+        ],
+
+        FALCON_PTIMER0_CHECK_TIMEOUT => [
+                DESCRIPTION    => "Check whether PTIMER0 timed out",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ':STATIC',
+                ARGUMENTS      => 'const LwU32, LwU32, LwS32 *',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub","__FUNC__")',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                INTERFACE_TAG  => 'fubFalconPTimer0CheckTimeout',
+
+                _TU10X         => [ TURING_and_later, ],
+        ],
+
+        LOCK_FALCON_RESET => [
+                DESCRIPTION    => "Lock or unlock falcon reset when binary is running",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'LwBool',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+
+                _TU10X         => [ TU10X_and_later, ],
+        ],
+
+
+        ISOLATE_GPU_TO_SEC2_USING_DECODE_TRAPS => [
+                DESCRIPTION    => "Program Decode Traps to FUB to isolate GPU to SEC2",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'FUB_DECODE_TRAP_OPERATION_TO_PERFORM',
+                STUB_RETURNS   => 'FUB_OK',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TU10X, ],    
+                _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        CHECK_IF_LOCAL_MEMORY_RANGE_IS_SET => [
+                DESCRIPTION    => "Check if LOCAL_MEM_RANGE is setup or not",
+                RETURN_TYPE    => 'FUB_STATUS',
+                FLAGS          => ":STATIC",
+                STUB_RETURNS   => 'FUB_ERR_NOT_SUPPORTED',
+                ARGUMENTS      => 'void',
+                GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_fub", "__FUNC__")',
+
+                _TU10X         => [ TU10X_and_later, ],
+        ],
+
+   ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $fubHal;

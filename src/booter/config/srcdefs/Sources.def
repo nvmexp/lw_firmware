@@ -1,0 +1,116 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Engines.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    BOOTERSRC_CORE => [
+
+        FLAGS   => ':CORE',             # following are all part of core (non-hal)
+                 'common/lw/booter_start.c',
+
+        ONLY_IF => 'BOOTER_LOAD_COMMON',
+                 'load/lw/booter_load.c',
+
+        ONLY_IF => 'BOOTER_RELOAD_COMMON',
+                 'reload/lw/booter_reload.c',
+
+        ONLY_IF => 'BOOTER_UNLOAD_COMMON',
+                 'unload/lw/booter_unload.c',
+
+        ONLY_IF => 'BOOTER_BOOT_FROM_HS',
+                 '../../bootloader/src/hs_entry_checks.c',
+
+    ],  # BOOTERSRC_CORE
+
+    BOOTERSRC_ENGINES => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        HAL =>
+        [
+            # These are the files that install the hal support for a given gpu.
+            # The files may be shared across multiple gpus, but every gpu must
+            # be represented by exactly 1 file.
+
+            FLAGS => ':HAL_IMPLEMENTATION'    # mark these files as the hal implementation
+                   . ':HAL_SETUP'
+                   . '',
+        ],
+
+        BOOTER =>
+        [
+            CHIPS_SUPPORTED => [ TU10X_and_later, ],
+                'common/turing/booter_dma_tu10x.c',
+                'common/turing/booter_trng_tu10x.c',
+                'common/turing/booter_se_access_tu10x.c',
+                'common/turing/booter_mem_utils_tu10x.c',
+                'common/turing/booter_timer_access_tu10x.c',
+                'common/turing/booter_register_access_tu10x.c',
+                'common/turing/booter_sanity_checks_tu10x.c',
+                'common/turing/booter_helper_functions_tu10x.c',
+                'load/turing/booter_load_tu10x.c',
+                'load/turing/booter_wpr1_tu10x.c',
+                'load/turing/booter_wpr2_tu10x.c',
+                'load/turing/booter_sub_wpr_tu10x.c',
+                'load/turing/booter_bootvec_tu10x.c',
+                'load/turing/booter_wpr_ctrl_tu10x.c',
+                'load/turing/booter_sig_verif_tu10x.c',
+                'load/turing/booter_boot_gsprm_tu10x.c',
+                'se/turing/booter_se_tu10x.c',
+                'sha/turing/booter_sha_tu10x.c',
+                'reload/turing/booter_reload_tu10x.c',
+                'unload/turing/booter_unload_tu10x.c',
+
+			CHIPS_SUPPORTED => [ TU10X, -TU116, -TU117, ],
+                'common/turing/booter_sanity_checks_tu10x_only.c',
+   
+			CHIPS_SUPPORTED => [ TU116, TU117, ],
+                'common/turing/booter_sanity_checks_tu11x.c',
+
+            CHIPS_SUPPORTED => [ TU10X, ],
+                'common/turing/booter_sanity_checks_tu10x_tu11x_only.c',
+            
+            CHIPS_SUPPORTED => [ TU10X, GA100, ],
+                'load/turing/booter_boot_gsprm_tu10x_ga100.c',
+   
+			CHIPS_SUPPORTED => [ GA100, ],
+                'common/ampere/booter_sanity_checks_ga100.c',
+
+            CHIPS_SUPPORTED => [ GA100_and_later, ],
+                'common/ampere/booter_sanity_checks_ga100_and_later.c',
+
+            CHIPS_SUPPORTED => [ GA10X, ],
+                'common/ampere/booter_sanity_checks_ga10x.c',
+                'load/ampere/booter_bootvec_ga10x.c',
+                'load/ampere/booter_boot_gsprm_ga10x.c',
+                'load/ampere/booter_sig_verif_ga10x.c',
+                'common/ampere/booter_war_functions_ga10x_only.c',
+        ],
+
+    ],  # BOOTERSRC_ENGINES
+
+];   # filesRef
+
+
+my $platformsRef = [
+
+    # the BOOTER platform
+    PLATFORM_BOOTER  => [
+        BOOTERSRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

@@ -1,0 +1,490 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2014-2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD            ?= false
+NO_RELEASE                ?= false
+INCLUDE_DT                ?= false
+PA_47_BIT_SUPPORTED       ?= false
+PEDANTIC_BUILD            ?= false
+IS_HS_ENCRYPTED           ?= false
+BOOT_FROM_HS_BUILD        ?= false
+STEADY_STATE_BUILD        ?= false
+BOOT_FROM_HS_FALCON_SEC2  ?= false
+BOOT_FROM_HS_FALCON_GSP   ?= false
+BOOT_FROM_HS_FALCON_LWDEC ?= false
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+LWUPROC        = $(LW_SOURCE)/uproc
+BLSW           = $(LWUPROC)/bootloader
+RESMAN_ROOT    = $(LW_SOURCE)/drivers/resman
+SCP_PARSER     = $(LWUPROC)/utilities/cci_pp.pl
+SEC_ENUM_H     = $(LWUPROC)/utilities/sec_enum_types.h
+GEN_LS_SIG     = $(BLSW)/build/gen_ls_sig.lwmk
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+BLCFG_PROFILE ?= fecs_bl_gm10x
+BLCFG_PROFILE  = $(BLCFG_PROFILE)
+include $(BLSW)/config/bl-profiles.mk
+
+###############################################################################
+# Load common falcon make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LWUPROC)/build/common/lwFalconArch.lwmk
+ifdef CHIP_MANUAL_PATH
+   include $(CHIP_MANUAL_PATH)/lwFalconSignParams.mk
+endif
+
+override LW_TARGET_ARCH = $(FALCON_TOOLS_BUILD)
+override LW_TARGET_OS   = falcon
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Define the output directory paths for the BL build and all sub-make builds.
+###############################################################################
+
+OUTPUTDIR := _out/$(subst bl-,,$(BLCFG_PROFILE))
+OUTPUTDIR_ABS := $(BLSW)/src/$(OUTPUTDIR)
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+export LW_TARGET_ARCH
+
+###############################################################################
+# Define macros based on profile
+###############################################################################
+
+ENGINE_NAME = ""
+ifneq (,$(findstring fecs, $(BLCFG_PROFILE)))
+	CFLAGS += -DENGINE_FECS=1
+	ENGINE_NAME = "gr"
+endif
+
+ifneq (,$(findstring gpccs, $(BLCFG_PROFILE)))
+	CFLAGS += -DENGINE_GPCCS=1
+	ENGINE_NAME = "gr"
+endif
+
+ifneq (,$(findstring pmu, $(BLCFG_PROFILE)))
+    CFLAGS += -DLW_MISRA_COMPLIANCE_REQUIRED
+endif
+
+ifeq ($(HS_FALCON), true)
+	CFLAGS += -DHS_FALCON=1
+	CFLAGS += -DUPROC_FALCON=1
+endif
+
+ifeq ($(VIRTUAL_DMA), true)
+	CFLAGS += -DVIRTUAL_DMA=1
+endif
+
+ifeq ($(PA_47_BIT_SUPPORTED),true)
+    CFLAGS += -DPA_47_BIT_SUPPORTED
+endif
+
+ifeq ($(CLEAN_IMEM), true)
+	CFLAGS += -DCLEAN_IMEM=1
+	CFLAGS += -DCLEAR_IMEM_LIMIT=$(IMAGE_BASE)
+endif
+
+ifeq ($(PEDANTIC_BUILD),true)
+    CFLAGS += -pedantic -msafety
+endif
+
+ifeq ($(BOOT_FROM_HS_BUILD),true)
+    CFLAGS += -DBOOT_FROM_HS_BUILD
+endif
+
+ifeq ($(STEADY_STATE_BUILD),true)
+    CFLAGS += -DSTEADY_STATE_BUILD
+endif
+
+ifeq ($(BOOT_FROM_HS_FALCON_SEC2), true)
+    CFLAGS += -DBOOT_FROM_HS_FALCON_SEC2
+endif
+
+ifeq ($(BOOT_FROM_HS_FALCON_GSP), true)
+    CFLAGS += -DBOOT_FROM_HS_FALCON_GSP
+endif
+
+ifeq ($(BOOT_FROM_HS_FALCON_LWDEC), true)
+    CFLAGS += -DBOOT_FROM_HS_FALCON_LWDEC
+endif
+
+###############################################################################
+# Submake Configuration
+#
+# This makefile builds libraries and tools that are shared with other projects.
+# Many of these builds may be lwstomized based on the needs of the project
+# building it. It is therefore necessary to ensure isolation between the
+# projects. Isolation is also required to allow for parallelization of project
+# builds.
+#
+# Isolation is achieved by ensuring that all build output is kept separate
+# between the projects. Ideally, output could all be redirected to a path
+# defined within the BL's/project's output directory. However, the common
+# lwmake rules require that each submake target's output directory be contained
+# within that target's source directory. As a result, the only way to ensure
+# isolation is by establishing proper namespacing within each submake target's
+# local output directory.
+###############################################################################
+
+SUBMAKE_NAMESPACE := bl
+SUBMAKE_OUTPUTDIR := \
+  _out/$(SUBMAKE_NAMESPACE)/$(FALCON_ARCH)_$(LW_BUILD_TYPE)
+
+###############################################################################
+# RTOS Configuration
+###############################################################################
+
+include $(LWUPROC)/build/common/lwRtosVersion.lwmk
+
+RTOS_SRC  = $(LW_RTOS_SRC)
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(BLSW)/inc
+LW_INCLUDES += $(LW_RTOS_INCLUDES)
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/lwos/$(LWOS_VERSION)/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/swref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/hwref
+LW_INCLUDES += $(RESMAN_ROOT)/kernel/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(FALCON_TOOLS)/include
+LW_INCLUDES += $(MANUAL_PATH)
+LW_INCLUDES += $(CHIP_MANUAL_PATH)
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+
+IMG_TARGET  := $(OUTPUTDIR_ABS)/g_$(BLCFG_PROFILE)
+IMG_ELF     := $(IMG_TARGET).out
+IMG_READELF := $(IMG_TARGET).readelf
+IMG_H       := $(IMG_TARGET).h
+IMG_BIN     := $(IMG_TARGET).bin
+IMG_OBJDUMP := $(IMG_TARGET).objdump
+IMG_NM      := $(IMG_TARGET).nm
+IMG_DT      := $(IMG_TARGET).dt
+IMG_DBGLINE := $(IMG_TARGET).dbgline
+
+ifeq ("$(BOOT_FROM_HS_BUILD)","true")
+   IMG_TARGET_DBG   := $(IMG_TARGET)_dbg
+   IMG_TARGET_PROD  := $(IMG_TARGET)_prod
+   IMG_ELF_DBG := $(IMG_TARGET_DBG).out
+   IMG_ELF_PROD:= $(IMG_TARGET_PROD).out
+   IMG_SECTIONS:= $(IMG_TARGET).sections
+   IMG_H_DBG   := $(IMG_TARGET_DBG).h
+   IMG_H_PROD  := $(IMG_TARGET_PROD).h
+   IMG_MAP     := $(IMG_TARGET).map
+   IMG_SIG     := $(IMG_TARGET)_sig.h
+endif
+
+
+ifeq ("$(BOOT_FROM_HS_BUILD)","true")
+   RELEASE_FILES            = $(IMG_NM) $(IMG_OBJDUMP) $(IMG_READELF) $(IMG_ELF_PROD) $(IMG_ELF_DBG) $(IMG_H_DBG) $(IMG_H_PROD) $(IMG_SECTIONS) $(IMG_MAP)
+else
+   RELEASE_FILES            = $(IMG_H) $(IMG_NM) $(IMG_OBJDUMP) $(IMG_READELF)
+endif
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+LDFLAGS += -T $(LDSCRIPT) -lfalcon
+
+
+###############################################################################
+# Set the GENERATED_SOURCES that need to be picked-up by the build
+###############################################################################
+GENERATED_SOURCES := $(BLSRC_PARSED)
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+ifeq ("$(BOOT_FROM_HS_BUILD)","true")
+   SOURCES += $(BLSRC_ORIGINAL)
+endif
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(.)); delete $$ELW{PWD}; \
+		  print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(BLCFG_PROFILE)]"
+
+###############################################################################
+# Rules for building the ELF image and binary files
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+ifeq ("$(BOOT_FROM_HS_BUILD)","true")
+   all: $(IMG_ELF)  sign release
+else
+   all: $(IMG_H)
+endif
+
+##############################################################################
+# Sign the binary. Uses pre-build signing tool (linux only for now)
+###############################################################################
+SIG_GEN       = $(LWUPROC)/acr/utilities/siggen/siggen
+SIG_GEN_CFG   = $(BLSW)/build/sign/$(SIGGEN_CFG)
+GEN_CLASS_OS  = $(BLSW)/build/gen_class_os.pl
+GEN_CLASS_OUT = $(IMG_TARGET).h
+SIGN_SCRIPT   = "tmpsign.sh"
+OPENSSL       = $(LWUPROC)/utilities/openssl/openssl
+
+SIG_SCRIPT_EXP = $(foreach CHIP,$(SIGGEN_CHIPS),                                                                  \
+        "$(COPY) $(RELEASE_PATH)/g_$(BLCFG_PROFILE)_sig.h                                                         \
+         $(OUTPUTDIR_ABS)/g_$(BLCFG_PROFILE)_sig.h; chmod u+w                                                     \
+         $(OUTPUTDIR_ABS)/g_$(BLCFG_PROFILE)_sig.h ;                                                              \
+         $(SIG_GEN) $(SIG_GEN_CFG) $(IMG_TARGET) $(IMG_TARGET)                                                    \
+         -app $(OUTPUTDIR_ABS)/g_$(BLCFG_PROFILE)_patch.h                                                         \
+         -sig $(OUTPUTDIR_ABS)/g_$(BLCFG_PROFILE)_sig.h  -chip $(CHIP)                                            \
+         -fuseVer $(SIGGEN_FUSE_VER) -engineId $(SIGGEN_ENGINE_ID) -ucodeId $(SIGGEN_UCODE_ID)                    \
+         -skipSigPatching -calcPrevNSignatures $$(($(NUM_SIG_PER_UCODE)-1))                                       \
+         $(if $(filter $(IS_HS_ENCRYPTED),true), -encryptUcode -totAppFilePrefix                                  \
+         $(RELEASE_PATH)/g_$(BLCFG_PROFILE) -totAppFilePrefixDH $(RELEASE_PATH)/g_$(BLCFG_PROFILE))               \
+         -openssl $(OPENSSL);")
+
+RELEASE_FILES +=  $(IMG_SECTIONS) $(IMG_MAP)
+RELEASE_FILES += $(foreach CHIP,$(SIGGEN_CHIPS),"$(OUTPUTDIR_ABS)/g_$(BLCFG_PROFILE)_sig.h")
+RELEASE_FILES += $(foreach CHIP,$(SIGGEN_CHIPS),"$(OUTPUTDIR_ABS)/g_$(BLCFG_PROFILE)_patch.h")
+
+# Siggen looks for files of the type .out.<memory section>. But even if our
+# memory sections don't have anything starting at address 0x20000000, siggen
+# wants a file with that name and dumpexec won't generate it. Echo blank text
+# to it to create the file if it doesn't exist. If it exists, echo blank text
+# to the end of the file before ilwoking siggen.
+SIGGEN_DUMMY_TARGET   := $(IMG_TARGET).out.0x20000000
+
+sign:
+	$(info sign)
+	$(ECHO) $(BUILD_PROJECT_NAME) $(SIG_GEN_CFG) 
+	$(ECHO) "" >> $(SIGGEN_DUMMY_TARGET)
+	$(ECHO) $(SIG_SCRIPT_EXP) >> $(SIGN_SCRIPT)
+	$(ECHO) "$(PERL) $(GEN_CLASS_OS) -vppath $(FALCON_TOOLS)/bin -dump $(IMG_ELF).dump -hdr $(IMG_H_DBG)  -bin $(IMG_ELF_DBG) -base $(IMAGE_BASE) -array $(BLCFG_PROFILE)" >> $(SIGN_SCRIPT)
+	$(ECHO) "$(PERL) $(GEN_CLASS_OS) -vppath $(FALCON_TOOLS)/bin -dump $(IMG_ELF).dump -hdr $(IMG_H_PROD) -bin $(IMG_ELF_PROD) -base $(IMAGE_BASE) -array $(BLCFG_PROFILE)" >> $(SIGN_SCRIPT)
+	$(ECHO) "$(DUMPEXEC) -img $(IMG_TARGET)_dbg.out -b $(IMG_TARGET)_dbg.out" >> $(SIGN_SCRIPT)
+	$(ECHO) "$(DUMPEXEC) -img $(IMG_TARGET)_prod.out -b $(IMG_TARGET)_prod.out" >> $(SIGN_SCRIPT)
+	$(ECHO) $(BUILD_PROJECT_NAME) $(SIG_SCRIPT_EXP) 
+###############################################################################
+# Rule to produce the ELF image. Building all object-files and preprocessing
+# linker script is the prerequisite for this rule.
+###############################################################################
+$(IMG_ELF): $(OBJECTS) $(LDSCRIPT)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(CFLAGS) $(OBJECTS) -o $(IMG_ELF) $(LDFLAGS)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_READELF)
+	$(OBJDUMP) -d    $(IMG_ELF) >> $(IMG_OBJDUMP)
+	$(OBJDUMP) -S -d $(IMG_ELF) >> $(IMG_OBJDUMP).source
+	$(NM)      -S -n $(IMG_ELF) >> $(IMG_NM)
+ifeq ("$(BOOT_FROM_HS_BUILD)","true")
+	$(DUMPEXEC) -img $(IMG_ELF) -b $(IMG_ELF)
+	$(ECHO) $(NM)      $(IMG_ELF)       > $(IMG_MAP)
+	$(NM)      $(IMG_ELF)       >> $(IMG_MAP)
+else
+	$(DUMPEXEC) -img $(OUTPUTDIR)/loader -b $(IMG_ELF)
+	$(COPY) $(OUTPUTDIR)/loader.0x00000000 $(OUTPUTDIR)/loader.0x00000000.bin
+	$(COPY) $(OUTPUTDIR)/loader.0x10000000 $(OUTPUTDIR)/loader.0x10000000.bin
+endif
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_READELF))
+	$(READELF) --all $(IMG_ELF) >> $(IMG_READELF)
+ifeq ("$(BOOT_FROM_HS_BUILD)","true")
+	$(READELF) -S $(IMG_ELF) >> $(IMG_SECTIONS)
+endif
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(IMG_ELF) >> $(IMG_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(IMG_ELF)
+
+###############################################################################
+# Rule to parse the source with CCI tool
+###############################################################################
+
+$(BLSRC_PARSED): $(BLSRC_ORIGINAL)
+	$(ECHO) $(BUILD_PROJECT_NAME) CCI parsing $(notdir $@)
+	$(PERL) $(SCP_PARSER) $(SEC_ENUM_H) $(BLSRC_ORIGINAL) $(BLSRC_PARSED)
+
+###############################################################################
+# Rule to generate header file from binary
+###############################################################################
+ifeq ("$(BOOT_FROM_HS_BUILD)","false")
+$(IMG_H): $(IMG_ELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating header $(notdir $@)
+	$(PERL) $(GEN_CLASS_OS) -vppath $(FALCON_TOOLS)/bin -dump $(IMG_ELF).dump -hdr $(IMG_H) -bin $(IMG_ELF) -base $(IMAGE_BASE) -array $(BLCFG_PROFILE)
+endif
+
+###############################################################################
+# Rule to preprocess the linker script for current profile
+###############################################################################
+
+$(LDSCRIPT): $(LDSCRIPT_IN)
+	$(ECHO) $(BUILD_PROJECT_NAME) preprocessing $(notdir $@)
+	$(CPP) -x c -P -o $(LDSCRIPT) $(LD_DEFINES) $(LDSCRIPT_IN)
+
+#
+# When not building for DVS, the output image files need copied over to the RM
+# so that they get picked up by the driver/mods build. Trigger the process by
+# adding a phony prerequisite to 'all' called 'install'. The rule to rebuild
+# that target will perform the install process and will copy the files to the
+# RM if necessary.  Skip this process if the user has requested that files NOT
+# be installed via NO_INSTALL=true.
+#
+ifneq ($(LW_DVS_BLD),1)
+  ifneq ("$(NO_RELEASE)","true")
+    .PHONY: install
+    all: install
+  endif
+endif
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(LW_SOURCE)/uproc/build/scripts/release-imgs-if-changed.pl
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_ARGS += --output-prefix $(BUILD_PROJECT_NAME)
+ifeq ("$(BOOT_FROM_HS_BUILD)","true")
+   RELEASE_IMG_ARGS += --image         $(IMG_H_DBG)
+   ifneq ($(DEBUG_SIGN_ONLY),true)
+      RELEASE_IMG_ARGS += --image         $(IMG_H_PROD)
+   endif
+else
+   RELEASE_IMG_ARGS += --image         $(IMG_H)
+endif
+
+
+RELEASE_IMG_ARGS += --p4            $(P4)
+
+RELEASE_IMG_ARGS += --release-path  $(RELEASE_PATH)
+
+RELEASE_IMG_ARGS += --release-files            \
+  $(subst $(SPACE),$(COMMA),$(RELEASE_FILES))
+
+ifeq ("$(BOOT_FROM_HS)","true")
+release: $(IMG_ELF)
+	$(ECHO) $(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)  >> $(SIGN_SCRIPT)
+else
+release: $(IMG_H)
+	$(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)
+endif	
+
+# If the bl is used by LS Falcons, then we will call perl scripts that can
+# resolve which LS Falcons' signatures needs to be updated
+SIGN_LOCAL ?= 0
+
+#
+# We need to turn off --output-sync for the signing process, since otherwise
+# no interactive messages / warning etc would be displayed.
+#
+SIGN_MAKE_FLAGS = -Onone --no-print-directory
+
+gen_ls_sig: release
+	$(MAKE) $(SIGN_MAKE_FLAGS) -f $(GEN_LS_SIG) sign LS_FALCON=$(LS_FALCON) IMG_H=$(IMG_H) ENGINE_NAME=$(ENGINE_NAME) SIGN_LOCAL=$(SIGN_LOCAL)
+
+ifeq ("$(LS_FALCON)","true")
+  install: gen_ls_sig
+else
+  install: release
+endif
+
+###############################################################################
+# 'forcesync' is the same as the 'install' target except that we force the
+# files to be installed (ie. regardless of whether or not the c-file differs
+# from the RM version).
+###############################################################################
+
+forcesync: install
+forcesync: RELEASE_IMG_ARGS += --force
+
+###############################################################################
+# Rule for generating .dt/symdump file
+###############################################################################
+
+SYMDUMP_SCRIPT = $(LW_SOURCE)/pmu_sw/build/symdump/symdump.pl
+
+SYMDUMP_ARGS  += $(IMG_ELF) $(IMG_DT)
+SYMDUMP_ARGS  += --falcon-tools $(FALCON_TOOLS)
+SYMDUMP_ARGS  += --acl          $(APP_P4_CL)
+
+$(IMG_DT):
+	-$(PERL) $(SYMDUMP_SCRIPT) $(SYMDUMP_ARGS)
+
+ifeq ("$(INCLUDE_DT)","true")
+  all: $(IMG_DT)
+endif
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR_ABS)
+	-$(RMDIR) -rf $(SIGN_SCRIPT)
+
+.PHONY: clean_ucode
+clean: clean_ucode

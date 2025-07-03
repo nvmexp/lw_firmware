@@ -1,0 +1,32 @@
+@startuml
+title Ilwalidate RPC
+activate PERF_TASK
+    PERF_TASK -> VFE : handleRpc()
+    activate VFE
+        VFE -> OS : attachOverlays()
+        activate OS
+        deactivate OS
+
+        VFE -> OS : takeSemaphore(PERF_READ)
+        activate OS
+        deactivate OS
+
+        VFE -> VFE : ilwalidate()
+        activate VFE
+            note left
+            See perfVfeLoad
+            for details.
+            endnote
+            return status
+
+        VFE -> OS : giveSemaphore(PERF_READ)
+        activate OS
+        deactivate OS
+
+        VFE -> OS : detachOverlays()
+        activate OS
+        deactivate OS
+
+        return status
+deactivate PERF_TASK
+@enduml

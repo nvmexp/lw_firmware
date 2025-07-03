@@ -1,0 +1,33 @@
+# -*- mode: perl; -*-
+
+# RTTimer Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $rttimerHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_rttimer", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        SETUP => [
+            DESCRIPTION    => "Setup the Real-time Timer",
+            RETURN_TYPE    => "FLCN_STATUS",
+            STUB_RETURNS   => "ERROR",
+            ARGUMENTS      => 'RTTIMER_MODE mode, LwU32 interval, LwBool bIsModeOneShot',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_rttimer", "__FUNC__")',
+
+            _GP10X         => [ GP10X_and_later, ],
+            _STUB          => [ pre_GP10X, ],
+        ],
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $rttimerHal;
+

@@ -1,0 +1,75 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2019-2021 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+UNIT_DEFINES += PMU_RTOS ON_DEMAND_PAGING_BLK
+
+UNIT_INCLUDES += $(LW_SOURCE)/sdk/lwpu/inc/
+UNIT_INCLUDES += $(LW_SOURCE)/tools/UTF/ucode/libut/include/ut/
+UNIT_INCLUDES += $(LW_SOURCE)/uproc/libs/lwos/dev/inc/
+UNIT_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc/
+
+UNIT_SOURCES += $(LW_SOURCE)/uproc/libs/cmn/src/osptimer.c
+TEST_SOURCES += $(LW_SOURCE)/uproc/libs/cmn/src/osptimer-mock.c
+
+UNIT_SOURCES += $(LW_SOURCE)/pmu_sw/prod_app/task_watchdog.c
+
+#TODO: unit owner should port these to Tu10x and re-enable them in the build
+#TEST_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwoswatchdog-test.c
+TEST_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwoswatchdog-mock.c
+
+UNIT_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lib_lwf32.c
+TEST_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lib_lwf32-test.c
+
+UNIT_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lib_lw64.c
+#TODO: unit owner should port these to Tu10x and re-enable them in the build
+#TEST_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lib_lw64-test.c
+
+UNIT_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwosreg.c
+TEST_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwosreg-test.c
+
+TEST_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/regmacros-test.c
+
+TEST_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwos_dma-mock.c
+
+UNIT_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwoscmdmgmt.c
+
+UNIT_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/dmemovl.c
+TEST_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/dmemovl-test.c
+TEST_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/dmemovl-mock.c
+
+#TODO: unit owner should port these to Tu10x and re-enable them in the build
+#UNIT_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwos_dma.c
+UNIT_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwos_dma_lock.c
+#TODO: unit owner should port these to Tu10x and re-enable them in the build
+#TEST_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwos_dma-test.c
+
+UNIT_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwos_mem_error_hooks.c
+TEST_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwos_mem_error_hooks-test.c
+
+UNIT_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwostask.c
+#TODO: unit owner should port these to Tu10x and re-enable them in the build
+#TEST_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwostask-test.c
+#TEST_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwostask-mock.c
+
+UNIT_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwostmrcmn.c
+UNIT_SOURCES += $(LW_SOURCE)/pmu_sw/prod_app/os/lw/pmu_ostmrcallback.c
+UNIT_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwostmrcallback.c
+# These are temporarily disabled because lwostmrcallback-test.c is corrupting the UTF block
+# re-enable the test when this is fixed.
+#UNIT_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwostmrcallback-mock.c
+#TEST_SOURCES += $(LW_SOURCE)/uproc/libs/lwos/dev/src/lwostmrcallback-test.c
+
+TEST_SOURCES += $(LW_SOURCE)/uproc/libs/mutex/src/lib_semaphore-mock.c
+
+TEST_SOURCES += $(LW_SOURCE)/uproc/os/SafeRTOS/v5.16.0-lw1.2/lwrtos-mock.c
+
+PMUCFG_PROFILE := pmu-tu10x
+include $(LW_SOURCE)/pmu_sw/config/pmu-unit-test-cflags.mk

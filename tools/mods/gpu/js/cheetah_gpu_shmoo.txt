@@ -1,0 +1,222 @@
+/* -*- mode: Javascript -*-
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2010-2019 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+/**
+ * @file    tegra_gpu_shmoo.txt
+ * @brief   CheetAh GPU manufacturing shmoo configuration file
+ *
+ * Please see the wiki page MODS/Shmoo for documentation:
+ * http://wiki.lwpu.com/engwiki/index.php/MODS/Shmoo
+ *
+ * Typical usage:
+ * ./mods gshmoo.js -cfg tegra_gpu_shmoo.txt
+ * In case the test is interrupted, rerun and add -continue.
+ *
+ * By default GLStress is tuned. Edit ShmooConfig() below to tune GLStressZ.
+ */
+#include "mods.h"
+
+//------------------------------------------------------------------------------
+// Add extra command-line arguments here, if you want.
+
+function AddArgs(s)
+{
+    Argv = Argv.concat(s.split(/\s+/));
+}
+
+// Enable CSV report file.
+AddArgs("-out_csv");
+
+// Leave display alone.
+AddArgs("-null_display");
+
+// Golden values are not necessar for the tests we shmoo
+AddArgs("-no_gold");
+
+// Don't retry tests.
+AddArgs("-regress_miscompare_count 0");
+
+//------------------------------------------------------------------------------
+// The ShmooConfig function sets the Axis (control) and Meas (results) objects
+// for the shmoo.
+
+function ShmooConfig(shmoo)
+{
+    GLStressPropShmoo(shmoo);
+    //GLStressZPropShmoo(shmoo);
+    //VkStressPropShmoo(shmoo);
+
+    // Write a partial .csv or .jso report file just before each meas/test pass.
+    shmoo.PerPassCallback = Shmoo_WriteReports;
+
+    // Also set up the max perf point
+    SetSOCPerfPoint(GetTegraPerfPoints()[0]);
+}
+
+//------------------------------------------------------------------------------
+function CreatePowerMeas(test)
+{
+    var ctor = ShmooMeasSocPower;
+    return new ctor(test);
+}
+
+//------------------------------------------------------------------------------
+function GLStressPropShmoo(shmoo)
+{
+    // Measure RC and frames-per-second of test 2.
+    var t2Meas = new ShmooMeasGpuTest(
+        "GLStress", {LoopMs : 4000, Golden : {Action : Golden.Skip }});
+    shmoo.AddMeas(t2Meas);
+    shmoo.AddMeas(CreatePowerMeas(t2Meas));
+    // shmoo.AddMeas(new ShmooMeasOK("glsPerf", "FPS", 
+    //                               function() { return t2Meas.TestObj.Fps; }));
+
+    // Shmoo properties of test 2.
+    shmoo.AddAxis(new ShmooAxisProp(
+        t2Meas.TestArgs, "PpV", { Start: 5, Stop: 1e6, StepFactor: 1.25 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t2Meas.TestArgs, "NumTextures", { Start: 0, Stop: 32, Step: 1 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t2Meas.TestArgs, "TxSize", { Start: 1024, Stop: 0, Step: -8 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t2Meas.TestArgs, "TwoTex", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t2Meas.TestArgs, "UseMM", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t2Meas.TestArgs, "UseTessellation", [true, false]));
+
+    // Our "fitness" function for the genetic search: 
+    // Returns Watts if we were able to run glstress, or 0 otherwise.
+    //   rec[0] is is RC of attempt to measure at this axis location.
+    //   rec[1] is RC from running test 2, or invalid if rec[0]!=OK
+    //   rec[2] is Watts from running test 2, or invalid if rec[0]!=OK
+
+    var fitness = function(rec) { return (rec[0] == OK) ? rec[2] : 0; };
+
+    // Use a genetic search of this very large search-space.
+    shmoo.ConfigGeneticSearch(
+        fitness,
+        250,                  // size of first generation created randomly
+        250,                  // generation size
+        100,                  // surviving size per generation
+        0.01,                 // mutate probability per gene per new chromosome
+        45,                   // max generations
+        100                   // stop if we reach this
+    );
+}
+
+//------------------------------------------------------------------------------
+function GLStressZPropShmoo(shmoo)
+{
+    // Measure RC and frames-per-second of test 166.
+    var t166Meas = new ShmooMeasGpuTest(
+        "GLStressZ", {   LoopMs : 4000
+                        ,Golden : {Action : Golden.Skip }
+                        ,DoGpuCompare : false
+                     });
+    shmoo.AddMeas(t166Meas);
+    shmoo.AddMeas(CreatePowerMeas(t166Meas));
+
+    // Shmoo properties of test.
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "PpV", { Start: 3, Stop: 1e6, StepFactor: 1.25 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "NumTextures", { Start: 0, Stop: 32, Step: 1 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "TxSize", { Start: 1024, Stop: 0, Step: -8 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "Ztest", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "TxD", { Start: -2, Stop: 2, Step: 0.125 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "Stencil", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "TwoTex", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "LwllBack", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "TorusMajor", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "TorusDiameter", { Start: 2.0, Stop: 40.0, StepFactor: 1.1}));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "TorusHoleDiameter", { Start: .5, Stop: 8.0, StepFactor: 1.1}));
+
+    // Our "fitness" function for the genetic search: 
+    // Returns Watts if we were able to run glstress, or 0 otherwise.
+    //   rec[0] is is RC of attempt to measure at this axis location.
+    //   rec[1] is RC from running test, or invalid if rec[0]!=OK
+    //   rec[2] is Watts from running test, or invalid if rec[0]!=OK
+
+    var fitness = function(rec) { return (rec[0] == OK) ? rec[2] : 0; };
+
+    // Use a genetic search of this very large search-space.
+    shmoo.ConfigGeneticSearch(
+        fitness,
+        150,                  // generation size
+         75,                  // surviving size per generation
+        0.01,                 // mutate probability per gene per new chromosome
+        45,                   // max generations
+        100                   // stop if we reach this
+    );
+}
+
+//------------------------------------------------------------------------------
+function VkStressPropShmoo(shmoo)
+{
+    var testMeas = new ShmooMeasGpuTest(
+        "VkStress", {LoopMs : 4000, Golden : {Action : Golden.Skip }});
+    shmoo.AddMeas(testMeas);
+    shmoo.AddMeas(CreatePowerMeas(testMeas));
+
+    // Shmoo properties of the test
+    shmoo.AddAxis(new ShmooAxisProp(
+        testMeas.TestArgs, "PpV", { Start: 10, Stop: 1e4, StepFactor: 1.25 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        testMeas.TestArgs, "DrawJobTimeNs", { Start: 10000000, Stop: 100000000, Step: 1000000 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        testMeas.TestArgs, "SampleCount", [1, 2, 4, 8]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        testMeas.TestArgs, "MaxTextureSize", [8, 16, 32, 64, 128]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        testMeas.TestArgs, "NumLights", { Start: 1, Stop: 8, Step: 1 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        testMeas.TestArgs, "TexReadsPerDraw", { Start: 0, Stop: 4, Step: 1}));
+    shmoo.AddAxis(new ShmooAxisProp(
+        testMeas.TestArgs, "TexIdxFarOffset", { Start: 0, Stop: 4, Step: 1}));
+    shmoo.AddAxis(new ShmooAxisProp(
+        testMeas.TestArgs, "TexIdxStride", { Start: 0, Stop: 4, Step: 1}));
+    shmoo.AddAxis(new ShmooAxisProp(
+        testMeas.TestArgs, "Ztest", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        testMeas.TestArgs, "Stencil", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        testMeas.TestArgs, "UseTessellation", [true, false]));
+
+    // Our "fitness" function for the genetic search: 
+    // Returns Watts if we were able to run glstress, or 0 otherwise.
+    //   rec[0] is is RC of attempt to measure at this axis location.
+    //   rec[1] is RC from running test, or invalid if rec[0]!=OK
+    //   rec[2] is Watts from running test, or invalid if rec[0]!=OK
+
+    var fitness = function(rec) { return (rec[0] == OK) ? rec[2] : 0; };
+
+    // Use a genetic search of this very large search-space.
+    shmoo.ConfigGeneticSearch(
+        fitness,
+        250,                  // generation size
+        100,                  // surviving size per generation
+        0.01,                 // mutate probability per gene per new chromosome
+        45,                   // max generations
+        100                   // stop if we reach this
+    );
+}
+
+// vim:ft=javascript

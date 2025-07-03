@@ -1,0 +1,457 @@
+/*
+ * Copyright (c) 2016-2021, LWPU Corporation. All Rights Reserved.
+ *
+ * LWPU Corporation and its licensors retain all intellectual property and
+ * proprietary rights in and to this software and related documentation.  Any
+ * use, reproduction, disclosure or distribution of this software and related
+ * documentation without an express license agreement from LWPU Corporation
+ * is strictly prohibited.
+ *
+ * Header file for CheetAh Security Elliptic Engine
+ */
+
+#ifndef INCLUDED_TEGRA_PKA1_H
+#define INCLUDED_TEGRA_PKA1_H
+
+#ifdef DOXYGEN
+#include <ccc_doxygen.h>
+#endif
+
+/* Move the rest to some kind of arse_pka1.h */
+
+/* All offsets in this file MUST BE DEFINED with the NEW OFFSET RANGES
+ * for T194. These will be automatically colwerted to the offset ranges
+ * in T186 by the macros, depending on compile time defines.
+ */
+
+/* New designs use 0x0000 offset for PKA1 registers.
+ * The original offsets in T186 was 0x8000 larger.
+ *
+ * OLD OFFSET		BLOCK		NEW OFFSET
+ *----------------------------------------------------
+ * 0x8000..0x8FFC	CONTROL		0x0000..0x0FFC
+ * 0xBF00..0xBFFC	TRNG		0x3F00..0x3FFC
+ * 0xC000..0xC3FC	CTRL/STATUS	0x4000..0x43FC
+ * 0xC400..0xDFFC	OPERAND/BANK	0x4400..0x5FFC
+ * 0xE000..0xFFFF	FW		0x8000..0xBFFF
+ *
+ * NOTE: Only the NEW OFFSETs are allowed in this file.
+ */
+#if !CCC_SOC_FAMILY_IS(CCC_SOC_FAMILY_T18X)
+
+#define PKA1_base_offset			0x0000U
+
+#else
+
+/* T186: add this to the offsets
+ */
+#define PKA1_base_offset			0x8000U
+
+#endif /* !CCC_SOC_FAMILY_IS(CCC_SOC_FAMILY_T18X) */
+
+#if SE_RD_DEBUG
+#define PKA1_CONTROL_offset(x)						\
+	({ DEBUG_ASSERT((0x0000 <= (x)) && ((x) <= 0x0FFC)); ((PKA1_base_offset) + (x)); })
+#define PKA1_CS_offset(x)						\
+	({ DEBUG_ASSERT((0x4000 <= (x)) && ((x) <= 0x43FC)); ((PKA1_base_offset) + (x)); })
+#define PKA1_TRNG_offset(x)						\
+	({ DEBUG_ASSERT((0x3F00 <= (x)) && ((x) <= 0x3FFC)); ((PKA1_base_offset) + (x)); })
+#define PKA1_OPERAND_offset(x)						\
+	({ DEBUG_ASSERT((0x4400 <= (x)) && ((x) <= 0x5FFC)); ((PKA1_base_offset) + (x)); })
+
+/* PKA1 FW(x): DEBUG_ASSERT(((x) >= 0x8000) && ((x) <= 0xBFFF)); */
+
+#else
+#define PKA1_CONTROL_offset(x) ((PKA1_base_offset) + (x))	// control
+#define PKA1_CS_offset(x)      ((PKA1_base_offset) + (x))	// control/status
+#define PKA1_TRNG_offset(x)    ((PKA1_base_offset) + (x))	// trng
+#define PKA1_OPERAND_offset(x) ((PKA1_base_offset) + (x))	// bank register operands
+#endif
+
+#define SE_PKA1_CTRL_OFFSET			PKA1_CS_offset(0x4000U)
+
+/* This uses same fields as SE_PKA1_CTRL_OFFSET register and
+ * it is used to add key loading and scrubbing around modular
+ * exponentiation and point multiplication operations
+ *
+ * LW added shadow register.
+ * Normally clients should use this register instead of SE_PKA1_CTRL_OFFSET
+ */
+#define SE_PKA1_CTRL_PKA_CONTROL_OFFSET		PKA1_CONTROL_offset(0x0108U)
+
+#define SE_PKA1_PKA_JUMP_PROBABILITY		PKA1_CS_offset(0x4044U)
+#define SE_PKA1_PKA_JUMP_PROBABILITY_SHIFT	0U
+#define SE_PKA1_PKA_JUMP_PROBABILITY_MASK	0x1FFFU
+
+#define SE_PKA1_FLAGS_OFFSET			PKA1_CS_offset(0x4024U)
+#define SE_PKA1_FLAGS_FLAG_F0_SHIFT		4U
+#define SE_PKA1_FLAGS_FLAG_F0(x)		\
+	((x) << SE_PKA1_FLAGS_FLAG_F0_SHIFT)
+#define SE_PKA1_FLAGS_FLAG_F1_SHIFT		5U
+#define SE_PKA1_FLAGS_FLAG_F1(x)		\
+	((x) << SE_PKA1_FLAGS_FLAG_F1_SHIFT)
+#define SE_PKA1_FLAGS_FLAG_F3_SHIFT		7U
+#define SE_PKA1_FLAGS_FLAG_F3(x)		\
+	((x) << SE_PKA1_FLAGS_FLAG_F3_SHIFT)
+#define SE_PKA1_FLAGS_FLAG_ZERO_SHIFT		0U
+#define SE_PKA1_FLAGS_FLAG_ZERO(x)		\
+	((x) << SE_PKA1_FLAGS_FLAG_ZERO_SHIFT)
+
+#define SE_PKA1_FSTACK_PTR_OFFSET		PKA1_CS_offset(0x4010U)
+
+#define SE_ELP_ENABLE				(uint32_t)1U
+#define SE_ELP_DISABLE				(uint32_t)0U
+
+#define SE_ELP_FALSE				(bool)0U
+#define SE_ELP_TRUE				(bool)1U
+
+#if !defined(HAVE_CERT_C_COMPATIBLE_MACRO_NAMES)
+/* These are defined only for backwards compatibility,
+ * no longer used by CCC. The CCC_E* names are used by
+ * CCC code for Cert-C compatibility.
+ */
+#define ELP_ENABLE	SE_ELP_ENABLE
+#define ELP_DISABLE	SE_ELP_DISABLE
+
+#define ELP_FALSE	SE_ELP_FALSE
+#define ELP_TRUE	SE_ELP_TRUE
+#endif /*  !defined(HAVE_CERT_C_COMPATIBLE_MACRO_NAMES) */
+
+#define SE_PKA1_INT_ENABLE_OFFSET		PKA1_CS_offset(0x4040U)
+#define SE_PKA1_INT_ENABLE_IE_IRQ_EN_SHIFT	30U
+#define SE_PKA1_INT_ENABLE_IE_IRQ_EN(x)		\
+	((x) << SE_PKA1_INT_ENABLE_IE_IRQ_EN_SHIFT)
+
+#define SE_PKA1_CTRL_SE_INTR_MASK_OFFSET	PKA1_CONTROL_offset(0x0140U)
+#define SE_PKA1_CTRL_SE_INTR_MASK_EIP1_TRNG_SHIFT	9
+#define SE_PKA1_CTRL_SE_INTR_MASK_EIP1_TRNG(x) \
+	((x) << SE_PKA1_CTRL_SE_INTR_MASK_EIP1_TRNG_SHIFT)
+#define SE_PKA1_CTRL_SE_INTR_MASK_EIP0_PKA_SHIFT	8
+#define SE_PKA1_CTRL_SE_INTR_MASK_EIP0_PKA(x) \
+	((x) << SE_PKA1_CTRL_SE_INTR_MASK_EIP0_PKA_SHIFT)
+
+#define SE_PKA1_STATUS_OFFSET			PKA1_CS_offset(0x4020U)
+#define SE_PKA1_STATUS_IRQ_STAT_SHIFT		30U
+#define SE_PKA1_STATUS_IRQ_STAT(x)		\
+	((x) << SE_PKA1_STATUS_IRQ_STAT_SHIFT)
+
+#define SE_PKA1_CTRL_RESET_OFFSET		PKA1_CONTROL_offset(0x0100U)
+#define SE_PKA1_CTRL_RESET_ZEROIZE_TRNG_SHIFT	0x3
+#define SE_PKA1_CTRL_RESET_TRNG_RESET_SHIFT	0x2
+#define SE_PKA1_CTRL_RESET_SE_SOFT_RESET_SHIFT	0x1
+
+#define SE_PKA1_CTRL_RESET_ZEROIZE_TRNG(x)	\
+	((x) << SE_PKA1_CTRL_RESET_ZEROIZE_TRNG_SHIFT)
+#define SE_PKA1_CTRL_RESET_TRNG_RESET(x)	\
+	((x) << SE_PKA1_CTRL_RESET_TRNG_RESET_SHIFT)
+#define SE_PKA1_CTRL_RESET_SE_SOFT_RESET(x)	\
+	((x) << SE_PKA1_CTRL_RESET_SE_SOFT_RESET_SHIFT)
+
+#define SE_PKA1_CTRL_STATUS_OFFSET		PKA1_CONTROL_offset(0x010LW)
+
+#define SE_PKA1_CTRL_CG_STATUS_SHIFT		31U
+#define SE_PKA1_CTRL_CG_STATUS_BUSY		1U
+#define SE_PKA1_CTRL_CG_STATUS_IDLE		0U
+
+#define SE_PKA1_CTRL_CONTROL_STATUS_SHIFT	4U
+#define SE_PKA1_CTRL_CONTROL_STATUS_IDLE	0U
+#define SE_PKA1_CTRL_CONTROL_STATUS_MASK	0x3U	// mask 0x3 => 2 bits => 5:4
+
+#define SE_PKA1_CTRL_SCRUB_STATUS_SHIFT		8U
+#define SE_PKA1_CTRL_SCRUB_STATUS_IDLE		0U
+#define SE_PKA1_CTRL_SCRUB_STATUS_MASK		0xFU	// mask 0xf => 4 bits => 11:8
+
+#define SE_PKA1_CTRL_TRNG_STATUS_SHIFT		2U
+#define SE_PKA1_CTRL_TRNG_STATUS_BUSY		1U
+#define SE_PKA1_CTRL_TRNG_STATUS_IDLE		0U
+
+#define SE_PKA1_CTRL_PKA_STATUS_SHIFT		1U
+#define SE_PKA1_CTRL_PKA_STATUS_BUSY		1U
+#define SE_PKA1_CTRL_PKA_STATUS_IDLE		0U
+
+#define SE_PKA1_CTRL_SE_STATUS_SHIFT		0U
+#define SE_PKA1_CTRL_SE_STATUS_BUSY		1U
+#define SE_PKA1_CTRL_SE_STATUS_IDLE		0U
+
+#define SE_PKA1_CTRL_CG_STATUS(x)		\
+	((x) << SE_PKA1_CTRL_CG_STATUS_SHIFT)
+#define SE_PKA1_CTRL_CONTROL_STATUS(x)		\
+	((x) << SE_PKA1_CTRL_CONTROL_STATUS_SHIFT)
+#define SE_PKA1_CTRL_SCRUB_STATUS(x)		\
+	((x) << SE_PKA1_CTRL_SCRUB_STATUS_SHIFT)
+#define SE_PKA1_CTRL_TRNG_STATUS(x)		\
+	((x) << SE_PKA1_CTRL_TRNG_STATUS_SHIFT)
+#define SE_PKA1_CTRL_PKA_STATUS(x)		\
+	((x) << SE_PKA1_CTRL_PKA_STATUS_SHIFT)
+#define SE_PKA1_CTRL_SE_STATUS(x)		\
+	((x) << SE_PKA1_CTRL_SE_STATUS_SHIFT)
+
+#define SE_PKA1_RETURN_CODE_OFFSET		PKA1_CS_offset(0x4008U)
+#define SE_PKA1_RETURN_CODE_STOP_REASON_ABNORMAL (uint32_t)0xFFU
+#define SE_PKA1_RETURN_CODE_STOP_REASON_SHIFT	16U
+#define SE_PKA1_RETURN_CODE_STOP_REASON(x)	\
+	((x) << SE_PKA1_RETURN_CODE_STOP_REASON_SHIFT)
+
+#define SE_PKA1_WATCHDOG_OFFSET			PKA1_CS_offset(0x4028U)
+
+#define SE_PKA1_MUTEX_WATCHDOG_OFFSET		PKA1_CONTROL_offset(0x0110U)
+/* Note: Releasing this will auto-scrub PKA1 operand memory */
+#define SE_PKA1_MUTEX_OFFSET			PKA1_CONTROL_offset(0x0114U)
+/* Note: Releasing this does NOT auto-scrub PKA1 operand memory */
+#define SE_PKA1_MUTEX_RELEASE_OFFSET		PKA1_CONTROL_offset(0x0118U)
+
+#define SE_PKA1_MUTEX_TIMEOUT_ACTION_OFFSET	PKA1_CONTROL_offset(0x0128U)
+#define SE_PKA1_MUTEX_TIMEOUT_ACTION		0x2U
+
+#define SE_PKA1_CTRL_SCC_CONTROL_OFFSET		PKA1_CONTROL_offset(0x012lw)
+#define SE_PKA1_CTRL_SCC_CONTROL_SHIFT		0U
+#define SE_PKA1_CTRL_SCC_CONTROL(x)	\
+	((x) << SE_PKA1_CTRL_SCC_CONTROL_SHIFT)
+#define SE_PKA1_CTRL_SCC_CONTROL_MASK		SE_PKA1_CTRL_SCC_CONTROL(0x1U)
+#define SE_PKA1_CTRL_SCC_CONTROL_DISABLE	1U
+#define SE_PKA1_CTRL_SCC_CONTROL_ENABLE		0U
+
+#define SE_PKA1_ERROR_CAPTURE_OFFSET		PKA1_CONTROL_offset(0x0134U)
+
+#define SE_PKA1_CTRL_GO_SHIFT			31U
+#define SE_PKA1_CTRL_GO_START			(uint32_t)1U
+#define SE_PKA1_CTRL_GO_NOP			(uint32_t)0U
+#define SE_PKA1_CTRL_GO(x)			\
+	((x) << SE_PKA1_CTRL_GO_SHIFT)
+
+#define SE_PKA1_CTRL_BASE_RADIX_SHIFT		8U
+#define SE_PKA1_CTRL_BASE_256			2U
+#define SE_PKA1_CTRL_BASE_512			3U
+#define SE_PKA1_CTRL_BASE_1024			4U
+#define SE_PKA1_CTRL_BASE_2048			5U
+#define SE_PKA1_CTRL_BASE_4096			6U
+#define SE_PKA1_CTRL_BASE_RADIX(x)		\
+	((x) << SE_PKA1_CTRL_BASE_RADIX_SHIFT)
+
+#define SE_PKA1_CTRL_PARTIAL_RADIX_SHIFT	0U
+
+#define SE_PKA1_CTRL_PARTIAL_RADIX(x)		\
+	((x) << SE_PKA1_CTRL_PARTIAL_RADIX_SHIFT)
+
+// in HAVE_ELLIPTIC_20
+// M521_MODE field => 20:16
+#define SE_PKA1_CTRL_M521_MODE_SHIFT		16U
+#define SE_PKA1_CTRL_M521_MODE(x)		\
+	((x) << SE_PKA1_CTRL_M521_MODE_SHIFT)
+#define SE_PKA1_CTRL_M521_MODE_SET		(uint32_t)9U	// Set this value to enable 521 mode, else 0
+#define SE_PKA1_CTRL_M521_MODE_RESET		(uint32_t)0U	// Not M521 (set to 0)
+
+#define SE_PKA1_CTRL_CONTROL_OFFSET		PKA1_CONTROL_offset(0x0104U)
+#define SE_PKA1_CTRL_CONTROL_AUTO_RESEED_SHIFT	0U
+#define SE_PKA1_CTRL_CONTROL_AUTO_RESEED(x)	\
+	((x) << SE_PKA1_CTRL_CONTROL_AUTO_RESEED_SHIFT)
+
+#define SE_PKA1_CTRL_CONTROL_LOAD_KEY_SHIFT	2U
+#define SE_PKA1_CTRL_CONTROL_LOAD_KEY(x)	\
+	((x) << SE_PKA1_CTRL_CONTROL_LOAD_KEY_SHIFT)
+
+#define SE_PKA1_CTRL_CONTROL_SCRUB_PKA_MEM_SHIFT 3U
+#define SE_PKA1_CTRL_CONTROL_SCRUB_PKA_MEM(x)	\
+	((x) << SE_PKA1_CTRL_CONTROL_SCRUB_PKA_MEM_SHIFT)
+
+#define SE_PKA1_CTRL_CONTROL_KEYSLOT_SHIFT	16U	// mask 0xf => 4 bits 19:16
+#define SE_PKA1_CTRL_CONTROL_KEYSLOT_0		0x00U
+#define SE_PKA1_CTRL_CONTROL_KEYSLOT_1		0x01U
+#define SE_PKA1_CTRL_CONTROL_KEYSLOT_2		0x02U
+#define SE_PKA1_CTRL_CONTROL_KEYSLOT_3		0x03U
+#define SE_PKA1_CTRL_CONTROL_KEYSLOT(x)		\
+	((x) << SE_PKA1_CTRL_CONTROL_KEYSLOT_SHIFT)
+
+#define SE_PKA1_RSA512_INPUT_SIZE		64U
+#define SE_PKA1_RSA768_INPUT_SIZE		96U
+#define SE_PKA1_RSA1024_INPUT_SIZE		128U
+#define SE_PKA1_RSA1536_INPUT_SIZE		192U
+#define SE_PKA1_RSA2048_INPUT_SIZE		256U
+#define SE_PKA1_RSA3072_INPUT_SIZE		384U
+#define SE_PKA1_RSA4096_INPUT_SIZE		512U
+
+#define SE_PKA1_PRG_ENTRY_OFFSET		PKA1_CS_offset(0x4004U)
+
+#define PKA1_BANK_START_A			PKA1_OPERAND_offset(0x4400U)	// 0x4400 - 0x47FC
+#define PKA1_BANK_START_B			PKA1_OPERAND_offset(0x4800U)	// 0x4800 - 0x4BFC
+#define PKA1_BANK_START_C			PKA1_OPERAND_offset(0x4C00U)	// 0x4C00 - 0x4FFC
+#define PKA1_BANK_START_D			PKA1_OPERAND_offset(0x5000U)	// 0x5000 - 0x5FFC
+
+// firmware range 0xE000..0xFFFF for LW, in new mem allocation it is
+// in 0x8000..0xBFFF
+
+#define PKA1_OP_MEM_SPACE_START			PKA1_BANK_START_A
+#define PKA1_OP_MEM_SPACE_END			(PKA1_BANK_START_D + 0x3FC)
+
+#define SE_PKA1_BANK_SWITCH_A_OFFSET		PKA1_CS_offset(0x4050U)
+#define SE_PKA1_BANK_SWITCH_B_OFFSET		PKA1_CS_offset(0x4054U)
+#define SE_PKA1_BANK_SWITCH_C_OFFSET		PKA1_CS_offset(0x4058U)
+#define SE_PKA1_BANK_SWITCH_D_OFFSET		PKA1_CS_offset(0x405LW)
+
+/* SE_PKA1_CTRL_KSLT_ADDR && SE_PKA1_CTRL_KSLT_DATA */
+#define SE_PKA1_KEYSLOT_DATA_OFFSET(kslot)	(PKA1_CONTROL_offset(0x0810U)+((kslot)*4U))
+#define SE_PKA1_KEYSLOT_ADDR_OFFSET(kslot)	(PKA1_CONTROL_offset(0x0800U)+((kslot)*4U))
+
+#define SE_PKA1_KEYSLOT_ADDR_AUTO_INC_SHIFT	31U
+#define SE_PKA1_KEYSLOT_ADDR_AUTO_INC(x)	\
+	((x) << SE_PKA1_KEYSLOT_ADDR_AUTO_INC_SHIFT)
+
+#define SE_PKA1_KEYSLOT_ADDR_WORD_SHIFT		0U
+#define SE_PKA1_KEYSLOT_ADDR_WORD(x)		\
+	((x) << SE_PKA1_KEYSLOT_ADDR_WORD_SHIFT)
+
+#define SE_PKA1_KEYSLOT_ADDR_FIELD_SHIFT	8U
+#define SE_PKA1_KEYSLOT_ADDR_FIELD(x)		\
+	((x) << SE_PKA1_KEYSLOT_ADDR_FIELD_SHIFT)
+
+#define SE_PKA1_INSTR_SINCE_GO_OFFSET		PKA1_CS_offset(0x4014U)
+#define SE_PKA1_CYCLES_SINCE_GO_OFFSET		PKA1_CS_offset(0x402LW)
+
+#define SE_PKA1_INDEX_I_OFFSET			PKA1_CS_offset(0x4030U)
+#define SE_PKA1_INDEX_J_OFFSET			PKA1_CS_offset(0x4034U)
+#define SE_PKA1_INDEX_K_OFFSET			PKA1_CS_offset(0x4038U)
+#define SE_PKA1_INDEX_L_OFFSET			PKA1_CS_offset(0x403LW)
+
+#define SE_PKA1_PKA_CONFIGURATION_OFFSET	PKA1_CS_offset(0x401LW)
+#define SE_PKA1_PKA_CONFIGURATION_ENDIAN_BYTE_SWAP_SHIFT 26U
+#define SE_PKA1_PKA_CONFIGURATION_ENDIAN_BYTE_SWAP(x) \
+	((x) << SE_PKA1_PKA_CONFIGURATION_ENDIAN_BYTE_SWAP_SHIFT)
+
+#if 0 // DISABLED => use arse_rng1.h
+
+/* SE_RNG1 entries */
+
+#define SE_RNG1_MUTEX_WATCHDOG_OFFSET		0xFD0U
+#define SE_RNG1_MUTEX_OFFSET			0xFD8U
+#define SE_RNG1_MUTEX_TIMEOUT_ACTION		0x2U
+#define SE_RNG1_MUTEX_TIMEOUT_ACTION_OFFSET	0xFD4U
+#define SE_RNG1_CTRL_OFFSET			0xF00U
+
+#define SE_RNG1_INT_EN_OFFSET			0xFC0U
+#define SE_RNG1_IE_OFFSET			0xF10U
+
+#define SE_RNG1_STATUS_OFFSET			0xF0LW
+#define SE_RNG1_STATUS_BUSY_SHIFT		31U
+#define SE_RNG1_STATUS_BUSY(x)			\
+	((x) << SE_RNG1_STATUS_BUSY_SHIFT)
+
+#define SE_RNG1_STATUS_SELWRE_SHIFT		6U
+#define STATUS_SELWRE				1U
+#define STATUS_PROMISLWOUS			0U
+#define SE_RNG1_STATUS_SELWRE(x)		\
+	((x) << SE_RNG1_STATUS_SELWRE_SHIFT)
+
+#define SE_RNG1_ISTATUS_OFFSET			0xF14U
+#define ISTATUS_ACTIVE				1U
+#define ISTATUS_CLEAR				0U
+
+#define SE_RNG1_ISTATUS_NOISE_RDY_SHIFT		2U
+#define SE_RNG1_ISTATUS_NOISE_RDY(x)		\
+	((x) << SE_RNG1_ISTATUS_NOISE_RDY_SHIFT)
+#define SE_RNG1_ISTATUS_DONE_SHIFT		4U
+#define SE_RNG1_ISTATUS_DONE(x)			\
+	((x) << SE_RNG1_ISTATUS_DONE_SHIFT)
+#define SE_RNG1_ISTATUS_KAT_COMPLETED_SHIFT	1U
+#define SE_RNG1_ISTATUS_KAT_COMPLETED(x)	\
+	((x) << SE_RNG1_ISTATUS_KAT_COMPLETED_SHIFT)
+#define SE_RNG1_ISTATUS_ZEROIZED_SHIFT		0U
+#define SE_RNG1_ISTATUS_ZEROIZED(x)		\
+	((x) << SE_RNG1_ISTATUS_ZEROIZED_SHIFT)
+
+#define SE_RNG1_INT_STATUS_OFFSET		0xFC4U
+#define STATUS_ACTIVE				1U
+#define STATUS_CLEAR				0U
+#define SE_RNG1_INT_STATUS_EIP0_SHIFT		8U
+#define SE_RNG1_INT_STATUS_EIP0(x)		\
+	((x) << SE_RNG1_INT_STATUS_EIP0_SHIFT)
+
+#define SE_RNG1_NPA_DATA0_OFFSET		0xF34U
+
+#define SE_RNG1_SE_MODE_OFFSET			0xF04U
+#define RNG1_MODE_ADDIN_PRESENT_SHIFT		4U
+#define RNG1_MODE_ADDIN_PRESENT			\
+	(SE_ELP_TRUE << RNG1_MODE_ADDIN_PRESENT_SHIFT)
+#define RNG1_MODE_SEC_ALG_SHIFT			0U
+#define RNG1_MODE_SEC_ALG			\
+	(SE_ELP_TRUE << RNG1_MODE_SEC_ALG_SHIFT)
+
+#define SE_RNG1_SE_SMODE_OFFSET			0xF08U
+#define SE_RNG1_SE_SMODE_SELWRE_SHIFT		1U
+#define SMODE_SELWRE				1U
+#define SMODE_PROMISLWOUS			0U
+#define SE_RNG1_SE_SMODE_SELWRE(x)		\
+	((x) << SE_RNG1_SE_SMODE_SELWRE_SHIFT)
+
+#define SE_RNG1_SE_SMODE_NONCE_SHIFT		0U
+#define SE_RNG1_SE_SMODE_NONCE(x)		\
+	((x) << SE_RNG1_SE_SMODE_NONCE_SHIFT)
+
+#define SE_RNG1_RAND0_OFFSET			0xF24U
+#define SE_RNG1_ALARMS_OFFSET			0xF18U
+
+#endif /* RNG1 entries */
+
+/* SE_PKA1_TRNG entries */
+
+#define SE_PKA1_TRNG_CTRL_OFFSET		PKA1_TRNG_offset(0x3F00U)
+#define SE_PKA1_TRNG_CTRL_CMD_SHIFT		0U
+#define SE_PKA1_TRNG_CTRL_CMD(x)		\
+	((x) << SE_PKA1_TRNG_CTRL_CMD_SHIFT)
+#define SE_PKA1_TRNG_CTRL_CMD_NOP		0U
+#define SE_PKA1_TRNG_CTRL_CMD_GENERATE		1U
+#define SE_PKA1_TRNG_CTRL_CMD_FETCH_ENTROPY	2U /* if ELP_TRNG2_CONFIG_RANDOM_RESEED_FE is not HW configured, this will be a NOP */
+#define SE_PKA1_TRNG_CTRL_CMD_LOAD_NONCE	3U /* load a new NONCE from SEED regs; if enabled in SMODE.NONCE_MODE */
+
+#define SE_PKA1_TRNG_MODE_OFFSET		PKA1_TRNG_offset(0x3F08U)
+#define SE_PKA1_TRNG_MODE_R256_SHIFT		3U
+#define SE_PKA1_TRNG_MODE_R256(x)		\
+	((x) << SE_PKA1_TRNG_MODE_R256_SHIFT)
+
+#define SE_PKA1_TRNG_SMODE_OFFSET		PKA1_TRNG_offset(0x3F0LW)
+#define SE_PKA1_TRNG_SMODE_SELWRE_SHIFT		8U
+#define SE_PKA1_TRNG_SMODE_SELWRE(x)		\
+	((x) << SE_PKA1_TRNG_SMODE_SELWRE_SHIFT)
+
+#define SE_PKA1_TRNG_SMODE_NONCE_SHIFT		2U
+#define SE_PKA1_TRNG_SMODE_NONCE(x)		\
+	((x) << SE_PKA1_TRNG_SMODE_NONCE_SHIFT)
+
+#define SE_PKA1_TRNG_STATUS_OFFSET		PKA1_TRNG_offset(0x3F04U)
+#define SE_PKA1_TRNG_STATUS_SELWRE_SHIFT	8U
+#define SE_PKA1_TRNG_STATUS_SELWRE(x)		\
+	((x) << SE_PKA1_TRNG_STATUS_SELWRE_SHIFT)
+
+#define SE_PKA1_TRNG_STATUS_NONCE_SHIFT		2U
+#define SE_PKA1_TRNG_STATUS_NONCE(x)		\
+	((x) << SE_PKA1_TRNG_STATUS_NONCE_SHIFT)
+
+#define SE_PKA1_TRNG_STATUS_SEEDED_SHIFT	9U
+#define SE_PKA1_TRNG_STATUS_SEEDED(x)		\
+	((x) << SE_PKA1_TRNG_STATUS_SEEDED_SHIFT)
+
+#define SE_PKA1_TRNG_STATUS_LAST_RESEED_SHIFT	16U
+
+#define TRNG_LAST_RESEED_HOST			0U
+#define TRNG_LAST_RESEED_NONCE			3U
+#define TRNG_LAST_RESEED_RESEED			4U
+#define TRNG_LAST_RESEED_UNSEEDED		7U
+
+#define SE_PKA1_TRNG_STATUS_LAST_RESEED_MASK	0x7U	// Mask 0x7, 3 bits 18:16
+#define SE_PKA1_TRNG_STATUS_LAST_RESEED(x)	\
+	((x) << SE_PKA1_TRNG_STATUS_LAST_RESEED_SHIFT)
+
+#define SE_PKA1_TRNG_ISTAT_OFFSET		PKA1_TRNG_offset(0x3F14U)
+#define SE_PKA1_TRNG_ISTAT_RAND_RDY_SHIFT	0U
+#define SE_PKA1_TRNG_ISTAT_RAND_RDY(x)		\
+	((x) << SE_PKA1_TRNG_ISTAT_RAND_RDY_SHIFT)
+
+/* This is a set of 4 registers from base (in 128 bit mode)
+ * and a set of 8 registers from base (in 256 bit mode)
+ *
+ * Register ranges:
+ *  0xbf20U .. 0xbf23U	128 bit mode
+ *  0xbf20U .. 0xbf27U	256 bit mode
+ */
+#define SE_PKA1_TRNG_RAND_BASE_OFFSET		PKA1_TRNG_offset(0x3F20U)
+
+#endif /* INCLUDED_TEGRA_PKA1_H */

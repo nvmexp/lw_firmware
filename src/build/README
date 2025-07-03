@@ -1,0 +1,100 @@
+uproc/build
+
+Shared scripts and related files for ucode builds
+
+    scripts/...
+        rtos-flcn-script.pl -- general script to help RTOS Flcn on build process:
+                               . generate the header file for common profile defines
+                               . generate the header file for OSTASK defines
+                               . ilwoke overlay size check script
+                               input files include: Profiles.pm, Tasks.pm...
+
+        GenRmProp.pm        -- shared part of genRmProp.pl script.  Generate RM
+                               Properties base on profile features (Features.pm).
+                               The output files include:
+                                 RESMAN_ROOT\kernel\inc\pmu\bin\g_pmuUcodePdb.h
+                                 RESMAN_ROOT\kernel\inc\pmu\bin\g_pmuSetUcodeProp.c
+
+        rmPdbAutoGen.pl     -- colwert ucode features (Features.pm) to RM PDBs
+                               in generated file.  The design of this script doesn't
+                               support multiple profiles on single chip.
+
+        symdump/symdump.pl  -- generate symbol information for lwwatch extension
+
+        check-build-elw.pl  -- [TBD]
+
+        release-imgs-if-changed.pl
+                            -- script to output files to a release path
+                               Does p4 add or p4 edit as needed in order to avoid
+                               making changes that aren't tracked in perforce.
+
+        manifestGenerator.pl
+                            -- script to generate manifest files for an engine's
+                               bindata directory. Should be called at the end of
+                               every ucode build that uses lwArchive.
+
+        riscv-stats-gen.pl
+                            -- script to analyze a RISCV build, and generate a
+                               text file describing the memory usage of each section
+                               within the program, and overall memory usage.
+
+        nm-file-sort.pl
+                            -- script to sort a .nm file first by symbol value/address
+                               and then by rest of the text. This is needed since GNU nm
+                               can sort by address or by symbol name but not both at once,
+                               and we sometimes get different orderings for symbols with
+                               the same value/address but a different name, which causes
+                               a spurious "only symbols changed" release (for example on
+                               RISCV builds on Linux vs Windows). This script can be used
+                               to prevent that scenario.
+
+    scripts/mkimage/...     -- scripts to generate ucode image and descriptor files
+        flcnmkimg.pl           script to create Falcon ucode image files
+        rvmkfmc.pl             script to create Riscv ucode FMC files
+        rvmkimg.pl             script to create Riscv ucode image files
+        mergeimg.pl            script to merge several ucode into one image
+
+    scripts/util/...
+        P4Helper.pm         -- module to run perforce commands
+        CfgReaderUproc.pm   -- module to parse chip-config .cfg file.  Mainly used
+                               to get the profile list.
+        UtilsUproc.pm       -- utility functions shared by rtos-flcn-script.pl sub-
+                               modules, such as ProfilesImpl.pm and OverlaysImpl.pm.
+
+    scripts/impl/...
+        ProfilesImpl.pm     -- module to parse and process Profiles.pm
+        TasksImpl.pm        -- module to parse and process Tasks.pm
+        OverlaysImpl.pm     -- module to parse and process OverlaysDmem.pm and
+                               OverlaysImem.pm
+
+    scripts/ldgen/...
+        GenLdscript.pm      -- module to generate link-script used during Link stage
+
+    scripts/ovlCheck/...
+        OverlayCheck.pm     -- script to check size of overlays used by tasks
+                               against available IMEM
+        ReadElf.pm
+        SimpleLogger.pm
+        Table.pm            -- Library scripts used to support the operations of
+                               OverlayCheck.pm
+    scripts/analyze/...
+        UcodeAnalyze.pm     -- script to check for stack overflows and broken
+                               overlay rules by analyzing objdump
+
+        Output.pm           -- module for all of UcodeAnalyze's output files
+
+    mcheck/...              -- shared mcheck modules for flcn ucodes.
+                               check mcheck wiki for details.
+        FlcnMcheck.pm       -- child module of Mcheck.pm
+        FlcnMethodTagDb.pm  -- child module of MethodTagDb.pm
+        FlcnLwolwtility.pm  -- module to query halinfo of ucode access function from LWOC
+
+    templates/...
+        gt_sections.ld      -- template file for link script g_sections.ld
+                               used by 'gen-ldscript.pl'
+
+
+Per module data files (Profiles.pm, Tasks.pm...) are located at 'build' dir of
+each ucode build.  For details, please refer to:
+
+    $LW_ROOT/pmu_sw/build/README

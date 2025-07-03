@@ -1,0 +1,885 @@
+# -*- mode: perl; -*-
+
+# Thermal Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $thermHal = [
+
+    DEFAULTS => [
+
+        FLAGS            => ":DIRECT_HAL_CALLS",
+
+        LWSTOM_PROVIDERS => [
+            _BA12,      # MAXWELL BA implementation
+            _BA13,      # PASCAL BA implementation
+            _BA14,      # GP10X except GP100 BA energy implementation
+            _BA15,      # GV100_and_later BA implementation
+        ],
+
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        INITIALIZE_INT_SENSOR_A_B => [
+            DESCRIPTION     => "Retrieve and cache A and B values in normalized form.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GM10X          => [ ALL, ],
+        ],
+
+       GET_RAW_FROM_TEMP_INT => [
+           DESCRIPTION     => "Colwert LwTemp to raw temperature code",
+           RETURN_TYPE     => LwU32,
+           ARGUMENTS       => "LwTemp temp",
+           STUB_RETURNS    => ZERO,
+           GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_therm", "__FUNC__")',
+           ONLY_IF         => 'PMUTASK_THERM',
+
+           _GM10X          => [ ALL, ],
+        ],
+
+        GET_TEMP_INTERNAL => [
+            DESCRIPTION     => "Get GPU temp. of internal temp-sensor",
+            RETURN_TYPE     => LwTemp,
+            ARGUMENTS       => "LwU8 thermDevProvIdx",
+            STUB_RETURNS    => RM_PMU_LW_TEMP_0_C,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GM10X          => [ MAXWELL, ],
+            _GP10X          => [ GP10X, ],
+            _GV10X          => [ GV10X_thru_TU10X, ],
+            _GA100          => [ GA100, ],
+            _GA10X          => [ GA10X_and_later, -GA100, ],
+        ],
+
+        TEMP_SIM_SET_CONTROL => [
+            DESCRIPTION     => "Enable/disable TempSim with temperature",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwBool bEnable, LwTemp temp",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibRPC", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GM10X          => [ MAXWELL, ],
+            _GP10X          => [ GP10X, USED_BY_GV10X, ],
+            _GV10X          => [ GV10X_thru_TU10X, -GV11B, ],
+            _GA100          => [ GA100, ],
+            _GA10X          => [ GA10X_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB           => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        TACH_LOAD => [
+            DESCRIPTION     => "Loads the tachometer",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "PMU_PMGR_TACH_SOURCE tachSource, LwU8 tachRate",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibFanCommon", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GM20X          => [ GM20X_thru_VOLTA, ],
+            _TU10X          => [ dTURING_and_later, ],
+            _STUB           => [ GM10X, CHEETAH, -T194, ],
+        ],
+
+        GET_TACH_FREQ => [
+            DESCRIPTION     => "Gets tachometer frequency as edgecount per sec",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "PMU_PMGR_TACH_SOURCE tachSource, LwU32 *pNumerator, LwU32 *pDenominator",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibFanCommon", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GM10X          => [ GM10X, ],
+            _GM20X          => [ GM20X_thru_VOLTA, ],
+            _TU10X          => [ dTURING_and_later, ],
+            _STUB           => [ CHEETAH, -T194, ],
+        ],
+
+        HW_MAX_FAN_STATUS_GET => [
+            DESCRIPTION     => "Gets HW MAXFAN state (active/inactive) for the requested PWM source.",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => "RM_PMU_PMGR_PWM_SOURCE pwmSource",
+            STUB_RETURNS    => LW_FALSE,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibFanCommon", "__FUNC__")',
+
+            _GP10X          => [ PASCAL, VOLTA, ],
+            _TU10X          => [ TURING, GA100, ],
+            _GA10X          => [ GA10X_and_later, -GA100, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        HW_MAX_FAN_STATUS_SET => [
+            DESCRIPTION     => "Activate/Deactivate HW MAXFAN status for the requested PWM source.",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "RM_PMU_PMGR_PWM_SOURCE pwmSource, LwBool bSet",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibFanCommon", "__FUNC__")',
+
+            LIKE_INTERFACE  => HW_MAX_FAN_STATUS_GET,
+        ],
+
+        PWR_SUPPLY_HOT_UNPLUG_SHUTDOWN_MANUAL_TRIGGER => [
+            DESCRIPTION     => "Manually handle power supply hot unplug shutdown event",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GM10X          => [ MAXWELL, ],
+            _STUB           => [ ALL, -MAXWELL, ],
+        ],
+
+        PWR_SUPPLY_HOT_UNPLUG_SHUTDOWN_AUTO_CONFIG => [
+            DESCRIPTION     => "Automatically configure power supply hot unplug shutdown event",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GP10X          => [ GP10X_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        GET_GPU_GPC_TSOSC_TEMP => [
+            DESCRIPTION     => "Get GPU temp. of internal GPU_GPC_TSOSC temp-sensor.",
+            RETURN_TYPE     => LwTemp,
+            ARGUMENTS       => "LwU8 thermDevProvIdx, LwU8 gpcTsoscIdx",
+            STUB_RETURNS    => RM_PMU_LW_TEMP_0_C,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibSensor2X", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GV10X          => [ GV10X_thru_TU10X, -GV11B, ],
+            _STUB           => [ GA10X_and_later, pre_GV10X, GV11B, ],
+        ],
+
+        GET_GPU_SCI_TEMP => [
+            DESCRIPTION     => "Get GPU temp. of internal GPU_SCI temp-sensor.",
+            RETURN_TYPE     => LwTemp,
+            ARGUMENTS       => "LwU8 thermDevProvIdx",
+            STUB_RETURNS    => RM_PMU_LW_TEMP_0_C,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibSensor2X", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GV10X          => [ GV10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _STUB           => [ pre_GV10X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        GPU_GPC_TSOSC_IDX_SET => [
+            DESCRIPTION     => "Set GPC TSOSC index of internal GPU_GPC_TSOSC temp-sensor.",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU8 gpuGpcTsoscIdx",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibSensor2X", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GV10X          => [ GV10X_thru_TU10X, -GV11B, ],
+            _STUB           => [ GA10X_and_later, pre_GV10X, GV11B, ],
+        ],
+
+        GET_GPU_GPC_COMBINED_TEMP => [
+            DESCRIPTION     => "Get GPC temp. of internal GPU_GPC_COMBINED temp-sensors.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 thermDevProvIdx, LwTemp *pTemp",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibSensor2X", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GA10X          => [ GA10X_and_later, -GA100, ],
+            _STUB           => [ GV11B, pre_GA10X, GA100, ],
+        ],
+
+        SENSOR9_I2CS_SOURCE_SET => [
+            DESCRIPTION     => "Sets temperature source to be exposed on I2CS.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 i2csSource",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibSensor2X", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GA10X          => [ GA10X_and_later ],
+            _STUB           => [ pre_GA10X, ],
+        ],
+
+        SYS_TSENSE_TEMP_SET => [
+            DESCRIPTION     => "Override SYS TSENSE Temperature.",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwTemp temp",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibSensor2X", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GA10X          => [ GA10X_and_later, -GA100, ],
+            _STUB           => [ pre_GA10X, GA100, ],
+        ],
+
+        LOGGER_TRACKER_SET => [
+            DESCRIPTION     => "Update tracker[index] shared with the RM",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 segmentId, LwU32 value",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_loggerWrite", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GP10X          => [ PASCAL_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+    # Thermal monitor HAL interfaces
+
+        MON_ENABLEMENT_SET => [
+            DESCRIPTION     => "Enables/Disables thermal monitor counter.",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU8 monIdx, LwBool bEnable",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibMonitor", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GP10X          => [ GP10X_and_later, ],
+            _STUB           => [ MAXWELL, CHEETAH, ],
+        ],
+
+        MON_PATCH => [
+            DESCRIPTION     => "Applies VBIOS DEVINIT patch(es) for thermal monitor.",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 patchIdMask",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibMonitor", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GA100          => [ GA100, ],
+            _STUB           => [ ALL, -GA100, ],
+        ],
+
+        MON_COUNT_GET => [
+            DESCRIPTION     => "Gets the interrupt monitor edge count/utilsclk cycle count",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "THRM_MON *pThrmMon, LwU32 *pCount",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GP10X          => [ GP10X_thru_AD10X, ],
+            _GH10X          => [ HOPPER_and_later, ],
+            _STUB           => [ MAXWELL, CHEETAH, ],
+        ],
+
+        MON_MAX_COUNT_GET => [
+            DESCRIPTION     => "Gets the interrupt monitor Maximum edge count/utilsclk cycle count",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GH10X          => [ HOPPER_and_later, ],
+            _STUB           => [ MAXWELL, CHEETAH, GP10X_thru_AD10X,],
+        ],
+
+        MON_TYPE_GET => [
+            DESCRIPTION     => "Gets the type of the thermal monitor.",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU8 monIdx",
+            STUB_RETURNS    => LW2080_CTRL_THERMAL_THERM_MONITOR_TYPE_ILWALID,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GP10X          => [ GP10X_and_later, ],
+            _STUB           => [ MAXWELL, CHEETAH, ],
+        ],
+
+        MON_NUM_INSTANCE_GET => [
+            DESCRIPTION    => "Returns number of Thermal Monitor Instances",
+            RETURN_TYPE    => LwU8,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => ZERO,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibConstruct", "__FUNC__")',
+            ONLY_IF        => 'PMUTASK_THERM',
+
+            LIKE_INTERFACE => MON_TYPE_GET
+        ],
+
+    # End of Thermal monitor HAL interfaces
+
+    # Thermal slowdown control HAL interfaces, defined in pmu_thrmslct*.c HAL files
+
+        SLCT_EVENTS_ENABLEMENT_SET => {
+            DESCRIPTION     => "Enables/disables slowdown events.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 maskEnabled",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GM10X          => [ GM10X_and_later, ],
+            _STUB           => [ CHEETAH, ],
+        },
+
+        SLCT_SET_EVENT_TEMP_THRESHOLD => [
+            DESCRIPTION     => "Set event temperature threshold",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 eventId, LwTemp tempThreshold",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GM20X          => [ GM20X, ],
+            _GP10X          => [ GP10X_and_later, ],
+            _STUB           => [ GM10X, ],
+        ],
+
+        SLCT_GET_EVENT_TEMP_THRESHOLD_HS_OFFSET_AND_SENSOR_ID => [
+            DESCRIPTION     => "Read event temperature threshold, negative hotspot offset and sensorId",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 eventId, LwTemp *pTempThreshold, LwTemp *pNegHSOffset, LwU8 *pSensorId",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            INTERFACE_TAG   => "thermSlctGetEventTempThresholdHSOffsetAndSensorId", # HS instead of Hs
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_smbpbi", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GP10X          => [ GP10X, USED_BY_GV10X, USED_BY_GA100, ],
+            _GV10X          => [ GV10X_thru_TU10X, ],
+            _GA100          => [ GA100, ],
+            _GA10X          => [ GA10X_and_later, -GA100, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        SLCT_GET_EVENT_SLOWDOWN_FACTOR => [
+            DESCRIPTION     => "Get event slowdown factor",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 eventId, LwU8 *pFactor",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GM10X          => [ GM10X_and_later, ],
+        ],
+
+        SLCT_SET_EVENT_SLOWDOWN_FACTOR => [
+            DESCRIPTION     => "Set event slowdown factor",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 eventId, LwU8 factor",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            LIKE_INTERFACE  => SLCT_GET_EVENT_SLOWDOWN_FACTOR,
+        ],
+
+        SLCT_RM_PMU_SW_SLOW_HW_SET => [
+            DESCRIPTION     => "Applies into HW RM_PMU_SW_SLOW slowdown factor for given CLK index",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU8 clkIndex, LwU8 factor",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GM10X          => [ GM10X_and_later, ],
+        ],
+
+    # End of thermal slowdown control HAL interfaces
+
+    # Thermal PWM HAL interfaces, defined in pmu_thrmpwm*.c HAL files
+
+        PWM_SOURCE_DESCRIPTOR_CONSTRUCT => [
+            DESCRIPTION     => "Constructs the PWM source descriptor for given PWM source in specified DMEM overlay",
+            RETURN_TYPE     => "PWM_SOURCE_DESCRIPTOR *",
+            ARGUMENTS       => "RM_PMU_PMGR_PWM_SOURCE pwmSource, LwU8 ovlIdxDmem",
+            STUB_RETURNS    => NULL,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libPwmConstruct", "__FUNC__")',
+
+            _GM10X          => [ MAXWELL, ],
+            _GP10X          => [ GP10X_thru_GV10X, GV11B, ],
+            _TU10X          => [ TU10X, ],
+            _GA100          => [ GA10X_and_later, ],
+            _STUB           => [ CHEETAH, ],
+        ],
+
+        PWM_PARAMS_ACT_GET => [
+            DESCRIPTION     => "Get the actual/detected PWM settings",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "RM_PMU_PMGR_PWM_SOURCE pwmSource, LwU32 *pPwmDutyCycle, LwU32 *pPwmPeriod",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibFanCommon", "__FUNC__")',
+
+            _GM10X          => [ dMAXWELL_and_later, ],
+        ],
+
+        VID_PWM_TRIGGER_MASK_SET   => [
+            DESCRIPTION     => "Set the VID PWM atomic trigger mask",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GP10X          => [ GP10X_and_later, ],
+            _STUB           => [ MAXWELL, CHEETAH, ],
+        ],
+
+    # End of thermal PWM HAL interfaces
+
+    # Thermal intr HAL interfaces, defined in pmu_thrmintr*.c HAL files
+
+        _INTR_GROUP => [
+            DESCRIPTION     => "Intr control HAL interfaces use two templates - version 1",
+            ONLY_IF         => 'PMUTASK_THERM',
+
+            _GM10X          => [ GM10X_and_later, ],
+        ],
+
+        EVENT_USE_MASK_GET => [
+            DESCRIPTION     => "Returns generic bitmask of THERM events enabled by USE bits",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            LIKE_INTERFACE  => _INTR_GROUP,
+        ],
+
+        EVENT_ASSERTED_MASK_GET => [
+            DESCRIPTION     => "Returns generic bitmask of asserted THERM events",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            LIKE_INTERFACE  => _INTR_GROUP,
+        ],
+
+        EVENT_INTR_PRE_INIT => [
+            DESCRIPTION     => "Initialize THERM event level interrupts",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM10X          => [ MAXWELL, ],
+            _GP10X          => [ GP10X_and_later, ],
+        ],
+
+        EVENT_LEVEL_INTR_CTRL_MASK_SET => [
+            DESCRIPTION     => "Set THERM event level interrupt's control mask",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 maskIntrLevelHiHw",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GM10X          => [ MAXWELL, ],
+            _STUB           => [ ALL, -MAXWELL, ],
+        ],
+
+        SERVICE => [
+            DESCRIPTION     => "Service any THERM interrupt(s)",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GM10X          => [ ALL, ],
+        ],
+
+        EVENT_INTR_SERVICE => [
+            DESCRIPTION     => "Service THERM event interrupts",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GM10X          => [ MAXWELL, ],
+            _GP10X          => [ GP10X_and_later, ],
+        ],
+
+        EVENT_MAP_HW_TO_GENERIC_MASK => [
+            DESCRIPTION     => "Maps GPU-HAL dependant to GPU-HAL independent THERM event mask",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => "LwU32 maskHw",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            LIKE_INTERFACE  => _INTR_GROUP,
+        ],
+
+        EVENT_VIOLATION_PRE_INIT => [
+            DESCRIPTION     => "Initialize static GPU dependant Event Violation data",
+            ONLY_IF         => 'PMUTASK_THERM',
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM10X          => [ MAXWELL, ],
+            _GP10X          => [ GP10X, ],
+            _GV10X          => [ GV10X, ],
+            _TU10X          => [ TU10X_and_later, ],
+            _STUB           => [ GV11B, ],
+        ],
+
+        EVENT_VIOLATION_PACK_EVENT_INDEX => [
+            DESCRIPTION     => "Transforms generic THERM event index to a packed format",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "LwU8",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GM10X          => [ MAXWELL, ],
+            _GP10X          => [ GP10X_and_later,  ],
+        ],
+
+    # End of thermal intr HAL interfaces
+
+    # BA power device HAL interfaces, defined in pmu_thrm_pwr*.c HAL files
+
+        PWR_DEV_BA_LOAD => [
+            DESCRIPTION     => "Load BA power device",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "PWR_DEVICE *pDev",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_pmgrLibLoad", "__FUNC__")',
+
+            _BA12           => [ GM10X, GM20X, ],
+            _BA13           => [ GP100, ],
+            _BA14           => [ GP10X, -GP100, ],
+            _BA15           => [ GV10X_thru_TURING, GA100, ],
+            _STUB           => [ GA102_and_later, ],
+        ],
+
+        PWR_DEV_BA_STATE_SYNC => [
+            DESCRIPTION     => "Update BA power device's internal state (A&C)",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "PWR_DEVICE *pDev, LwBool bVoltageChanged",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_pmgrPwrDeviceStateSync", "__FUNC__")',
+
+            _BA12           => [ GM10X, GM20X, ],
+            _BA13           => [ GP10X, ],
+            _BA15           => [ GV10X_thru_TURING, GA100, ],
+            _STUB           => [ GA102_and_later, ],
+        ],
+
+        PWR_DEV_BA_LIMIT_SET => [
+            DESCRIPTION     => "Update BA power device limit's threshold",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "PWR_DEVICE *pDev, LwU8 limitIdx, LwU32 limitValue",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_pmgrLibLoad", "__FUNC__")',
+
+            _BA12           => [ GM10X, GM20X, ],
+            _BA13           => [ GP10X, ],
+            _BA15           => [ GV10X_and_later, ],
+        ],
+
+        PWR_DEV_BA_GET_READING => [
+            DESCRIPTION     => "Read power/current from BA power device",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "PWR_DEVICE *pDev, LwU8 provIdx, LwU32 *pReading",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_pmgrLibPwrMonitor", "__FUNC__")',
+
+            _BA12           => [ GM10X, GM20X, ],
+            _BA13           => [ GP10X, ],
+            _BA15           => [ GV10X_thru_TURING, GA100, ],
+            _STUB           => [ GA102_and_later, ],
+        ],
+
+        PWR_DEV_BA_GET_ENERGY_READING => [
+            DESCRIPTION     => "Read power/current from BA power device aclwmmulation register to callwlate energy",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "PWR_DEVICE *pDev, LwU8 provIdx, LwU64 *pReading",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_pmgrLibPwrMonitor", "__FUNC__")',
+
+            _BA14           => [ GP10X, -GP100, ],
+            _STUB           => [ MAXWELL, GP100, GV10X_and_later, ],
+        ],
+
+        PWR_DEV_BA_ENABLE   => [
+            DESCRIPTION     => "Enable/disable BA HW",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwBool bEnable",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libMs", "__FUNC__")',
+
+            _BA12           => [ GM10X_and_later, ],
+        ],
+
+        PWR_DEV_BA_TRAINING_IS_DMA_SET   => [
+            DESCRIPTION     => "Check if BA Training DMA Mode is SET in VBIOS or not",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => "void",
+            STUB_RETURNS    => LW_FALSE,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_pmgrLibLoad", "__FUNC__")',
+
+            _BA15           => [ TU10X_and_later, ],
+            _STUB           => [ pre_TU10X, ],
+        ],
+
+        HW_POR_MXM_OVERRIDE   => [
+            DESCRIPTION     => "Hardware thermal POR MXM override",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwTemp mxmMaxTemp, LwTemp mxmAssertTemp",
+
+            _GP10X          => [ GP10X_and_later, ],
+            _STUB           => [ MAXWELL, CHEETAH, ],
+        ],
+
+        BA_CONTROL_OVERRIDE_WAR_BUG_200433679   => [
+            DESCRIPTION     => "WAR for Bug 200433679 to control enable/disable of GPC & FBP BA's",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _TU10X          => [ TURING, ],
+            _STUB           => [ ALL, -TURING, ],
+        ],
+
+        BA_INIT_DEBUG => [
+            DESCRIPTION     => "Initialize the BA debug interface",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GV10X          => [ VOLTA, TURING, ],
+            _STUB           => [ ALL, -VOLTA, -TURING, ],
+        ],
+
+    # End of BA power device HAL interfaces
+
+    # Therm tests HAL interfaces, defined in thrm_test*.c HAL files
+
+        TEST_INT_SENSORS   => [
+            DESCRIPTION    => "Internal Sensors Test",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_THERM_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _GP10X         => [ GP10X, USED_BY_GV10X, ],
+            _GV10X         => [ GV10X_thru_TU10X, ],
+            _GA100         => [ GA100, ],
+            _GA10X         => [ GA10X, -GA100, AD10X, GH100, GB100, ],
+            _STUB          => [ MAXWELL, CHEETAH, GH10X_and_later, -GH100, -GB100, ],
+        ],
+
+        TEST_THERMAL_SLOWDOWN => [
+            DESCRIPTION    => "Thermal Slowdown Test",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_THERM_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _GP10X         => [ GP10X_and_later, ],
+            _STUB          => [ MAXWELL, CHEETAH, ],
+        ],
+
+         TEST_BA_SLOWDOWN  => [
+            DESCRIPTION    => "BA Slowdown Test",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_THERM_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _GP10X         => [ GP10X, ],
+            _GV10X         => [ GV10X_and_later, ],
+            _STUB          => [ MAXWELL, CHEETAH, ],
+        ],
+
+        TEST_HW_ADC_SLOWDOWN  => [
+            DESCRIPTION    => "HW ADC Slowdown Test",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_THERM_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ pre_TU10X, ],
+        ],
+
+        TEST_SET_LWVDD_FACTOR_A => [
+            DESCRIPTION    => "Set the factor A for a particular BA window.",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 windowIdx, LwU32 factorA",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _GV10X         => [ GV10X_thru_GA100, ],
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_GV10X, CHEETAH, ],
+        ],
+
+        TEST_GET_LWVDD_FACTOR_A => [
+            DESCRIPTION    => "Get the factor A for a particular BA window.",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "LwU8 windowIdx",
+            STUB_RETURNS   => ZERO,
+            FLAGS          => ":STUB_ASSERT",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_SET_LWVDD_FACTOR_A,
+        ],
+
+        TEST_SET_LWVDD_LEAKAGE_C => [
+            DESCRIPTION    => "Set the leakage C for a particular BA window.",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 windowIdx, LwU32 leakageC",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_SET_LWVDD_FACTOR_A,
+        ],
+
+        TEST_GET_LWVDD_LEAKAGE_C => [
+            DESCRIPTION    => "Get the leakage C for a particular BA window.",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "LwU8 windowIdx",
+            STUB_RETURNS   => ZERO,
+            FLAGS          => ":STUB_ASSERT",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_SET_LWVDD_FACTOR_A,
+        ],
+
+        TEST_DYNAMIC_HOTSPOT => [
+            DESCRIPTION    => "Dynamic hotspot test",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_THERM_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _GV10X         => [ GV10X_thru_TU10X, ],
+            _STUB          => [ GA10X_and_later, pre_GV10X, CHEETAH, ],
+         ],
+
+        TEST_TEMP_OVERRIDE => [
+            DESCRIPTION    => "Temperature override test",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_THERM_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _GV10X         => [ GV10X_thru_TU10X, ],
+            _GA100         => [ GA100, ],
+            _GA10X         => [ GA10X, -GA100, AD10X, GH100, GB100, ],
+            _STUB          => [ pre_GV10X, CHEETAH, GH10X_and_later, -GH100, -GB100, ],
+         ],
+
+        TEST_THERMAL_MONITORS => [
+            DESCRIPTION    => "Thermal Monitors test",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_THERM_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _GV10X         => [ GV10X_thru_TU10X, ],
+            _GA100         => [ GA100, ],
+            _GA10X         => [ GA10X, -GA100, AD10X, GH100, GB100, ],
+            _STUB          => [ pre_GV10X, CHEETAH, GH10X_and_later, -GH100, -GB100, ],
+         ],
+
+        TEST_DEDICATED_OVERT => [
+            DESCRIPTION    => "Dedicated overt test",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_THERM_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _GV10X         => [ GV10X_thru_TU10X, ],
+            _GA100         => [ GA100, ],
+            _GA10X         => [ GA10X, -GA100, AD10X, GH100, GB100, ],
+            _STUB          => [ pre_GV10X, CHEETAH, GH10X_and_later, -GH100, -GB100, ],
+         ],
+
+        TEST_DEDICATED_OVERT_NEGATIVE_CHECK => [
+            DESCRIPTION    => "Negative testing for dedicated overt",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_THERM_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _GV10X         => [ GV10X_thru_TU10X, ],
+            _GA100         => [ GA100, ],
+            _GA10X         => [ GA10X, -GA100, AD10X, GH100, GB100, ],
+            _STUB          => [ pre_GV10X, CHEETAH, GH10X_and_later, -GH100, -GB100, ],
+         ],
+
+        TEST_GLOBAL_SNAPSHOT => [
+            DESCRIPTION    => "Test Global Snapshot functionality.",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_THERM_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _GA100         => [ GA100, ],
+            _GA10X         => [ GA10X, -GA100, AD10X, GH100, GB100, ],
+            _STUB          => [ pre_GA10X, CHEETAH, GH10X_and_later, -GH100, -GB100, ],
+        ],
+
+         TEST_GPC_BCAST_ACCESS => [
+            DESCRIPTION    => "Test GPC Broadcast Access.",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_THERM_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _GH100         => [ GH100, ],
+            _STUB          => [ pre_GH100, CHEETAH, GH10X_and_later, -GH100, ],
+        ],
+
+        TEST_PEAK_SLOWDOWN => [
+            DESCRIPTION    => "Test peak power detector",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_THERM_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ pre_TU10X, CHEETAH, ],
+        ],
+
+        INIT_FACTOR_A_LUT => [
+            DESCRIPTION    => "Init the HW realtime FACTOR_A control",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "PWR_DEVICE *",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_pmgrLibLoad", "__FUNC__")',
+
+            _TU10X         => [ TURING, GA100, ],
+            _STUB          => [ pre_TURING, GA102_and_later, ],
+        ],
+
+        CHECK_HW_BA_WINDOW_IDX => [
+            DESCRIPTION     => "Check the HW BA window index",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 provHwBaWinIdx",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_pmgrLibConstruct", "__FUNC__")',
+
+            _GM10X          => [ GM10X, ],
+            _GM20X          => [ ALL, -GM10X, ],
+        ],
+
+        TEST_OFFSET_MAX_TEMP_EXELWTE => [
+            DESCRIPTION     => "Test the _OFFSET_TSENSE and _SENSOR_MAX registers",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "RM_PMU_RPC_STRUCT_THERM_TEST_EXELWTE *pParams",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _GP10X          => [ GP10X_thru_GA100, ],
+            _GA10X          => [ GA10X_and_later, -GA100, ],
+            _STUB           => [ MAXWELL, CHEETAH, ],
+        ],
+
+        TEST_GPC_TSENSE_CONFIG_COPY_INDEX_SET => [
+            DESCRIPTION     => "Sets the GPC Index to trigger GPC_TSENSE_CONFIG_COPY",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU8 idxGpc",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            _GA10X          => [ GA10X, AD10X, -GA100, ],
+            _GH100          => [ GH100, GB100, ],
+            _STUB           => [ pre_GA10X, GA100, CHEETAH, GH10X_and_later, -GH100, -GB100, ],
+        ],
+
+        TEST_BJT_EN_MASK_FOR_GPC_GET => [
+            DESCRIPTION     => "Gets the BJT Enabled Mask for the GPC",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => "LwU8 idxGpc",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibTest", "__FUNC__")',
+
+            LIKE_INTERFACE  => TEST_GPC_TSENSE_CONFIG_COPY_INDEX_SET
+        ],
+
+    # End of therm tests HAL interfaces
+
+    ],   # HAL_INTERFACES
+
+];
+
+
+# return a reference to the Hal definition
+return $thermHal;
+

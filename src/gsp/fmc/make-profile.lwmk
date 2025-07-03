@@ -1,0 +1,452 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2021-2022 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+# Parameters to the makefile
+PROD_SIGN               ?= 1
+USE_LIBCCC              ?= false
+# End parameters
+
+override LW_TARGET_OS   := riscv
+override LW_BUILD_TYPE  := release
+override LW_TARGET_ARCH := lwriscv
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+include $(FW_ROOT)/profiles/profiles.mk
+
+GSP_FMC_PROJ            := $(subst gsp_,,$(PROFILE))
+GSP_PROJ                := gsp-$(subst _hdcp_riscv,,$(GSP_FMC_PROJ))
+LW_PROJ                 := $(subst _riscv,,$(GSP_FMC_PROJ))
+UPROC_ARCH              := $(LW_TARGET_ARCH)
+RTOS_VERSION            := SafeRTOSv8.4.0-lw1.0
+LWOS_VERSION            := dev
+MEMMAP_PATH             := $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc/gsp/
+LW_ENGINE_MANUALS       := $(MANUAL_PATHS)
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+LWRISCVX_SDK_ROOT       ?= $(LW_SOURCE)/uproc/lwriscv/sdk/$(LWRISCV_SDK_VERSION)
+
+SIGGEN                  := $(LWRISCVX_SDK_ROOT)/tools/siggen_manifest
+XXD                     ?= /usr/bin/xxd
+# Make sure /bin/ is added to PATH so that tar can find gzip
+TAR                     ?= PATH=/bin/:$$PATH /bin/tar
+UNZIP                   ?= /usr/bin/unzip
+
+# it must be built at this time
+BUILD_DIR               := $(FW_ROOT)/_out/$(PROFILE)
+INSTALL_DIR             := $(BUILD_DIR)/staging
+
+# SK
+BUILD_DIR_SK            := $(BUILD_DIR)/sk
+INSTALL_DIR_SK          := $(INSTALL_DIR)
+
+BUILD_DIR_SDK           := $(BUILD_DIR)/sdk
+INSTALL_DIR_SDK         := $(INSTALL_DIR)
+LIBLWRISCV_INSTALL_DIR  :=$(INSTALL_DIR_SDK)
+LIBLWRISCV_BUILD_DIR    :=$(BUILD_DIR_SDK)
+LIBLWRISCV_PROFILE_FILE :=$(FW_ROOT)/profiles/$(ENGINE)_$(PROJ).mk
+LIBLWRISCV_CONFIG_H     :=$(INSTALL_DIR_SDK)/inc/liblwriscv/g_lwriscv_config.h
+LIBLWRISCV_CONFIG_MK    :=$(INSTALL_DIR_SDK)/g_lwriscv_config.mk
+LIBLWRISCV_LIB_DIR      :=$(BUILD_DIR_SDK)
+LIBLWRISCV_LIB          :=$(LIBLWRISCV_LIB_DIR)/liblwriscv.a
+LIBLWRISCV_ROOT         :=$(LWRISCVX_SDK_ROOT)/liblwriscv
+LIBLWRISCV_OUT          :=$(BUILD_DIR_SDK)
+
+# Partition
+BUILD_DIR_PART          := $(BUILD_DIR)
+INSTALL_DIR_PART        := $(INSTALL_DIR)
+
+CHIP_PROFILE            := $(firstword $(subst _, ,$(subst gsp,,$(PROFILE))))
+RELEASE_DIR             := $(LW_SOURCE)/drivers/resman/kernel/inc/fmc/monitor/bin/gsp/$(CHIP_PROFILE)
+BUILD_SCRIPTS           := $(LW_SOURCE)/uproc/build/scripts
+
+###############################################################################
+# Manifest and Separation Kernel
+###############################################################################
+MANIFEST_SRC              := $(FW_ROOT)/manifests/manifest_$(subst _hdcp_riscv,,$(PROFILE)).c
+
+# Target file names
+TARGET_SK_NAME            := g_sepkern_main_$(PROFILE)
+TARGET_SK_PREFIX          := $(INSTALL_DIR)/$(TARGET_SK_NAME)
+
+TARGET_SK_OUT_NAME        := g_sepkern_$(PROFILE)
+TARGET_SK_OUT_PREFIX      := $(INSTALL_DIR)/$(TARGET_SK_OUT_NAME)
+
+TARGET_MANIFEST_PREFIX    := $(INSTALL_DIR)/g_sepkern_$(PROFILE)_manifest
+
+TARGET_MANIFEST_BIN       := $(TARGET_MANIFEST_PREFIX).bin
+TARGET_MANIFEST_HEX       := $(TARGET_MANIFEST_PREFIX).hex
+TARGET_MANIFEST_OBJ       := $(TARGET_MANIFEST_PREFIX).o
+
+TARGET_SK_ELF             := $(TARGET_SK_OUT_PREFIX).elf
+TARGET_SK_OBJDUMP         := $(TARGET_SK_OUT_PREFIX).objdump
+TARGET_SK_READELF         := $(TARGET_SK_OUT_PREFIX).readelf
+TARGET_SK_NM              := $(TARGET_SK_OUT_PREFIX).nm
+TARGET_SK_TEXT            := $(TARGET_SK_PREFIX)_image.text
+TARGET_SK_DATA            := $(TARGET_SK_PREFIX)_image.data
+
+TARGET_PARTITIONS_PREFIX  := $(INSTALL_DIR)/g_partitions_$(PROFILE)
+TARGET_PARTITIONS_TEXT    := $(TARGET_PARTITIONS_PREFIX).text
+TARGET_PARTITIONS_DATA    := $(TARGET_PARTITIONS_PREFIX).data
+
+###############################################################################
+# TARGET Image
+###############################################################################
+TARGET_FINAL_PREFIX       := g_sepkern_$(PROFILE)
+TARGET_FINAL_PREFIX_PATH  := $(INSTALL_DIR)/$(TARGET_FINAL_PREFIX)
+
+TARGET_FINAL_TEXT         := $(TARGET_FINAL_PREFIX_PATH)_image.text
+TARGET_FINAL_DATA         := $(TARGET_FINAL_PREFIX_PATH)_image.data
+
+PROFILE_SUFFIX :=
+
+TARGET_BASE_PREFIX        := g_sepkern_$(PROFILE_BASE_NAME)
+TARGET_BASE_PREFIX_PATH   := $(INSTALL_DIR)/$(TARGET_BASE_PREFIX)
+TARGET_FINAL_MANIFEST     := $(TARGET_MANIFEST_BIN)
+TARGET_FINAL_MANIFEST_HEX := $(TARGET_MANIFEST_HEX)
+
+TARGET_ENC_TEXT_DEBUG     := $(TARGET_FINAL_PREFIX_PATH)_debug_image.text.encrypt.bin
+TARGET_ENC_TEXT_PROD      := $(TARGET_FINAL_TEXT).encrypt.bin
+TARGET_ENC_DATA_DEBUG     := $(TARGET_FINAL_PREFIX_PATH)_debug_image.data.encrypt.bin
+TARGET_ENC_DATA_PROD      := $(TARGET_FINAL_DATA).encrypt.bin
+TARGET_ENC_MANIFEST_DEBUG := $(TARGET_BASE_PREFIX_PATH)_manifest$(PROFILE_SUFFIX).bin_dbg_enc.bin
+TARGET_ENC_MANIFEST_PROD  := $(TARGET_BASE_PREFIX_PATH)_manifest$(PROFILE_SUFFIX).bin_prd_enc.bin
+TARGET_IMAGE_DEBUG        := $(TARGET_BASE_PREFIX_PATH)_signed_sk_mf$(PROFILE_SUFFIX)_img.bin_dbg_enc.bin
+TARGET_IMAGE_PROD         := $(TARGET_BASE_PREFIX_PATH)_signed_sk_mf$(PROFILE_SUFFIX)_img.bin_prd_enc.bin
+TARGET_DESC_DEBUG         := $(TARGET_BASE_PREFIX_PATH)_signed_sk_mf$(PROFILE_SUFFIX)_desc.bin_dbg_enc.bin
+TARGET_DESC_PROD          := $(TARGET_BASE_PREFIX_PATH)_signed_sk_mf$(PROFILE_SUFFIX)_desc.bin_prd_enc.bin
+
+TARGET_IMAGES             := $(TARGET_SK_ELF) $(TARGET_SK_OBJDUMP) $(TARGET_SK_READELF) $(TARGET_SK_NM)
+TARGET_IMAGES             += $(TARGET_FINAL_MANIFEST_HEX) $(TARGET_ENC_MANIFEST_DEBUG) $(TARGET_FINAL_TEXT) $(TARGET_FINAL_DATA)
+TARGET_IMAGES             += $(TARGET_ENC_TEXT_DEBUG) $(TARGET_ENC_DATA_DEBUG)
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files is the prerequisite
+# for this rule.
+###############################################################################
+
+# some unneeded rules to satisfy lwCommon.lwmk
+show_config:
+
+default: build
+.PHONY: default build clobber
+
+EXTRA_CFLAGS      ?=
+EXTRA_LDFLAGS     ?=
+GNATPREP_DEFINES  :=
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT    = $(BUILD_SCRIPTS)/release-imgs-if-changed.pl
+
+COMMA             := ,
+EMPTY             :=
+SPACE             := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_CHECK := --image $(TARGET_ENC_TEXT_DEBUG)
+RELEASE_IMG_ARGS  += --output-prefix $(TARGET_FINAL_PREFIX)
+# Since encryption uses random IV, this essentially forces release always.
+RELEASE_IMG_ARGS  += --image         $(TARGET_ENC_TEXT_DEBUG)
+RELEASE_IMG_ARGS  += --p4            $(P4)
+# Force installation always
+RELEASE_IMG_ARGS  += --force
+
+RELEASE_PATH      = $(RELEASE_DIR)
+
+RELEASE_IMG_ARGS  += --release-path $(RELEASE_PATH)
+
+RELEASE_IMG_TARGET_ARGS := --release-files            \
+  $(subst $(SPACE),$(COMMA),$(TARGET_IMAGES))
+
+build: build.sdk build.partitions $(TARGET_IMAGES) $(RELEASE_PATH)
+	$(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_CHECK) $(RELEASE_IMG_ARGS) $(RELEASE_IMG_TARGET_ARGS)
+
+clobber: clobber.partitions
+	$(RM) -r $(BUILD_DIR)
+
+RVMKIMG_PARAMS_DEBUG := \
+    --monitorCode       $(TARGET_ENC_TEXT_DEBUG)     \
+    --monitorData       $(TARGET_ENC_DATA_DEBUG)     \
+    --manifest          $(TARGET_ENC_MANIFEST_DEBUG) \
+    --outFilePrefix     $(TARGET_FINAL_PREFIX)       \
+    --outDir            $(INSTALL_DIR)               \
+    --useMonitor
+RVMKIMG_DEPS_DEBUG := $(TARGET_ENC_TEXT_DEBUG) $(TARGET_ENC_DATA_DEBUG) $(TARGET_ENC_MANIFEST_DEBUG)
+
+RVMKIMG_PARAMS_PROD := \
+    --monitorCode       $(TARGET_ENC_TEXT_PROD)      \
+    --monitorData       $(TARGET_ENC_DATA_PROD)      \
+    --manifest          $(TARGET_ENC_MANIFEST_PROD)  \
+    --outFilePrefix     $(TARGET_FINAL_PREFIX)       \
+    --outDir            $(INSTALL_DIR)               \
+    --useMonitor
+RVMKIMG_DEPS_PROD := $(TARGET_ENC_TEXT_PROD) $(TARGET_ENC_DATA_PROD) $(TARGET_ENC_MANIFEST_PROD)
+
+$(TARGET_IMAGE_DEBUG) $(TARGET_DESC_DEBUG) &: $(RVMKIMG_DEPS_DEBUG)
+	$(TOUCH) $(INSTALL_DIR)/.keep
+	$(ECHO) generating $(notdir $(TARGET_IMAGE_DEBUG))
+	$(PERL) $(BUILD_SCRIPTS)/mkimage/rvmkimg.pl $(RVMKIMG_PARAMS_DEBUG)
+	$(MOVE) $(INSTALL_DIR)/$(TARGET_FINAL_PREFIX)_image.bin $(TARGET_IMAGE_DEBUG)
+	$(MOVE) $(INSTALL_DIR)/$(TARGET_FINAL_PREFIX)_desc.bin $(TARGET_DESC_DEBUG)
+
+install.partitions: build.partitions
+	$(MAKE) -f make-partition.lwmk install BUILD_DIR=$(BUILD_DIR_PART) INSTALL_DIR=$(INSTALL_DIR_PART)
+
+build.partitions: install.sdk $(BUILD_DIR_PART) $(INSTALL_DIR_PART)
+	$(MAKE) -f make-partition.lwmk build BUILD_DIR=$(BUILD_DIR_PART) INSTALL_DIR=$(INSTALL_DIR_PART)
+
+clobber.partitions:
+	$(MAKE) -f make-partition.lwmk clobber BUILD_DIR=$(BUILD_DIR_PART) INSTALL_DIR=$(INSTALL_DIR_PART)
+
+.PHONY: install.partitions build.partitions clobber.partitions
+
+### SK - Spark SK + policies
+SEPKERN_ROOT                :=$(LWRISCVX_SDK_ROOT)/monitor/sepkern
+SEPKERN_INSTALL_DIR         :=$(INSTALL_DIR_SK)
+SEPKERN_POLICY_FILE_PATH    :=$(FW_ROOT)/policies
+SEPKERN_POLICY_FILE_NAME    := policies.ads
+SEPKERN_PARTITION_COUNT     :=2
+
+PLM_LIST_FILE_PATH          := $(SEPKERN_ROOT)/src/plm
+
+GNAT_PRO_PATH               ?= $(LW_TOOLS)/adacore/gnat_pro_ada/linux/gnat_pro_ent_ada/target_riscv/20200209
+SPARK_PRO_PATH              ?= $(LW_TOOLS)/adacore/gnat_pro_ada/linux/spark_pro/20200212
+GNAT_PATH                   ?= $(GNAT_PRO_PATH)
+GNATPREP                    := $(GNAT_PATH)/bin/riscv64-elf-gnatprep
+
+$(TARGET_SK_OBJDUMP) $(TARGET_SK_READELF) $(TARGET_SK_TEXT) $(TARGET_SK_DATA): $(TARGET_SK_ELF)
+
+$(TARGET_SK_ELF) : install.sk
+
+install.sk: build.sk
+
+SK_BUILD_ARGS := ENGINE=$(ENGINE) CHIP=$(SK_CHIP) INSTALL_PATH=$(INSTALL_DIR_SK)
+SK_BUILD_ARGS += BUILD_PATH=$(BUILD_DIR_SK) OUTPUT_PATH=$(BUILD_DIR_SK)
+SK_BUILD_ARGS += POLICY_PATH=$(SEPKERN_POLICY_FILE_PATH) POLICY_FILE_NAME=$(SEPKERN_POLICY_FILE_NAME)
+SK_BUILD_ARGS += PARTITION_COUNT=$(SEPKERN_PARTITION_COUNT)
+SK_BUILD_ARGS += PLM_LIST_PATH=$(PLM_LIST_FILE_PATH)
+SK_BUILD_ARGS += TARGET_NAME=$(TARGET_SK_NAME)
+
+build.sk: $(BUILD_DIR_SK) $(INSTALL_DIR_SK)
+	$(ECHO) Building SK ...
+	$(MAKE) -C $(SEPKERN_ROOT) $(SK_BUILD_ARGS) install
+	$(MOVE) $(TARGET_SK_PREFIX).elf $(TARGET_SK_ELF)
+.PHONY: build.sk install.sk
+
+# SDK - liblwriscv + stuff around
+install.sdk: build.sdk
+
+$(LIBLWRISCV_CONFIG_H) $(LIBLWRISCV_CONFIG_MK) $(LIBLWRISCV_LIB): build.sdk
+build.sdk: $(BUILD_DIR_SDK) $(INSTALL_DIR_SDK)
+	$(ECHO) Building SDK ...
+	$(MAKE) -C $(LIBLWRISCV_ROOT) install CHIP=$(PROJ)
+.PHONY: install.sdk build.sdk
+
+# Rules to create directories
+DIRS_TO_CREATE:= $(filter INSTALL_DIR_%,$(.VARIABLES)) $(filter BUILD_DIR_%,$(.VARIABLES)) RELEASE_DIR
+define add-dir =
+$(info adding dir rule: $(1))
+$(1):
+	$(MKDIR) $(1)
+endef
+$(foreach c,$(sort $(DIRS_TO_CREATE)),$(eval $(call add-dir,$($(c)))))
+
+##################### Signing and final image generation
+$(TARGET_FINAL_TEXT): build.partitions $(TARGET_SK_TEXT) $(TARGET_PARTITIONS_TEXT) $(INSTALL_DIR)
+	$(CAT) $(TARGET_SK_TEXT) $(TARGET_PARTITIONS_TEXT) > $@
+
+$(TARGET_FINAL_DATA): build.partitions $(TARGET_SK_DATA) $(TARGET_PARTITIONS_DATA) $(INSTALL_DIR)
+	$(CAT) $(TARGET_SK_DATA) $(TARGET_PARTITIONS_DATA) > $@
+
+$(TARGET_FINAL_MANIFEST): $(INSTALL_DIR)
+	$(CAT) $(TARGET_MANIFEST_BIN) > $@
+
+$(TARGET_ENC_TEXT_DEBUG) $(TARGET_ENC_DATA_DEBUG) $(TARGET_ENC_MANIFEST_DEBUG) &: $(TARGET_FINAL_TEXT) $(TARGET_FINAL_DATA) $(TARGET_FINAL_MANIFEST)
+	$(ECHO) "Generating debug-signed/encrypted build"
+	$(SIGGEN) -manifest $(TARGET_FINAL_MANIFEST) -code $(TARGET_FINAL_TEXT) -data $(TARGET_FINAL_DATA) -chip $(SIGGEN_CHIP) -mode 0
+	$(MOVE) $(addsuffix .encrypt.bin.out.bin,$(TARGET_FINAL_MANIFEST)) $(TARGET_ENC_MANIFEST_DEBUG)
+	$(RM) $(addsuffix .encrypt.bin.sig.bin,$(TARGET_FINAL_MANIFEST))
+	$(RM) $(addsuffix .encrypt.bin,$(TARGET_FINAL_MANIFEST))
+	$(MOVE) $(addsuffix .encrypt.bin,$(TARGET_FINAL_TEXT)) $(TARGET_ENC_TEXT_DEBUG)
+	$(MOVE) $(addsuffix .encrypt.bin,$(TARGET_FINAL_DATA)) $(TARGET_ENC_DATA_DEBUG)
+
+###############################################################################
+# Additional libraries to link against
+###############################################################################
+LIBS          :=
+
+# Add risc-v sdk
+LIBS          += lwriscv
+
+ifeq ($(USE_LIBCCC),true)
+LIBS          += CCC
+endif
+
+SUBMAKE_TARGETS :=
+LIB_SRC_DIRS  :=
+LINK_DEPS     :=
+LIB_FLAGS     :=
+LDFLAGS       :=
+
+CFLAGS += -DLWRISCV_APP_DMEM_LIMIT=$(LWRISCV_APP_DMEM_LIMIT)
+CFLAGS += -DLWRISCV_APP_IMEM_LIMIT=$(LWRISCV_APP_IMEM_LIMIT)
+
+###############################################################################
+# Submake settings
+###############################################################################
+SUBMAKE_NAMESPACE   := gsp_fmc
+SUBMAKE_OUTPUTDIR   := _out/$(SUBMAKE_NAMESPACE)/$(LW_PROJ)_$(UPROC_ARCH)_$(LW_BUILD_TYPE)
+SUBMAKE_ONLY_CFLAGS :=
+SUBMAKE_CFLAGS      :=
+
+GSPCFG_PROFILE ?= gsp-$(GSP_PROJ)
+export GSPCFG_PROFILE
+
+###############################################################################
+# Manifest
+###############################################################################
+manifest: $(TARGET_MANIFEST_BIN) $(TARGET_MANIFEST_HEX)
+.PHONY: manifest
+
+$(TARGET_MANIFEST_BIN) $(TARGET_MANIFEST_HEX) &: $(MANIFEST_SRC) $(BUILD_DIR)
+	# Limits are for SK image *only* (not partitions)
+	$(CC) $(CFLAGS) $(MANIFEST_SRC) $(INCLUDES) -Wno-sign-colwersion -DSEPKERN_IMEM_LIMIT=$(SEPKERN_IMEM_LIMIT) -DSEPKERN_DMEM_LIMIT=$(SEPKERN_DMEM_LIMIT) -include $(LIBLWRISCV_CONFIG_H) -c -o $(TARGET_MANIFEST_OBJ)
+	$(OBJCOPY) -O binary -j .rodata.manifest $(TARGET_MANIFEST_OBJ) $(TARGET_MANIFEST_BIN)
+	$(XXD) $(TARGET_MANIFEST_BIN) $(TARGET_MANIFEST_HEX)
+
+###############################################################################
+# Link the target
+###############################################################################
+LIBDIRS       := $(addsuffix /$(SUBMAKE_OUTPUTDIR),$(LIB_SRC_DIRS))
+LIBDIRS       += $(LIBLWRISCV_LIB_DIR)
+
+LIB_FLAGS     += $(addprefix -L,$(LIBDIRS))
+LIB_FLAGS     += $(addprefix -l,$(LIBS))
+
+### Those flags and includes are for manifest processing only
+
+# Add liblwriscv to include path
+INCLUDES      += $(LIBLWRISCV_INSTALL_DIR)/inc
+
+# Add LWRISCV SDK to include path
+INCLUDES      += $(LWRISCVX_SDK_ROOT)/inc
+# Add chip cheaders to include path
+INCLUDES      += $(LW_ENGINE_MANUALS)
+# INCLUDES    += $(LWRISCVX_SDK_ROOT)/inc/lwpu-sdk
+INCLUDES      := $(addprefix -I,$(INCLUDES))
+
+CFLAGS        += -Werror -Wall -Wstrict-prototypes -ffunction-sections -fdata-sections
+CFLAGS        += -pipe -Wtype-limits -Wcolwersion -Wsign-compare -Wint-in-bool-context
+CFLAGS        += -fdiagnostics-color=always
+CFLAGS        += -fomit-frame-pointer -fno-strict-aliasing -mcmodel=medany
+CFLAGS        += -nostartfiles -nostdlib -ffreestanding
+CFLAGS        += $(INCLUDES)
+# WARNING : this is imporant, it includes liblwriscv configuration file in every compiled file (that way we don't need to explicitly include it)
+CFLAGS        += -include $(LIBLWRISCV_CONFIG_H)
+# Don't put uninitialized global variables in common place, keep them in partition's bss
+CFLAGS        += -fno-common
+CFLAGS        += $(EXTRA_CFLAGS)
+CFLAGS        += $(SUBMAKE_CFLAGS)
+# These CFLAGS can be used by submakes which don't define their own set
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+export FPU_SUPPORTED
+export LW_TARGET_OS
+export LW_BUILD_TYPE
+export LW_TARGET_ARCH
+export UPROC_ARCH
+export RTOS_VERSION
+export LWOS_VERSION
+export MEMMAP_PATH
+export LW_PROJ
+export GSP_PROJ
+export BUILD_DIR_PART
+export INSTALL_DIR_PART
+export PROJ
+export FW_ROOT
+export LWRISCVX_SDK_ROOT
+export LIBLWRISCV_CONFIG_H
+export LIBLWRISCV_CONFIG_MK
+export LIBLWRISCV_PROFILE_FILE
+export LIBLWRISCV_INSTALL_DIR
+export LIBLWRISCV_BUILD_DIR
+export LIBLWRISCV_LIB
+export LIBLWRISCV_LIB_DIR
+export LIBLWRISCV_OUT
+export LIBLWRISCV_ROOT
+export MANUAL_PATHS
+export LW_ENGINE_MANUALS
+export LW_MANUALS_ROOT
+export EXTRA_CFLAGS
+export CFLAGS
+export LWRISCV_APP_IMEM_LIMIT
+export LWRISCV_APP_DMEM_LIMIT
+export TARGET_PARTITIONS_PREFIX
+export TARGET_PARTITIONS_TEXT
+export TARGET_PARTITIONS_DATA
+export HDCP22WIREDHSCFG_PROFILE
+
+###############################################################################
+# Define a utility macro for ilwoking make (submake) on any external libraries
+# or utilities that this build depends upon. The macro will establish the
+# targets and dependencies between the builds, override the output directory
+# of the submake build, and pass any other (optional) make arguments to the
+# submake build.
+#
+# Arguments:
+#     $(1) - name of the submake build
+###############################################################################
+
+define SUBMAKE_DEFINITION
+  .PHONY: build.submake.$(1) clobber.submake.$(1)
+
+  build: build.submake.$(1)
+  clobber: clobber.submake.$(1)
+
+  $(1)_MAKE_ARGS ?=
+
+  build.submake.$(1) clobber.submake.$(1):
+	  @$$(MAKE) -C $$($(1)_SRC) -f makefile.lwmk \
+        OUTPUTDIR=$$(SUBMAKE_OUTPUTDIR)          \
+        LW_TARGET_ARCH=$$(LW_TARGET_ARCH)        \
+        $$($(1)_MAKE_ARGS)                       \
+        $$(MAKECMDGOALS)
+endef
+
+###############################################################################
+# Create the target/rule definitions for each submake target
+###############################################################################
+
+$(foreach target, $(SUBMAKE_TARGETS), \
+  $(eval $(call SUBMAKE_DEFINITION,$(strip $(target)))))
+
+# Generic objdump etc rules
+%.readelf: %.elf
+	$(READELF) --all $^ > $@
+
+%.objdump: %.elf
+	$(OBJDUMP) -S $^ > $@
+
+%.nm: %.elf
+	$(NM) $^ > $@
+

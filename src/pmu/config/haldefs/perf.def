@@ -1,0 +1,39 @@
+# -*- mode: perl; -*-
+
+# PERF Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $perfHal = [
+
+    DEFAULTS => [
+        FLAGS => ':DIRECT_HAL_CALLS',
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        VFIELD_REG_ADDR_VALIDATE => [
+            DESCRIPTION    => "Validate if a register address is valid for a given VFIELD ID",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 vfieldId, LwU8 segmentIdx, LwU32 regAddr",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfVfeBoardObj", "__FUNC__")',
+            STUB_RETURNS   => FLCN_OK,
+
+            _STUB          => [ ALL, -PASCAL_and_later, ],
+            _GP10X         => [ PASCAL, ],
+            _GV100         => [ VOLTA, -GV11B, ],
+            _GV11B         => [ GV11B, ],
+            _TU10X         => [ TURING, ],
+            _GA100         => [ GA100, ],
+            _GA10X         => [ AMPERE_and_later, -GA100, ],
+        ],
+
+    ],   # HAL_INTERFACES
+
+];
+
+# return a reference to the Hal definition
+return $perfHal;
+

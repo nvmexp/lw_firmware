@@ -1,0 +1,72 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2017-2021 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "c2cbandwidth.h"
+
+extern "C" __global__ void C2CFill(C2CBandwidthParams params)
+{
+    // Pointer to memory.  Each thread will operate on a single uint4
+    UINT64 uint4PerBlock = params.uint4PerThread * blockDim.x;
+    uint4* pDstMemStart  = GetPtr<uint4*>(params.dstMemory);
+    uint4* pTargetMem;
+
+    for (UINT32 iter = 0; iter < params.iterations; iter++)
+    {
+        pTargetMem = pDstMemStart + uint4PerBlock * blockIdx.x + threadIdx.x;
+        for (UINT32 i = 0 ; i < params.uint4PerThread; i++, pTargetMem += blockDim.x)
+        {
+            *pTargetMem = uint4{static_cast<UINT32>((uint4PerBlock * 16 * blockIdx.x) + i * threadIdx.x + i + 3),
+                                static_cast<UINT32>((uint4PerBlock * 16 * blockIdx.x) + i * threadIdx.x + i + 2),
+                                static_cast<UINT32>((uint4PerBlock * 16 * blockIdx.x) + i * threadIdx.x + i + 1),
+                                static_cast<UINT32>((uint4PerBlock * 16 * blockIdx.x) + i * threadIdx.x + i)};
+        }
+    }
+}
+
+extern "C" __global__ void C2CMemCopy(C2CBandwidthParams params)
+{
+    // Pointer to memory.  Each thread will operate on a single uint4
+    UINT64 uint4PerBlock = params.uint4PerThread * blockDim.x;
+    uint4* pDstMemStart  = GetPtr<uint4*>(params.dstMemory);
+    uint4* pSrcFirst;
+    uint4* pSrcSecond;
+    uint4* pDstMem;
+    uint4* pSrcMem;
+    
+    if (params.firstSrcMem == SRC_MEM_A)
+    {
+        pSrcFirst  = GetPtr<uint4*>(params.srcAMemory);
+        pSrcSecond = GetPtr<uint4*>(params.srcBMemory);
+    }
+    else
+    {
+        pSrcFirst  = GetPtr<uint4*>(params.srcBMemory);
+        pSrcSecond = GetPtr<uint4*>(params.srcAMemory);
+    }
+
+    for (UINT32 iter = 0; iter < params.iterations; iter++)
+    {
+        pDstMem = pDstMemStart + uint4PerBlock * blockIdx.x + threadIdx.x;
+
+        if (iter & 1)
+        {
+            pSrcMem = pSrcSecond + uint4PerBlock * blockIdx.x + threadIdx.x;
+        }
+        else
+        {
+            pSrcMem = pSrcFirst + uint4PerBlock * blockIdx.x + threadIdx.x;
+        }
+        for (UINT32 i = 0 ; i < params.uint4PerThread; i++, pDstMem += blockDim.x, pSrcMem += blockDim.x)
+        {
+            *pDstMem = *pSrcMem;
+        }
+    }
+}

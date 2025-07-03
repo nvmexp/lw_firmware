@@ -1,0 +1,50 @@
+@startuml{UML_Sequence_Diagram_PstateClientConsumingClockTuples.png} "Pstate Client Consuming Clock Tuples"
+actor "Pstate Client" as CLIENT
+participant "Unit Pstate" as PSTATE
+participant "Component BoardObjects" as BOARDOBJGRP
+participant "Unit Clock Domain" as CLK_DOMAINS
+
+activate CLIENT
+== Get a Pstate ==
+CLIENT  ->  PSTATE : PSTATE_GET(pstateIdx)
+activate PSTATE
+CLIENT  <-- PSTATE : pPstate
+deactivate PSTATE
+
+== Consume Clock Tuples in a Pstate ==
+
+CLIENT  ->  BOARDOBJGRP : boardObjGrpGetMask(CLK_DOMAINS)
+activate BOARDOBJGRP
+            BOARDOBJGRP ->  CLK_DOMAINS : getMask()
+            activate CLK_DOMAINS
+            BOARDOBJGRP <-- CLK_DOMAINS : boardObjGrpMask
+            deactivate CLK_DOMAINS
+CLIENT  <-- BOARDOBJGRP : clkDomainsMask
+deactivate BOARDOBJGRP
+
+loop foreach bit set in clkDomainsMask
+    CLIENT  ->  PSTATE : perfPstateClkFreqGet(pPstate, bitIdx, &clockTuple)
+    activate PSTATE
+                PSTATE ->  CLK_DOMAINS : validateIdx(bitIdx)
+                activate CLK_DOMAINS
+    alt Valid Clock Domain Index
+                PSTATE <-- CLK_DOMAINS : OK
+                deactivate CLK_DOMAINS
+    CLIENT  <-- PSTATE : OK
+    deactivate PSTATE
+    |||
+    CLIENT  ->  CLIENT  : consume(clockTuple)
+    else Invalid Clock Domain Index
+    activate PSTATE
+                activate CLK_DOMAINS
+                PSTATE <-- CLK_DOMAINS : ILWALID_IDX
+                deactivate CLK_DOMAINS
+    CLIENT  <-- PSTATE : ILWALID_IDX
+    deactivate PSTATE
+    CLIENT  -> CLIENT   : handleError()
+    end
+
+end
+deactivate CLIENT
+
+@enduml

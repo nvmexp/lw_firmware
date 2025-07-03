@@ -1,0 +1,40 @@
+#!/bin/bash
+# LWIDIA_COPYRIGHT_BEGIN
+#
+# Copyright 2018 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# LWIDIA_COPYRIGHT_END
+
+# This script runs a simple SRIOV regression in PVS.  Hopefully, it
+# can be deprecated if/when we roll the SRIOV options into the
+# gputest.js command line or spec file.
+
+MYNAME="$(basename $0)"
+if (($# != 2)); then
+    echo "Usage: $MYNAME [gpugen.js|gputest.js] spec_name"
+    exit 1
+fi
+JSCRIPT="$1"
+SPEC="$2"
+shift 2
+
+echo '---' > "$MYNAME.yml"
+for SUBTEST_DIR in "${MYNAME}_subtest_01" "${MYNAME}_subtest_02"; do
+    mkdir -p "$SUBTEST_DIR"
+    cp liblwidia-vgpu.so "$SUBTEST_DIR/liblwidia-vgpu.so"
+    for ii in clib fmod; do
+        [[ -d $ii ]] && ln -s ../$ii "$SUBTEST_DIR/$ii"
+    done
+    SUBTEST_SCRIPT="$SUBTEST_DIR/run.sh"
+    echo "- test_exelwtable: $SUBTEST_SCRIPT" >> "$MYNAME.yml"
+    echo "#!/bin/bash"               > "$SUBTEST_SCRIPT"
+    echo 'LD_LIBRARY_PATH+=":$PWD"' >> "$SUBTEST_SCRIPT"
+    echo 'cd "$(dirname "$0")"'     >> "$SUBTEST_SCRIPT"
+    echo "../mods -chip tulit2_fmodel_64.so -gpubios 0 tu102_sim_gddr6.rom '$JSCRIPT' -chipargs -chipPOR=tu102 -readspec tu10xfmod.spc -spec '$SPEC' $*" >> "$SUBTEST_SCRIPT"
+    chmod +x "$SUBTEST_SCRIPT"
+done
+
+./mods -chip tulit2_fmodel_64.so -gpubios 0 tu102_sim_gddr6.rom "$JSCRIPT" -chipargs -chipPOR=tu102 -chipargs -sriov_vf_count=4 -sriov_config_file "$MYNAME.yml" -null_display -rmkey RmDisableDisplay 1 -lwlink_force_disable -sanity_mode -readspec tu10xfmod.spc -spec "$SPEC" "$@"

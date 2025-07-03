@@ -1,0 +1,152 @@
+# -*- mode: perl; -*-
+
+# PLAYREADY Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $prHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        UPDATE_STACK_BOTTOM => [
+            DESCRIPTION    => "Update the FALCON_STACKCFG bottom value",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwBool *',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_NO_STACK_PROTECT()',
+
+            _GP10X         => [ GP10X_and_later, ],
+            _STUB          => [ pre_GP10X, ],
+        ],
+
+        DECRYPT_MPK => [
+            DESCRIPTION    => "Decrypt MPK",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 *pOut",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            _GP10X         => [ GP10X_thru_GA100, ],
+            _GA10X         => [ GA10X_and_later, -GA100, ],
+            _STUB          => [ pre_GP10X, ],
+        ],
+
+        GET_SL150_DEVICE_CERT_TEMPLATE => [
+            INTERFACE_TAG  => 'prGetSL150DeviceCertTemplate',   # 'SL' instead of 'Sl'
+            DESCRIPTION    => "Retrieve the SL150 device cert template",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 **ppCert, LwU32 *pCertSize, void *pDevCertIndices",
+
+            LIKE_INTERFACE => UPDATE_STACK_BOTTOM,
+        ],
+
+        GET_SL3000_DEVICE_CERT_TEMPLATE => [
+            INTERFACE_TAG  => 'prGetSL3000DeviceCertTemplate',   # 'SL' instead of 'Sl'
+            DESCRIPTION    => "Retrieve the SL3000 device cert template",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 **ppCert, LwU32 *pCertSize, void *pDevCertIndices",
+
+            _GP10X         => [ GP10X, ],
+            _GV10X         => [ GV10X, ],
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ GA102, GA103, GA104, GA106, GA107, ],
+            _AD10X         => [ AD10X, ],
+            _STUB          => [ pre_GP10X, AMPERE_and_later, -GA102, -GA103, -GA104, -GA106, -GA107, -AD10X, ],
+        ],
+
+        GET_TEE_VERSION_INFO => [
+            DESCRIPTION    => "Retrieve the TEE version information",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU16 **ppManufacturerName, LwU32 *pManufacturerNameCharCount, LwU16 **ppModelName, LwU32 *pModelNameCharCount, LwU16 **ppModelNumber, LwU32 *pModelNumberCharCount",
+
+            LIKE_INTERFACE => GET_SL3000_DEVICE_CERT_TEMPLATE,
+        ],
+
+        HS_PRE_CHECK => [
+            DESCRIPTION    => "PR HS pre-check",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwBool bSkipDmemLv2Chk',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_NO_STACK_PROTECT()',
+
+            LIKE_INTERFACE => UPDATE_STACK_BOTTOM,
+        ],
+
+        IS_SHARED_STRUCT_INITIALIZED => [
+            DESCRIPTION    => "Returns whether shared struct is initialized or not",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => LW_FALSE,
+
+            _GP10X         => [ GP10X_thru_GV100, ],
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ pre_GP10X, ],
+        ],
+
+        CHECK_DEPENDENT_BIN_MIN_VERSION => [
+            DESCRIPTION    => "Ensure PR is not running with revoked ACR, scrubber, UDE ucodes",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_NO_STACK_PROTECT()',
+
+            _GP10X         => [ GP10X, ],
+            _GV10X         => [ GV10X, ],
+            _TU10X         => [ TU102, TU104, TU106, ],
+            _TU116         => [ TU116, TU117, ],
+            _GA10X         => [ GA102, GA103, GA104, GA106, GA107, ],
+            _AD10X         => [ AD10X, ],
+            _STUB          => [ pre_GP10X, AMPERE_and_later, -GA102, -GA103, -GA104, -GA106, -GA107, -AD10X],
+        ],
+
+        IS_LWDEC_IN_LS_MODE => [
+            DESCRIPTION     => "Queries LWDEC to check if it is in LS mode or not",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwBool *",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _GP10X          => [ GP10X_thru_VOLTA, ],
+            _TU10X          => [ TURING_and_later, ],
+            _STUB           => [ pre_GP10X, ],
+        ],
+
+        GET_SHARED_DATA_REGION_DETAILS => [
+            DESCRIPTION    => "Get shared data region details",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'SHARED_REGION_START_OPTION, LwU64 *',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_NO_STACK_PROTECT()',
+
+            LIKE_INTERFACE => IS_SHARED_STRUCT_INITIALIZED,
+        ],
+
+        GET_SHARED_DATA_REGION_DETAILS_HS => [
+            INTERFACE_TAG  => 'prGetSharedDataRegionDetailsHS',   # 'HS' instead of 'Hs'
+            DESCRIPTION    => "Get shared data region details, HS function",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'SHARED_REGION_START_OPTION, LwU64 *',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_NO_STACK_PROTECT()',
+
+            LIKE_INTERFACE => IS_SHARED_STRUCT_INITIALIZED,
+        ],
+
+        INITIALIZE_SHARED_STRUCT => [
+            INTERFACE_TAG  => 'prInitializeSharedStructHS',   # 'HS' instead of 'Hs'
+            DESCRIPTION    => "Initialize PR shared struct",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+
+            LIKE_INTERFACE => IS_SHARED_STRUCT_INITIALIZED,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $prHal;

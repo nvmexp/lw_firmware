@@ -1,0 +1,32 @@
+Loaded firmware at address 6180000000101000
+LIBOS Loading...
+   ELF @ 6180000000101000
+    Heap: base 0x6180000000001000 0x100000 bytes
+    Pagetables allocated 0x6180000000100000 length 4096 bytes
+    Software MMU enabled.
+
+External memory regions wired.
+Queuing test application.
+Init exiting.
+Case 0. Interrupt raised while in wait for shuttle. (scheduler_wait)
+		Exelwting: ../../test-app.c:29 libosInterruptAsyncRecv(LIBOS_SHUTTLE_DEFAULT, 0xFFFFFFFF) == LIBOS_OK
+   Wait with timeout.
+		Exelwting: ../../test-app.c:33 libosPortWait(LIBOS_SHUTTLE_DEFAULT, &shuttleFired, 0, 0, 100) == LIBOS_ERROR_TIMEOUT
+   Setting LW_PTEST_RAISE_INTERRUPT_ON_NEXT_WFI
+		Exelwting: ../../test-app.c:43 libosPortWait(LIBOS_SHUTTLE_DEFAULT, &shuttleFired, 0, 0, 10000000) == LIBOS_OK
+   Shuttle fired = 1
+   Wait with timeout.
+		Exelwting: ../../test-app.c:49 libosPortWait(LIBOS_SHUTTLE_DEFAULT, &shuttleFired, 0, 0, 100) == LIBOS_ERROR_TIMEOUT
+   **SUBTEST PASSED**
+Case 1. Interrupt already pending when wait starts
+		Exelwting: ../../test-app.c:57 libosInterruptAsyncRecv(LIBOS_SHUTTLE_DEFAULT, 0xFFFFFFFF) == LIBOS_OK
+   Setting LW_PTEST_RAISE_INTERRUPT
+		Exelwting: ../../test-app.c:67 libosPortWait(LIBOS_SHUTTLE_DEFAULT, &shuttleFired, 0, 0, 1000000) == LIBOS_OK
+   Shuttle fired = 1
+   **SUBTEST PASSED**
+Case 2. Interrupt already pending when recv starts
+   Setting LW_PTEST_RAISE_INTERRUPT
+		Exelwting: ../../test-app.c:79 libosInterruptAsyncRecv(LIBOS_SHUTTLE_DEFAULT, 0xFFFFFFFF) == LIBOS_OK
+		Exelwting: ../../test-app.c:86 libosPortWait(LIBOS_SHUTTLE_DEFAULT, &shuttleFired, 0, 0, 1000000) == LIBOS_OK
+   Shuttle fired = 1
+   **SUBTEST PASSED**

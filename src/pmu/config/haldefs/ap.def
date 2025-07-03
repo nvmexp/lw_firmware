@@ -1,0 +1,59 @@
+# -*- mode: perl; -*-
+
+# Adaptive Power Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $apHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libAp", "__FUNC__")',
+        FLAGS          => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+        CTRL_HISTOGRAM_RESET_AND_START => [
+            DESCRIPTION    => "Starts Histogram",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERROR,
+            ARGUMENTS      => "LwU8, LwU8",
+
+            _GMXXX         => [ ALL, ],
+        ],
+
+        CTRL_HISTOGRAM_STOP => [
+            DESCRIPTION    => "Stops Histogram",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERROR,
+            ARGUMENTS      => "LwU8",
+
+            LIKE_INTERFACE => CTRL_HISTOGRAM_RESET_AND_START,
+        ],
+
+        CTRL_HISTOGRAM_READ => [
+            DESCRIPTION    => "Reads data from Histogram",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERROR,
+            ARGUMENTS      => "LwU8",
+
+            _GMXXX         => [ MAXWELL, ],
+            _GP10X         => [ PASCAL_and_later, ],
+        ],
+
+        CTRL_INCREMENT_HIST_CNTR_HW => [
+            DESCRIPTION    => "HW based mechanism to increment histogram counter",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8, LwU32",
+            STUB_BODY      => "PMU_HALT();",    # PMU should not execute stub function in any case.
+
+            _GP10X         => [ PASCAL_and_later, ],
+            _STUB          => [ MAXWELL, ],
+        ],
+
+    ],  # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $apHal;

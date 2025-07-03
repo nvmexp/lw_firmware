@@ -1,0 +1,119 @@
+#
+# Copyright 2015-2018 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+
+#
+# The primary usage of this makefile is as a sub-makefile for a larger falcon
+# build (such as the PMU/DPU/SEC2 builds). It relies on the user (or top-level
+# makefile) to establish the following make-vars before it is ilwoked:
+#     * FALCON_ARCH
+#     * LW_PROJ
+#     * MANUAL_PATHS
+#
+# If building directly, it is highly recommended that you explicitly state (on
+# the build command-line) which falcon architecture and chip project you're
+# targeting. If unspecified, falcon4 and gf11x is assumed. The target
+# architecture may be specified by setting FALCON_ARCH on the command-line.
+# At this time, the available architectures are "falcon3", "falcon4" and "falcon5".
+#
+# LW_PROJ is only used to uniquely name the output directory where the built libraries
+# will be located. This facilitates parallel building of falcon ucode for multiple
+# projects.
+#
+# Example:
+#
+# % make FALCON_ARCH=falcon5 LW_PROJ=gm20x
+#
+# Additionally, based on the target arch, you need to also specify where the
+# falcon manuals are for the architecture.  This is specified using
+# MANUAL_PATHS.
+#
+# Additionally, based on the target arch, you need to also specify where the
+# falcon manuals are for the architecture.  This is specified using
+# MANUAL_PATHS.
+#
+# Examples:
+#
+# % make FALCON_ARCH=falcon5 MANUAL_PATHS=$LW_SOURCE/drivers/common/inc/hwref/maxwell/gm200
+
+LW_PROJ        ?= gm20x
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+include $(LW_SOURCE)/uproc/build/common/lwRtosVersion.lwmk
+
+build: all
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += ./inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/lwos/$(LWOS_VERSION)/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(LW_RTOS_PORT_INCLUDE)
+
+ifeq ($(LW_TARGET_OS),riscv)
+  LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/inc
+  LW_INCLUDES += $(LWRISCV_TOOLS)/include/spike/
+  LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/syslib/inc
+  LW_INCLUDES += $(MEMMAP_PATH)
+else
+  ifdef GSPLITE_RTOS
+    LW_INCLUDES += $(LW_SOURCE)/uproc/disp/dpu/inc
+  endif
+endif
+
+ifdef GSP_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/uproc/gsp/inc
+endif
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+ifeq ($(LW_TARGET_OS),falcon)
+  CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+  CFLAGS += -DUPROC_RISCV
+endif
+
+ifdef GSPLITE_RTOS
+  CFLAGS += -DGSPLITE_RTOS
+  CFLAGS += -DGSPLITE_CSB_ACCESS
+endif
+
+ifdef GSP_RTOS
+  CFLAGS += -DGSP_RTOS
+endif
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+
+SOURCES  += src/bigint.c
+SOURCES  += src/bigint_hs.c
+
+TGT       = $(OUTPUTDIR)/libBigInt.a
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[bigint-$(LW_PROJ)-$(UPROC_ARCH)]"
+
+all: $(TGT)
+$(TGT): $(OBJECTS)
+	$(MKDIR) ${dir $@}
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(AR) -r -c $(TGT) $(OBJECTS)
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+

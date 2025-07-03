@@ -1,0 +1,64 @@
+# -*- mode: perl; -*-
+
+# Timer Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $timerHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        GET_GPU_LWRRENT_NS => [
+            DESCRIPTION    => "get a current nanosecond timestamp using GPU time",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "FLCN_TIMESTAMP *pTime",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_loggerWrite", "__FUNC__")',
+            STUB_RETURNS   => void,
+
+            _GMXXX         => [ ALL, ],
+        ],
+
+        WATCHDOG_INIT      => [
+            DESCRIPTION    => "Enables WDTMR for use by the Watchdog task",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ pre_TU10X, ],
+        ],
+
+        WATCHDOG_STOP      => [
+            DESCRIPTION    => "Disable the watchdog timer",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_watchdog", "__FUNC__")',
+
+            LIKE_INTERFACE => WATCHDOG_INIT,
+        ],
+
+        WATCHDOG_PET       => [
+            DESCRIPTION    => "Reset the watchdog timer countdown",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_watchdog", "__FUNC__")',
+
+            LIKE_INTERFACE => WATCHDOG_INIT,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $timerHal;
+

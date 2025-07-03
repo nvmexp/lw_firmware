@@ -1,0 +1,208 @@
+# -*- mode: perl; -*-
+
+# SHAHW Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $shahwHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libShahw", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+        # **********************************************************************
+        # LS Functions
+        # **********************************************************************
+        ACQUIRE_ENGINE_MUTEX => [
+            DESCRIPTION    => "Acquire SHA engine mutex",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwU8',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahw", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ ALL, -TU10X_and_later, ],
+        ],
+
+        RELEASE_ENGINE_MUTEX => [
+            DESCRIPTION    => "Release SHA engine mutex",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwU8',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahw", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        WAIT_ENGINE_IDLE => [
+            DESCRIPTION    => "Wait for SHA HW engine to reach idle state",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahw", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        ENGINE_SOFT_RESET => [
+            DESCRIPTION    => "Send SOFTRESET command to engine and wait for completion",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahw", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        INITIALIZE_ENGINE => [
+            DESCRIPTION    => "Initialize SHA HW engine",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'SHA_ID, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahw", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        INSERT_TASK => [
+            DESCRIPTION    => "Insert task to run SHA callwlation",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'SHA_ID, LwU32, LwU32 *, LwBool, LwU64, SHA_SRC_TYPE, LwU32, LwU32 *, LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahw", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        CHECK_AND_CLEAR_INT_STATUS => [
+            DESCRIPTION    => "Check SHA int status, clear and return status set",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'SHA_INT_STATUS *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahw", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        WAIT_TASK_COMPLETE => [
+            DESCRIPTION    => "Wait for SHA task to complete, and check for success",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'SHA_INT_STATUS *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahw", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        READ_HASH_RESULT => [
+            DESCRIPTION    => "Read SHA hash result to buffer",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'SHA_ID, LwU32 *, LwBool, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahw", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        # **********************************************************************
+        # HS Functions
+        # **********************************************************************
+        ACQUIRE_ENGINE_MUTEX_HS => [
+            DESCRIPTION    => "Acquire SHA engine mutex",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwU8',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahwHs", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        RELEASE_ENGINE_MUTEX_HS => [
+            DESCRIPTION    => "Release SHA engine mutex",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwU8',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahwHs", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        WAIT_ENGINE_IDLE_HS => [
+            DESCRIPTION    => "Wait for SHA HW engine to reach idle state",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahwHs", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        ENGINE_SOFT_RESET_HS => [
+            DESCRIPTION    => "Send SOFTRESET command to engine and wait for completion",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahwHs", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        INITIALIZE_ENGINE_HS => [
+            DESCRIPTION    => "Initialize SHA HW engine",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'SHA_ID, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahwHs", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        INSERT_TASK_HS => [
+            DESCRIPTION    => "Insert task to run SHA callwlation",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'SHA_ID, LwU32, LwU32 *, LwBool, LwU64, SHA_SRC_TYPE, LwU32, LwU32 *, LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahwHs", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        CHECK_AND_CLEAR_INT_STATUS_HS => [
+            DESCRIPTION    => "Check SHA int status, clear and return status set",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'SHA_INT_STATUS *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahwHs", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        WAIT_TASK_COMPLETE_HS => [
+            DESCRIPTION    => "Wait for SHA task to complete, and check for success",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'SHA_INT_STATUS *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahwHs", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+        READ_HASH_RESULT_HS => [
+            DESCRIPTION    => "Read SHA hash result to buffer",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'SHA_ID, LwU32 *, LwBool, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libShahwHs", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => ACQUIRE_ENGINE_MUTEX,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $shahwHal;

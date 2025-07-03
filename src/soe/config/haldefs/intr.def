@@ -1,0 +1,94 @@
+# -*- mode: perl; -*-
+
+# INTR SOE Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $intrHal = [
+
+    # defaults for Intr for all interfaces below
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PRE_INIT => [
+            DESCRIPTION    => "Initialization",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _LR10         => [ TU102, ],
+            _LS10         => [ ALL, -TU102],
+        ],
+
+        SERVICE => [
+            DESCRIPTION    => "Service",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+        IS_LWLW_IN_RESET => [
+            DESCRIPTION    => "Check if Lwlw is disabled",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => LwU32,
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+        ENABLE_THERMAL_ALERT_INTR => [
+            DESCRIPTION    => "Enable thermal alert interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ TU102, ],
+            _STUB         => [ ALL, -TU102 ],
+        ],
+
+        DISABLE_THERMAL_ALERT_INTR => [
+            DESCRIPTION    => "Disable thermal alert interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ TU102, ],
+            _STUB         => [ ALL, -TU102 ],
+        ],
+
+        DISABLE_THERMAL_OVERT_INTR => [
+            DESCRIPTION    => "Disable thermal overt interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ TU102, ],
+            _STUB         => [ ALL, -TU102 ],
+        ],
+
+        CLEAR_THERMAL_ALERT => [
+            DESCRIPTION    => "Clear thermal alert interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $intrHal;

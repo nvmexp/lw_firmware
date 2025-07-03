@@ -1,0 +1,7 @@
+#define IN_ADA_BODY
+#include "lw_types-array_types.h"
+
+typedef lw_types__lwu32 *lw_types__array_types__arr_lwu32_idx8;
+typedef lw_types__lwu8 *lw_types__array_types__arr_lwu8_idx8;
+typedef lw_types__lwu8 *lw_types__array_types__arr_lwu8_idx32;
+typedef lw_types__lwu32 *lw_types__array_types__arr_lwu32_idx32;

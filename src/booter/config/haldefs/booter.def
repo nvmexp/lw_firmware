@@ -1,0 +1,737 @@
+# -*- mode: perl; -*-
+
+# Booter Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $booterHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+        _STUB           => [ pre_TU10X, ],
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        LOAD => [
+            DESCRIPTION    => "Booter load main function",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        BAR0_WAIT_IDLE => [
+            DESCRIPTION    => "Wait for BAR0 bus to get idle",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => BOOTER_ERROR_BIN_NOT_SUPPORTED,
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        BAR0_REG_READ => [
+            DESCRIPTION    => "Read register using BAR0 bus",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        BAR0_REG_WRITE => [
+            DESCRIPTION    => "Write to BAR0",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        SET_BAR0_TIMEOUT => [
+            DESCRIPTION    => "Set BAR0 timeout",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        PROGRAM_REGION_CFG => [
+            DESCRIPTION    => "Programs the region CFG in FBFI register",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        PROGRAM_DMA_BASE => [
+            DESCRIPTION    => "Booter routine to program DMA base",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwBool, PBOOTER_DMA_PROP',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        SETUP_CTX_DMA => [
+            DESCRIPTION    => "Program FBIF to allow physical transactions,
+                               Incase of GR falcons, make appropriate writes",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwU32 ctxDma, LwBool bIsPhysical',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        ISSUE_DMA => [
+            DESCRIPTION    => "Booter routine to do falcon FB DMA to and from IMEM/DMEM",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'void *, LwBool, LwU32, LwU32, BOOTER_DMA_DIRECTION, BOOTER_DMA_SYNC_TYPE, PBOOTER_DMA_PROP',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+        
+        CHECK_BOOTER_VERSION_IN_SELWRE_SCRATCH => [
+            DESCRIPTION    => "Checks Booter version to BSI secure scratch",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+        
+        WRITE_BOOTER_VERSION_TO_SELWRE_SCRATCH => [
+            DESCRIPTION    => "Writes Booter version to BSI secure scratch",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+        
+        CHECK_BOOTER_HANDOFFS_IN_SELWRE_SCRATCH => [
+            DESCRIPTION    => "Checks Booter/ACR handoffs in BSI secure scratch",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+        
+        WRITE_BOOTER_HANDOFFS_TO_SELWRE_SCRATCH => [
+            DESCRIPTION    => "Writes Booter/ACR handoffs to BSI secure scratch",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+        
+        READ_GSP_RM_WPR_HEADER => [
+            DESCRIPTION    => "Reads GSP-RM's WPR header into the provided buffer using the provided DMA prop",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'GspFwWprMeta *, LwU64, BOOTER_DMA_PROP *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        WRITE_GSP_RM_WPR_HEADER_TO_WPR => [
+            DESCRIPTION    => "Writes GSP-RM WPR header from the provided buffer to FB(WPR)",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'GspFwWprMeta *, LwU64',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        LOAD_FMC_FROM_SYSMEM_TO_FB => [
+            DESCRIPTION    => "Loads FMC from SYSMEM to FB(WPR)",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'GspFwWprMeta *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        LOAD_GSP_RM_FROM_SYSMEM_TO_FB_RADIX3 => [
+            DESCRIPTION    => "Loads GSP-RM from SYSMEM to FB(WPR) using radix3",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'GspFwWprMeta *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        SETUP_DMA_CTL => [
+            DESCRIPTION    => "Setup DMACTL",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        CHECK_IF_FRTS_IS_SET_UP => [
+            DESCRIPTION    => "Check if FRTS is set up by FWSEC",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU64 *, LwU64 *',
+            STUB_RETURNS   => BOOTER_ERROR_BIN_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            _TU10X         => [ TU10X, GA10X, -GA100, ],
+            _STUB          => [ GA100, ],
+        ],
+
+        EXTEND_WPR2 => [
+            DESCRIPTION    => "Extend WPR2 for GSP-RM, since FRTS is set up by FWSEC in WPR2",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'GspFwWprMeta *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        SET_UP_WPR2 => [
+            DESCRIPTION    => "Set up WPR2 for GSP-RM, since FRTS is NOT set up by FWSEC in WPR2",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'GspFwWprMeta *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        ACQUIRE_SELWRE_MUTEX => [
+            DESCRIPTION    => "Given a mutexIndex, try to acquire that mutex",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU8, LwU8*',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        RELEASE_SELWRE_MUTEX => [
+            DESCRIPTION    => "Given a mutexIndex, release that mutex",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU8, LwU8',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        SELWRE_BUS_SEND_REQUEST => [
+            DESCRIPTION    => "Sends read or write request to Secure Bus",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'BOOTER_SELWREBUS_TARGET, LwBool, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        SELWRE_BUS_GET_DATA => [
+            DESCRIPTION    => "On a read request, this function returns read value",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'BOOTER_SELWREBUS_TARGET, LwU32, LwU32*',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        SELWRE_BUS_READ_REGISTER => [
+            DESCRIPTION    => "Reads a register via secure bus",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'BOOTER_SELWREBUS_TARGET, LwU32, LwU32*',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        SELWRE_BUS_WRITE_REGISTER => [
+            DESCRIPTION    => "Writes a register via secure bus",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'BOOTER_SELWREBUS_TARGET, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        VERIFY_LS_SIGNATURES => [
+            DESCRIPTION    => "Verifies GSP-RM LS code and data signatures",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'GspFwWprMeta *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        VALIDATE_LS_SIGNATURE => [
+            DESCRIPTION    => "Verifies LS signature",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32, LwU8*, LwU64, LwU32, LwU32, PLSF_UCODE_DESC_WRAPPER, LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        READ_REVOCATION_REG_FROM_GROUP25 => [
+            DESCRIPTION    => "Reads revocation information from LW_PGC6_AON_SELWRE_SCRATCH_GROUP_25(i) if available",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32, LwU32*',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            _TU10X         => [ TU10X, GA100, ],
+            _GA10X         => [ GA10X, -GA100, ],
+        ],
+
+        MEMSET => [
+            DESCRIPTION    => "Memset implementation",
+            RETURN_TYPE    => 'void *',
+            ARGUMENTS      => 'void *, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        MEMCPY => [
+            DESCRIPTION    => "Memcpy implementation",
+            RETURN_TYPE    => 'void *',
+            ARGUMENTS      => 'void *, void *, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        LSF_UCODE_DESC_WRAPPER_CTRL => [
+            DESCRIPTION    => "LSF_UCODE_DESC_WRAPPER control function",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32, PLSF_UCODE_DESC_WRAPPER, void *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        SETUP_GSP_RISCV => [
+            DESCRIPTION    => "Setup GSP RISCV HW for GSP-RM boot",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'GspFwWprMeta *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        PROGRAM_SUB_WPR_GSP => [
+            DESCRIPTION    => "Program the given GSP sub-WPR",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32, LwBool, LwU64, LwU64, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+        
+        PROGRAM_SUB_WPR_SEC => [
+            DESCRIPTION    => "Program the given SEC sub-WPR",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32, LwBool, LwU64, LwU64, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+        
+        PROGRAM_SUB_WPR_LWDEC => [
+            DESCRIPTION    => "Program the given LWDEC sub-WPR",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32, LwBool, LwU64, LwU64, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        START_GSP_RM => [
+            DESCRIPTION    => "Start the GSP RISCV core",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            _TU10X         => [ TU10X, GA100, ],
+            _GA10X         => [ GA10X, -GA100, ],
+        ],
+
+        PREPARE_GSP_RM => [
+            DESCRIPTION    => "Prepare GSP RISC-V to boot GSP-RM from WPR2",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'GspFwWprMeta *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        GET_LWRRENT_TIME_NS => [
+            DESCRIPTION    => "Get current time in ns",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PBOOTER_TIMESTAMP',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        CHECK_TIMEOUT => [
+            DESCRIPTION    => "Check timeout",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32, BOOTER_TIMESTAMP, LwS32*',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        GET_ELAPSED_TIME_NS => [
+            DESCRIPTION    => "Get elapsed time in ns",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'PBOOTER_TIMESTAMP',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        RESET_AND_POLL_FOR_GSP => [
+            DESCRIPTION    => "Reset and poll for scrubbing of GSP RISCV",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        POLL_FOR_SCRUBBING => [
+            DESCRIPTION    => "Poll for IMEM/DMEM scrubbing of GSP RISCV",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            _TU10X         => [ TU10X, GA100, ],
+            _GA10X         => [ GA10X, -GA100, ],
+        ],
+
+        SETUP_TARGET_REGISTERS => [
+            DESCRIPTION    => "Setups up target registers for GSP RISCV",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            _TU10X         => [ TU10X, GA100, ],
+            _GA10X         => [ GA10X, -GA100, ],
+        ],
+
+        SETUP_BOOTVEC => [
+            DESCRIPTION    => "Setup RISCV bootvector",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32, GspFwWprMeta *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            _TU10X         => [ TU10X, GA100, ],
+            _GA10X         => [ GA10X, -GA100, ],
+        ],
+
+        INITIALIZE_DMA => [
+            DESCRIPTION    => "Initialize DMA for Booter",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        IS_DEBUG_MODE_ENABLED => [
+            DESCRIPTION    => "Checks if debug mode is enabled",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        UNLOAD => [
+            DESCRIPTION    => "Booter unload main function",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        UNLOCK_WPR2 => [
+            DESCRIPTION    => "Tears down WPR2",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        PUT_FALCON_IN_RESET => [
+            DESCRIPTION    => "Puts Falcon in Reset",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        BRING_FALCON_OUT_OF_RESET => [
+            DESCRIPTION    => "Brings Falcon out of Reset",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        FULL_RESET_GSP => [
+            DESCRIPTION    => "Full reset GSP",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        CHECK_IF_WPR1_IS_TORN_DOWN => [
+            DESCRIPTION    => "Check if WPR1 is torn down",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        SCP_GET_RANDOM_NUMBER => [
+            DESCRIPTION    => "Get Random number from SCP",
+            RETURN_TYPE    => BOOTER_STATUS,
+            FLAGS          => ':STATIC',
+            ARGUMENTS      => 'LwU32 *',
+            STUB_RETURNS   => BOOTER_OK,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter","___FUNC__")',
+            ONLY_IF        => '!BOOTER_BOOT_FROM_HS', # Not required in Boot from HS build
+
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ ALL, -TU10X_and_later, ],
+        ],
+
+        RELOAD => [
+            DESCRIPTION    => "Booter reload main function",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        TRNG_GET_RANDOM_NUM => [
+            DESCRIPTION    => "Gets a random number from TRNG ",
+            ARGUMENTS      => 'LwU32*, LwU8, BOOTER_SELWREBUS_TARGET',
+            RETURN_TYPE    =>  void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        TRNG_IS_ENABLED => [
+            DESCRIPTION    => "Checks if TRNG is enabled returns true if enabled",
+            ARGUMENTS      => 'BOOTER_SELWREBUS_TARGET',
+            RETURN_TYPE    =>  LwBool,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => LW_TRUE,
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        TRNG_ENABLE => [
+            DESCRIPTION    => "Enables TRNG (random number generator), returns BOOTER_STATUS",
+            ARGUMENTS      => 'BOOTER_SELWREBUS_TARGET',
+            RETURN_TYPE    =>  BOOTER_STATUS,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => BOOTER_OK,
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        GET_T_RAND => [
+            DESCRIPTION    => "Get a 128 bit random number from SE, return BOOTER_STATUS whether the write was successful or not",
+            ARGUMENTS      => 'LwU32*, LwU8',
+            RETURN_TYPE    =>  BOOTER_STATUS,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   =>  BOOTER_OK,
+
+            _TU10X         =>  [ TU10X_and_later, ],
+        ],
+
+        WRITE_STATUS_TO_FALCON_MAILBOX => [
+            DESCRIPTION    => "Booter will write status into mailbox0",
+            ARGUMENTS      => 'BOOTER_STATUS',
+            RETURN_TYPE    => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        SELF_LOCK_FALCON_RESET => [
+            DESCRIPTION    => "Lock or unlock falcon reset when binary is running",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => BOOTER_OK,
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        CHECK_IF_BUILD_IS_SUPPORTED => [
+            DESCRIPTION    => "Verify is this build should be allowed to run on particular chip",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => BOOTER_ERROR_ILWALID_CHIP_ID,
+
+            _TU10X         => [ TU102, TU104, TU106, ],
+            _TU116         => [ TU116, TU117, ],
+            _GA100         => [ GA100, ],
+            _GA10X         => [ GA102, GA103, GA104, GA106, GA107, ],
+        ],
+
+        GET_UCODE_BUILD_VERSION => [
+            DESCRIPTION    => "Get the ucode build version",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => BOOTER_ERROR_ILWALID_CHIP_ID,
+
+            _TU10X         => [ TU102, TU104, TU106, ],
+            _TU116         => [ TU116, TU117, ],
+            _GA100         => [ GA100, ],
+            _GA10X         => [ GA102, GA103, GA104, GA106, GA107, ],
+        ],
+        
+        VALIDATE_BLOCKS => [
+            DESCRIPTION    => "Ilwalidate all bubbles (blocks not of BOOTER HS, caused if Booter blocks are not loaded contiguously in IMEM)",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        CHECK_IF_ENGINE_IS_SUPPORTED => [
+            DESCRIPTION    => "Verify if binary is running on expected falcon/engine",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => BOOTER_OK,
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        GET_UCODE_FPF_FUSE_VERSION => [
+            DESCRIPTION    => "Get the ucode fpf fuse version",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => BOOTER_ERROR_ILWALID_CHIP_ID,
+
+            _TU10X         => [ TU10X, ],
+            _GA100         => [ GA100_and_later, ],
+            _STUB          => [ pre_TU10X, ],
+        ],
+
+        CHECK_FUSE_REVOCATION_AGAINST_HW_FPF_VERSION => [
+            INTERFACE_TAG  => 'booterCheckFuseRevocationAgainstHWFpfVersion',   # 'HW' instead of 'Hw'
+            DESCRIPTION    => "Check SW fuse version against the FPF version",
+            RETURN_TYPE    => BOOTER_STATUS,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => BOOTER_OK,
+
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ pre_TU10X, ],
+        ],
+
+        CHECK_IF_PRIV_SEC_ENABLED_ON_PROD => [
+            DESCRIPTION    => "Check if Priv Sec is enabled on prod board",
+            ARGUMENTS      => 'void',
+            RETURN_TYPE    => BOOTER_STATUS,
+            STUB_RETURNS   => BOOTER_OK,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter","___FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ ALL, -TU10X_and_later, ],
+        ],
+
+        CHECK_CHAIN_OF_TRUST => [
+            DESCRIPTION    => "Check whether Bootstrap and FWSEC have run successfully to ensure Chain of Trust",
+            ARGUMENTS      => 'void',
+            RETURN_TYPE    => BOOTER_STATUS,
+            STUB_RETURNS   => BOOTER_ERROR_GFW_CHAIN_OF_TRUST_BROKEN,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter","___FUNC__")',
+
+            _GA10X         => [ GA10X, -GA100, ], # TODO(suppal): Re-enable for Hopper later
+            _STUB          => [ ALL, -GA10X, GA100, ],
+        ],
+
+        MITIGATE_NS_RESTART_FROM_HS => [
+            DESCRIPTION    => "Make sure different initiator cannot restart BOOTER in case it halts in HS mode ",
+            ARGUMENTS      => 'void',
+            FLAGS          => ':STATIC',
+            RETURN_TYPE    => void,
+            STUB_RETURNS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter","___FUNC__")',
+            INTERFACE_TAG  => 'booterMitigateNSRestartFromHS',
+
+            _TU10X         => [ TU10X, GA100, ],
+            _STUB          => [ ALL, -TU10X, -GA100 ],
+        ],
+
+        ENABLE_LWDCLK_SCPM_FOR_BOOTER => [
+            DESCRIPTION    => "Re-enable LWDCLK SCPM for Booter exelwtion which gets disabled with SEC2 reset that happens prior to AHESASC exelwtion. Refer BUG 3078892",
+            ARGUMENTS      => 'void',
+            RETURN_TYPE    => void,
+            STUB_RETURNS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter","___FUNC__")',
+
+            _GA10X         => [ GA10X, -GA100, ],
+            _STUB          => [ ALL, -GA10X, GA100, ],
+        ],
+
+        IGNORE_SHA_RESULT_REG_FOR_BAD_VALUE_CHECK => [
+            DESCRIPTION    => "In case CSB address is one of SHA hash result registers, ignore bad value check",
+            RETURN_TYPE    => 'LwBool',
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => LW_FALSE,
+
+            _GA10X         => [ AMPERE, -GA100, ],
+            _STUB          => [ ALL, -AMPERE, GA100, ],
+        ],
+
+        IGNORE_SE_PKA_BANK_REG_FOR_BAD_VALUE_CHECK => [
+            DESCRIPTION    => "In case SE address is in bank register range, ignore bad value check",
+            RETURN_TYPE    => 'LwBool',
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_booter", "__FUNC__")',
+            STUB_RETURNS   => LW_FALSE,
+
+            LIKE_INTERFACE => IGNORE_SHA_RESULT_REG_FOR_BAD_VALUE_CHECK,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $booterHal;
+

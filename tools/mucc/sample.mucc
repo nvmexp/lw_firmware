@@ -1,0 +1,163 @@
+// Sample Mucc program that may induce errors, based on Samsung test
+
+// Test specs
+//
+#ifndef MAX_ROW
+    #define MAX_ROW  0x3FFF // Max 0x3FFF
+#endif
+#ifndef MAX_COL
+    #define MAX_COL  0x3E   // Max 0x3E, always even address decrements by 2
+#endif
+#define BANK_PC0 0x4
+#define BANK_PC1 0x14
+
+// Timing specs
+//
+#ifndef tRCDWR
+    #define tRCDWR  0x5    // spec is 10tCK. Actual (xx+1)*2 + 3
+#endif
+#ifndef tRCDRD
+    #define tRCDRD  0x7    // spec is 14tCK. Actual (xx+1)*2 +3)
+#endif
+#ifndef tWR
+    #define tWR     0xB    // Spec is 16tCK. Actual (xx+1)*2 - 5
+#endif
+#ifndef tWRlong
+    #define tWRlong 0x96   // spec 300ns. xx*2
+#endif
+#ifndef tRP
+    #define tRP     0x4    // spec 14tCK. Actual xx+2 + any other nops after
+#endif
+#ifndef tRTW
+    #define tRTW    0xB
+#endif
+
+// Declare registers
+//
+#define bank0       R0
+#define bank1       R1
+#define col         R2
+#define allZeros    R3
+#define allOnes     R4
+#define row         R5
+#define induceError R6
+
+    // Initialize registers
+    //
+    LOAD allZeros    ALL_ZEROS;
+    LOAD allOnes     ALL_ONES;
+    LOAD induceError INDUCE_ERROR;
+    LOAD bank0       BANK_PC0;
+    LOAD bank1       BANK_PC1;
+
+    // part 1: write "1" from (0,0) to (#3FFF,#3F)
+    //
+    LDI col MAX_COL -2;
+    LDI row MAX_ROW -1;
+
+part1_activate:
+    P1 ACT bank0 row;
+    P1 ACT bank1 row;
+    HOLD tRCDWR;
+
+    P0 WR bank0 col allOnes
+    P2 WR bank1 col allOnes;
+    HOLD tWR;
+
+    P1 PRE bank0
+    P3 PRE bank1;
+    HOLD tRP;
+
+    BNZ row part1_activate;
+    INCR row;
+
+    BNZ col part1_activate
+    LDI row MAX_ROW -1;
+    INCR col;
+
+    // part 2: write '0' from (0,0) to (0x1fff,0)
+    //
+    LDI col MAX_COL -2;
+    LDI row MAX_ROW -1;
+
+part2_activate:
+    P1 ACT bank0 row;
+    P1 ACT bank1 row;
+    HOLD tRCDWR;
+
+    P0 WR bank0 col allZeros
+    P2 WR bank1 col allZeros;
+    HOLD tWR;
+
+    P1 PRE bank0
+    P3 PRE bank1;
+    HOLD tRP;
+
+    BNZ row part2_activate;
+    INCR row;
+
+    // part 3: read "0" modify write "1" from (0,0 to (0x1fff,0)
+    //
+    LDI row MAX_ROW -1;
+
+part3_activate:
+    P1 ACT bank0 row;
+    P1 ACT bank1 row;
+    HOLD tRCDRD;
+
+#ifndef INDUCE_ERRORS
+    P0 RD bank0 col allZeros
+    P2 RD bank1 col allZeros;
+    HOLD tRTW;
+#else
+    P0 RD bank0 col induceError
+    P2 RD bank1 col induceError;
+    HOLD tRTW;
+#endif
+
+    P0 WR bank0 col allOnes
+    P2 WR bank1 col allOnes;
+    HOLD tWRlong;
+
+    P1 PRE bank0
+    P3 PRE bank1;
+    HOLD tRP;
+
+    BNZ row part3_activate;
+    INCR row;
+
+    BNZ col part2_activate
+    LDI row MAX_ROW -1;
+    INCR col;
+
+    STOP;
+
+ALL_ZEROS:
+    PATRAM 0x00000000 0 0
+    PATRAM 0x00000000 0 0
+    PATRAM 0x00000000 0 0
+    PATRAM 0x00000000 0 0
+    PATRAM 0x00000000 0 0
+    PATRAM 0x00000000 0 0
+    PATRAM 0x00000000 0 0
+    PATRAM 0x00000000 0 0;
+
+ALL_ONES:
+    PATRAM 0xFFFFFFFF 0xF 0xF
+    PATRAM 0xFFFFFFFF 0xF 0xF
+    PATRAM 0xFFFFFFFF 0xF 0xF
+    PATRAM 0xFFFFFFFF 0xF 0xF
+    PATRAM 0xFFFFFFFF 0xF 0xF
+    PATRAM 0xFFFFFFFF 0xF 0xF
+    PATRAM 0xFFFFFFFF 0xF 0xF
+    PATRAM 0xFFFFFFFF 0xF 0xF;
+
+INDUCE_ERROR:
+    PATRAM 0x00000001 0xF 0xF
+    PATRAM 0x00000000 0xF 0xF
+    PATRAM 0x00000000 0xF 0xF
+    PATRAM 0x00000000 0xF 0xF
+    PATRAM 0x00000000 0xF 0xF
+    PATRAM 0x00000000 0xF 0xF
+    PATRAM 0x00000000 0xF 0xF
+    PATRAM 0x00000000 0xF 0xF;

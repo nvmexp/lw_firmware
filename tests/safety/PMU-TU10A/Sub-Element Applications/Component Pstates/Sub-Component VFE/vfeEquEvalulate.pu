@@ -1,0 +1,26 @@
+@startuml
+title vfeEquEvaluate
+activate VFE
+    VFE -> VFE : getContext()
+    activate VFE
+        VFE -> OS : getTaskId
+        activate OS
+            return getTaskId
+        return vfeContext
+    VFE -> VFE_VAR : linkClientValues()
+    activate VFE_VAR
+        return status
+    VFE -> VFE_EQU : evalList(vfeContext)
+    activate VFE_EQU
+        note right
+        See vfeEquEvalList()
+        endnote
+        return status, result
+    VFE -> VFE : colwertResult(result)
+    activate VFE
+    deactivate VFE
+    VFE -> VFE_VAR : linkClientValues()
+    activate VFE_VAR
+        return status
+deactivate VFE
+@enduml

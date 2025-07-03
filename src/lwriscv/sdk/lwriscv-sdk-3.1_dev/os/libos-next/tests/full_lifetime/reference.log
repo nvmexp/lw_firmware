@@ -1,0 +1,70 @@
+Loading boot image.
+SK-Model: SeparationKernelEntrypointSet(1, 60600000000020f4)
+SK-Model: SeparationKernelPmpMap(local-id:0, target-partition:1, target-id:0, target-access:7, 6060000000000000-6060000040000000)
+SK-Model: 7 0-ffffffffffffffff
+SK-Model: SeparationKernelPmpMap(local-id:0, target-partition:1, target-id:1, target-access:7, 0-20000000)
+SK-Model: 7 0-ffffffffffffffff
+SK-Model: SeparationKernelPartitionSwitch target:1 entry:60600000000020f4 args:(2000000000000000, 0, 0, 0, 0)
+LWOS-Root: LwosRootInitialize()
+SK-Model: SeparationKernelPartitionSwitch target:0 entry:6060000000000000 args:(1000000000000000, 0, 0, 0, 0)
+SK-Model: SeparationKernelPartitionSwitch target:1 entry:60600000000020f4 args:(2100000000000000, 6060000000000000, 40000000, 7, 0)
+LWOS-Root: LwosRootAdvisePmp(index:0 base:6060000000000000 size:0000000040000000 pmpAccess:7)LWOS-Root: -> status:0
+SK-Model: SeparationKernelPartitionSwitch target:0 entry:6060000000000000 args:(1000000000000000, 0, 0, 0, 0)
+SK-Model: SeparationKernelPartitionSwitch target:1 entry:60600000000020f4 args:(2100000000000001, 0, 20000000, 7, 0)
+LWOS-Root: LwosRootAdvisePmp(index:1 base:0000000000000000 size:0000000020000000 pmpAccess:7)LWOS-Root: -> status:0
+SK-Model: SeparationKernelPartitionSwitch target:0 entry:6060000000000000 args:(1000000000000000, 0, 0, 0, 0)
+SK-Model: SeparationKernelPartitionSwitch target:1 entry:60600000000020f4 args:(2200000000000000, 6060000000200000, 40000000, ffffffffffffffff, 0)
+LWOS-Root: LwosRootMemoryOnline(node:0 base:6060000000200000 size:0000000040000000 partitionMask:ffffffffffffffff)LWOS-Root: -> status:0
+SK-Model: SeparationKernelPartitionSwitch target:0 entry:6060000000000000 args:(1000000000000000, 0, 0, 0, 0)
+SK-Model: SeparationKernelPartitionSwitch target:1 entry:60600000000020f4 args:(2400000000000002, 0, 20000000, 7, 0)
+LWOS-Root: LwosRootPartitionMapPhysical(partition:2 base:0000000000000000 size:0000000020000000 accessMode:7)SK-Model: SeparationKernelPmpMap(local-id:1, target-partition:2, target-id:0, target-access:7, 0-20000000)
+SK-Model: 7 0-20000000
+LWOS-Root: status:0
+SK-Model: SeparationKernelPartitionSwitch target:0 entry:6060000000000000 args:(1000000000000000, 0, 0, 0, 0)
+SK-Model: SeparationKernelPartitionSwitch target:1 entry:60600000000020f4 args:(2300000000000002, 8000000, 8000000, 7, 0)
+LWOS-Root: LwosRootMemoryAllocate(partition:2 size:0000000008000000 alignment:0000000008000000 accessMode:7)SK-Model: SeparationKernelPmpMap(local-id:0, target-partition:2, target-id:1, target-access:7, 6060000008000000-6060000010000000)
+SK-Model: 7 6060000000000000-6060000040000000
+LWOS-Root: status:0 address:6060000008000000
+SK-Model: SeparationKernelPartitionSwitch target:0 entry:6060000000000000 args:(1000000000000000, 6060000008000000, 0, 0, 0)
+SK-Model: SeparationKernelPartitionSwitch target:1 entry:60600000000020f4 args:(2500000000000002, 6060000000011000, 6060000008000000, 8000000, ffffffff)
+LWOS-Root: LwosRootPartitionInit(partition:2 image:6060000000011000 numaBegin:6060000008000000 memorySize:0000000008000000 globalPort:ffffffff)SK-Model: SeparationKernelPmpMap(local-id:0, target-partition:2, target-id:2, target-access:7, 606000000000c000-6060000000010000)
+SK-Model: 7 6060000000000000-6060000040000000
+SK-Model: SeparationKernelEntrypointSet(2, 6060000000010508)
+SK-Model: SeparationKernelPartitionSwitch target:2 entry:6060000000010508 args:(6060000008001000, 7fff000, 6060000000011000, 2, ffffffff)
+Libos: Bootstrapped Printf
+Libos: Bootstrapped MPU for printf().
+Libos: Registering physical memory node 6060000008013000-6060000010000000().
+Libos: Construct NUMA page state tables.
+Libos: NUMA memory node registered 6060000008013000-6060000010000000
+Libos: Kernel address space created.
+Libos: Bootstrap pri mapping replaced.
+Libos: Our partition ID is 2.
+Libos: Mounted root filesystem PA=6060000000011000
+Libos: Mounted file libos-kernel.elf
+Libos: Mounted file init.elf
+Libos: Mounted file worker.elf
+Libos: Setting resume task.
+Libos: Created task address space.
+Libos: Bound task address space 1.
+Libos: Loader mapping init.elf:10000 into asid=8000000008114088.
+Libos: Loader mapping init.elf:11000 into asid=8000000008114088.
+Libos: Our parent didn't pass a global port.
+Libos: Timer subsystem initialized.
+Libos: Task spawned
+Libos: Scheduled init task.
+Libos: Timer subsystem loaded.
+Libos: Interrupt subsystem loaded.
+Libos: Partition Init Verb. caller=1
+SK-Model: SeparationKernelPartitionSwitch target:1 entry:60600000000020f4 args:(2600000000000000, 6060000000013000, 0, 0, 0)
+SK-Model: SeparationKernelPartitionSwitch target:0 entry:6060000000000000 args:(1000000000000000, 0, 0, 0, 0)
+SK-Model: SeparationKernelPartitionSwitch target:2 entry:6060000000010508 args:(3100000000000000, 0, 0, 0, 0)
+Libos: Timer subsystem loaded.
+Libos: Interrupt subsystem loaded.
+Libos: Partition Run Verb.
+Kernel daemon started.
+Allocating and releasing an address space
+Allocating address space and region.
+Returned address 0.
+Releasing address space.
+Releasing region.
+Test terminated.

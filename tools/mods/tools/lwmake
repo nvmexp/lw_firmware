@@ -1,0 +1,167 @@
+#!/bin/bash
+
+set -e
+
+die()
+{
+    echo "ERROR: $@" >&2
+    exit 1
+}
+
+##############################################################################
+# Detect branch
+
+if [[ $LW_SOURCE ]]; then
+    BRANCH="$LW_SOURCE"
+    export LW_SOURCE
+else
+    BRANCH=$(cd -P . && pwd)
+fi
+while [[ $BRANCH && $BRANCH != / ]]; do
+    [[ -d $BRANCH/drivers/common/build ]] && break
+    BRANCH=$(dirname "$BRANCH")
+done
+
+[[ -d $BRANCH/drivers/common/build ]] || die "Failed to determine branch for current directory"
+
+##############################################################################
+# Determine OS
+
+UNAME=$(uname -s)
+
+case "$UNAME" in
+    CYGWIN*|MINGW*|MSYS*) UNAME="Windows" ;;
+esac
+
+##############################################################################
+# Find and configure lwmake
+
+LWMAKE_ARGS=( )
+
+case "$UNAME" in
+
+    Darwin)
+        LWMAKE="$BRANCH/drivers/gpgpu/build/lwmake-mac"
+        ;;
+
+    Linux)
+        [[ $(uname -m) = x86_64 ]] || die "Unsupported host architecture: '$(uname -m)'"
+        LWMAKE="$P4ROOT/sw/tools/unix/hosts/Linux-x86/unix-build/bin/lwmake"
+        LWMAKE_ARGS+=("LW_HOST_ARCH=amd64")
+        LWMAKE_ARGS+=("PRINTF=/usr/bin/printf")
+        LWMAKE_ARGS+=("SHELL=/bin/bash")
+        LWMAKE_ARGS+=("LW_HOST_TOOLCHAIN=mods-gcc-7.3.0-x86_64")
+        ;;
+
+    Windows)
+        LWMAKE="$P4ROOT/sw/tools/win32/MiscBuildTools/lwmake.exe"
+        ;;
+
+    *)
+        die "Unsupported platorm: '$UNAME'"
+        ;;
+esac
+
+[[ -f "$LWMAKE" ]] || die "Unable to find lwmake: $LWMAKE"
+[[ -x "$LWMAKE" ]] || die "File is not exelwtable: $LWMAKE"
+
+##############################################################################
+# Set LW_MODS default
+
+unset LW_MODS
+LW_MODS=""
+for ARG in "$@"; do
+    if [[ ${ARG%%=*} = LW_MODS ]]; then
+        LW_MODS="${ARG#LW_MODS=}"
+        break
+    fi
+done
+
+if [[ -z $LW_MODS ]]; then
+    if [[ -n ${BUILD_OS:=} ]]; then
+        echo "Overriding LW_MODS with BUILD_OS=$BUILD_OS from environment"
+        LW_MODS="$BUILD_OS"
+    else
+        case "$UNAME" in
+            Darwin)  LW_MODS=macosxmfg ;;
+            Linux)   LW_MODS=linuxmfg  ;;
+            Windows) LW_MODS=winmfg    ;;
+        esac
+    fi
+    LWMAKE_ARGS+=("LW_MODS=$LW_MODS")
+fi
+
+##############################################################################
+# Set OS/arch
+
+have_arch()
+{
+    while [[ $# -gt 0 ]]; do
+        local ARG="$1"
+        shift
+
+        [[ ${ARG%%=*} = LW_TARGET_OS ]] && return 0
+        case "$ARG" in
+            aarch64|amd64|armv7|ARMv7|ppc64le|x86) return 0 ;;
+        esac
+    done
+    return 1
+}
+
+if [[ -n ${BUILD_ARCH:=} ]]; then
+    if ! have_arch "$@"; then
+        echo "Overriding arch with BUILD_ARCH=$BUILD_ARCH from environment"
+        LWMAKE_ARGS+=("$BUILD_ARCH")
+    fi
+else
+    case "$LW_MODS" in
+        android) LWMAKE_ARGS+=("aarch64" "LW_TARGET_OS=Android") ;;
+        qnx)     LWMAKE_ARGS+=("aarch64" "LW_TARGET_OS=QNX") ;;
+        cheetah)   LWMAKE_ARGS+=("aarch64") ;;
+        *)       have_arch "$@" || LWMAKE_ARGS+=("amd64") ;;
+    esac
+fi
+
+##############################################################################
+# For colwenience, colwert some MODS elw vars from environment
+
+have_cfg()
+{
+    while [[ $# -gt 0 ]]; do
+        [[ $1 =~ ^release|develop|debug$ ]] && return 0
+        shift
+    done
+    return 1
+}
+
+have_output_root()
+{
+    while [[ $# -gt 0 ]]; do
+        [[ ${1%%=*} = LW_OUTPUT_ROOT ]] && return 0
+        shift
+    done
+    return 1
+}
+
+if [[ -n ${BUILD_CFG:=} ]] && ! have_cfg "$@"; then
+    echo "Overriding build type with BUILD_CFG=$BUILD_CFG from environment"
+    if [[ $BUILD_CFG = sanity ]]; then
+        LWMAKE_ARGS+=("develop")
+    else
+        LWMAKE_ARGS+=("$BUILD_CFG")
+    fi
+fi
+if [[ -n $MODS_OUTPUT_DIR ]] && ! have_output_root "$@"; then
+    [[ $(uname -s) =~ CYGWIN ]] && MODS_OUTPUT_DIR=$(cygpath -m "$MODS_OUTPUT_DIR")
+    echo "Overriding LW_OUTPUT_ROOT with MODS_OUTPUT_DIR=$MODS_OUTPUT_DIR from environment"
+    LWMAKE_ARGS+=("LW_OUTPUT_ROOT=$MODS_OUTPUT_DIR")
+fi
+if [[ ${SHOW_OUTPUT:=} = true ]]; then
+    echo "Overriding verbose with SHOW_OUTPUT=$SHOW_OUTPUT from environment"
+    LWMAKE_ARGS+=("verbose")
+fi
+
+##############################################################################
+# Run lwmake
+echo "% $LWMAKE ${LWMAKE_ARGS[*]} $@"
+exec $LWMAKE ${LWMAKE_ARGS[*]} "$@"

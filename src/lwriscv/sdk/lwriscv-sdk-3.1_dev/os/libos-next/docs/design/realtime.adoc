@@ -1,0 +1,41 @@
+# Real-time Kernel
+
+## Core Requirements
+
+- No tasks with priority weaker than lwrrently exelwtion task 
+  may run.
+- No timers with priority weaker than lwrrently exelwting task
+  may run.
+- All scheduling operations must be lg time.
+- Scheduler must be deterministic
+
+## Realtime Timer subsystem
+
+The timer subsystem may not examine timers with weaker priority
+than any ready or running task.  
+
+Timers should be tracked using a augmented binary tree.
+The tree should be sorted by timeout. Each node should be augmented with the 
+strongest priority timer in the subtree as well as the highest timeout in subtree.
+
+Node::
+    // Normal binary tree data
+    Link  left, right, parent;
+    LwU64 timeout;
+    
+    // Augmented subtree
+    LwU64 lowestPriorityInSubtree;
+    LwU64 biggestTimeoutInSubtree;
+
+Search algorithm::
+  1. Find all subtrees that are fully elapsed 
+     There will be at most lg(N) such trees
+  2. Pick the subtree with the strongest priority
+     elapsed timer
+  3. Search that subtree for the highest priority item
+
+Exelwtion time: O(lg N)
+
+## Realtime Scheduler
+
+

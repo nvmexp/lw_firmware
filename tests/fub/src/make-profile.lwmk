@@ -1,0 +1,425 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2017-2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD ?= false
+NO_RELEASE     ?= false
+INCLUDE_DT     ?= false
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+FUBSW          = $(LW_SOURCE)/uproc/fub
+FUBCFG         = $(LW_SOURCE)/uproc/fub/config
+LWUPROC        = $(LW_SOURCE)/uproc
+RESMAN_ROOT    = $(LW_SOURCE)/drivers/resman
+UPROC_CMN_SRC  = $(LW_SOURCE)/uproc/cmn
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+include $(FUBSW)/config/fub-profiles.mk
+
+###############################################################################
+# Load common falcon make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LWUPROC)/build/common/lwFalconArch.lwmk
+override LW_TARGET_ARCH = $(FALCON_TOOLS_BUILD)
+override LW_TARGET_OS   = falcon
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+ifdef CHIP_MANUAL_PATH
+    include $(CHIP_MANUAL_PATH)/lwFalconSignParams.mk
+endif
+
+include $(LW_SOURCE)/drivers/common/build/lwconfig.lwmk
+###############################################################################
+# Define the output directory paths for the FUB build and all sub-make builds.
+###############################################################################
+
+CHIP-AND-PROFILE-NAME  := $(subst fub-,,$(FUBCFG_PROFILE))
+OUTPUTDIR              := _out/$(CHIP-AND-PROFILE-NAME)
+ifeq ($(FUB_ON_LWDEC), true)
+    CHIPNAME               := $(subst lwdec_,,$(CHIP-AND-PROFILE-NAME))
+endif
+
+ifeq ($(FUB_ON_SEC2), true)
+    CHIPNAME               := $(subst sec2_,,$(CHIP-AND-PROFILE-NAME))
+endif
+###############################################################################
+# Setup fub-config make vars and ilwoke fub-config. Use fub-config's
+# makefile.mk to do all the work. The makefile will generate fub-config.mk in
+# the output directory and then include it.
+###############################################################################
+
+FUBSRC_ALL          :=
+FUBCFG_OPTIONS      :=
+FUBCFG_OUTPUTDIR    ?= $(OUTPUTDIR)/config
+FUBCFG_RESMAN_ROOT  := $(RESMAN_ROOT)
+FUBCFG_FUBSW_ROOT   := $(FUBSW)/src
+
+include $(FUBSW)/config/makefile.mk
+
+# include the generated list of source files
+ifdef FUBCFG_INITIALIZED
+  include $(FUBCFG_OUTPUTDIR)/g_sources.mk
+endif
+
+###############################################################################
+# Include profile-specific make settings to account for profile-specific build
+# options/requirements.
+###############################################################################
+
+-include $(FUBSW)/config/$(FUBCFG_PROFILE).mk
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+export LW_TARGET_ARCH
+export MANUAL_PATHS
+
+###############################################################################
+# Submake Configuration
+#
+# This makefile builds libraries and tools that are shared with other projects.
+# Many of these builds may be lwstomized based on the needs of the project
+# building it. It is therefore necessary to ensure isolation between the
+# projects. Isolation is also required to allow for parallelization of project
+# builds.
+#
+# Isolation is achieved by ensuring that all build output is kept separate
+# between the projects. Ideally, output could all be redirected to a path
+# defined within the FUB's/project's output directory. However, the common
+# lwmake rules require that each submake target's output directory be contained
+# within that target's source directory. As a result, the only way to ensure
+# isolation is by establishing proper namespacing within each submake target's
+# local output directory.
+###############################################################################
+
+SUBMAKE_NAMESPACE := fub
+SUBMAKE_OUTPUTDIR := \
+  _out/$(SUBMAKE_NAMESPACE)/$(FALCON_ARCH)_$(LW_BUILD_TYPE)
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES += $(FUBSW)/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(RESMAN_ROOT)/kernel/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(FALCON_TOOLS)/include
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+
+IMG_TARGET      := $(OUTPUTDIR)/g_fubuc_$(CHIP-AND-PROFILE-NAME)
+IMG_TARGET_DBG  := $(OUTPUTDIR)/g_fubuc_$(CHIP-AND-PROFILE-NAME)_dbg
+IMG_TARGET_PROD := $(OUTPUTDIR)/g_fubuc_$(CHIP-AND-PROFILE-NAME)_prod
+
+IMG_ELF     := $(IMG_TARGET).out
+IMG_ELF_DBG := $(IMG_TARGET_DBG).out
+IMG_ELF_PROD:= $(IMG_TARGET_PROD).out
+IMG_READELF := $(IMG_TARGET).readelf
+IMG_SECTIONS:= $(IMG_TARGET).sections
+IMG_H       := $(IMG_TARGET).h
+IMG_H_DBG   := $(IMG_TARGET_DBG).h
+IMG_H_PROD  := $(IMG_TARGET_PROD).h
+IMG_BIN     := $(IMG_TARGET).bin
+IMG_OBJDUMP := $(IMG_TARGET).objdump
+IMG_NM      := $(IMG_TARGET).nm
+IMG_MAP     := $(IMG_TARGET).map
+IMG_DT      := $(IMG_TARGET).dt
+IMG_DBGLINE := $(IMG_TARGET).dbgline
+IMG_SIG     := $(IMG_TARGET)_sig.h
+
+RELEASE_FILES            = $(IMG_NM) $(IMG_OBJDUMP) $(IMG_READELF)
+RESTRICTED_RELEASE_FILES =
+
+ifeq ("$(IS_HS_ENCRYPTED)", "true")
+    RELEASE_FILES += $(IMG_ELF_PROD) $(IMG_H_DBG) $(IMG_H_PROD) $(IMG_SECTIONS) $(IMG_MAP)
+else
+    RELEASE_FILES += $(IMG_ELF) $(IMG_H)
+endif
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+LDFLAGS += -nodefaultlibs
+LDFLAGS += -lgcc -lfalcon
+
+LDFLAGS += -T $(FUBSW)/build/$(LDSCRIPT)
+
+CFLAGS += --save-temps
+# Disable jump tables, because they go to RO data section which is not covered under signature check
+CFLAGS += -fno-jump-tables
+
+CFLAGS += -DSIG_SIZE=$(SIGNATURE_SIZE)
+
+ifeq ($(LW_TARGET_OS),falcon)
+    CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+    CFLAGS += -DUPROC_RISCV
+endif
+
+ifeq ("$(IS_HS_ENCRYPTED)", "true")
+    CFLAGS += -DIS_HS_ENCRYPTED=1
+else
+    CFLAGS += -DIS_HS_ENCRYPTED=0
+endif
+
+ifeq ($(IS_ENHANCED_AES), true)
+    CFLAGS += -DIS_ENHANCED_AES
+    CFLAGS += -DFUSE_VERSION=$(SIGGEN_FUSE_VER)
+    CFLAGS += -DUCODE_ID=$(SIGGEN_UCODE_ID)
+    CFLAGS += -DENGINE_ID=$(SIGGEN_ENGINE_ID)
+endif
+
+ifeq ($(PKC_ENABLED), true)
+    CFLAGS += -DPKC_ENABLED
+    CFLAGS += -DFUSE_VERSION=$(SIGGEN_FUSE_VER)
+    CFLAGS += -DUCODE_ID=$(SIGGEN_UCODE_ID)
+    CFLAGS += -DENGINE_ID=$(SIGGEN_ENGINE_ID)
+endif
+
+
+ifeq ($(FUB_ON_LWDEC), true)
+    CFLAGS += -DFUB_ON_LWDEC
+endif
+
+ifeq ($(FUB_ON_SEC2), true)
+    CFLAGS += -DFUB_ON_SEC2
+endif
+
+ifeq ($(AUTO_FUB),true)
+    CFLAGS += -DAUTO_FUB
+endif
+
+CFLAGS += -DFUB_TU102_UCODE_BUILD_VERSION=$(FUB_TU102_UCODE_BUILD_VERSION)
+CFLAGS += -DFUB_TU104_UCODE_BUILD_VERSION=$(FUB_TU104_UCODE_BUILD_VERSION)
+CFLAGS += -DFUB_TU106_UCODE_BUILD_VERSION=$(FUB_TU106_UCODE_BUILD_VERSION)
+CFLAGS += -DFUB_TU116_UCODE_BUILD_VERSION=$(FUB_TU116_UCODE_BUILD_VERSION)
+CFLAGS += -DFUB_TU117_UCODE_BUILD_VERSION=$(FUB_TU117_UCODE_BUILD_VERSION)
+CFLAGS += -DFUB_TU10A_UCODE_BUILD_VERSION=$(FUB_TU10A_UCODE_BUILD_VERSION)
+CFLAGS += -DFUB_GA100_UCODE_BUILD_VERSION=$(FUB_GA100_UCODE_BUILD_VERSION)
+
+UCODE_BUILD_VERSIONS :=
+ifneq (,$(findstring tu10x, $(CHIPNAME)))
+    UCODE_BUILD_VERSIONS := "\"FUB_TU102_UCODE_BUILD_VERSION 0x$(FUB_TU102_UCODE_BUILD_VERSION)\;FUB_TU104_UCODE_BUILD_VERSION 0x$(FUB_TU104_UCODE_BUILD_VERSION)\;FUB_TU106_UCODE_BUILD_VERSION 0x$(FUB_TU106_UCODE_BUILD_VERSION)\""
+endif
+
+ifneq (,$(findstring tu116,  $(FUBCFG_PROFILE)))
+    UCODE_BUILD_VERSIONS := "\"FUB_TU116_UCODE_BUILD_VERSION 0x$(FUB_TU116_UCODE_BUILD_VERSION)\;FUB_TU117_UCODE_BUILD_VERSION 0x$(FUB_TU117_UCODE_BUILD_VERSION)\""
+endif
+
+ifneq (,$(findstring tu10a,  $(FUBCFG_PROFILE)))
+    UCODE_BUILD_VERSIONS := "\"FUB_TU10A_UCODE_BUILD_VERSION 0x$(FUB_TU10A_UCODE_BUILD_VERSION)\""
+endif
+
+ifneq (,$(findstring ga100,  $(FUBCFG_PROFILE)))
+    UCODE_BUILD_VERSIONS := "\"FUB_GA100_UCODE_BUILD_VERSION 0x$(FUB_GA100_UCODE_BUILD_VERSION)\""
+endif
+
+ifeq ($(SSP_ENABLED), true)
+    RANDOM_CANARY_NS := $(shell $(PYTHON) -c 'from random import randint; print(randint(65535,1048576))')
+    CFLAGS += -DIS_SSP_ENABLED
+    CFLAGS += -fstack-protector-all
+    CFLAGS += -DRANDOM_CANARY_NS=$(RANDOM_CANARY_NS)
+endif
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(.)); delete $$ELW{PWD}; \
+          print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(FUBCFG_PROFILE)]"
+
+###############################################################################
+# Parse the source files
+###############################################################################
+PERL_PARSER := $(FUBSW)/utilities/parse_files.pl
+ADD_OBJECTS  = ./fub/lw/mulsi.o
+FILE_PARSER  = $(shell $(PERL) $(PERL_PARSER) --suffix "p" $(FUBSRC_ALL))
+SOURCES      = $(FILE_PARSER)
+
+###############################################################################
+# Rules for buildig the ELF image and binary files
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+all: $(IMG_ELF) check sign release
+	$(ECHO) "Cleaning files... $(shell $(PERL) $(PERL_PARSER) --clean $(SOURCES))"
+	$(RM) $(SOURCES)
+
+###############################################################################
+# Sign the binary. Uses pre-build signing tool (linux only for now)
+###############################################################################
+SIG_GEN        = $(FUBSW)/utilities/siggen
+SIG_GEN_CFG    = $(SIGGEN_CFG)
+GEN_CLASS_PL   = $(FUBSW)/utilities/gen_class_os.pl
+GEN_CLASS_OUT  = $(IMG_TARGET).h
+SIGN_SCRIPT    = "tmpsign.sh"
+SIG_SCRIPT_EXP = $(foreach CHIP,$(SIGGEN_CHIPS), \
+         "$(COPY) $(RELEASE_PATH)/g_fubuc_$(CHIP-AND-PROFILE-NAME)_$(CHIP)_sig.h                      \
+         $(OUTPUTDIR)/g_fubuc_$(CHIP-AND-PROFILE-NAME)_$(CHIP)_sig.h; chmod u+w                       \
+         $(OUTPUTDIR)/g_fubuc_$(CHIP-AND-PROFILE-NAME)_$(CHIP)_sig.h; $(SIG_GEN) $(SIG_GEN_CFG)       \
+         $(IMG_TARGET) $(IMG_TARGET) -app $(OUTPUTDIR)/g_fubuc_$(CHIP-AND-PROFILE-NAME)_$(CHIP)_sig.h \
+         -sig $(OUTPUTDIR)/g_fubuc_$(CHIP-AND-PROFILE-NAME)_$(CHIP)_sig.h  -chip $(CHIP)              \
+         -fuseVer $(SIGGEN_FUSE_VER) -engineId $(SIGGEN_ENGINE_ID) -ucodeId $(SIGGEN_UCODE_ID)        \
+         $(if $(filter $(IS_HS_ENCRYPTED),true),-forceSign -encryptUcode -totAppFilePrefix            \
+         $(RELEASE_PATH)/g_fubuc_$(CHIP-AND-PROFILE-NAME) -totAppFilePrefixDH                         \
+         $(RELEASE_PATH)/g_fubuc_$(CHIP-AND-PROFILE-NAME)) ;")
+
+RELEASE_FILES += $(foreach CHIP,$(SIGGEN_CHIPS),"$(OUTPUTDIR)/g_fubuc_$(CHIP-AND-PROFILE-NAME)_$(CHIP)_sig.h")
+
+sign:
+	$(ECHO) $(SIG_SCRIPT_EXP) >> $(SIGN_SCRIPT)
+ifeq ("$(IS_HS_ENCRYPTED)", "true")
+	$(ECHO) "$(PERL) $(GEN_CLASS_PL) -dump app_os_images -hdr $(IMG_H_DBG) -bin $(IMG_ELF_DBG) -chip $(CHIPNAME) -version $(UCODE_BUILD_VERSIONS)" >> $(SIGN_SCRIPT)
+	$(ECHO) "$(PERL) $(GEN_CLASS_PL) -dump app_os_images -hdr $(IMG_H_PROD) -bin $(IMG_ELF_PROD) -chip $(CHIPNAME) -version $(UCODE_BUILD_VERSIONS)" >> $(SIGN_SCRIPT)
+else
+	$(ECHO) "$(PERL) $(GEN_CLASS_PL) -dump app_os_images -hdr $(IMG_H) -bin $(IMG_ELF) -chip $(CHIPNAME) -version $(UCODE_BUILD_VERSIONS)" >> $(SIGN_SCRIPT)
+endif
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(LW_SOURCE)/uproc/build/scripts/release-imgs-if-changed.pl
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_ARGS += --output-prefix $(BUILD_PROJECT_NAME)
+RELEASE_IMG_ARGS += --image         $(IMG_BIN)
+RELEASE_IMG_ARGS += --p4            $(P4)
+
+RELEASE_IMG_ARGS += --release-path $(RELEASE_PATH)
+
+RELEASE_IMG_ARGS += --release-files            \
+  $(subst $(SPACE),$(COMMA),$(RELEASE_FILES))
+
+# unless disabled, make sure the environment is fresh before installing
+ifneq ("$(NO_CHECK_BUILD)","true")
+  .PHONY: checkbuild
+  install: checkbuild
+endif
+release: $(IMG_ELF)
+	$(ECHO) $(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS) >> $(SIGN_SCRIPT)
+
+###############################################################################
+# Check the global initialized data in nm file and fail the build if the data
+# is not present in the exception list in perl script.
+###############################################################################
+
+CHECK_GLOBAL_DATA_PL = $(LWUPROC)/utilities/check_global_data.pl
+EXCEPTION_LIST_PATH  = $(FUBSW)/utilities
+
+GLOBAL_DATA_SCRIPT_ARGS += --nm-file $(IMG_NM)
+GLOBAL_DATA_SCRIPT_ARGS += --nm-exception $(EXCEPTION_LIST_PATH)
+
+check: $(IMG_ELF)
+	$(PERL) $(CHECK_GLOBAL_DATA_PL) $(GLOBAL_DATA_SCRIPT_ARGS)
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files is the prerequisite
+# for this rule.
+###############################################################################
+
+$(IMG_ELF): $(OBJECTS) $(FUBSW)/build/$(LDSCRIPT)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(CFLAGS) $(ADD_OBJECTS) $(OBJECTS) -o $(IMG_ELF) $(LDFLAGS)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_READELF)
+	$(OBJDUMP) -d    $(IMG_ELF) >> $(IMG_OBJDUMP)
+	$(OBJDUMP) -S -d $(IMG_ELF) >> $(IMG_OBJDUMP).source
+	$(DUMPEXEC) -img $(IMG_ELF) -b $(IMG_ELF)
+	$(NM)      -S -n $(IMG_ELF) >> $(IMG_NM)
+	$(ECHO) $(NM)      $(IMG_ELF)       > $(IMG_MAP)
+	$(NM)      $(IMG_ELF)       >> $(IMG_MAP)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_READELF))
+	$(READELF) --all $(IMG_ELF) >> $(IMG_READELF)
+	$(READELF) -S $(IMG_ELF) >> $(IMG_SECTIONS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(IMG_ELF) >> $(IMG_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(IMG_ELF)
+
+###############################################################################
+# Rule for generating .dt/symdump file
+###############################################################################
+
+SYMDUMP_SCRIPT = $(LW_SOURCE)/pmu_sw/build/symdump/symdump.pl
+
+SYMDUMP_ARGS  += $(IMG_ELF) $(IMG_DT)
+SYMDUMP_ARGS  += --falcon-tools $(FALCON_TOOLS)
+SYMDUMP_ARGS  += --acl          $(APP_P4_CL)
+
+$(IMG_DT):
+	-$(PERL) $(SYMDUMP_SCRIPT) $(SYMDUMP_ARGS)
+
+ifeq ("$(INCLUDE_DT)","true")
+  all: $(IMG_DT)
+endif
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clean_ucode
+clean: clean_ucode

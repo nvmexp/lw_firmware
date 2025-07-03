@@ -1,0 +1,134 @@
+== How to go leak hunting ==
+
+To make fixing the leaks a pleseant experience, the MODS leak detector is completely automated
+and it is launched in the same way MODS is ilwoked.<br>
+
+Please, just follow the next 3 steps:
+
+<ul><ol>
+<li> '''Enable the leak detector in MODS.'''<br>
+
+The leak detector will be enabled for any build of MODS when the number of leaks will be zero.
+Lwrrently it is turned off to not break sanity.<br>
+
+Assuming that $MODS points to your MODS directory (e.g., //sw/main_lw5x/diag/mods), edit the
+file $MODS/core/utility/pool.cpp (checking it out and then reverting
+and removing from the changelist after the leaks are fixed).<br>
+
+You have to set these two DEFINES to enable the printing of the leak report and to allow to break
+on the leaking instructions:<br>
+
+<pre>
+...
+//! if defined breaks on the leaking instruction
+#define ABORT_ON_LEAKS
+
+//! to print the leak report
+#define PRINT_LEAK_REPORT
+...
+</pre>
+
+<li> '''Compile MODS''' (in your usual way).
+
+<li> '''Run MODS with the leak detector'''<br>
+
+Go to your MODS runspace (logging in the farm and etc.).<br>
+The script has been tested and works smoothly when you are in the runspace.
+If you are not there, there can be problems with the environment variables.<br>
+You should find there two files: <pre>leak-detector.pl</pre> and <pre>util.pm</pre>
+
+If you run MODS in the following way:<br>
+
+<pre>
+mods -bios g82n.rom -chip g82_debug_fmodel.so mdiag.js -nochsw -serial -outputfilename zbuf -f \
+/home/scratch.gsaggese_g8x/src/hw/tesla/diag/testgen/batch_060308155415/lw50_tesla_ogtest/000001/zbuf.cfg \
+-trepfile trep.txt
+</pre>
+
+You can ilwoke the leak detector with the following command line:
+
+<pre>
+./leak-detector.pl mods -bios g82n.rom -chip g82_debug_fmodel.so mdiag.js -nochsw \
+-serial -outputfilename zbuf -f \
+/home/scratch.gsaggese_g8x/src/hw/tesla/diag/testgen/batch_060308155415/lw50_tesla_ogtest/000001/zbuf.cfg \
+-trepfile trep.txt
+</pre>
+
+The perl script follows the sim.pl-like parameter passing technique: it considers parameters to pass to MODS all the parameters following the first parameter not recognized as a own parameter (including the first).
+
+There are few parameters to the script itself and you can get the options with:
+
+<pre>
+./leak-detector.pl -h
+</pre>
+
+One parameter that can be useful is -show_mods that displays on the screen the output of MODS, besides some internal information from the script.
+
+Please note that you must include the MODS exelwtable, like in the following lines:
+
+<pre>
+./leak-detector.pl -show_mods '''mods''' -bios g82n.rom -chip g82_debug_fmodel.so mdiag.js \
+-nochsw -serial -outputfilename zbuf -f \
+/home/scratch.gsaggese_g8x/src/hw/tesla/diag/testgen/batch_060308155415/lw50_tesla_ogtest/000001/zbuf.cfg \
+-trepfile trep.txt
+</pre>
+
+Note that the whole exelwtion of the leak detector requires about 4 times more time than the exelwtion of the MODS script alone (because of the overhead of calling GDB and other operations).
+
+After the exelwtion, the script outputs a file named leak_report.txt with the analysis of the leaks. A brief description of each instruction leaking is reported as in the following.
+
+<pre>
+===================================================================
+Leak number 1 / 72
+===================================================================
+address=0xa487790 size=16 seqNum=2584
+#3  0x0810906a in Pool::Alloc (Size=172) at core/utility/pool.cpp:534
+#4  0x08097956 in __builtin_vec_new (Size=172) at core/main/modsmain.cpp:355
+#5  0x08843eff in ArgReader::ArgReader (this=0x91cc460, param_list=0x8a84d20, \
+    constraints=0x0) at utils/cmdline.cpp:554
+#6  0x082aca28 in Mdiag::Run (Argv=154723568) at mdiag/mdiag.cpp:288
+#7  0x082ac185 in C_Mdiag_Run (pContext=0x91d01f8, pObject=0x91f0f80, \
+    NumArguments=1, pArguments=0x9387b1c, pReturlwalue=0xfeffdf2c) \
+    at mdiag/mdiag.cpp:169
+#8  0x08492b07 in js_Ilwoke (cx=0x91d01f8, argc=1, constructing=0) at jsinterp.c:650
+#9  0x0849ef51 in js_Interpret (cx=0x91d01f8, result=0xfeffe168) at jsinterp.c:2183
+#10 0x08492b63 in js_Ilwoke (cx=0x91d01f8, argc=0, constructing=0) at jsinterp.c:666
+#11 0x08492e18 in js_CallFunctiolwalue (cx=0x91d01f8, obj=0x91d15f0, fval=153834528, \
+    argc=0, argv=0x0, rval=0xfeffe2ac) at jsinterp.c:735
+#12 0x0846e121 in JS_CallFunctionName (cx=0x91d01f8, obj=0x91d15f0, name=0x938d258 "main", \
+    argc=0, argv=0x0, rval=0xfeffe2ac) at jsapi.c:2356
+#13 0x0808ca3e in JavaScript::CallMethod (this=0x91aba48, pObject=0x91d15f0, Method=
+    {static npos = 4294967295, static nilRep = {len = 0, res = 0, ref = 42, selfish = false}, \
+    dat = 0xfeffe380 "X8\t\b\032\t\225\026\005\b"}, Arguments=@0xfeffe390, \
+    pReturlwalue=0xfeffe364) at core/main/jscript.cpp:1833
+#14 0x08096e3c in main (argc=14, argv=0xfeffe464) at core/main/modsmain.cpp:187
+
+The leaking instruction is
+#5  0x08843eff in ArgReader::ArgReader (this=0x91cc460, param_list=0x8a84d20, constraints=0x0) at utils/cmdline.cpp:554
+554	        values = new vector<string>[arg_count];
+</pre>
+
+The meaning of each field is as follows:
+
+* Address is the address of the memory block lost (of course for different runs / OS) this number can change.
+* Size is the size of the lost block.
+* SeqNum is the sequence number in the sequence of allocations.
+* Then it is reported the stack from GDB, removing the frames 0-2 since they are regard the internal of MODS.
+* Finally the leaking instruction is reported.
+
+In the previous case '''values''' in utils/cmdline.cpp is allocated at line 554 but not released.
+
+Now that you have this file enjoy the leak fixing.
+</ol></ul>
+
+'''NOTE:''' The leak tracking in MODS msu use printf (and not Printf), hence its output is not captured in mods.log
+
+== Internals ==
+
+The leak detector relies on the collection of some information from the Alloc functions (in mods/core/utility/pool.cpp) and GDB. A perl script manages the interactions between GDB and MODS.
+
+In very few words the working principle is:
+MODS is exelwted 2 times.
+In the first pass the leak tracking is performed in MODS to get the sequence order of the leaking instructions.
+This is captured dumping on a file (called mods_leak_log1.txt) the whole output of MODS.
+Then the perl script parses the result.

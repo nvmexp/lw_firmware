@@ -1,0 +1,258 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Engines.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    SOESRC_CORE => [
+
+        FLAGS => ':CORE',             # following are all part of core (non-hal)
+
+        'start.S'                       ,
+        'main.c'                        ,
+        'hal/lw/soe_objhal.c'          ,
+        'hal/lw/soe_halstub.c'         ,
+        'ic/lw/soe_objic.c'            ,
+        'os/lw/soe_os.c'               ,
+
+    ],  # SOESRC_CORE
+
+    SOESRC_ENGINES => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        HAL =>
+        [
+            # These are the files that install the hal support for a given gpu.
+            # The files may be shared across multiple gpus, but every gpu must
+            # be represented by exactly 1 file.
+
+            FLAGS => ':HAL_IMPLEMENTATION'    # mark these files as the hal implementation
+                   . ':HAL_SETUP'
+                   . '',
+            CHIPS_SUPPORTED => [ TU102, ],
+                'hal/limerock/soe_hallr10.c'     ,
+            CHIPS_SUPPORTED => [ GH100, ],
+                'hal/lagunaseca/soe_halls10.c'   ,
+        ],
+
+        IC =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'ic/limerock/soe_iclr10.c'      ,
+            CHIPS_SUPPORTED => [ ALL, -TU102, ],
+                'ic/lagunaseca/soe_icls10.c'    ,
+        ],
+
+        LSF =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'lsf/lw/soe_objlsf.c'           ,
+                'lsf/limerock/soe_lsflr10.c'    ,
+        ],
+
+        SOE =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'soe/lw/soe_objsoe.c'                ,
+                'soe/limerock/soe_soelr10.c'         ,
+                'soe/limerock/soe_queuelr10.c'       ,
+                'soe/limerock/soe_prierrlr10.c'      ,
+                'soe/limerock/soe_discoverylr10.c'   ,
+                'soe/limerock/soe_positionlr10.c'    ,
+                'soe/limerock/soe_dmalr10.c'         ,
+            CHIPS_SUPPORTED => [ TU102, ],
+                'soe/limerock/soe_nxbarlr10.c'       ,
+                'soe/limerock/soe_privringlr10.c'    ,
+            CHIPS_SUPPORTED => [ GH100, ],
+                'soe/lagunaseca/soe_dmals10.c'       ,
+                'soe/lagunaseca/soe_soels10.c'       ,
+                'soe/lagunaseca/soe_privringls10.c'  ,
+            CHIPS_SUPPORTED => [ ALL, -TU102],
+                'soe/lagunaseca/soe_discoveryls10.c' ,
+        ],
+
+        TIMER =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'timer/lw/soe_objtimer.c'       ,
+                'timer/limerock/soe_timerlr10.c',
+        ],
+
+        RTTIMER =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'rttimer/lw/soe_objrttimer.c'      ,
+                'rttimer/limerock/soe_rttimerlr10.c',
+        ],
+
+        THERM =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'therm/lw/soe_objtherm.c'      ,
+                'therm/limerock/soe_thermlr10.c',
+            CHIPS_SUPPORTED => [ ALL, -TU102, ],
+                'therm/lagunaseca/soe_thermls10.c',
+        ],
+
+        BIF =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ]     ,
+                'bif/lw/soe_objbif.c'       ,
+            CHIPS_SUPPORTED => [ TU102, ]   ,
+                'bif/limerock/soe_biflr10.c',
+            CHIPS_SUPPORTED => [ ALL, -TU102, ],
+                'bif/lagunaseca/soe_bifls10.c',
+                'bif/lagunaseca/soe_lanemarginingls10.c',
+        ],
+
+        CORE =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'core/lw/soe_objcore.c',
+                'core/limerock/soe_corelr10.c',
+        ],
+
+        SAW =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'saw/lw/soe_objsaw.c'      ,
+            CHIPS_SUPPORTED => [ TU102, ],
+                'saw/limerock/soe_sawlr10.c',
+        ],
+
+        INTR =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'intr/lw/soe_objintr.c'      ,
+                'intr/limerock/soe_intrlr10.c',
+            CHIPS_SUPPORTED => [ ALL, -TU102, ],
+                'intr/lagunaseca/soe_intrls10.c',
+        ],
+
+        LWLINK =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'lwlink/lw/soe_objlwlink.c'      ,
+                'lwlink/limerock/soe_lwlinklr10.c',
+            CHIPS_SUPPORTED => [ ALL, -TU102, ],
+                'lwlink/lagunaseca/soe_lwlinkls10.c',
+        ],
+
+        PMGR =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'pmgr/lw/soe_objpmgr.c'      ,
+                'pmgr/limerock/soe_pmgrlr10.c',
+        ],
+
+        I2C =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'i2c/lw/soe_obji2c.c'      ,
+                'i2c/limerock/soe_i2clr10.c',
+        ],
+
+        GPIO =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'gpio/lw/soe_objgpio.c'      ,
+                'gpio/limerock/soe_gpiolr10.c',
+            CHIPS_SUPPORTED => [ GH100, ],
+                'gpio/lagunaseca/soe_gpiols10.c',
+        ],
+
+        SPI =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'spi/lw/soe_objspi.c'      ,
+                'spi/lw/soe_spirom.c'       ,
+                'spi/limerock/soe_spilr10.c',
+                'spi/limerock/soe_eraseledgerlr10.c',
+        ],
+
+        IFR =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'inforomfs/bitmap.c',
+                'inforomfs/block.c',
+                'inforomfs/flash.c',
+                'inforomfs/fs.c',
+                'inforomfs/map.c',
+                'ifr/lw/soe_objifr.c'      ,
+                'ifr/limerock/soe_ifrlr10.c',
+        ],
+
+        BIOS =>
+        [
+            CHIPS_SUPPORTED => [ ALL, -GH100, ],
+                'bios/lw/soe_objbios.c'    ,
+            CHIPS_SUPPORTED => [ TU102, ],
+                'bios/limerock/soe_bioslr10.c',
+        ],
+
+        SMBPBI =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'smbpbi/lw/soe_objsmbpbi.c'       ,
+                'smbpbi/lw/soe_smbpbi.c'          ,
+                'smbpbi/lw/soe_smbpbi_async.c'    ,
+                'smbpbi/lw/soe_smbpbi_bundle.c'   ,
+                'smbpbi/lw/soe_smbpbi_dem.c'      ,
+                'smbpbi/lw/soe_smbpbi_osfp.c'     ,
+                'smbpbi/limerock/soe_smbpbilr10.c',
+                'smbpbi/limerock/soe_smbpbiecclr10.c',
+                'smbpbi/limerock/soe_smbpbilwlinklr10.c',
+            CHIPS_SUPPORTED => [ GH100, ],
+                'smbpbi/lagunaseca/soe_smbpbilwlinkls10.c',
+        ],
+
+        GIN =>
+        [
+            CHIPS_SUPPORTED => [ ALL, -TU102, ],
+               'gin/lw/soe_objgin.c'               ,
+               'gin/lagunaseca/soe_ginls10.c'      ,
+        ]
+
+    ],  # SOESRC_ENGINES
+
+    SOESRC_TASKS => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        CHIPS_SUPPORTED => [ ALL, ],
+            'task_bif.c',
+            'task_cmdmgmt.c',
+            'task_therm.c' ,
+            'task_spi.c' ,
+            'task_ifr.c',
+            'task_smbpbi.c' ,
+            'task_core.c' ,
+
+    ],  # SOESRC_TASKS
+
+];   # filesRef
+
+
+my $platformsRef = [
+
+    # the SOE platform
+    PLATFORM_SOE  => [
+        SOESRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

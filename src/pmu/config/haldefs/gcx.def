@@ -1,0 +1,153 @@
+# -*- mode: perl; -*-
+
+# Deepidle Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $gcxHal = [
+
+    DEFAULTS => [
+        FLAGS       => ":DIRECT_HAL_CALLS",
+
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+    # HALs which belong to Didle state overlay
+
+        DIDLE_DEEP_L1_SET_INTERRUPT => [
+            DESCRIPTION   => "Enable or disable the rising or falling edge DeepL1 interrupt",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "LwBool bRising, LwBool bEnable, LwU32 pexSleepState",
+
+            _GM10X        => [ pre_VOLTA, ],
+            _STUB         => [ dVOLTA_and_later, ],
+        ],
+
+        DIDLE_DEEP_L1_SET_INTERRUPTS => [
+            DESCRIPTION   => "Function to enable or disable DeepL1 interrupts",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "LwBool bEnable",
+
+            _GM10X        => [ dMAXWELL_and_later, ],
+        ],
+
+        DIDLE_ATTACH_CORE_SEQUENCE => [
+            DESCRIPTION   => "Attach the overlays that correspond to Didle core sequence",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => void,
+
+            _GMXXX        => [ dMAXWELL_and_later, ],
+        ],
+
+        DIDLE_DETACH_CORE_SEQUENCE => [
+            DESCRIPTION   => "Detaches the overlays that correspond to Didle core sequence",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => void,
+
+            LIKE_INTERFACE => DIDLE_ATTACH_CORE_SEQUENCE,
+        ],
+
+        DIDLE_SEND_MS_ABORTED_EVENT => [
+            DESCRIPTION   => "Sends MSCG aborted notification event to GCX from ISR",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GM10X        => [ dMAXWELL_and_later, ],
+       ],
+
+        # GC4 Specific HALs
+
+        GC4_ENTER => [
+            DESCRIPTION   => "Enter GC4",
+            INTERFACE_TAG => 'gcxGC4Enter',  # 'GC4' instead of 'Gc4'
+            RETURN_TYPE   => LwU8,
+            STUB_RETURNS  => ZERO,
+            ARGUMENTS     => "LwU8 targetState",
+
+            _GM10X        => [ pre_VOLTA, ],
+            _STUB         => [ dVOLTA_and_later, ],
+        ],
+
+        GC4_EXIT => [
+            DESCRIPTION   => "EXIT GC4",
+            INTERFACE_TAG => 'gcxGC4Exit',  # 'GC4' instead of 'Gc4'
+            RETURN_TYPE   => LwU8,
+            STUB_RETURNS  => ZERO,
+            ARGUMENTS     => "LwU8 targetState, LwU8 startSubState",
+
+            LIKE_INTERFACE => GC4_ENTER,
+        ],
+
+        GC4_NEXT_STATE_GET => [
+            DESCRIPTION   => "Check if GC4 Possible",
+            INTERFACE_TAG => 'gcxGC4NextStateGet',  # 'GC4' instead of 'Gc4'
+            RETURN_TYPE   => LwU8,
+            STUB_RETURNS  => ZERO,
+            ARGUMENTS     => void,
+
+            _GM10X        => [ pre_VOLTA, ],
+            _STUB         => [ dVOLTA_and_later, ],
+        ],
+
+        # GC4 Specific HALs end here
+
+        # GC5 Specific HALs end here
+
+    # HALs which belong to Didle state overlay
+
+    # DIDLE Hals
+
+        DIDLE_SCI_VID_PWM_PARAMS_UPDATE => [
+            DESCRIPTION    => "Update the SCI VID PWM parameters and voltage for GC5 enabled PSI",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool bIsSteadyState, LwU32 period, LwU32 dutyCycle, LwU32 diVoltageuV",
+            INTERFACE_TAG => 'gcxDidleSCIVidPwmParamsUpdate',                          # 'SCI' instead of 'Sci'
+
+            _GMXXX        => [ MAXWELL, ],
+            _GP10X        => [ dPASCAL_and_later, ],
+        ],
+
+        DIDLE_SET_GPIO => [
+            DESCRIPTION    => "Set GPIO",
+            RETURN_TYPE    => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            ARGUMENTS      => "LwU32 *pIrqEn, LwU32 pexSleepState, LwBool bEnable",
+
+            _GM10X        => [ dMAXWELL_and_later, ],
+        ],
+
+        DIDLE_L1_SUBSTATES_SET_INTERRUPT => [
+            DESCRIPTION   => "Set L1 substates Interrupts",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "LwBool bRising, LwBool bEnable, LwU32 pexSleepState",
+
+            _GM10X        => [ dMAXWELL_and_later, ],
+            _STUB         => [ ALL, -dMAXWELL_and_later, ],
+        ],
+
+    # DIDLE Hals end here
+
+    # GC6 Plus Functions
+
+        GC6_INIT => [
+            DESCRIPTION   => "GC6 Initilization Routine",
+            INTERFACE_TAG => 'gcxGC6Init',  # 'GC6' instead of 'Gc6'
+            RETURN_TYPE   => FLCN_STATUS,
+            STUB_RETURNS  => FLCN_ERROR,
+            ARGUMENTS     => "void",
+
+            _GM10X        => [ dMAXWELL_and_later, ],
+            _STUB         => [ ALL, -dMAXWELL_and_later, ],
+        ],
+
+    # End GC6 Plus Functions
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $gcxHal;

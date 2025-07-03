@@ -1,0 +1,367 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2015,2018 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "../tools/random.lw"
+#include "../tools/tools.h"
+
+//-----------------------------------------------------------------------------
+template<typename T>
+__device__ void FillConstant
+(
+    device_ptr   mem,
+    const UINT64 numElems,
+    const T      data
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+    T * ptr = GetPtr<T *>(mem);
+
+    for (UINT64 lwrFillIdx = idx; lwrFillIdx < numElems; lwrFillIdx += totalNumThreads)
+    {
+        ptr[lwrFillIdx] = data;
+    }
+}
+
+//------------------------------------------------------------------------------
+// Fill buffer with a 64 bit constant
+extern "C" __global__ void FillConstant64
+(
+    device_ptr mem,
+    UINT64 numElems,
+    UINT64 constant
+)
+{
+    FillConstant<UINT64>(mem, numElems, constant);
+}
+
+//------------------------------------------------------------------------------
+// Fill buffer with a 32 bit constant
+extern "C" __global__ void FillConstant32
+(
+    device_ptr mem,
+    UINT64 numElems,
+    UINT32 constant
+)
+{
+    FillConstant<UINT32>(mem, numElems, constant);
+}
+
+//------------------------------------------------------------------------------
+// Fill buffer with a 8 bit constant
+extern "C" __global__ void FillConstant08
+(
+    device_ptr mem,
+    UINT64 numElems,
+    UINT08 constant
+)
+{
+    FillConstant<UINT08>(mem, numElems, constant);
+}
+
+//-----------------------------------------------------------------------------
+template<typename T>
+__device__ void FillRandom
+(
+    device_ptr       mem,
+    const UINT64 numElems,
+    UINT32       seed
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+    UINT32 randomState;
+    T * ptr               = GetPtr<T *>(mem);
+
+    InitRandomState(seed + idx, &randomState);
+
+    for (UINT64 lwrFillIdx = idx; lwrFillIdx < numElems; lwrFillIdx += totalNumThreads)
+    {
+        ptr[lwrFillIdx] = static_cast<T>(GetRandom(&randomState));
+    }
+}
+
+//------------------------------------------------------------------------------
+// Fill buffer with a 64 bit random value
+extern "C" __global__ void FillRandom64
+(
+    device_ptr mem,
+    UINT64 numElems,
+    UINT64 seed
+)
+{
+    FillRandom<UINT64>(mem, numElems, seed);
+}
+
+//------------------------------------------------------------------------------
+// Fill buffer with a 32 bit constant
+extern "C" __global__ void FillRandom32
+(
+    device_ptr mem,
+    UINT64 numElems,
+    UINT32 seed
+)
+{
+    FillRandom<UINT32>(mem, numElems, seed);
+}
+
+//------------------------------------------------------------------------------
+// Fill buffer with a 8 bit constant
+extern "C" __global__ void FillRandom08
+(
+    device_ptr mem,
+    UINT64 numElems,
+    UINT08 seed
+)
+{
+    FillRandom<UINT08>(mem, numElems, seed);
+}
+
+//------------------------------------------------------------------------------
+// Write a known value at a location
+extern "C" __global__ void InjectError(
+    device_ptr mem,
+    UINT64 size,
+    UINT64 location,
+    UINT64 errorValue)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    device_ptr* ptr = GetPtr<device_ptr*>(mem);
+    if(idx == 0 && location < size)
+    {
+        *(ptr + location) = errorValue;
+    }
+}
+
+
+//------------------------------------------------------------------------------
+//Compute CRC per thread
+extern "C" __global__ void GetCPUMatchingCRC(
+    device_ptr mem,
+    device_ptr crcTable,
+    device_ptr crcWriteBuf,
+    UINT64 size)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+    UINT64 numLoops = size/totalNumThreads;
+    UINT32 crc = ~0x0;
+    device_ptr* ptr = GetPtr<device_ptr*>(mem);
+
+
+    for (UINT64 loopNum = 0 ; loopNum < numLoops; loopNum++)
+    {
+        UINT64 value = *(ptr + loopNum + (idx * numLoops));
+        for (UINT32 i = 0 ; i < 8; i++)
+        {
+            UINT32 data = (value>>(i*8) & 0xFF);
+            crc = (GetPtr<UINT32*>(crcTable) [crc>>24 ^ data]) ^ (crc<<8);
+        }
+    }
+
+    if (idx + (numLoops * totalNumThreads) < size)
+    {
+        UINT64 value = *(ptr + idx + (numLoops * totalNumThreads));
+        for (UINT32 i = 0 ; i < 8; i++)
+        {
+            UINT32 data = (value>>(i*8) & 0xFF);
+            crc = (GetPtr<UINT32*>(crcTable)[crc>>24 ^ data]) ^ (crc<<8);
+        }
+    }
+
+    GetPtr<UINT32*>(crcWriteBuf)[idx] = ~crc;
+}
+
+
+//------------------------------------------------------------------------------
+//Assumes RGBA 32 bit pixel.
+//Each thread returns 4 CRCs per component(R,G,B,A)
+extern "C" __global__ void GetCPUMatchingComponentCRC(
+    device_ptr mem,
+    device_ptr crcTable,
+    device_ptr crcWriteBuf,
+    UINT64 size)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+    UINT64 numLoops = size/totalNumThreads;
+
+    UINT32 data[4];
+    UINT32 crc[4] = {~0x0, ~0x0, ~0x0, ~0x0};
+
+    device_ptr* ptr = GetPtr<device_ptr*>(mem);
+
+    for (UINT64 loopNum = 0 ; loopNum < numLoops; loopNum++)
+    {
+        UINT64 value = *(ptr + loopNum + (idx * numLoops));
+
+        for (UINT64 k = 0 ; k < 8; k++)
+        {
+            data[k % 4] = (value>>(k*8)) & 0xFF;
+            crc[k % 4]  = (GetPtr<UINT32*>(crcTable)[(crc[k % 4]>>24) ^ (data[k % 4])]) ^ (crc[k % 4]<<8);
+        }
+    }
+
+    if (idx + (numLoops * totalNumThreads) < size)
+    {
+        UINT64 value = *(ptr + idx + (numLoops * totalNumThreads));
+
+        for (UINT64 k = 0 ; k < 8; k++)
+        {
+            data[k % 4] = (value>>(k*8)) & 0xFF;
+            crc[k % 4]  = (GetPtr<UINT32*>(crcTable)[(crc[k % 4]>>24) ^ (data[k % 4])]) ^ (crc[k % 4]<<8);
+        }
+    }
+
+    GetPtr<UINT32*>(crcWriteBuf)[4*idx+0] = ~crc[0];
+    GetPtr<UINT32*>(crcWriteBuf)[4*idx+1] = ~crc[1];
+    GetPtr<UINT32*>(crcWriteBuf)[4*idx+2] = ~crc[2];
+    GetPtr<UINT32*>(crcWriteBuf)[4*idx+3] = ~crc[3];
+}
+
+template<typename T>
+__device__ void CompareBuffers
+(
+    device_ptr buf1,
+    device_ptr buf2,
+    device_ptr results,
+    UINT64 numElems,
+    T          mask
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+
+    T * readPtr1 = GetPtr<T *>(buf1);
+    T * readPtr2 = GetPtr<T *>(buf2);
+    UINT32* writePtr = GetPtr<UINT32*>(results);
+    *(writePtr + idx) = 0;
+
+    for (UINT64 lwrCompareIdx = idx; lwrCompareIdx < numElems; lwrCompareIdx += totalNumThreads)
+    {
+        if ((readPtr1[lwrCompareIdx] & mask) != (readPtr2[lwrCompareIdx] & mask))
+        {
+            writePtr[lwrCompareIdx] = 1;
+            return;
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+// Compare buffer with a 64 bit values
+extern "C" __global__ void CompareBuffers64
+(
+    device_ptr buf1,
+    device_ptr buf2,
+    device_ptr results,
+    UINT64 numElems,
+    UINT64 mask
+)
+{
+    CompareBuffers<UINT64>(buf1, buf2, results, numElems, mask);
+}
+
+//------------------------------------------------------------------------------
+// Compare buffer with a 32 bit values
+extern "C" __global__ void CompareBuffers32
+(
+    device_ptr buf1,
+    device_ptr buf2,
+    device_ptr results,
+    UINT64 numElems,
+    UINT32 mask
+)
+{
+    CompareBuffers<UINT32>(buf1, buf2, results, numElems, mask);
+}
+
+//------------------------------------------------------------------------------
+// Compare buffer with a 8 bit values
+extern "C" __global__ void CompareBuffers08
+(
+    device_ptr buf1,
+    device_ptr buf2,
+    device_ptr results,
+    UINT64 numElems,
+    UINT08 mask
+)
+{
+    CompareBuffers<UINT08>(buf1, buf2, results, numElems, mask);
+}
+
+//------------------------------------------------------------------------------
+//Compute CRC per thread
+template<typename T>
+__device__ void GetCRC
+(
+    device_ptr mem,
+    device_ptr crcTable,
+    device_ptr crcWriteBuf,
+    UINT64 numElems
+)
+{
+    const UINT64 idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const UINT64 totalNumThreads = gridDim.x * blockDim.x;
+
+    UINT32 crc         = ~0x0;
+    T * ptr                = GetPtr<T *>(mem);
+    UINT32 * pCrcTable = GetPtr<UINT32 *>(crcTable);
+
+    for (UINT64 lwrCrcIdx = idx ; lwrCrcIdx < numElems; lwrCrcIdx += totalNumThreads)
+    {
+        T value = ptr[lwrCrcIdx];
+        for (UINT32 lwrByte = 0 ; lwrByte < sizeof(T); lwrByte++)
+        {
+            UINT32 data = (value >> (lwrByte * 8) & 0xFF);
+            crc = (pCrcTable[crc >> 24 ^ data]) ^ (crc << 8);
+        }
+    }
+    GetPtr<UINT32*>(crcWriteBuf)[idx] = ~crc;
+}
+
+//------------------------------------------------------------------------------
+// CRC buffer containing 64 bit values
+extern "C" __global__ void GetCRC64
+(
+    device_ptr mem,
+    device_ptr crcTable,
+    device_ptr crcWriteBuf,
+    UINT64 numElems
+)
+{
+    GetCRC<UINT64>(mem, crcTable, crcWriteBuf, numElems);
+}
+
+//------------------------------------------------------------------------------
+// CRC buffer containing 32 bit values
+extern "C" __global__ void GetCRC32
+(
+    device_ptr mem,
+    device_ptr crcTable,
+    device_ptr crcWriteBuf,
+    UINT64 numElems
+)
+{
+    GetCRC<UINT32>(mem, crcTable, crcWriteBuf, numElems);
+}
+
+//------------------------------------------------------------------------------
+// Compare buffer with a 8 bit values
+extern "C" __global__ void GetCRC08
+(
+    device_ptr mem,
+    device_ptr crcTable,
+    device_ptr crcWriteBuf,
+    UINT64 numElems
+)
+{
+    GetCRC<UINT08>(mem, crcTable, crcWriteBuf, numElems);
+}

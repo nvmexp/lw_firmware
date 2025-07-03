@@ -1,0 +1,355 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if [[ $# -lt 2 ]]; then
+    echo "Usage: $(basename "$0") <IMAGE_DIR> flash <FLASH_TARGET>" >&2
+    echo "       $(basename "$0") <IMAGE_DIR> wait_for_device" >&2
+    echo "       $(basename "$0") <IMAGE_DIR> upload <MODS_DIR>" >&2
+    echo "       $(basename "$0") <IMAGE_DIR> mods [ARGS...]" >&2
+    exit 1
+fi
+
+IMAGE_DIR="$1"
+COMMAND="$2"
+shift 2
+
+TARGET_IP="192.168.55.1"
+HOST_IP="192.168.55.2"
+ETH_DEV="usb0"
+REBOOT_TIMEOUT_SEC=30
+MODS_FILES=( modsexit.txt mods.log mods.mle stat.jso )
+
+runcmd()
+{
+    if [[ $1 = nofail ]]; then
+        shift
+        echo "%" "$@"
+        "$@" || true
+    else
+        echo "%" "$@"
+        "$@"
+    fi
+}
+
+reset_target()
+{
+    runcmd pm342 reset
+}
+
+ILWOKE_SSH=( sshpass -pubuntu ssh -o StrictHostKeyChecking=no "ubuntu@$TARGET_IP" ) 
+
+test_ssh()
+{
+    "${ILWOKE_SSH[@]}" "$@" || true
+}
+
+wait_for_target()
+{
+    local TIMEOUT_SEC="$1"
+
+    local START_TIME=$SECONDS
+
+    while true; do
+        if [[ -d /sys/class/net/$ETH_DEV ]]; then
+            if ! ifconfig "$ETH_DEV" | grep -q "\<$HOST_IP\>"; then
+                runcmd nofail sudo ifconfig "$ETH_DEV" "$HOST_IP" netmask 255.255.255.0
+                runcmd nofail sudo ifconfig "$ETH_DEV" up
+            fi
+            echo "% ping -c 1 -W $TIMEOUT_SEC $TARGET_IP"
+            ping -c 1 -W "$TIMEOUT_SEC" "$TARGET_IP" && break 
+        else
+            sleep 1
+        fi
+        local ELAPSED=$(($SECONDS - $START_TIME))
+        if [[ $ELAPSED -gt $TIMEOUT_SEC ]]; then
+            echo "Error: Failed to detect target after $TIMEOUT_SEC seconds" >&2
+            return 1
+        fi
+    done
+
+    while ! test_ssh echo OK | grep -q OK; do
+        local ELAPSED=$(($SECONDS - $START_TIME))
+        if [[ $ELAPSED -gt $TIMEOUT_SEC ]]; then
+            echo "Error: Unable to log in via ssh after $TIMEOUT_SEC seconds" >&2
+            return 1
+        fi
+        sleep 1
+    done
+}
+
+runssh()
+{
+    NOFAIL=""
+    if [[ $1 = nofail ]]; then
+        NOFAIL=$1
+        shift
+    fi
+    runcmd $NOFAIL "${ILWOKE_SSH[@]}" "$@"
+}
+
+runscp()
+{
+    NOFAIL=""
+    if [[ $1 = nofail ]]; then
+        NOFAIL=$1
+        shift
+    fi
+    runcmd $NOFAIL sshpass -pubuntu scp -o StrictHostKeyChecking=no "$@"
+}
+
+# Usage: scp_from target_dir_or_file local_dir_or_file
+scp_from()
+{
+    NOFAIL=""
+    if [[ $1 = nofail ]]; then
+        NOFAIL=$1
+        shift
+    fi
+    local SRC="$1"
+    local DEST="$2"
+    runscp $NOFAIL "ubuntu@$TARGET_IP:$SRC" "$DEST"
+}
+
+# Usage: scp_to target_dir_or_file local_dir_or_file [local_stuff...]
+scp_to()
+{
+    local DEST="$1"
+    shift
+    runscp "$@" "ubuntu@$TARGET_IP:$DEST"
+}
+
+runsshsudo()
+{
+    NOFAIL=""
+    if [[ $1 = nofail ]]; then
+        NOFAIL=$1
+        shift
+    fi
+    runssh $NOFAIL echo ubuntu '|' sudo -S "$@"
+}
+
+flash()
+{
+    if [[ $# -ne 1 ]]; then
+        if [[ $# -eq 0 ]]; then
+            echo "Error: Missing flash target" >&2
+        else
+            echo "Error: Too many arguments" >&2
+        fi
+        echo "Usage: $(basename "$0") <IMAGE_DIR> flash <FLASH_TARGET>" >&2
+        exit 1
+    fi
+
+    local FLASH_TARGET="$1"
+
+    if [[ -f $IMAGE_DIR/tests_output.tbz2 ]]; then
+        runcmd tar -x --use-compress-program lbzip2 -f "$IMAGE_DIR/tests_output.tbz2" -C "$IMAGE_DIR"
+        runcmd rm "$IMAGE_DIR/tests_output.tbz2"
+    fi
+
+    local FULL_DIR="$IMAGE_DIR/full_linux_for_tegra"
+    local PREP_DONE="$FULL_DIR/prep_done"
+    if [[ ! -f $PREP_DONE ]]; then
+        runcmd tar -x --use-compress-program lbzip2 -f "$FULL_DIR/linux_for_tegra.tbz2" -C "$FULL_DIR"
+        runcmd cd "$FULL_DIR"
+        runcmd ./make_rfs_from_bsp.sh
+        runcmd cd -
+        runcmd cd "$FULL_DIR/Linux_for_Tegra"
+        # Fix a bug in the script
+        runcmd sed -i '/cp -f.*_src/s/-f/-Pf/' tools/ota_tools/version_upgrade/ota_make_recovery_img_dtb.sh
+        runcmd cd -
+        runcmd touch "$PREP_DONE"
+    fi
+
+    runcmd cd "$FULL_DIR/Linux_for_Tegra"
+    runcmd sudo ./flash.sh "$FLASH_TARGET" mmcblk0p1
+    runcmd cd -
+
+    # wait_for_target uses ssh to test the connection
+    # Reset ssh key before calling wait_for_target
+    ssh-keygen -R "$TARGET_IP"
+
+    reset_target
+    sleep 5
+    wait_for_target $REBOOT_TIMEOUT_SEC
+
+    # Allow the system to finish booting
+    sleep 5
+
+    runssh pwd ';' ls -l
+    runssh rm -rf "/home/ubuntu/*"
+
+    runsshsudo systemctl disable lwargus-daemon
+    runsshsudo systemctl disable lws-service
+
+    runsshsudo sed -i 's/^lwgpu/mods/' /etc/modules-load.d/lw.conf
+
+    runssh echo "blacklist lwgpu" '>' blacklist-lwgpu.conf
+    runsshsudo chown root:root blacklist-lwgpu.conf
+    runsshsudo chmod 644 blacklist-lwgpu.conf
+    runsshsudo mv blacklist-lwgpu.conf /etc/modprobe.d/
+
+    runssh echo 'KERNEL==\"mods\", OWNER=\"root\", GROUP=\"video\", MODE=\"0660\"' '>' 99-mods.rules
+    runsshsudo chown root:root 99-mods.rules
+    runsshsudo chmod 644 99-mods.rules
+    runsshsudo mv 99-mods.rules /etc/udev/rules.d/99-mods.rules
+
+    runsshsudo sed -i "s/jetson/$(hostname)/" /etc/hosts /etc/hostname
+
+    runsshsudo sync
+    sleep 1
+    reset_target
+    sleep 5
+    wait_for_target $REBOOT_TIMEOUT_SEC
+}
+
+check_target()
+{
+    local RETRIES=0
+    local MAX_RETRIES=2
+    while [[ $RETRIES -lt $MAX_RETRIES ]]; do
+        RETRIES=$(($RETRIES + 1))
+
+        if ! wait_for_target $REBOOT_TIMEOUT_SEC; then
+            echo "Resetting target"
+            reset_target
+            continue
+        fi
+
+        if ! runssh true; then
+            sleep 10
+            if ! runssh true; then
+                reset_target
+                continue
+            fi
+        fi
+
+        return 0
+    done
+
+    echo "Error: Failed to connect to the target at $TARGET_IP" >&2
+    exit 1
+}
+
+upload_mods()
+{
+    if [[ $# -ne 1 ]]; then
+        if [[ $# -eq 0 ]]; then
+            echo "Error: Missing MODS runspace" >&2
+        else
+            echo "Error: Too many arguments" >&2
+        fi
+        echo "Usage: $(basename "$0") <IMAGE_DIR> upload <MODS_DIR>" >&2
+        exit 1
+    fi
+
+    if [[ ! -d "$1" ]]; then
+        echo "Error: Missing directory $1" >&2
+        exit 1
+    fi
+
+    local LWRRENT_DIR=$(cd -P . && pwd)
+    local MODS_DIR=$(cd -P "$1" && pwd)
+    if [[ $LWRRENT_DIR = $MODS_DIR ]]; then
+        echo "Error: Unable to upload MODS from current directory" >&2
+        exit 1
+    fi
+
+    if [ ! -x "$1/mods" ]; then
+        echo "Error: Missing MODS exelwtable $1/mods" >&2
+        exit 1
+    fi
+
+    runcmd rm -f checksum
+    echo "% sha512sum "$1"/* | sort -k 2 > checksum"
+    sha512sum "$1"/* | sort -k 2 > checksum
+
+    check_target
+
+    runssh pwd ';' ls -l
+    scp_from nofail checksum remote_checksum
+    if [[ -f remote_checksum ]] && diff -q checksum remote_checksum; then
+        echo "MODS did not change, skipping upload"
+        return 0
+    fi
+    runssh rm -rf mods checksum runmods.sh
+    runssh mkdir -p mods
+    scp_to mods/ "$1"/*
+
+    echo "% cat > runmods.sh <<EOF"
+    cat > runmods.sh <<EOF
+        #!/bin/bash
+
+        set -euo pipefail
+
+        runcmd()
+        {
+            echo "$ \$@"
+            "\$@" || return \$?
+        }
+
+        runcmd cd output
+
+        if test -f ../mods/librm.so; then
+            runcmd export LD_LIBRARY_PATH=~/mods
+        fi
+
+        EC=0
+        runcmd ../mods/mods "\$@" || EC=\$?
+        echo "MODS exit code: \$EC"
+        echo "\$EC" > modsexit.txt
+EOF
+    cat runmods.sh
+    echo "EOF"
+    sed -i 's/^ \{8\}//' runmods.sh
+    scp_to runmods.sh runmods.sh
+    runssh chmod 755 runmods.sh
+
+    scp_to checksum checksum
+    runssh sync
+}
+
+run_mods()
+{
+    check_target
+
+    runssh mkdir -p output
+    runssh cd output '&&' rm -f "${MODS_FILES[@]}"
+
+    runssh sync
+    runssh ./runmods.sh "$@"
+
+    local FILE
+    for FILE in "${MODS_FILES[@]}"; do
+        if runssh test -f "output/$FILE" '&&' echo "OK" | grep -q OK; then
+            scp_from "output/$FILE" "$FILE"
+        fi
+    done
+}
+
+runcmd rm -f "${MODS_FILES[@]}"
+
+case "$COMMAND" in
+    flash)
+        flash "$@" ;;
+
+    wait_for_device)
+        if [[ $# -ne 0 ]]; then
+            echo "Error: Too many arguments" >&2
+            echo "Usage: $(basename "$0") <IMAGE_DIR> wait_for_device" >&2
+            exit 1
+        fi
+        wait_for_target $REBOOT_TIMEOUT_SEC
+        ;;
+
+    upload)
+        upload_mods "$@" ;;
+
+    mods)
+        run_mods "$@" ;;
+
+    *)
+        echo "Error: Unrecognized command - $COMMAND" >&2
+        exit 1
+esac

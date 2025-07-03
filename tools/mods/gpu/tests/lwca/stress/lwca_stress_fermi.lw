@@ -1,0 +1,130 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2010-2010,2013 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+// This test is based on //sw/gpgpu/lwca/apps/pwrburn/pwrburn.lw
+
+#include "lwda_stress_fermi.h"
+
+template<unsigned numIterations>
+__forceinline__ __device__ unsigned StressTest
+(
+    float* dest,
+    const float* source,
+    const float* const sourceEnd,
+    unsigned expected,
+    unsigned delta
+)
+{
+    unsigned numErrors = 0;
+    for ( ; source < sourceEnd; source += delta, dest += delta)
+    {
+        const float x = *source;
+        volatile float s = __int_as_float(0x01666666);
+        volatile float t = __int_as_float(0x1fAAAAAA);
+        for (int i=0; i < numIterations; i++)
+        {
+            s = s * x + x;
+            t = t * x + x;
+        }
+        const float result = s * t + x;
+        if (__float_as_int(result) != expected)
+        {
+            numErrors++;
+        }
+        *dest = result;
+    }
+    return numErrors;
+}
+
+template<unsigned templateNumIterations>
+__forceinline__ __device__ unsigned StressTestNum
+(
+    float* dest,
+    const float* source,
+    const float* const sourceEnd,
+    unsigned expected,
+    unsigned delta,
+    unsigned numIterations
+)
+{
+    if (numIterations == templateNumIterations)
+    {
+        return StressTest<templateNumIterations>(
+                dest, source, sourceEnd, expected, delta);
+    }
+    else
+    {
+        return StressTestNum<templateNumIterations-1>(
+                dest, source, sourceEnd, expected, delta, numIterations);
+    }
+}
+
+template<>
+__forceinline__ __device__ unsigned StressTestNum<0>
+(
+    float* dest,
+    const float* source,
+    const float* const sourceEnd,
+    unsigned expected,
+    unsigned delta,
+    unsigned numIterations
+)
+{
+    return 1; // Invalid number of iterations specified - indicate an error
+}
+
+extern "C" __global__ void Run
+(
+    float* dest,
+    const float* source,
+    unsigned* golden,
+    unsigned* errors,
+    unsigned long long size,
+    unsigned numIterations,
+    unsigned blkSize
+)
+{
+//    const unsigned blockId = blockIdx.x % LwdaStressConstants::randomBlockSize;
+    const unsigned blockId = blockIdx.x % blkSize;
+    const unsigned expected = golden[blockId*blockDim.x+threadIdx.x];
+    const unsigned index = threadIdx.x + blockIdx.x * blockDim.x;
+    const unsigned delta = blockDim.x * gridDim.x;
+    const float* const sourceEnd = source + size;
+    source += index;
+    dest += index;
+    const unsigned numErrors = StressTestNum<LwdaStressConstants::maxIterations>(
+            dest, source, sourceEnd, expected, delta, numIterations);
+    atomicAdd(errors+threadIdx.x+blockIdx.x*blockDim.x, numErrors);
+}
+
+// This function fills memory with random numbers in range 0.5..0.9999999
+extern "C" __global__ void Randomize
+(
+    unsigned* dest,
+    unsigned long long size,
+    unsigned seed
+)
+{
+    const unsigned index = threadIdx.x + blockIdx.x * blockDim.x;
+    const unsigned* const destEnd = dest + size/sizeof(unsigned);
+    dest += index;
+    const unsigned randomizer = 0x8088405U;
+    seed = (seed + index * randomizer) * randomizer;
+    const unsigned delta = blockDim.x * gridDim.x;
+    for ( ; dest < destEnd; dest += delta)
+    {
+        const unsigned lo = (seed >> 16) & 0xFFFFU;
+        seed *= randomizer;
+        const unsigned hi = seed & 0xFFFF0000U;
+        seed *= randomizer;
+        *dest = ((hi | lo) & ~0xFF800000U) | 0x3F000000U;
+    }
+}

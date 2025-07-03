@@ -1,0 +1,182 @@
+/* _LWRM_COPYRIGHT_BEGIN_
+ *
+ * Copyright 2021 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * _LWRM_COPYRIGHT_END_
+ */
+
+#include "lwriscv/manifest_gh100.h"
+
+const PKC_VERIFICATION_MANIFEST manifest =
+{
+    // Decrypted part of manifest.
+    .stage1RSA3KSigProd     = { 0, },       // Patched during signing.
+    .stage1RSA3KSigDebug    = { 0, },       // Patched during signing.
+    .magicNumberStage1      = 0x42,         // Recommended setting.
+    .bUseDevKey             = TRUE,         // Not a production ucode.
+
+    .manifestEncParams      =
+    {
+        .encryptionDerivationString = "",    // Use default key.
+        .iv                         = { 0, },// Patched during signing.
+        .authTag                    = { 0, },// Patched during signing.
+    },
+
+    // Encrypted part of manifest (stage 1).
+    .version               = 0x1,           // Unused (must be one).
+    .ucodeId               = 0x4,           // Using sample application's ID.
+    .ucodeVersion          = 0x0,           // Minimum version number as this ucode is debug-only.
+
+    .bRelaxedVersionCheck  = TRUE,          // Don't care since version is zero.
+
+    // Set engine mask according to build profile.
+#if LWRISCV_IS_ENGINE_fsp
+    .engineIdMask          = ENGINE_TO_ENGINE_ID_MASK(FSP),
+#elif LWRISCV_IS_ENGINE_gsp
+    .engineIdMask          = ENGINE_TO_ENGINE_ID_MASK(GSP),
+#elif LWRISCV_IS_ENGINE_minion
+    .engineIdMask          = ENGINE_TO_ENGINE_ID_MASK(MINION),
+#elif LWRISCV_IS_ENGINE_lwdec
+    .engineIdMask          = ENGINE_TO_ENGINE_ID_MASK(LWDEC),
+#elif LWRISCV_IS_ENGINE_pmu
+    .engineIdMask          = ENGINE_TO_ENGINE_ID_MASK(PWR_PMU),
+#elif LWRISCV_IS_ENGINE_sec
+    .engineIdMask          = ENGINE_TO_ENGINE_ID_MASK(SEC),
+#endif
+
+    .itcmSizeIn256Bytes    = 0,             // Patched during signing.
+    .dtcmSizeIn256Bytes    = 0,             // Patched during signing.
+    .fmcHashPadInfoBitMask = 0x00000000,    // Not applicable.
+
+    .fmcEncParams          =
+    {
+        .encryptionDerivationString = "",    // Use default key.
+        .iv                         = { 0, },// Patched during signing.
+        .authTag                    = { 0, },// Patched during signing.
+    },
+
+    .digest                = { 0, },        // Patched during signing.
+
+    // Ucode does not use any SCP secrets, so disable and lock all.
+    .secretMask            =
+    {
+        .scpSecretMask     = 0x0000000000000000ULL,
+        .scpSecretMaskLock = 0xFFFFFFFFFFFFFFFFULL,
+    },
+
+    // Enable all debugging controls for colwenience.
+    .debugAccessControl    = 
+    {
+        .dbgctl            =
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_STOP,   _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_RUN,    _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_STEP,   _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_J,      _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_EMASK,  _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_RREG,   _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_WREG,   _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_RDM,    _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_WDM,    _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_RSTAT,  _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_IBRKPT, _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_RCSR,   _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_WCSR,   _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_RPC,    _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_RFREG,  _ENABLE ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _ICD_CMDWL_WFREG,  _ENABLE ) |
+            
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _START_IN_ICD,     _FALSE  ) |
+            DRF_DEF(_PRGNLCL, _RISCV_DBGCTL, _SINGLE_STEP_MODE, _DISABLE),
+
+        .dbgctlLock        = 0x0,
+    },
+
+    .bDICE                 = FALSE,         // Ucode does not require DICE keys.
+    .bKDF                  = FALSE,         // Ucode does not require KDF keys.
+    .bCertCA               = FALSE,         // Ucode does not require attestation.
+    .bAttester             = FALSE,         // Ucode does not require attestation.
+
+    .mspm                  =
+    {
+        .mplm              = LW_RISCV_CSR_MSPM_MPLM_LEVEL3, // Need maximum privileges for PLM tests.
+        .msecm             = 0x0,                           // Ucode does not use SCP.
+    },
+
+    .kdfConstant           = { 0, },        // Not applicable (KDF not requested).
+
+    // Enable full access to all devices.
+    .deviceMap.deviceMap   =
+    {
+        (uint32_t)
+        (
+            DEVICEMAP(_MMODE,          _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_RISCV_CTL,      _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_PIC,            _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_TIMER,          _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_HOSTIF,         _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_DMA,            _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_PMB,            _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_DIO,            _ENABLE,  _ENABLE,  _UNLOCKED  )
+        ),
+
+        (uint32_t)
+        (
+            DEVICEMAP(_KEY,            _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_DEBUG,          _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_SHA,            _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_KMEM,           _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_BROM,           _ENABLE, _DISABLE,    _LOCKED  ) | // BROM-enforced.
+            DEVICEMAP(_ROM_PATCH,     _DISABLE, _DISABLE,    _LOCKED  ) | // Per deep-dive sheet.
+            DEVICEMAP(_IOPMP,          _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_NOACCESS,      _DISABLE, _DISABLE,    _LOCKED  )   // Empty Group
+        ),
+
+        (uint32_t)
+        (
+            DEVICEMAP(_SCP,            _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_FBIF,           _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_FALCON_ONLY,    _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_PRGN_CTL,       _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_SCRATCH_GROUP0, _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_SCRATCH_GROUP1, _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_SCRATCH_GROUP2, _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_SCRATCH_GROUP3, _ENABLE,  _ENABLE,  _UNLOCKED  )
+        ),
+
+        (uint32_t)
+        (
+            DEVICEMAP(_PLM,            _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_HUB_DIO,        _ENABLE,  _ENABLE,  _UNLOCKED  ) |
+            DEVICEMAP(_RESET,          _ENABLE,  _ENABLE,  _UNLOCKED  )
+        ),
+    },
+
+    // Enable full access to entire RISC-V address space.
+    .corePmp               =
+    {
+        // Configure two entries for TOR encoding with RWX enabled.
+        .cfg               = 
+        {
+            [0]            = PMP_ENTRY_OFF(0)                                              |
+                             PMP_ENTRY(_PERMITTED, _PERMITTED, _PERMITTED, _TOR, _LOCK, 1),
+        },
+
+        // Set entries to span entire PA range.
+        .addr              =
+        {
+            0x0000000000000000,
+            0xFFFFFFFFFFFFFFFF,
+        },
+    },
+
+    // No IO-PMP restrictions (all accesses enabled for all masters).
+    .ioPmpMode             = 0,
+    .ioPmp.entry           = { { 0, }, },
+
+    // No register-pairs needed (ucode runs at L3).
+    .numberOfValidPairs    = 0x0,
+    .registerPair          = { { { 0, }, }, },
+};

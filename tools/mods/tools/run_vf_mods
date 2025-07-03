@@ -1,0 +1,133 @@
+#!/bin/bash
+
+set -eu
+
+# Handle special command line args
+GDB=""
+GDBSERVER=""
+MODS="$(cd -P $(dirname "$0") && pwd)/mods"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        gdb)
+            GDB="$1"
+            ;;
+        gdbserver)
+            shift
+            GDBSERVER="$1"
+            ;;
+        */mods)
+            MODS="$1"
+            ;;
+        *)
+            break
+    esac
+    shift
+done
+
+VF_OUTPUT="$(cd -P . && pwd)"
+PF_OUTPUT="$VF_OUTPUT/pf_output"
+
+# Prepare directory where PF MODS will run
+[ -e "$PF_OUTPUT" ] && rm -rf "$PF_OUTPUT"
+mkdir "$PF_OUTPUT"
+cp "$(dirname "$MODS")/liblwidia-vgpu.so" "$PF_OUTPUT"/
+
+# Create SR-IOV config file for PF MODS
+cat > "$PF_OUTPUT/sriov_config.yml" <<EOF
+- test_exelwtable: ./run_vf.sh
+EOF
+
+# Create script which will keep PF MODS alive as long as needed
+cat > "$PF_OUTPUT/run_vf.sh" <<EOF
+#!/bin/bash
+echo "export SRIOV_GFID=\\"\$SRIOV_GFID\\"" > job_id
+echo "export MODS_PPID=\\"\$MODS_PPID\\"" >> job_id
+echo "DONE=" >> job_id
+while [[ -f job_id ]]; do
+    sleep 1
+done
+EOF
+chmod 755 "$PF_OUTPUT/run_vf.sh"
+
+# Acquire access token
+if ! TOKEN="$("$MODS" -acquire_access_token 2>&1)"; then
+    EC=$?
+    echo "$TOKEN"
+    exit $EC
+fi
+TOKEN="$(sed -n 's/Access Token : //p' <<< "$TOKEN")"
+
+# Cleanup on exit
+PF_MODS_PID=
+finish()
+{
+    # Tell PF MODS to quit
+    rm -rf "$PF_OUTPUT/job_id"
+
+    # Wait for PF MODS to exit gracefully
+    local PF_EXIT_TIME_SEC=5
+    local I
+    for I in $(seq $PF_EXIT_TIME_SEC); do
+        [[ $PF_MODS_PID && -d /proc/$PF_MODS_PID ]] || break
+        sleep 1
+    done
+
+    # Revoke access token
+    "$MODS" -release_access_token -access_token "$TOKEN" >/dev/null || true
+}
+trap finish EXIT
+
+# Start PF MODS
+NUISANCE_ARGS=(
+    -hot_reset
+    -vfe_version_check_ignore 
+    -adc_cal_check_ignore
+    -adc_temp_err_check_ignore
+)
+PF_MODS_ARGS=(
+    -access_token "$TOKEN"
+    gputest.js
+    -disable_ecc 
+    -sriov_config_file sriov_config.yml
+    -notest
+    "${NUISANCE_ARGS[@]}"
+)
+[[ $GDB || $GDBSERVER ]] && PF_MODS_ARGS+=( -timeout_ms 3600000 )
+cd "$PF_OUTPUT"
+echo "% $MODS ${PF_MODS_ARGS[@]} > output.log"
+"$MODS" "${PF_MODS_ARGS[@]}" > output.log 2>&1 &
+PF_MODS_PID=$!
+cd ..
+
+# Wait for PF MODS to be ready
+while [[ ! -f "$PF_OUTPUT/job_id" ]] || ! grep -q "^DONE" "$PF_OUTPUT/job_id"; do
+    if [[ ! -d /proc/$PF_MODS_PID ]]; then
+        echo "ERROR: PF MODS process $! exited" >&2
+        echo "Output in $PF_OUTPUT/output.log" >&2
+        exit 1
+    fi
+    sleep 0.5
+done
+
+# Prepare gdb
+MODS_CMD=( "$MODS" )
+if [[ $GDBSERVER ]]; then
+    MODS_CMD=( gdbserver "$GDBSERVER" "$MODS" )
+elif [[ $GDB ]]; then
+    MODS_CMD=( gdb --args "$MODS" )
+fi
+
+# Export SRIOV_GFID and MODS_PPID needed by VF MODS
+source "$PF_OUTPUT/job_id"
+echo "SRIOV_GFID=$SRIOV_GFID"
+echo "MODS_PPID=$MODS_PPID"
+
+# Start VF MODS
+VF_MODS_ARGS=(
+    -access_token "$TOKEN"
+    "$@"
+    -no_rcwd
+)
+echo "% ${MODS_CMD[@]} ${VF_MODS_ARGS[@]}"
+"${MODS_CMD[@]}" "${VF_MODS_ARGS[@]}"

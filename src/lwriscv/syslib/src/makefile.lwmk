@@ -1,0 +1,84 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2019 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+#
+# Top-level Syslib makefile. This makefile is responsible for building the Syslib
+# binary.
+#
+
+all: build
+
+###############################################################################
+# Use the flag to serialize per-profile builds (this does not prevent parallel
+# building within each profile). The flag decreases the speed a bit but avoid
+# the mess output of inter-profiles building. When an error is found, it makes
+# the build stop immediately.
+###############################################################################
+
+SERIALIZE_PROFILES ?= "true"
+
+ifneq ("$(SERIALIZE_PROFILES)","false")
+  .NOTPARALLEL:
+endif
+
+###############################################################################
+# Set SYSLIBCFG_PROFILES to the list of SYSLIBCFG profiles to build. The value is set
+# in one of three ways depending on defaults and user-overrides (if any).
+#
+# 1. Sourcing syslib-profiles.mk to get the full list of profiles (default)
+# 2. If SYSLIBCFG_PROFILE is set on the command-line or as an elwvar, build that
+#    profile only.
+#
+# Setting SYSLIBCFG_PROFILES in the shell or on the command-line will override the
+# profile(s) returned by the first two options above. SYSLIBCFG_PROFILE trumps
+# everything.
+###############################################################################
+
+SYSLIBCFG_PROFILES ?=
+
+ifndef SYSLIBCFG_PROFILE
+  ifeq ("$(strip $(SYSLIBCFG_PROFILES))", "")
+    include $(LW_SOURCE)/uproc/lwriscv/syslib/config/syslib-profiles.mk
+    override SYSLIBCFG_PROFILES = $(SYSLIBCFG_PROFILES_ALL)
+  endif
+else
+  SYSLIBCFG_PROFILES = $(SYSLIBCFG_PROFILE)
+endif
+
+###############################################################################
+# Create submake build/clean/clobber targets for profiles being built.
+###############################################################################
+
+PROFILES.build   = $(SYSLIBCFG_PROFILES:=.build)
+PROFILES.clean   = $(SYSLIBCFG_PROFILES:=.clean)
+PROFILES.clobber = $(SYSLIBCFG_PROFILES:=.clobber)
+
+###############################################################################
+# Targets/Rules
+###############################################################################
+
+.PHONY: PROFILES.build   build
+.PHONY: PROFILES.clean   clean
+.PHONY: PROFILES.clobber clobber
+
+build::   $(PROFILES.build)
+clean::   $(PROFILES.clean)
+clobber:: $(PROFILES.clobber)
+
+$(PROFILES.build):
+	$(MAKE) -f make-profile.lwmk SYSLIBCFG_PROFILE=$(basename $@) build
+
+$(PROFILES.clean):
+	$(MAKE) -f make-profile.lwmk SYSLIBCFG_PROFILE=$(basename $@) clean
+
+$(PROFILES.clobber):
+	$(MAKE) -f make-profile.lwmk SYSLIBCFG_PROFILE=$(basename $@) clobber
+

@@ -1,0 +1,122 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2019 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "l2noc.h"
+
+#if INJECT_ERRORS == 1
+__device__ UINT32 MakeError(UINT32* ptr, UINT32* basePtr, UINT32 loop, UINT32 iteration)
+{
+    const UINT64 offset = reinterpret_cast<UINT64>(ptr) -
+                          reinterpret_cast<UINT64>(basePtr);
+    UINT32 value = 0;
+
+    // Only report on some memory locations
+    if ((offset % 0x228E00 == 0) && (loop + iteration == 10))
+    {
+        value = static_cast<UINT32>(0x80000000);
+    }
+    return value;
+}
+#else
+#define MakeError(ptr, basePtr, i, j) 0
+#endif
+
+
+extern "C" __global__ void L2NocTest(const L2NocParams params)
+{
+    // Get SMID to callwlate offset
+    UINT32 smid;
+    asm volatile ("mov.u32 %0, %%smid;" : "=r"(smid));
+
+    UINT32 uGpuSmid = GetPtr<UINT32*>(params.smidMap)[smid];
+
+    L2NocBadValue* errorArr = GetPtr<L2NocBadValue*>(params.errorPtr);
+    UINT64* pNumErrors = GetPtr<UINT64*>(params.numErrorsPtr);
+
+    // Check if we were assigned an ID
+    if (uGpuSmid != ILWALID_UGPU_SMID)
+    {
+        // extract the uGPU
+        UINT32 uGpu = (uGpuSmid & UGPU_MASK) >> UGPU_INDEX;
+        UINT32 numchunksPerSM = 0;
+        UINT32* chunkArr;
+
+        if (uGpu == 0)
+        {
+            chunkArr = GetPtr<UINT32*>(params.uGpu1ChunkArr);
+            numchunksPerSM = params.chunksPerSMUGpu0;
+        }
+        else
+        {
+            chunkArr = GetPtr<UINT32*>(params.uGpu0ChunkArr);
+            numchunksPerSM = params.chunksPerSMUGpu1;
+        }
+
+        // remove uGPU bit
+        uGpuSmid &= ~UGPU_MASK;
+
+        UINT32 pattern = params.patterns.p[uGpuSmid % MAX_PATS];
+        UINT32 dwordPerThread = params.dwordPerChunk / blockDim.x;
+
+        for (UINT32 i = 0; i < params.innerIterations; i++)
+        {
+            for (UINT32 j = 0; j < numchunksPerSM; j++)
+            {
+                // base of the chunk
+                UINT32 wrValue = pattern;
+                UINT32* basePtr = GetPtr<UINT32*>(params.dataPtr) + chunkArr[(uGpuSmid * numchunksPerSM) + j];
+
+                for (UINT32 k = 0; k < dwordPerThread; k++)
+                {
+                    UINT32* wrAddr = basePtr + (k * blockDim.x) + threadIdx.x;
+                    asm volatile ("st.global.cg.u32 [%0], %1;" : : "l"(wrAddr), "r"(wrValue) : "memory" );
+
+                    // keep flipping the write value
+                    wrValue = ~wrValue;
+                }
+
+                // read back the whole chunk for error checking
+                if (params.readVerify)
+                {
+                    UINT32 expected = pattern;
+                    UINT32 rdValue = 0;
+                    for (UINT32 k = 0; k < dwordPerThread; k++)
+                    {
+                        UINT32* rdAddr = basePtr + (k * blockDim.x) + threadIdx.x;
+                        asm volatile ("ld.global.cg.u32 %0, [%1];" : "=r"(rdValue) : "l"(rdAddr) : "memory" );
+
+                        rdValue += MakeError(rdAddr, basePtr, i, j);
+
+                        if (rdValue != expected)
+                        {
+                            UINT64 idx = atomicAdd(pNumErrors, 1);
+                            if (idx < params.maxErrors)
+                            {
+                                errorArr[idx].offset = reinterpret_cast<UINT64>(rdAddr) -
+                                                       reinterpret_cast<UINT64>(basePtr);
+                                errorArr[idx].actual = rdValue;
+                                errorArr[idx].expected = expected;
+                                errorArr[idx].thread = threadIdx.x;
+                                errorArr[idx].block = blockIdx.x;
+                                errorArr[idx].failingBits = rdValue ^ expected;
+                                errorArr[idx].smid = smid;
+                            }
+                        }
+                        // keep flipping the read value
+                        expected = ~expected;
+                    }
+                }
+            }
+        }
+    }
+
+    __syncthreads();
+}

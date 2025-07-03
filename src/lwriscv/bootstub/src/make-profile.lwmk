@@ -1,0 +1,263 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2021-2022 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+LWUPROC        = $(LW_SOURCE)/uproc
+LWRISCV        = $(LWUPROC)/lwriscv
+BSSW           = $(LWRISCV)/bootstub
+RESMAN_ROOT    = $(LW_SOURCE)/drivers/resman
+BS_PROFILES    = $(BSSW)/config/bs-profiles.mk
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the linker-script
+# to use, the manual directory, etc.
+###############################################################################
+
+include $(BS_PROFILES)
+
+###############################################################################
+# Load common RISC-V make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LWUPROC)/build/common/lwRiscvArch.lwmk
+override LW_TARGET_ARCH = $(RISCV_TOOLS_BUILD)
+override LW_TARGET_OS   = riscv
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Define the default output directory path for the BS build.
+###############################################################################
+
+OUTPUTDIR := _out/$(BSCFG_PROFILE)
+
+###############################################################################
+# Define macros based on profile
+###############################################################################
+
+CFLAGS += -DLWRISCV_PRINT_RAW_MODE=0
+
+ifdef LWRISCV_DEBUG_PRINT_LEVEL
+    CFLAGS += -DLWRISCV_DEBUG_PRINT_LEVEL=$(LWRISCV_DEBUG_PRINT_LEVEL)
+endif
+
+ifdef GSP_RTOS
+    CFLAGS += -DGSP_RTOS
+    ifeq ($(RUN_ON_SEC),true)
+        CFLAGS += -DRUN_ON_SEC
+    endif
+endif
+
+ifdef SEC2_RTOS
+    CFLAGS += -DSEC2_RTOS
+endif
+
+ifdef SOE_RTOS
+    CFLAGS += -DSOE_RTOS
+endif
+
+ifdef PMU_RTOS
+    CFLAGS += -DPMU_RTOS
+endif
+
+ifeq ($(USE_CSB), true)
+    CFLAGS += -DUSE_CSB=1
+else
+    CFLAGS += -DUSE_CSB=0
+endif
+
+ifeq ($(USE_CBB), true)
+    CFLAGS += -DUSE_CBB=1
+else
+    CFLAGS += -DUSE_CBB=0
+endif
+
+ifeq ($(IS_FUSE_CHECK_ENABLED), true)
+    CFLAGS += -DIS_FUSE_CHECK_ENABLED
+endif
+
+CFLAGS += -DUPROC_RISCV
+CFLAGS += -DDMEM_BASE=$(DMEM_BASE)
+CFLAGS += -DDMEM_SIZE=$(DMEM_SIZE)
+CFLAGS += -DDMEM_END_CARVEOUT_SIZE=$(DMEM_END_CARVEOUT_SIZE)
+CFLAGS += -DSTACK_SIZE=$(STACK_SIZE)
+
+ifeq ($(IS_SSP_ENABLED), true)
+    CFLAGS += -DIS_SSP_ENABLED
+endif
+
+ifdef DMESG_BUFFER_SIZE
+    CFLAGS += -DDMESG_BUFFER_SIZE=$(DMESG_BUFFER_SIZE)
+else
+    $(error DMESG_BUFFER_SIZE not defined - can't reserve space for the bootstub data)
+endif
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(BSSW)/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(LWRISCV)/inc
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(MEMMAP_PATH)
+
+ifdef LWRISCV_SDK
+  LW_INCLUDES += $(LWRISCV_SDK)/inc
+  LW_INCLUDES += $(LWRISCV_SDK_PROFILE)/inc
+endif
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*).
+###############################################################################
+
+IMG_TARGET      := $(OUTPUTDIR)/g_$(BSCFG_PROFILE)
+IMG_ELF         := $(IMG_TARGET).elf
+IMG_READELF     := $(IMG_TARGET).readelf
+IMG_BIN         := $(IMG_TARGET).bin
+IMG_OBJDUMP     := $(IMG_TARGET).objdump
+IMG_OBJDUMPSRC  := $(IMG_TARGET).objdump.source
+IMG_NM          := $(IMG_TARGET).nm
+IMG_DBGLINE     := $(IMG_TARGET).dbgline
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+CFLAGS += -ffreestanding -ffast-math -fno-common -Os -fpie -fno-jump-tables
+CFLAGS += -Wextra -Wcolwersion -Wsign-colwersion -Wformat-security
+# Pass no-pic to asm to ensure base addrs accessed by la aren't placed in GOT (which we don't fill)
+CFLAGS += -Wa,-fno-pic
+
+ifeq ($(IS_SSP_ENABLED), true)
+    CFLAGS += -fstack-protector-all -Wstack-protector --param ssp-buffer-size=4
+endif
+
+ifdef LWRISCV_SDK
+    CFLAGS += -DLWRISCV_SDK=$(LWRISCV_SDK)
+    CFLAGS += -DLWRISCV_SDK_PROFILE=$(LWRISCV_SDK_PROFILE)
+endif
+
+LDFLAGS += -nostdlib -nostartfiles
+LDFLAGS += -T $(LDSCRIPT)
+
+###############################################################################
+# Set the SOURCES that need to be picked-up by the build
+###############################################################################
+
+SOURCES += $(BSSRC)
+
+###############################################################################
+# Changelist number to include in certain build outputs
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(.)); delete $$ELW{PWD}; \
+                          print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(BSCFG_PROFILE)]"
+
+###############################################################################
+# Top-level rules
+###############################################################################
+
+all: build
+build: $(IMG_ELF) $(IMG_READELF) $(IMG_BIN) $(IMG_OBJDUMP) $(IMG_OBJDUMPSRC) \
+       $(IMG_NM) $(IMG_DBGLINE)
+
+###############################################################################
+# Rule to ensure rebuild when profile settings change, and to force ifdef check
+# before starting the build.
+###############################################################################
+
+$(OBJECTS): $(BS_PROFILES) | check_ifdef
+
+###############################################################################
+# Rules to produce the ELF image and other outputs.
+###############################################################################
+$(IMG_ELF): $(OBJECTS) $(LDSCRIPT)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(CFLAGS) $(OBJECTS) -o $@ $(LDFLAGS)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $@
+
+$(IMG_READELF): $(IMG_ELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $@
+	$(READELF) --all $< >> $@
+
+$(IMG_BIN): $(IMG_ELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(OBJCOPY) -j .text -Obinary $< $@
+
+$(IMG_OBJDUMP): $(IMG_ELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $@
+	$(OBJDUMP) -x    $< >> $@
+	$(OBJDUMP) -d    $< >> $@
+
+$(IMG_OBJDUMPSRC): $(IMG_ELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $@
+	$(OBJDUMP) -S -d $< >> $@
+
+$(IMG_NM): $(IMG_ELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $@
+	$(NM)      -S -n $< >> $@
+
+$(IMG_DBGLINE): $(IMG_ELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $@
+	$(READELF) --debug-dump=decodedline $< >> $@
+
+###############################################################################
+# Rule to preprocess the linker script for current profile
+###############################################################################
+
+LDSCRIPT_DEP := $(LDSCRIPT:.ld=_dep.lwmk)
+-include $(LDSCRIPT_DEP)
+
+$(LDSCRIPT): $(LDSCRIPT_IN)
+	$(ECHO) $(BUILD_PROJECT_NAME) preprocessing $(notdir $@)
+	$(CPP) -x c -P -MMD -MT $@ -MF $(LDSCRIPT_DEP) -o $@ $(CFLAGS) $<
+
+###############################################################################
+# Rule to run ifdef_checker script and fail the build if wrong ifdef is used
+###############################################################################
+
+.PHONY: check_ifdef
+
+IFDEF_CHECKER_SCRIPT       = $(LWUPROC)/utilities/ifdef_checker.pl
+IFDEF_CHECKER_SCRIPT_ARGS += --dir 'lwriscv/bootstub'
+IFDEF_CHECKER_SCRIPT_ARGS += --LWUPROC '$(LWUPROC)'
+
+check_ifdef:
+	$(PERL) $(IFDEF_CHECKER_SCRIPT) $(IFDEF_CHECKER_SCRIPT_ARGS)
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk

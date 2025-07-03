@@ -1,0 +1,42 @@
+# -*- mode: perl; -*-
+
+# DIO Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $dioHal = [
+
+    # per-GPU defaults for DIO for all interfaces below
+    DEFAULTS => [
+        FLAGS       => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        READ_REG => [
+            DESCRIPTION  => "Read Register via DIO",
+            RETURN_TYPE  => FLCN_STATUS,
+            ARGUMENTS    => "LwU32, LwU32 *",
+            STUB_RETURNS => FLCN_ERR_NOT_SUPPORTED ,
+
+            _T23XD       => [ T234D_and_later, ],
+            _STUB        => [ ALL, -T234D_and_later, ]
+        ],
+
+        WRITE_REG => [
+            DESCRIPTION    => "Write Register via DIO",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32, LwU32",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED ,
+
+            LIKE_INTERFACE => READ_REG,
+        ],
+
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $dioHal;

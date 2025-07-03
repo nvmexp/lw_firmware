@@ -1,0 +1,155 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2009-2022 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+#if (SM_VER <= 62)
+const unsigned maxRowSize = 2000; // can't exceed 48KB for shared memory (per-CTA)
+#if (SM_VER == 60)
+const unsigned maxThreads = 60*1024; // GP100 has up to 60 SMs (30 TPCs but 2 virtual SMs per TPC)
+#else
+const unsigned maxThreads = 30*1024; // All others have up to 30 SMs
+#endif
+#elif (SM_VER >= 70 && SM_VER < 80)
+const unsigned maxRowSize = 2000; // can't exceed 48KB for shared memory (per-CTA)
+const unsigned maxThreads = 112*1024; //Volta has upto 112 SMs
+#elif (SM_VER >= 80 && SM_VER < 90)
+const unsigned maxRowSize = 2000; // can't exceed 48KB for shared memory (per-CTA)
+const unsigned maxThreads = 128 * 1024; //Ampere has upto 128 SMs
+#elif (SM_VER >= 90)
+const unsigned maxRowSize = 2000;
+const unsigned maxThreads = 144 * 1024; //Hopper 
+#else
+    #error "Unexpected SM version"
+#endif
+
+__device__ void Randomize(unsigned *pSeed, double* outBuf, unsigned bufSize)
+{
+    unsigned* intBuf = reinterpret_cast<unsigned*>(outBuf);
+    bufSize *= sizeof(double) / sizeof(unsigned);
+
+    unsigned localSeed = *pSeed + threadIdx.x;
+    for (unsigned i=0; i < bufSize; i+=blockDim.x)
+    {
+        const unsigned bufIndex = i + threadIdx.x;
+
+        // Generate 32-bit random number
+        localSeed *= 0x8088405U;
+        unsigned val = localSeed & 0xFFFF0000U;
+        localSeed *= 0x8088405U;
+        val |= localSeed >> 16;
+
+        // Update seed
+        *pSeed *= 0x8088405U * 0x8088405U;
+
+        // Callwlate valid exponent in range -1..2
+        unsigned exp = (val & 0x00300000U) + 0x3FE00000U;
+        exp |= val & 0x800FFFFFU;
+        if (bufIndex & 1)
+        {
+            val = exp;
+        }
+
+        // Store it in the output array
+        if (bufIndex < bufSize)
+        {
+            intBuf[bufIndex] = val;
+        }
+    }
+}
+
+__device__ double Output[maxThreads];
+
+extern "C" __global__ void DoublePrecisionStress
+(
+    unsigned initSeed,
+    int inAlpha,
+    int inBeta,
+    unsigned loops,
+    unsigned rowSize
+)
+{
+    const double alpha = inAlpha;
+    const double beta = inBeta;
+    __shared__ double array[maxRowSize*3];
+    unsigned seed = initSeed;
+
+    double x = 0;
+
+    unsigned i = 0;
+    do
+    {
+        __syncthreads();
+        Randomize(&seed, array, rowSize*3);
+        __syncthreads();
+
+        double* tptr = array;
+        double* const tend = tptr + rowSize;
+
+        do
+        {
+            x += alpha * tptr[0] * tptr[rowSize];
+            x += beta * tptr[rowSize*2];
+            tptr++;
+        }
+        while (tptr < tend);
+    }
+    while (++i < loops);
+
+    if (blockIdx.x*blockDim.x+threadIdx.x < maxThreads)
+    {
+        Output[blockIdx.x*blockDim.x+threadIdx.x] = x;
+    }
+}
+
+extern "C" __global__ void RandomFillFB
+(
+    unsigned long long ptr,
+    unsigned size,
+    unsigned initSeed
+)
+{
+    unsigned seed = initSeed + (blockIdx.x*0x8088405U) + gridDim.x;
+
+    const unsigned chunkSize = size / gridDim.x;
+    Randomize(
+        &seed,
+        reinterpret_cast<double*>(ptr + blockIdx.x*chunkSize),
+        chunkSize/sizeof(double)
+        );
+}
+
+extern "C" __global__ void DoublePrecisionStressFB
+(
+    unsigned long long ptr,
+    unsigned size,
+    int inAlpha,
+    int inBeta
+)
+{
+    const double alpha = inAlpha;
+    const double beta = inBeta;
+
+    double x = 0;
+    double* tptr = reinterpret_cast<double*>(ptr);
+    double* const tend = tptr + size / sizeof(double);
+
+    do
+    {
+        x += tptr[0] * tptr[1];
+        x += alpha * tptr[2];
+        x += beta * tptr[3];
+        tptr += 4;
+    }
+    while (tptr+4 <= tend);
+
+    if (blockIdx.x*blockDim.x+threadIdx.x < maxThreads)
+    {
+        Output[blockIdx.x*blockDim.x+threadIdx.x] = x;
+    }
+}

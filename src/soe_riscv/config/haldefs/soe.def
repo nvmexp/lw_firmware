@@ -1,0 +1,315 @@
+# -*- mode: perl; -*-
+
+# SOE RISCV Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $soeHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+            FBIF_FLUSH => [
+            DESCRIPTION    => "Issue a flush from the FBIF to the memory subsystem",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+
+            _LS10         => [ ALL, ],
+        ],
+
+        HOST_IDLE_PROGRAM_IDLE => [
+            DESCRIPTION    => "Program the SW override bit in the host idle signal to idle",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+
+            _LS10         => [ ALL, ],
+        ],
+
+        HOST_IDLE_PROGRAM_BUSY => [
+            DESCRIPTION    => "Program the SW override bit in the host idle signal to busy",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+
+            LIKE_INTERFACE => HOST_IDLE_PROGRAM_IDLE,
+        ],
+
+        POP_MTHD => [
+            DESCRIPTION    => "Pop one method out of the method FIFO",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "LwU16 *pId, LwU32 *pData",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        IS_MTHD_FIFO_EMPTY => [
+            DESCRIPTION    => "Check if the method FIFO is empty",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "void",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => POP_MTHD,
+        ],
+
+        PROCESS_HOST_INTERNAL_METHODS => [
+            DESCRIPTION    => "Process Host internal methods",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU16 methodId, LwU32 mthdData",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => POP_MTHD,
+        ],
+
+        IS_LWRRENT_CHANNEL_CTX_VALID => [
+            DESCRIPTION    => "Query if the current channel context is valid",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "LwU32 *pCtx",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => POP_MTHD,
+        ],
+
+        IS_NEXT_CHANNEL_CTX_VALID => [
+            DESCRIPTION    => "Query if the next channel context is valid",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "LwU32 *pCtx",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => POP_MTHD,
+        ],
+
+        GET_INST_BLK_OFFSET_AND_DMA_IDX => [
+            DESCRIPTION    => "Return the address and dma IDX to use for a DMA to the instance block",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 ctx, LwBool bEngState, LwU64 *pAddress, LwU8 *pDmaIdx",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => POP_MTHD,
+        ],
+
+        GET_ENG_CTX_PHYS_DMA_IDX => [
+            DESCRIPTION    => "Get the physical DMA index to use for save/restore of engine context",
+            RETURN_TYPE    => LwU8,
+            ARGUMENTS      => "LwU8",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => POP_MTHD,
+        ],
+
+        ACK_CTX_SAVE => [
+            DESCRIPTION    => "Ack context save request",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => POP_MTHD,
+        ],
+
+        ACK_CTX_RESTORE => [
+            DESCRIPTION    => "Ack context restore request",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => POP_MTHD,
+        ],
+
+        GET_NEXT_CTX_GFID => [
+            DESCRIPTION      => "Get the next context's GFID",
+            RETURN_TYPE      => LwU32,
+            ARGUMENTS        => "void",
+            STUB_RETURNS     => ZERO,
+
+            LIKE_INTERFACE => HOST_IDLE_PROGRAM_IDLE,
+        ],
+        
+        LOWER_PRIV_LEVEL_MASKS => [
+            DESCRIPTION      => "Lower the privlevel mask for secure reset",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => void,
+            FLAGS            => ":NO_STUB",
+
+            _LS10           => [ ALL, ],
+        ],
+
+        PROCESS_ENGINE_RC_RECOVERY_CMD => [
+            DESCRIPTION    => "Steps to be done when ENGINE_RC_RECOVERY cmd is received",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+
+            INTERFACE_TAG  => 'soeProcessEngineRcRecoveryCmd',
+            LIKE_INTERFACE => HOST_IDLE_PROGRAM_IDLE,
+        ],
+
+        SET_HOST_ACK_MODE => [
+            DESCRIPTION    => "Enables or disables the mode that decides whether HW will send an ack to host for ctxsw request",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool bEnableNack",
+
+            LIKE_INTERFACE => HOST_IDLE_PROGRAM_IDLE,
+        ],
+
+        CHECK_FOR_LS_REVOCATION => [
+            DESCRIPTION    => "Check for LS revocation",
+            INTERFACE_TAG  => 'soeCheckForLSRevocation',   # 'LS' instead of 'Ls'
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        GET_SW_FUSE_VERSION  => [
+            DESCRIPTION      => "Get the SW fuse version",
+            INTERFACE_TAG    => 'soeGetSWFuseVersion',   # 'SW' instead of 'Sw'
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32* pFuseVersion",
+            FLAGS            => ":NO_STUB",
+
+            LIKE_INTERFACE => CHECK_FOR_LS_REVOCATION,
+        ],
+
+        GET_HW_FPF_VERSION => [
+            DESCRIPTION    => "Get the HW fpf version",
+            INTERFACE_TAG  => 'soeGetHWFpfVersion',   # 'HW' instead of 'Hw'
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32* pFpfVersion",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => CHECK_FOR_LS_REVOCATION,
+        ],
+
+        CHECK_FUSE_REVOCATION_AGAINST_HW_FPF_VERSION => [
+            DESCRIPTION    => "Check SW fuse version against the FPF version",
+            INTERFACE_TAG  => 'soeCheckFuseRevocationAgainstHWFpfVersion',   # 'HW' instead of 'Hw'
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 fuseVersionSW",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => CHECK_FOR_LS_REVOCATION,
+        ],
+
+        SET_RESET_SOURCE_ISOLATION => [
+            DESCRIPTION    => "Update target reset source ",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwBool bIsolateToSec2",
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+        
+        ENTRY_CHECKS => [
+            DESCRIPTION    => "Application entry checks ",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        GET_ENGINE_LOOKUP   => [
+            DESCRIPTION    => "Get chip specific engine lookup tables",
+            RETURN_TYPE    => "struct engine_tables*",
+            ARGUMENTS      => 'void',
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        PRE_INIT => [
+            DESCRIPTION    => "SOE chip specific initialization",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        SETUP_PRIV_LEVEL_MASKS => [
+            DESCRIPTION    => "Setup the Priv Level Masks for L0 access",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        SETUP_PROD_VALUES => [
+            DESCRIPTION    => "Setup Prod values for registers that need LS access",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        SETUP_NXBAR_PRIV_LEVEL_MASKS => [
+            DESCRIPTION    => "Setup the PLMs for NXBAR registers for L0 access",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        SETUP_NXBAR_PROD_VALUES => [
+            DESCRIPTION    => "Setup Prod values for Nxbar registers that need LS access",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        INIT_PRIV_RING => [
+            DESCRIPTION    => "Initialize Priv Ring",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'void',
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        READ_GPU_POSITION_ID => [
+            DESCRIPTION    => "Returns GPU position Id based on GPIO's",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'void',
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        DMA_WRITE_TO_SYSMEM=> [
+            DESCRIPTION    => "Performs a DMA write to sysmem",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'void *pBuf, RM_FLCN_U64 dmaHandle, LwU32 dmaOffset, LwU32 bufSize',
+
+            _LS10         => [ ALL, ],
+        ],
+
+        DMA_READ_FROM_SYSMEM=> [
+            DESCRIPTION    => "Performs a DMA read from sysmem",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => 'void *pBuf, RM_FLCN_U64 dmaHandle, LwU32 dmaOffset, LwU32 bufSize',
+
+            _LS10         => [ ALL, ],
+        ],
+
+        DMA_SET_SYS_ADDR=> [
+            DESCRIPTION    => "Set DMA sysmem address",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'RM_FLCN_U64 dmaHandle, RM_FLCN_MEM_DESC *pMemDesc',
+
+            _LS10         => [ ALL, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $soeHal;

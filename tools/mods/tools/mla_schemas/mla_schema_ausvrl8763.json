@@ -1,0 +1,439 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+
+    "definitions": {
+        "__comment__": "Convention used is to specify keys separated by _ to reach a given Json object from root (ignoring arrays)",
+        "__comment2__": "This file complements defaultSchema.json with individual requirements for a specific machine. Use defaultSchema.js as a basis.",
+        "BoardInfo_ChipInfo_Schema": {
+            "__comment__": "ChipInfo schema",
+            "type": "array",
+            "items": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "__comment__": "Schema is specific to GPU",
+                        "Gpu":      { "enum": [0] },
+                        "Chip":     { "enum": ["GA102"] },
+                        "ChipRev":  { "enum": ["a1 (0a0100)"]},
+                        "Ecid":     { "pattern": ["SAMSUNG-+"] },
+                        "RawEcid":  { "type": "string" },
+                        "FbVendor": { "enum": ["Micron"] },
+                        "Foundry":  { "enum": ["Samsung"] }
+                    },
+                    "required" : ["Gpu", "Chip", "ChipRev", "Ecid", "RawEcid", "FbVendor", "Foundry"]
+                }
+            ]
+        },
+
+        "ModsRuns_Tests_Results_LwLinkEyeDiagram_LWLink_Schema": {
+            "type": "object",
+            "properties": {
+                "Lanes": { "enum": ["0-3"]},
+                "YStatus": {
+                    "type": "array",
+                    "items": { "type": "number"}
+                }
+            }
+        },
+
+        "ModsRuns_Tests_Schema": {
+            "__comment__": "ModsRuns::Tests schema",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Info": {
+                        "type": "object",
+                        "properties": {
+                            "Gpu": { "enum": [-1, 0] },
+                            "TestSeq": { "type": "integer"},
+                            "Num": { "type": "integer"},
+                            "Name": { "type": "string"},
+                            "StartingPState": { "enum": ["0.max", "0.min", "0.intersect.msvdd"]},
+                            "PStateTargets": { "type": "object"},
+                            "FanSanityInfo": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "FanIdx": { "type": "integer"},
+                                        "IsMinFanSpeedCheck": { "enum": [0, 1] },
+                                        "MeasuredFanRpm": { "type": "integer"},
+                                        "ExpectedFanRpm": { "type": "integer"},
+                                        "Deviation%": { "type": "number"}   
+                                    },
+                                    "required": ["FanIdx", "IsMinFanSpeedCheck", "MeasuredFanRpm", "ExpectedFanRpm", "ExpectedFanRpm", "Deviation%"]
+                                }
+                            },
+                            "GpcClksInfo": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Pstate": { "type": "string"},
+                                        "ClockDomain": { "enum":  ["GPC"]},
+                                        "TargetClock": { "type": "integer" },
+                                        "EffectiveClock": { "type": "integer"},
+                                        "ActualPercentage": { "type": "number"},
+                                        "PassFailPercentage": { "type": "integer"}   
+                                    },
+                                    "required": ["Pstate", "ClockDomain", "TargetClock", "EffectiveClock", "ActualPercentage", "PassFailPercentage"]
+                                }
+                            },
+                            "AdcStats": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "AdcName": {"enum": ["GPC0", "GPC1", "GPC2", "GPC3", "GPC4", "GPC5", "GPC6", "SYS"]},
+                                        "MinSample": {"type": "integer"},
+                                        "MaxSample": {"type": "integer"},
+                                        "AvgSample": {"type": "number"},
+                                        "ExpectedCode": {"type": "number"},
+                                        "LwrrentVoltuV": {"type": "integer"},
+                                        "RailName": {"enum": ["lwvdd", "msvdd"]}
+                                    },
+                                    "required": ["AdcName", "MinSample", "MaxSample", "AvgSample", "ExpectedCode", "LwrrentVoltuV", "RailName"]
+                                }
+                            },
+                            "ThermalResistanceInfo": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                    	"ThermalChannel": {"type": "string"},
+                                    	"FinalR(C/mW)": {"type": "number"},
+                                    	"FinalTemp(C)": {"type": "number"},
+                                    	"IdleTemp(C)": {"type": "number"},
+                                    	"TempDelta(C)": {"type": "number"},
+                                    	"FinalPower(mW)": {"type": "integer"},
+                                    	"IdlePower(mW)": {"type": "integer"},
+										"PowerDelta(mW)": {"type": "integer"},                                    	                                 	  
+										"CheckPointTimeMs": {"type": "integer"},                                    	                                 	  
+										"CheckPointIndex": {"type": "integer"}
+                                    },
+                                    "required": ["ThermalChannel", "FinalR(C/mW)", "FinalTemp(C)", "IdleTemp(C)", "TempDelta(C)", "FinalPower(mW)", "IdlePower(mW)", "PowerDelta(mW)", "CheckPointTimeMs", "CheckPointIndex"]
+                                }
+                            }
+                        },
+                        "oneOf": [
+                            {
+                                "properties": {
+                                    "Name": { "enum": ["CheckFanSanity"]}
+                                },
+                                "required": ["Gpu", "TestSeq", "Num", "Name", "StartingPState", "FanSanityInfo"]
+                            },
+                            {
+                                "properties": {
+                                    "Name": { "enum": ["CheckClocks"]}
+                                },
+                                "required": ["Gpu", "TestSeq", "Num", "Name", "StartingPState", "GpcClksInfo"]
+                            },
+                            {
+                                "properties": {
+                                    "Name": { "enum": ["CheckAVFS"]}
+                                },
+                                "required": ["Gpu", "TestSeq", "Num", "Name", "StartingPState", "AdcStats"]
+                            },
+                            {
+                                "properties": {
+                                    "Name": { "enum": ["ThermalResistance"]}
+                                },
+                                "required": ["Gpu", "TestSeq", "Num", "Name", "StartingPState", "ThermalResistanceInfo"]
+                            },
+                            {
+                                "properties": {
+                                    "Name": { "enum": ["VkStress"]}
+                                },
+                                "required": ["Gpu", "TestSeq", "Num", "Name", "StartingPState"]
+                            },
+                            {
+                                "properties": {
+                                    "Name": { "not": { "enum": ["CheckFanSanity", "CheckClocks", "CheckAVFS", "ThermalResistance","VkStress"]}},
+                                    "required": ["Gpu", "TestSeq", "Num", "Name", "StartingPState"]
+                                }
+                            }
+                        ]
+                    },
+                    "Data": {
+                        "type": "object",
+                        "properties": {
+                        	"__comment__": "Each test should have a data section",
+                        	"StartTimeUs": { "type": "integer"},
+                        	"EndTimeUs": { "type": "integer" },
+                            "SimulatingTemperature": { "type": "number"},
+                            "WorstAdcName": { "type": "string"},
+                            "WorstAdcVoltage": { "type": "number"},
+                            "WorstAdcCodeDelta": { "type": "number"},
+                            "AdcMargin": { "type": "number"},
+                            "SensorData": {
+                                "type": "object",
+                                "properties":{
+                                    "TestTimestampsUs": {
+                                        "type": "array",
+                                        "items": { "type": "integer"}
+                                    },
+                                    "CPU usage": {
+                                        "type": "array",
+                                        "items": { "type": "number"}
+                                    }
+                                }
+                            }
+                        },
+                        "required": ["StartTimeUs"]
+                    },
+                    "Results": {
+                        "__comment__": "Must pass the test",
+                        "type": "object",
+                        "properties": {
+                            "Rc": { 
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "RcText": { "enum": ["OK", "N/A"]},
+                            "DurationUs": { "type": "number"},
+                            "LwLinkEyeDiagram": {
+                                "type": "object",
+                                "properties": {
+                                    "LWLink0": { "$ref": "#/definitions/ModsRuns_Tests_Results_LwLinkEyeDiagram_LWLink_Schema" },
+                                    "LWLink1": { "$ref": "#/definitions/ModsRuns_Tests_Results_LwLinkEyeDiagram_LWLink_Schema" },
+                                    "LWLink2": { "$ref": "#/definitions/ModsRuns_Tests_Results_LwLinkEyeDiagram_LWLink_Schema" },
+                                    "LWLink3": { "$ref": "#/definitions/ModsRuns_Tests_Results_LwLinkEyeDiagram_LWLink_Schema" }
+                                }
+                            },
+                            "ProgressStep": {
+                                "type": "integer"
+                            },
+                            "ProgressMaxSteps": {
+                                "type": "integer"
+                            },
+                            "Progress/%": {
+                                "type": "number"
+                            }
+                        },
+                        "required": ["Rc", "RcText"]
+                    }
+                },
+                "oneOf": [
+                    {
+                        "properties": {
+                            "Data": {
+                                "required": ["EndTimeUs"]
+                            },
+                            "Results": {
+                                "properties": {
+                                    "Rc": {"not": {"enum": [818]}}
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "Results": {
+                                "properties": {
+                                    "Rc": {"enum": [818]}
+                                }
+                            }
+                        }
+                    }
+                ],
+
+                "oneOf": [
+                    {
+                        "properties": {
+                            "Info": {
+                                "properties": {
+                                    "Name": {"enum": ["GLPowerStress", "VkStress", "LwdaLinpackDgemm", "LwvddStress", "GlrFsaa2x"]}
+                                }
+                            },
+                            "Results": {
+                                "required": ["ProgressStep", "ProgressMaxSteps", "Progress/%"]
+                            }
+                        }
+                    },
+                    {
+                    "properties": {
+                            "Info": {
+                                "properties": {
+                                    "Name": {"enum": ["LwdaRandom", "LwvidLWDEC"]}
+                                }
+                            },
+                            "Results": {
+                                "required": ["ProgressStep", "ProgressMaxSteps", "ProgressDesc", "Progress/%"]
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "Info": {
+                                "properties": {
+                                    "Name": {"enum": ["CheckAVFS"]}
+                                }
+                            },
+                            "Data": {
+                                "required": ["SimulatingTemperature", "WorstAdcName", "WorstAdcVoltage", "WorstAdcCodeDelta", "AdcMargin"]
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "Info": {
+                                "properties": {
+                                    "Name": {"enum": ["LwLinkEyeDiagram"]}
+                                }
+                            },
+                            "Results": {
+                                "required": ["LwLinkEyeDiagram"]
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "Info": {
+                                "properties": {
+                                    "Name": {"enum": ["ConfigurableDisplayHTOL"]},
+                                    "ParentNum": {"enum": [328]}
+                                }
+                            },
+                            "Data": {
+                                "required": ["SensorData"]
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "Info": {
+                                "properties": {
+                                    "Name": {"enum": ["ConfigurableDisplayHTOL"]},
+                                    "ParentNum": {"not": {"enum": [328]}}
+                                }
+                            },
+                            "Data": {
+                                "not": {"required": ["SensorData"]}
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "Info": {
+                                "properties": {
+                                    "Name": {"not": {"enum": ["CheckAVFS", "LwLinkEyeDiagram", "ConfigurableDisplayHTOL"]}}
+                                }
+                            }
+                        }
+                    }
+                ],
+                "required": ["Info", "Data", "Results"]
+            },
+            "length": 1
+        },
+
+        "ModsRuns_GpuSummary_Schema": {
+            "__comment__": "ModsRuns::GpuSummary schema",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "__comment__": "Must pass the run within a reasonable time",
+                    "Gpu": { "enum": [0] },
+                    "StartTime": { "type": "string"},
+                    "EndTime": { "type": "string"},
+                    "DurationMs": {
+                        "type": "number"
+                    },
+                    "FinalRc": { "enum": [0] },
+                    "PwmActorStatistics": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "FgTest": { "type": "string" },
+                                "PwmActorStats": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "NumDutyCycles": { "type": "integer" },
+                                            "AvgDutyCyclesPerc": { "type": "number" },
+                                            "TotalTargetTimeSec": { "type": "number" },
+                                            "TotalLowTimeSec": { "type": "number"}
+                                        },
+                                        "required": ["NumDutyCycles", "AvgDutyCyclesPerc", "TotalTargetTimeSec", "TotalLowTimeSec"]
+                                    }
+                                },
+                                "PwmSamplerStats": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "Name": { "type": "string" },
+                                            "Unit": { "type": "string" },
+                                            "Milwalue": { "type": "number" },
+                                            "MaxValue": { "type": "number"},
+                                            "AvgValue": { "type": "number"},
+                                            "NumSamples": { "type": "integer"}
+                                        },
+                                        "required": ["Name", "Unit", "Milwalue", "MaxValue", "AvgValue", "NumSamples"]
+                                    }
+                                }
+                            },
+                            "required": ["FgTest", "PwmActorStats", "PwmSamplerStats"]
+                        }
+                    }
+                },
+                "required": ["Gpu", "StartTime", "EndTime", "DurationMs", "FinalRc"]
+            },
+            "length": 1
+        },
+
+        "ModsRuns_FinalRcData_Schema": {
+            "type": "object",
+            "properties": {
+                "RcNumber": { "enum": [0]},
+                "RcText": { "enum": ["OK"]}
+            }
+        }
+
+    },
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "BoardInfo": { 
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "ChipInfo": { "$ref": "#/definitions/BoardInfo_ChipInfo_Schema" }
+                    }
+                }
+            },
+
+            "ModsRuns": {
+                "type" : "array",
+                "items" : {
+                    "type": "object",
+                    "properties": {
+                        "Tests":      { "$ref": "#/definitions/ModsRuns_Tests_Schema" },
+                        "GpuSummary": { "$ref": "#/definitions/ModsRuns_GpuSummary_Schema" },
+                        "FinalRcData":{ "$ref": "#/definitions/ModsRuns_FinalRcData_Schema" } 
+                    },
+                    "required": ["Tests", "GpuSummary", "FinalRcData"]
+                }
+            },
+
+            "ModsRunsSummary": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "Gpu": { "enum": [0]},
+                        "TotalDurationMs": { "type": "number"}
+                    },
+                    "required": ["Gpu", "TotalDurationMs"]
+                }
+            }            
+        },
+        "required": ["BoardInfo", "ModsRuns", "ModsRunsSummary"]
+    }
+}

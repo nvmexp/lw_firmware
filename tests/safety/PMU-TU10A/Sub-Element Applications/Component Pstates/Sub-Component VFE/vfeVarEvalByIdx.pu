@@ -1,0 +1,32 @@
+@startuml
+title vfeVarEvalByIdx
+[-> VFE_VAR : evalByIdx(idx)
+activate VFE_VAR
+    VFE_VAR -> VFE_VAR : checkRelwrsionDepth()
+    activate VFE_VAR
+    deactivate VFE_VAR
+
+    VFE_VAR -> VFE_VAR : validateContext()
+    activate VFE_VAR
+    deactivate VFE_VAR
+
+    alt isCached()
+        VFE_VAR -> VFE_VAR : value = getCachedValue()
+    else
+        VFE_VAR -> VFE_VAR : eval()
+        activate VFE_VAR
+            return value
+            note left
+            Call the type-specific implementation
+            to obtain the actual the actual value:
+            * DERIVED_PRODUCT
+            * DERIVED_SUM
+            * SINGLE_FREQUENCY
+            * SINGLE_SENSED_FUSE
+            * SINGLE_SENSED_TEMP
+            * SINGLE_VOLTAGE
+            * SINGLE_CALLER_SPECIFIED
+            endnote
+    end
+[<- VFE_VAR : value
+@enduml

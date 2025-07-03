@@ -1,0 +1,794 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2021 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "tiledmats.h"
+#include "../tools/lwda_vectors.h"
+#include "../tools/gpusync.h"
+#include "../tools/newrandom.h"
+#include "../cache/cgautils.h"
+
+#if SM_VER >= 90
+#include "../tma_instrs.h"
+#endif
+
+// Colwerts pointer to a host-compatible value
+__device__ device_ptr MakeHostPtr(void* ptr)
+{
+    return reinterpret_cast<device_ptr>(ptr);
+}
+
+// Returns overall number of running threads
+__device__ UINT32 GetNumThreads()
+{
+    return blockDim.x * gridDim.x;
+}
+
+// Returns global index of the calling thread
+__device__ UINT32 GetThreadIdx()
+{
+    return blockIdx.x * blockDim.x + threadIdx.x;
+}
+
+inline __device__ UINT64 Get128BAlignedSmemPtr(void* addr)
+{
+    return reinterpret_cast<UINT64>(addr) & 0xFFFFFFFFFFFFFF80ULL;
+}
+
+inline __device__ UINT64 Get8BAlignedSmemPtr(void* addr)
+{
+    return reinterpret_cast<UINT64>(addr) & 0xFFFFFFFFFFFFFFF8ULL;
+}
+
+__device__ __forceinline__ UINT64 CeilDiv(UINT64 a, UINT64 b)
+{
+    return (a + b - 1) / b;
+}
+
+__constant__ lwdaTmaDescv2 g_TMADesc;
+__constant__ uint4 g_Patterns[CONST_MAX_PATTERN_VECS];
+
+__shared__ UINT32 s_NumErrors;
+extern __shared__ AlignStruct128B s_Mem[]; // Dynamic shared memory used for mbarrier, TMA instructions, or error storing. 128B aligned.
+
+// Get the pointer to first available smem region for storing error.
+// When UseTMA=true, a set amount of smem is reserved for mbarrier and one
+// "box" for performing TMA instructions.
+//
+// The host  is responsible for callwlating max number of errors we can store
+// in shared memory after accounting for memory reserved for mbar and "box".
+__device__ BadValue* GetErrorBufferPtr(const CheckFillInput &input)
+{
+    if (input.useTMA)
+    {
+        UINT32 numPatVecsInBox = input.numPatSubsetsInBox * input.numPatVecsInSubset;
+        uint4* pSmemForTMA = reinterpret_cast<uint4*>(&s_Mem[SMEM_OFFSET]);
+        return reinterpret_cast<BadValue*>(pSmemForTMA + numPatVecsInBox);
+    }
+    else
+    {
+        return reinterpret_cast<BadValue*>(&s_Mem[0]);
+    }
+}
+
+// Reports an error to host memory
+__device__ void ReportError
+(
+    const CheckFillInput &input,
+    const UINT32* address,
+    UINT32 actualVal,
+    UINT32 expectedVal
+)
+{
+    const UINT32 errorIdx = atomicAdd_block(&s_NumErrors, 1);
+
+    // Error buffer is full. Can't report detailed error
+    if (errorIdx >= input.maxLocalErrors)
+    {
+        return;
+    }
+
+    BadValue* s_Errors = GetErrorBufferPtr(input);
+    BadValue* pBadValue = &s_Errors[errorIdx];
+    pBadValue->address = MakeHostPtr(const_cast<UINT32*>(address));
+    pBadValue->actual = actualVal;
+    pBadValue->expected = expectedVal;
+}
+
+// Transfers errors in shared mem to host mem
+__device__ void TransferErrorsToHost
+(
+    const CheckFillInput &input
+)
+{
+    // To reduce atomic traffic, we'll have one thread atomically add numReportedErrors
+    // to input.results.numReportedErrors, and save the old value to s_ErrIdxOffset.
+    // Then all threads in this block will fill up the errors in range
+    // [s_ErrIdxOffset, s_ErrIdxOffset + numReportedErrors)
+    __shared__ UINT32 s_ErrIdxOffset;
+
+    RangeErrors* pResults = GetPtr<RangeErrors*>(input.results);
+    const UINT32 numReportedErrors = min(input.maxLocalErrors, s_NumErrors);
+
+    // Increment error counts
+    if (threadIdx.x == 0 && s_NumErrors > 0)
+    {
+        atomicAdd(&pResults->numErrors, s_NumErrors);
+        s_ErrIdxOffset = atomicAdd(&pResults->numReportedErrors, numReportedErrors);
+    }
+
+    __syncthreads();
+
+    // Transfer errors from shared mem to host mem
+    BadValue* s_Errors = GetErrorBufferPtr(input);
+    for (UINT32 i = threadIdx.x; i < numReportedErrors; i += blockDim.x)
+    {
+        pResults->reportedValues[s_ErrIdxOffset + i] = s_Errors[i];
+    }
+}
+
+// TMA Prefetch
+#if SM_VER >= 90
+template <lwdaTmaDescTypev2 descType>
+__device__ __forceinline__ void TMAPrefetchToL2
+(
+    uint8_t numDims,
+    const lwdaTmaDescv2 *pDesc,
+    Coords *pCoords
+)
+{
+    if (descType == TENSOR_TILED)
+    {
+        switch (numDims)
+        {
+            case 2:
+                __lw_ptx_builtin_ocg_cp_async_prefetch_tensor_global_2d(reinterpret_cast<UINT64>(pDesc), pCoords->vals[0], pCoords->vals[1], 0);
+                break;
+            case 3:
+                __lw_ptx_builtin_ocg_cp_async_prefetch_tensor_global_3d(reinterpret_cast<UINT64>(pDesc), pCoords->vals[0], pCoords->vals[1], pCoords->vals[2], 0);
+                break;
+            case 4:
+                __lw_ptx_builtin_ocg_cp_async_prefetch_tensor_global_4d(reinterpret_cast<UINT64>(pDesc), pCoords->vals[0], pCoords->vals[1], pCoords->vals[2], pCoords->vals[3], 0);
+                break;
+            case 5:
+                __lw_ptx_builtin_ocg_cp_async_prefetch_tensor_global_5d(reinterpret_cast<UINT64>(pDesc), pCoords->vals[0], pCoords->vals[1], pCoords->vals[2], pCoords->vals[3], pCoords->vals[4], 0);
+                break;
+        }
+    }
+}
+#endif
+
+// TMA store from shared to global
+#if SM_VER >= 90
+template <lwdaTmaDescTypev2 descType>
+__device__ __forceinline__ void TMAStoreToGlobal
+(
+    uint8_t numDims,
+    const lwdaTmaDescv2 *pDesc,
+    UINT32 smemPtr,
+    Coords *pCoords
+)
+{
+    switch (numDims)
+    {
+        case 2:
+            utmastg<2, descType>(pDesc, smemPtr, pCoords->vals[0], pCoords->vals[1], 0, 0, 0);
+            break;
+        case 3:
+            utmastg<3, descType>(pDesc, smemPtr, pCoords->vals[0], pCoords->vals[1], pCoords->vals[2], 0, 0);
+            break;
+        case 4:
+            utmastg<4, descType>(pDesc, smemPtr, pCoords->vals[0], pCoords->vals[1], pCoords->vals[2], pCoords->vals[3], 0);
+            break;
+        case 5:
+            utmastg<5, descType>(pDesc, smemPtr, pCoords->vals[0], pCoords->vals[1], pCoords->vals[2], pCoords->vals[3], pCoords->vals[4]);
+            break;
+    }
+}
+#endif
+
+// TMA load from global to shared
+#if SM_VER >= 90
+template <lwdaTmaDescTypev2 descType>
+__device__ __forceinline__ void TMALoadFromGlobal
+(
+    uint8_t numDims,
+    const lwdaTmaDescv2 *pDesc,
+    UINT32 smemPtr,
+    UINT32 mbarPtr,
+    Coords *pCoords
+)
+{
+    switch (numDims)
+    {
+        case 2:
+            utmaldg<2, descType, 0>(pDesc, smemPtr, mbarPtr, pCoords->vals[0], pCoords->vals[1], 0, 0, 0, 0, 0);
+            break;
+        case 3:
+            utmaldg<3, descType, 0>(pDesc, smemPtr, mbarPtr, pCoords->vals[0], pCoords->vals[1], pCoords->vals[2], 0, 0, 0, 0);
+            break;
+        case 4:
+            utmaldg<4, descType, 0>(pDesc, smemPtr, mbarPtr, pCoords->vals[0], pCoords->vals[1], pCoords->vals[2], pCoords->vals[3], 0, 0, 0);
+            break;
+        case 5:
+            utmaldg<5, descType, 0>(pDesc, smemPtr, mbarPtr, pCoords->vals[0], pCoords->vals[1], pCoords->vals[2], pCoords->vals[3], pCoords->vals[4], 0, 0);
+            break;
+    }
+}
+#endif
+
+
+// Init the RNG depending on the current pass of the memory
+template<typename T>
+__device__ __forceinline__ T GetRand(const UINT64& seed, const UINT64& passNum)
+{
+    T rnd;
+
+    InitRand<sizeof(rnd) / sizeof(UINT64)>
+    (
+        reinterpret_cast<UINT64*>(&rnd),
+        static_cast<UINT64>(1 + seed + GetThreadIdx() + passNum * GetNumThreads())
+    );
+    return rnd;
+}
+
+// Colwert flattened index into n-dimensional coordinates
+__device__ void IndexToCoords
+(
+    const Dimensions &dimensions,
+    Coords &coords,
+    UINT32 numDims,
+    UINT64 index
+)
+{
+    UINT64 dimLengthProduct = 1;
+    for (UINT32 lwrrDim = 0; lwrrDim < numDims; lwrrDim++)
+    {
+        dimLengthProduct *= dimensions.vals[lwrrDim];
+    }
+    for (INT32 lwrrDim = (numDims - 1); lwrrDim >= 0; lwrrDim--)
+    {
+        dimLengthProduct /= dimensions.vals[lwrrDim];
+        coords.vals[lwrrDim] = index / dimLengthProduct;
+        index = index % dimLengthProduct;
+    }
+}
+
+// Colwert n-dimensional coordinates to 1-d index
+__device__ UINT64 CoordsToIndex
+(
+    const Dimensions &dimensions,
+    const Coords &coords,
+    UINT32 numDims
+)
+{
+    UINT64 dimLengthProduct = 1;
+    UINT64 idx = 0;
+    for (UINT32 lwrrDim = 0; lwrrDim < numDims; lwrrDim++)
+    {
+        idx += coords.vals[lwrrDim] * dimLengthProduct;
+        dimLengthProduct *= dimensions.vals[lwrrDim];
+    }
+    return idx;
+}
+
+// Get the coordinates of the starting element in this box
+__device__ void GetStartingElemCoord
+(
+    const Dimensions &tensorDims,
+    const Dimensions &boxDims,
+    Coords *pCoords,
+    UINT32 numDims,
+    UINT64 boxIdx
+)
+{
+    // Colwert box index to box coordinates
+    Coords boxCoords = {};
+    Dimensions boxTensorDims = {};
+    for (UINT32 lwrrDim = 0; lwrrDim < numDims; lwrrDim++)
+    {
+        boxTensorDims.vals[lwrrDim] =
+            CeilDiv(tensorDims.vals[lwrrDim], boxDims.vals[lwrrDim]);
+    }
+    IndexToCoords(boxTensorDims, boxCoords, numDims, boxIdx);
+
+    // Colwert box coordinates to element coordinates
+    for (UINT32 lwrrDim = 0; lwrrDim < numDims; lwrrDim++)
+    {
+        pCoords->vals[lwrrDim] = boxCoords.vals[lwrrDim] * boxDims.vals[lwrrDim];
+    }
+}
+
+// Fill a 1-dimensional box with pattern or check actual values against expected value
+// Each box is accessed by exactly one block
+template<BoxAction action>
+__device__ void CheckFillOneDimensionalBox
+(
+    const CheckFillInput &input,
+    UINT64 boxIdx
+)
+{
+    const UINT32 numWordsIlwec = sizeof(uint4) / sizeof(UINT32);
+    const UINT64 numVecsInMem = (input.memEnd - input.mem) / sizeof(uint4);
+    const UINT32 numVecsInBox = input.boxDims.vals[0] / numWordsIlwec;
+
+    UINT64 vecOffset = boxIdx * numVecsInBox + threadIdx.x;
+    // Callwlate the ending vector offset for this box
+    // This is the lesser of either the offset to the end of the tested memory range,
+    // or the offset 1 after the last offset for this box
+    const UINT64 endVecOffset = min((boxIdx + 1) * numVecsInBox, numVecsInMem);
+
+    // Callwlate which pattern subset we should be using for this box
+    const UINT32 patSubsetIdx = boxIdx % input.numPatternSubsets;
+    const UINT32 patSubsetOffset = patSubsetIdx * input.numPatVecsInSubset;
+    UINT32 patVecIdxWithinSubset = threadIdx.x % input.numPatVecsInSubset;
+
+    for (; vecOffset < endVecOffset; vecOffset += blockDim.x)
+    {
+        uint4* pVec = GetPtr<uint4*>(input.mem) + vecOffset;
+
+        switch (action)
+        {
+            case BoxAction::FILL_PAT:
+                *pVec = g_Patterns[patSubsetOffset + patVecIdxWithinSubset];
+                break;
+            case BoxAction::CHECK_PAT:
+                const uint4 actual = *pVec;
+                const uint4 expected = g_Patterns[patSubsetOffset + patVecIdxWithinSubset];
+
+                // Reduce the number of branches in the generated code in the normal (no miscompare) case
+                if (actual.x != expected.x ||
+                    actual.y != expected.y ||
+                    actual.z != expected.z ||
+                    actual.w != expected.w)
+                {
+                    // Check each word within vector
+                    const UINT32* srcPtr = reinterpret_cast<UINT32*>(pVec);
+                    if (actual.x != expected.x)
+                    {
+                        ReportError(input, &srcPtr[0], actual.x, expected.x);
+                    }
+                    if (actual.y != expected.y)
+                    {
+                        ReportError(input, &srcPtr[1], actual.y, expected.y);
+                    }
+                    if (actual.z != expected.z)
+                    {
+                        ReportError(input, &srcPtr[2], actual.z, expected.z);
+                    }
+                    if (actual.w != expected.w)
+                    {
+                        ReportError(input, &srcPtr[3], actual.w, expected.w);
+                    }
+                }
+        }
+
+        patVecIdxWithinSubset = (patVecIdxWithinSubset + blockDim.x) % input.numPatVecsInSubset;
+    }
+}
+
+// Use TMA to fill the memory "box" with patterns
+#if SM_VER >= 90
+__device__ void TMAFillBox
+(
+    const CheckFillInput &input,
+    UINT64 boxIdx
+)
+{
+    if (threadIdx.x == 0)
+    {
+        // Callwlate which pattern subset corresponds to this box
+        const UINT32 patSubsetIdx = boxIdx % input.numPatternSubsets;
+        uint4 *patSubset = reinterpret_cast<uint4*>(&g_Patterns[patSubsetIdx * input.numPatVecsInSubset]);
+
+        // Prepare shared memory with patterns so we can load them into global memory later
+        uint4* pVec = reinterpret_cast<uint4*>(Get128BAlignedSmemPtr(&s_Mem[SMEM_OFFSET]));
+        const UINT32 numPatVecsToFill = input.numPatSubsetsInBox * input.numPatVecsInSubset;
+        for (UINT32 i = 0; i < numPatVecsToFill; i += blockDim.x)
+        {
+            const UINT32 patVecIdxWithinSubset = i % input.numPatVecsInSubset;
+            pVec[i] = patSubset[patVecIdxWithinSubset];
+        }
+
+        // Callwlate the starting element coordinates for this box
+        Coords startingElemCoords = {0};
+        GetStartingElemCoord(input.tensorDims, input.boxDims, &startingElemCoords, input.numDims, boxIdx);
+
+        // Store patterns from shared to global
+        TMAStoreToGlobal<TENSOR_TILED>
+        (
+            input.numDims,
+            &g_TMADesc,
+            static_cast<UINT32>(Get128BAlignedSmemPtr(&s_Mem[SMEM_OFFSET])),
+            &startingElemCoords
+        );
+        tmastg_flush();
+        tmastg_wait(0);
+    }
+}
+#endif
+
+// Use TMA to load patterns, and check them against expected patterns.
+#if SM_VER >= 90
+__device__ void TMACheckBox
+(
+    const CheckFillInput &input,
+    UINT64 boxIdx
+)
+{
+    // Callwlate the starting element coordinates for this box
+    Coords startingElemCoords = {0};
+    GetStartingElemCoord(input.tensorDims, input.boxDims, &startingElemCoords, input.numDims, boxIdx);
+
+    // Load patterns from global to shared mem
+    if (threadIdx.x == 0)
+    {
+        TMALoadFromGlobal<TENSOR_TILED>
+        (
+            input.numDims,
+            &g_TMADesc,
+            static_cast<UINT32>(Get128BAlignedSmemPtr(&s_Mem[SMEM_OFFSET])),
+            static_cast<UINT32>(Get8BAlignedSmemPtr(&s_Mem[MBAR_OFFSET])),
+            &startingElemCoords
+        );
+        tmaldg_flush();
+        tmaldg_wait(0);
+    }
+
+    __syncthreads();
+
+    // Callwlate which pattern subset corresponds this box
+    const UINT32 patSubsetIdx = boxIdx % input.numPatternSubsets;
+    uint4 *patSubset = reinterpret_cast<uint4*>(&g_Patterns[patSubsetIdx * input.numPatVecsInSubset]);
+
+    // Check patterns in shared memory against expected patterns
+    const UINT32 numWordsIlwec = sizeof(uint4) / sizeof(UINT32);
+    const UINT32 numPatVecsToCheck = input.numPatSubsetsInBox * input.numPatVecsInSubset;
+    uint4* pVec = reinterpret_cast<uint4*>(Get128BAlignedSmemPtr(&s_Mem[SMEM_OFFSET]));
+
+    for (UINT32 patVecIdx = threadIdx.x;
+         patVecIdx < numPatVecsToCheck;
+         patVecIdx += blockDim.x)
+    {
+        const UINT64 localElemIdx = patVecIdx * numWordsIlwec;
+        const UINT32 patVecIdxWithinSubset = patVecIdx % input.numPatVecsInSubset;
+
+        const uint4 actual = pVec[patVecIdx];
+        const uint4 expected = patSubset[patVecIdxWithinSubset];
+
+        // Reduce the number of branches in the generated code in the normal (no miscompare) case
+        if (actual.x != expected.x ||
+            actual.y != expected.y ||
+            actual.z != expected.z ||
+            actual.w != expected.w)
+        {
+            // Colwert local element index in box to local box coordinates
+            Coords localElemCoords = {0};
+            IndexToCoords(input.boxDims, localElemCoords, input.numDims, localElemIdx);
+
+            // Callwlate the global element coordinates by adding the starting
+            // global element coordinates to the local element coordinates
+            Coords globalElemCoords = {0};
+            for (UINT32 i = 0; i < input.numDims; i++)
+            {
+                globalElemCoords.vals[i] = startingElemCoords.vals[i] + localElemCoords.vals[i];
+            }
+            const UINT64 globalElemIdx = CoordsToIndex(input.tensorDims, globalElemCoords, input.numDims);
+            const UINT32* srcPtr = reinterpret_cast<UINT32*>(input.mem) + globalElemIdx;
+
+            // Check each word within vector
+            if (actual.x != expected.x)
+            {
+                ReportError(input, &srcPtr[0], actual.x, expected.x);
+            }
+            if (actual.y != expected.y)
+            {
+                ReportError(input, &srcPtr[1], actual.y, expected.y);
+            }
+            if (actual.z != expected.z)
+            {
+                ReportError(input, &srcPtr[2], actual.z, expected.z);
+            }
+            if (actual.w != expected.w)
+            {
+                ReportError(input, &srcPtr[3], actual.w, expected.w);
+            }
+        }
+    }
+}
+#endif
+
+// Iterate over each box in the tensor to either fill it with pattern or check
+// existing pattern against expected pattern
+//
+// Each box is handled by one thread
+template<BoxAction action>
+__device__ void IterateOverBoxes
+(
+    const CheckFillInput &input
+)
+{
+    // Each box is accessed by exactly one block
+    for (UINT64 boxIdx = blockIdx.x; boxIdx < input.numBoxesInTensor; boxIdx += gridDim.x)
+    {
+        if (input.useTMA)
+        {
+#if SM_VER >= 90
+            if (action == BoxAction::FILL_PAT)
+            {
+                TMAFillBox(input, boxIdx);
+            }
+            else if (action == BoxAction::CHECK_PAT)
+            {
+                TMACheckBox(input, boxIdx);
+            }
+#endif
+        }
+        else
+        {
+            CheckFillOneDimensionalBox<action>(input, boxIdx);
+        }
+    }
+}
+
+// Fill the memory addresses responsible by this thread with random data
+extern "C" __global__ void FillRandom(CheckFillInput input)
+{
+    const uint4 randVal = GetRand<uint4>(input.randSeed, input.outerIter);
+    const UINT32 stride = GetNumThreads();
+    uint4* pVec = GetPtr<uint4*>(input.mem) + GetThreadIdx();
+    uint4* pEnd = GetPtr<uint4*>(input.memEnd);
+
+    for (; pVec < pEnd; pVec += stride)
+    {
+        *pVec = randVal;
+    }
+}
+
+extern "C" __global__ void FillPattern(CheckFillInput input)
+{
+    IterateOverBoxes<BoxAction::FILL_PAT>(input);
+}
+
+// Prefetch mode where we only perform loads into l2
+#if SM_VER >= 90
+__device__ void TMAPrefetchTest
+(
+    const TiledMatsInput &input,
+    UINT64 startBoxIdx,
+    UINT64 endBoxIdx
+)
+{
+    if (threadIdx.x == 0)
+    {
+        for (UINT64 boxIdx = startBoxIdx; boxIdx < endBoxIdx; boxIdx++)
+        {
+            // Get starting coordinates for this box
+            Coords startingElemCoords = {0};
+            GetStartingElemCoord(input.tensorDims, input.boxDims, &startingElemCoords, input.numDims, boxIdx);
+
+            TMAPrefetchToL2<TENSOR_TILED>(input.numDims, &g_TMADesc, &startingElemCoords);
+        }
+    }
+}
+#endif
+
+// Read/write sequence using TMA
+#if SM_VER >= 90
+__device__ void TMAReadWrite
+(
+    const TiledMatsInput &input,
+    UINT64 startBoxIdx,
+    UINT64 endBoxIdx
+)
+{
+    if (threadIdx.x == 0)
+    {
+        // Number of 128B chunks allocated in shared memory for each box
+        UINT32 smemStride = CeilDiv(input.boxMemSize, sizeof(AlignStruct128B));
+        UINT32 numBoxesLoaded = 0;
+        for (UINT64 boxIdx = startBoxIdx; boxIdx < endBoxIdx; boxIdx++)
+        {
+            // Get starting coordinates for this box
+            Coords startingElemCoords = {0};
+            GetStartingElemCoord(input.tensorDims, input.boxDims, &startingElemCoords, input.numDims, boxIdx);
+
+            // Load from global to shared
+            TMALoadFromGlobal<TENSOR_TILED>
+            (
+                input.numDims,
+                &g_TMADesc,
+                static_cast<UINT32>(Get128BAlignedSmemPtr(&s_Mem[SMEM_OFFSET + (numBoxesLoaded * smemStride)])),
+                static_cast<UINT32>(Get8BAlignedSmemPtr(&s_Mem[MBAR_OFFSET])),
+                &startingElemCoords
+            );
+            numBoxesLoaded++;
+        }
+        tmaldg_flush();
+        tmaldg_wait(0);
+
+        UINT32 numBoxesStored = 0;
+        for (UINT64 boxIdx = startBoxIdx; boxIdx < endBoxIdx; boxIdx++)
+        {
+            // Get starting coordinates for this box
+            Coords startingElemCoords = {0};
+            GetStartingElemCoord(input.tensorDims, input.boxDims, &startingElemCoords, input.numDims, boxIdx);
+
+            // Load from shared to global
+            TMAStoreToGlobal<TENSOR_TILED>
+            (
+                input.numDims,
+                &g_TMADesc,
+                static_cast<UINT32>(Get128BAlignedSmemPtr(&s_Mem[SMEM_OFFSET + (numBoxesStored * smemStride)])),
+                &startingElemCoords
+            );
+
+            numBoxesStored++;
+        }
+
+        tmastg_flush();
+        tmastg_wait(0);
+    }
+}
+#endif
+
+// Read/write sequence using SMs
+__device__ void ReadWrite
+(
+    const TiledMatsInput &input,
+    UINT64 boxIdx
+)
+{
+    const UINT32 numWordsIlwec = sizeof(uint4) / sizeof(UINT32);
+    const UINT64 numVecsInMem = (input.memEnd - input.mem) / sizeof(uint4);
+    const UINT32 numVecsInBox = input.boxDims.vals[0] / numWordsIlwec;
+
+    // Callwlate starting vector offset for this box
+    const UINT64 startVecOffset = (boxIdx * numVecsInBox) + threadIdx.x;
+    uint4* pVec = GetPtr<uint4*>(input.mem) + startVecOffset;
+
+    // Callwlate the ending vector offset for this box
+    // This is the lesser of either the offset to the end of the tested memory range,
+    // or the offset 1 after the last offset for this box
+    const UINT64 endVecOffset = min((boxIdx + 1) * numVecsInBox, numVecsInMem);
+    uint4* pEnd = GetPtr<uint4*>(input.mem) + endVecOffset;
+
+    for (; pVec < pEnd; pVec += blockDim.x)
+    {
+        // dummyVar should always be = 0. This is to ensure we can read and
+        // write to same address without compiler optimizing away the
+        // memory ops.
+        *(pVec + input.dummyVar) = *(pVec);
+    }
+}
+
+// Main stress kernel that performs RD/WR to stress the
+// framebuffer.
+extern "C" __global__ void TiledMats(TiledMatsInput input)
+{
+    // Callwlate number of boxes to iterate for this block
+    const UINT64 numBoxesToIterate =
+        (input.numBoxesInBatch / gridDim.x) +
+        (blockIdx.x < (input.numBoxesInBatch % gridDim.x) ? 1 : 0);
+
+    // Callwlate starting box index for this particular block
+    UINT64 boxIdx = (input.startingBoxIdx + blockIdx.x) % input.numBoxesInTensor;
+    const UINT64 boxIdxStride = input.useTMA ?
+                                (gridDim.x * input.numBoxesInSMem) :
+                                (gridDim.x);
+
+    // Process batch
+    for (UINT64 numBoxesIteratedSoFar = 0;
+         numBoxesIteratedSoFar < numBoxesToIterate;
+         numBoxesIteratedSoFar += (input.useTMA ? input.numBoxesInSMem : 1))
+    {
+        if (input.useTMA)
+        {
+#if SM_VER >= 90
+            // Each block/cta is responsible for multiple adjacent boxes, since
+            // we can theoretically(?) increase bandwidth by bursting multiple
+            // tma load instructions followed by multiple tma store instructions
+            const UINT64 endBoxIdx =
+                min(input.numBoxesInTensor, (boxIdx + input.numBoxesInSMem)) - 1;
+            if (input.prefetchMode)
+            {
+                TMAPrefetchTest(input, boxIdx, endBoxIdx);
+            }
+            else
+            {
+                TMAReadWrite(input, boxIdx, endBoxIdx);
+            }
+#endif
+        }
+        else
+        {
+            // Each box is accessed by exactly one block
+            ReadWrite(input, boxIdx);
+        }
+
+        // Sync after each iteration over a box
+        __syncthreads();
+
+        boxIdx = (boxIdx + boxIdxStride) % input.numBoxesInTensor;
+    }
+
+    // Slowest block determines the kernel runtime
+    if (input.delayNs && threadIdx.x == 0)
+    {
+        LwdaDelayNs(input.delayNs);
+    }
+}
+
+// Common procedures for check kernels
+__device__ void CheckCommon()
+{
+    // Init Num Errors to 0
+    if (threadIdx.x == 0)
+    {
+        s_NumErrors = 0;
+    }
+    __syncthreads();
+}
+
+// Check the memory addresses responsible by this thread and report any miscompares
+extern "C" __global__ void CheckRandom(CheckFillInput input)
+{
+    CheckCommon();
+
+    const uint4 expected = GetRand<uint4>(input.randSeed, input.outerIter);
+
+    const UINT32 stride = GetNumThreads();
+    uint4* pVec = GetPtr<uint4*>(input.mem) + GetThreadIdx();
+    uint4* pEnd = GetPtr<uint4*>(input.memEnd);
+
+    for (; pVec < pEnd; pVec += stride)
+    {
+        const uint4 actual = *pVec;
+
+        // Reduce the number of branches in the generated code in the normal (no miscompare) case
+        if (actual.x != expected.x ||
+            actual.y != expected.y ||
+            actual.z != expected.z ||
+            actual.w != expected.w)
+        {
+            // Check 32bit patterns within vector
+            const UINT32* srcPtr = reinterpret_cast<UINT32*>(pVec);
+            if (actual.x != expected.x)
+            {
+                ReportError(input, &srcPtr[0], actual.x, expected.x);
+            }
+            if (actual.y != expected.y)
+            {
+                ReportError(input, &srcPtr[1], actual.y, expected.y);
+            }
+            if (actual.z != expected.z)
+            {
+                ReportError(input, &srcPtr[2], actual.z, expected.z);
+            }
+            if (actual.w != expected.w)
+            {
+                ReportError(input, &srcPtr[3], actual.w, expected.w);
+            }
+        }
+    }
+
+    __syncthreads();
+    TransferErrorsToHost(input);
+}
+
+extern "C" __global__ void CheckPattern(CheckFillInput input)
+{
+    CheckCommon();
+
+    IterateOverBoxes<BoxAction::CHECK_PAT>(input);
+
+    __syncthreads();
+    TransferErrorsToHost(input);
+}

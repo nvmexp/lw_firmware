@@ -1,0 +1,2170 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2010-2022 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD          ?= false
+NO_RELEASE              ?= false
+INCLUDE_DT              ?= false
+SAVE_TEMPS              ?= false
+EMEM_SUPPORTED          ?= false
+FPU_SUPPORTED           ?= false
+PARTITION_BOOT_ENABLED  ?= 1
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+PMU_SW             = $(LW_SOURCE)/pmu_sw
+PMU_CFG            = $(LW_SOURCE)/pmu_sw/config
+PMU_BUILD          = $(LW_SOURCE)/pmu_sw/build
+LWUPROC_RISCV      = $(LW_SOURCE)/uproc/lwriscv
+LWUPROC            = $(LW_SOURCE)/uproc
+RESMAN_ROOT        = $(LW_SOURCE)/drivers/resman
+BUILD_SCRIPTS      = $(LWUPROC)/build/scripts
+MUTEX_SRC          = $(LWUPROC)/libs/mutex
+LIB_UPROC_CMN_SRC  = $(LWUPROC)/libs/cmn
+SCP_SRC            = $(LWUPROC)/libs/scp
+FSP_RPC_SRC        = $(LWUPROC)/libs/fsprpc
+MEMMAP_PATH        = $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc/pmu/
+LIB_UPROC_LWOS_SRC = $(LWUPROC)/libs/lwos/$(LWOS_VERSION)
+SANITIZERCOV_SRC   = $(LWUPROC)/libs/sanitizercov
+# RISCV support
+BAR0_DEFS_PATH     := $(PMU_SW)/inc
+DRIVERS_SRC        := $(LWUPROC_RISCV)/drivers/src
+SHLIB_SRC          := $(LWUPROC_RISCV)/shlib/src
+SYSLIB_SRC         := $(LWUPROC_RISCV)/syslib/src
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+PMUCFG_PROFILE ?= pmu-gv100
+include $(PMU_CFG)/pmu-profiles.mk
+
+PMU_PROFILE_TEST_SUFFIXES=_selfinit
+
+###############################################################################
+# Paths needed that are based on profile 
+###############################################################################
+
+ifeq ($(strip $(LWRISCV_SDK_PROJ)),)
+    LWRISCV_SDK_PROJ  := basic-sepkern-$(subst _riscv,,$(PROJ))-pmu
+endif
+
+ifneq ($(strip $(LWRISCV_SDK_VERSION)),)
+  LWRISCV_SDK         := $(LWUPROC_RISCV)/sdk/$(LWRISCV_SDK_VERSION)
+  LWRISCV_SDK_PROFILE := $(LWRISCV_SDK)/prebuilt/$(LWRISCV_SDK_PROJ)
+endif
+
+###############################################################################
+# Override defaults (if needed)
+###############################################################################
+
+# Override print level
+ifdef LWRISCV_DEBUG_PRINT_LEVEL_OVERRIDE
+LWRISCV_DEBUG_PRINT_LEVEL = $(LWRISCV_DEBUG_PRINT_LEVEL_OVERRIDE)
+endif
+
+#
+# Allow instrumentation data protection override from command line.
+# Necessary in order to support automated PMU RTOS instrumentation.
+#
+ifdef INSTRUMENT
+  ifneq (,$(findstring true, $(INSTRUMENT)))
+    override INSTRUMENTATION_PROTECT = false
+    override USTREAMER_PROTECT = false
+    ifneq (,$(findstring pmu-ga10x_riscv, $(PMUCFG_PROFILE)))
+      override USTREAMER = true
+      override INSTRUMENTATION = false
+    endif
+  endif
+endif
+
+###############################################################################
+# FMC Configuration
+###############################################################################
+
+FMC_SRC = $(PMU_SW)/fmc
+FMC_INST_SRC = $(PMU_SW)/fmc
+
+###############################################################################
+# RTOS Configuration
+###############################################################################
+
+include $(LWUPROC)/build/common/lwRtosVersion.lwmk
+
+RTOS_SRC  = $(LW_RTOS_SRC)
+
+###############################################################################
+# HW architecture related paths
+###############################################################################
+
+ifeq ($(LS_FALCON_TEGRA),true)
+    ACR_CMN_SRC = $(LW_SOURCE)/uproc/tegra_acr
+endif
+
+###############################################################################
+# Export a flag to inform RTOS that we are building for the PMU. This helps us
+# decide which CSB register offsets to use. This isn't very useful in the .c
+# files, where we can include the generic Falcon manuals and use the base
+# address to get to the right CSB offset. However, .S files are compiled with
+# a preprocessor that doesn't understand include paths. Hence, we use this flag
+# to define register offsets. This flag should be sparingly used (only when
+# absolutely necessary), and likely only in .S assembly files.
+###############################################################################
+PMU_RTOS = 1
+
+###############################################################################
+# In PMU, the CSB access only takes the register offset as input (i.e. base
+# address is not required), thus setting this flag informing the RTOS to do the
+# CSB access with offset only
+###############################################################################
+
+BASEADDR_NEEDED_FOR_CSB_ACCESS = 0
+
+###############################################################################
+# Load common falcon/riscv make vars and host command definitions (ie. MKDIR,
+# P4, COPY, etc...).
+###############################################################################
+
+ifneq (,$(findstring lwriscv,$(UPROC_ARCH)))
+  include $(LWUPROC)/build/common/lwRiscvArch.lwmk
+  LW_TARGET_ARCH = $(RISCV_TOOLS_BUILD)
+  LW_PROJ        = $(PROJ)
+  LW_TARGET_OS   = riscv
+  LW_PROJ_SUFFIX = _riscv
+else
+  include $(LWUPROC)/build/common/lwFalconArch.lwmk
+  LW_TARGET_ARCH = $(FALCON_TOOLS_BUILD)
+  LW_PROJ        = $(PROJ)
+  LW_TARGET_OS   = falcon
+endif
+
+#
+# Unlike other builds, PMU is "release" by default.
+# This needs to go before lwCommon.lwmk!
+#
+LW_BUILD_TYPE ?= release
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Bootloader configuration
+###############################################################################
+
+ifeq ($(LW_TARGET_OS),riscv)
+  LDR_SRC            = $(LWUPROC_RISCV)/bootloader/src
+else
+  LDR_SRC            = $(LWUPROC)/bootloader/src
+endif
+
+###############################################################################
+# Set compiler flags
+###############################################################################
+
+#
+# Switching away from jump tables to reclaim precious DMEM. For now changing
+# only falcon6 but after more testing will try to switch them all.
+#
+ifdef FALCON_ARCH
+  ifeq ($(FALCON_ARCH),falcon6)
+      CFLAGS += -fno-jump-tables -fmerge-all-constants -std=gnu99
+  endif
+endif
+
+SUBMAKE_CONFIG_FLAGS += -DPMU_RTOS
+
+# RISCV-only flags
+ifeq ($(LW_TARGET_OS),riscv)
+  SUBMAKE_CFLAGS   += -fno-jump-tables
+
+  # This is done to prevent full __FILE__ paths from causing spurious releases!
+  SUBMAKE_CFLAGS   += -ffile-prefix-map=$(realpath $(LW_SOURCE))=.
+
+  # MMINTS-TODO: extend the SUBMAKE_CFLAGS mechanism to all PMU submakes!
+  SUBMAKE_CFLAGS   += -DLWRISCV_DEBUG_PRINT_LEVEL=$(LWRISCV_DEBUG_PRINT_LEVEL)
+
+  ifeq ($(LWRISCV_SYMBOL_RESOLVER),true)
+    SUBMAKE_CFLAGS += -DLWRISCV_SYMBOL_RESOLVER=1
+  else
+    SUBMAKE_CFLAGS += -DLWRISCV_SYMBOL_RESOLVER=0
+  endif
+
+  ifeq ($(LWRISCV_MPU_DUMP_ENABLED), true)
+    SUBMAKE_CFLAGS += -DLWRISCV_MPU_DUMP_ENABLED=1
+  else
+    SUBMAKE_CFLAGS += -DLWRISCV_MPU_DUMP_ENABLED=0
+  endif
+
+  ifeq ($(LWRISCV_CORE_DUMP), true)
+    SUBMAKE_CFLAGS += -DLWRISCV_CORE_DUMP=1
+  else
+    SUBMAKE_CFLAGS += -DLWRISCV_CORE_DUMP=0
+  endif
+
+  ifeq ($(LWRISCV_PARTITION_SWITCH), true)
+    SUBMAKE_CONFIG_FLAGS += -DLWRISCV_PARTITION_SWITCH=1
+  else
+    SUBMAKE_CONFIG_FLAGS += -DLWRISCV_PARTITION_SWITCH=0
+  endif
+
+  ifeq ($(LWRISCV_MPU_FBHUB_ALLOWED),true)
+    SUBMAKE_CFLAGS += -DLWRISCV_MPU_FBHUB_ALLOWED=1
+  else
+    SUBMAKE_CFLAGS += -DLWRISCV_MPU_FBHUB_ALLOWED=0
+  endif
+
+  ifeq ($(LWRISCV_HAS_DCACHE),true)
+    SUBMAKE_CFLAGS += -DLWRISCV_HAS_DCACHE=1
+  else
+    SUBMAKE_CFLAGS += -DLWRISCV_HAS_DCACHE=0
+  endif
+
+  ifeq ($(ELF_IN_PLACE_FULL_ODP_COW), true)
+    SUBMAKE_CFLAGS += -DELF_IN_PLACE_FULL_ODP_COW=1
+  else
+    SUBMAKE_CFLAGS += -DELF_IN_PLACE_FULL_ODP_COW=0
+  endif
+
+  ifeq ($(LWRISCV_PRINT_RAW_MODE), true)
+    SUBMAKE_CFLAGS += -DLWRISCV_PRINT_RAW_MODE=1
+    SUBMAKE_CFLAGS += -DLIBOS_LOGGING_METADATA_SPLIT
+  else
+    SUBMAKE_CFLAGS += -DLWRISCV_PRINT_RAW_MODE=0
+  endif
+
+  ifeq ($(LWRISCV_MMODE_REGS_RO), true)
+    SUBMAKE_CONFIG_FLAGS += -DLWRISCV_MMODE_REGS_RO
+  endif
+
+  ifneq ($(strip $(LWRISCV_SDK_VERSION)),)
+    # Specific values are lwrrently not important, but this is future proofing
+    SUBMAKE_CFLAGS += -DLWRISCV_SDK=sdk/$(LWRISCV_SDK_VERSION)
+    SUBMAKE_CFLAGS += -DLWRISCV_SDK_PROFILE=$(LWRISCV_SDK_VERSION)/prebuilt/$(LWRISCV_SDK_PROJ)
+  endif
+endif
+
+ifeq ($(PEDANTIC_BUILD),true)
+    CFLAGS += -pedantic -msafety
+endif
+
+ifeq ($(DMA_SUSPENSION),true)
+    SUBMAKE_CFLAGS += -DDMA_SUSPENSION
+endif
+
+ifeq ($(FLCNDBG_ENABLED),true)
+    CFLAGS += -DFLCNDBG_ENABLED
+endif
+
+ifeq ($(DMEM_VA_SUPPORTED),true)
+    CFLAGS += -DDMEM_VA_SUPPORTED
+endif
+
+ifeq ($(OS_CALLBACKS),true)
+    CFLAGS += -DOS_CALLBACKS
+endif
+
+ifeq ($(OS_CALLBACKS_WSTATS),true)
+    CFLAGS += -DOS_CALLBACKS_WSTATS
+endif
+
+ifeq ($(OS_CALLBACKS_SINGLE_MODE),true)
+    CFLAGS += -DOS_CALLBACKS_SINGLE_MODE
+endif
+
+ifeq ($(OS_CALLBACKS_RELAXED_MODE),true)
+    CFLAGS += -DOS_CALLBACKS_RELAXED_MODE
+endif
+
+ifeq ($(MRU_OVERLAYS),true)
+    CFLAGS += -DMRU_OVERLAYS
+endif
+
+ifeq ($(DMREAD_WAR_200142015),true)
+    CFLAGS += -DDMREAD_WAR_200142015
+endif
+
+ifeq ($(DMTAG_WAR_1845883),true)
+    CFLAGS += -DDMTAG_WAR_1845883
+endif
+
+CFLAGS += -DLS_UCODE_VERSION=$(LS_UCODE_VERSION)U
+
+ifdef BASEADDR_NEEDED_FOR_CSB_ACCESS
+    CFLAGS += -DBASEADDR_NEEDED=$(BASEADDR_NEEDED_FOR_CSB_ACCESS)
+endif
+
+ifeq ($(ON_DEMAND_PAGING_OVL_IMEM),true)
+    CFLAGS += -DON_DEMAND_PAGING_OVL_IMEM
+endif
+
+ifeq ($(LS_FALCON),true)
+    SUBMAKE_CONFIG_FLAGS += -DDYNAMIC_FLCN_PRIV_LEVEL
+    SUBMAKE_CONFIG_FLAGS += -DDMA_REGION_CHECK
+endif
+
+ifeq ($(IS_SSP_ENABLED),true)
+  ifeq ($(LW_TARGET_OS),riscv)
+    SUBMAKE_CONFIG_FLAGS += -DRANDOM_CANARY=17152294236893282304U
+  endif
+
+  ifeq ($(IS_SSP_ENABLED_WITH_SCP),true)
+    CFLAGS += -DIS_SSP_ENABLED_WITH_SCP
+  endif
+
+  ifeq ($(IS_SSP_ENABLED_PER_TASK),true)
+    SUBMAKE_CONFIG_FLAGS += -DIS_SSP_ENABLED_PER_TASK
+  endif
+
+  ifeq ($(IS_KERNEL_SSP_SEPARATE),true)
+    #
+    # If this is disabled, RISCV kernel stack canary
+    # just uses the same value as the current task stack canary.
+    # It is useful to set IS_KERNEL_SSP_SEPARATE = false
+    # while we still generate the kernel stack canary only once
+    # on startup. Task stack canaries are generated every time
+    # PMU receives input for a given task (to work around DMEM
+    # being L0-readable), so re-using them should be more
+    # secure right now.
+    #
+    SUBMAKE_CONFIG_FLAGS += -DIS_KERNEL_SSP_SEPARATE
+  endif
+
+  SUBMAKE_CFLAGS         += -fstack-protector-strong
+  SUBMAKE_CONFIG_FLAGS   += -DIS_SSP_ENABLED
+endif
+
+ifeq ($(FB_QUEUES), true)
+    CFLAGS += -DFB_QUEUES
+endif
+
+ifneq (,$(findstring SafeRTOS, $(RTOS_VERSION)))
+    CFLAGS += -DSAFERTOS
+endif
+
+ifeq ($(QUEUE_HALT_ON_FULL), true)
+    CFLAGS += -DQUEUE_HALT_ON_FULL
+endif
+
+ifeq ($(TASK_SYNC), true)
+    CFLAGS += -DTASK_SYNC
+endif
+
+ifeq ($(SCHEDULER_2X), true)
+    CFLAGS += -DSCHEDULER_2X
+endif
+
+ifeq ($(INSTRUMENTATION), true)
+    SUBMAKE_CFLAGS += -DINSTRUMENTATION
+endif
+
+ifeq ($(INSTRUMENTATION_PTIMER), true)
+    SUBMAKE_CFLAGS += -DINSTRUMENTATION_PTIMER
+endif
+
+ifeq ($(INSTRUMENTATION_PROTECT), true)
+    SUBMAKE_CFLAGS += -DINSTRUMENTATION_PROTECT
+endif
+
+ifeq ($(USTREAMER), true)
+    SUBMAKE_CFLAGS += -DUSTREAMER
+endif
+
+ifeq ($(USTREAMER_PTIMER), true)
+    SUBMAKE_CFLAGS += -DUSTREAMER_PTIMER
+endif
+
+ifeq ($(USTREAMER_PROTECT), true)
+    SUBMAKE_CFLAGS += -DUSTREAMER_PROTECT
+endif
+
+ifeq ($(SCHEDULER_2X_AUTO), true)
+    CFLAGS += -DSCHEDULER_2X_AUTO
+endif
+
+ifeq ($(HEAP_BLOCKING), true)
+    CFLAGS += -DHEAP_BLOCKING
+endif
+
+ifeq ($(WATCHDOG_ENABLE), true)
+    CFLAGS += -DWATCHDOG_ENABLE
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+    CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+    CFLAGS += -DUPROC_RISCV
+endif
+
+ifeq ($(ON_DEMAND_PAGING_BLK), true)
+    CFLAGS += -DON_DEMAND_PAGING_BLK
+endif
+
+ifeq ($(UINT_OVERFLOW_CHECK), true)
+    CFLAGS += -DUINT_OVERFLOW_CHECK
+endif
+
+ifeq ($(DMEM_OVL_SIZE_LONG), true)
+    CFLAGS += -DDMEM_OVL_SIZE_LONG
+endif
+
+ifeq ($(FREEABLE_HEAP),true)
+    CFLAGS += -DFREEABLE_HEAP
+endif
+
+ifeq ($(FAULT_RECOVERY),true)
+    CFLAGS += -DFAULT_RECOVERY
+endif
+
+CFLAGS += -DLW_MISRA_COMPLIANCE_REQUIRED
+CFLAGS += -Winline
+
+#
+# To Do: Remove these flags for riscv compilation.
+# Bug 200454787 tracks the removal of these flags
+#
+ifeq ($(LW_TARGET_OS),riscv)
+    CFLAGS += -Wno-aggressive-loop-optimizations
+    CFLAGS += -Wno-maybe-uninitialized
+    # But keep this flags to sanitize printfs
+    SUBMAKE_CFLAGS += -Wformat -Wformat-security
+endif
+
+ifeq ($(TASK_QUEUE_MAP), true)
+    CFLAGS += -DTASK_QUEUE_MAP
+endif
+
+ifeq ($(EXCLUDE_LWOSDEBUG), true)
+    CFLAGS += -DEXCLUDE_LWOSDEBUG
+endif
+
+ifeq ($(LW_TARGET_OS),riscv)
+    ifeq ($(FPU_SUPPORTED), true)
+        SUBMAKE_CONFIG_FLAGS += -DFPU_SUPPORTED
+    endif
+
+    ifeq ($(USE_CSB), true)
+        SUBMAKE_CONFIG_FLAGS += -DUSE_CSB=1
+    else
+        SUBMAKE_CONFIG_FLAGS += -DUSE_CSB=0
+    endif
+
+    ifeq ($(USE_CBB), true)
+        SUBMAKE_CONFIG_FLAGS += -DUSE_CBB=1
+    else
+        SUBMAKE_CONFIG_FLAGS += -DUSE_CBB=0
+    endif
+endif
+
+SUBMAKE_CFLAGS += -DLWRISCV_MTIME_TICK_SHIFT=$(LWRISCV_MTIME_TICK_SHIFT)
+
+ifeq ($(USE_TRUE_BREAKPOINT), true)
+    CFLAGS += -DUSE_TRUE_BREAKPOINT
+endif
+
+SUBMAKE_CFLAGS   += $(SUBMAKE_CONFIG_FLAGS)
+SUBMAKE_ASMFLAGS += $(SUBMAKE_CONFIG_FLAGS)
+CFLAGS   += $(SUBMAKE_CFLAGS)
+ASMFLAGS += $(SUBMAKE_ASMFLAGS)
+
+# ODP_ENABLED is expected by lwriscv submake
+ODP_ENABLED = $(ON_DEMAND_PAGING_BLK)
+
+###############################################################################
+# Additional defines to provide to the compiler and assembler.
+###############################################################################
+
+LW_DEFINES += __$(UPROC_ARCH)__
+
+###############################################################################
+# Define the output directory paths for the PMU build and all sub-make builds.
+###############################################################################
+
+OUTPUTDIR     := _out/$(subst pmu-,,$(PMUCFG_PROFILE))
+PMU_OUTPUTDIR := $(OUTPUTDIR)
+PMURPC_OUTDIR := $(OUTPUTDIR)/rpcgen
+CMNOUTDIR     := _out/cmn
+
+
+###############################################################################
+# Setup pmu-config make vars and ilwoke pmu-config. Use pmu-config's
+# makefile.mk to do all the work. The makefile will generate pmu-config.mk in
+# the output directory and then include it.
+###############################################################################
+
+PMUSRC_ALL         :=
+PMUCFG_OPTIONS     :=
+PMUCFG_OUTPUTDIR   ?= $(OUTPUTDIR)/config
+PMUCFG_RESMAN_ROOT := $(RESMAN_ROOT)
+PMUCFG_PMUSW_ROOT  := $(PMU_SW)/prod_app
+
+include $(PMU_CFG)/makefile.mk
+
+# include the generated list of source files
+ifdef PMUCFG_INITIALIZED
+  include $(PMUCFG_OUTPUTDIR)/g_sources.mk
+endif
+
+###############################################################################
+# Initialize special vars used below for different build flags.  Must initialize
+# before including the profile-specific makefiles.
+###############################################################################
+
+LARGE_SRC_FILES      :=
+NO_JMPTBLS_SRC_FILES :=
+
+###############################################################################
+# Include profile-specific make settings to account for profile-specific build
+# options/requirements.
+###############################################################################
+
+-include $(PMU_CFG)/$(PMUCFG_PROFILE).mk
+
+###############################################################################
+# Additional files to remove for 'clean' and 'clobber' targets.
+###############################################################################
+
+ifeq ("$(SAVE_TEMPS)","true")
+    OTHER_FILES_TO_REMOVE += $(LW_SOURCE)/pmu_sw/prod_app/*.s
+    OTHER_FILES_TO_REMOVE += $(LW_SOURCE)/pmu_sw/prod_app/*.i
+endif
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+export PARTITION_BOOT_ENABLED
+export FALCON_ARCH
+export UPROC_ARCH
+export LW_TARGET_ARCH
+export LW_TARGET_OS
+export LW_PROJ
+export FPU_SUPPORTED
+export MANUAL_PATHS
+export BASEADDR_NEEDED_FOR_CSB_ACCESS
+export DMA_SUSPENSION
+export LS_FALCON
+export LS_FALCON_TEGRA
+export PA_47_BIT_SUPPORTED
+export FLCNDBG_ENABLED
+export PMU_RTOS
+export OS_CALLBACKS
+export OS_CALLBACKS_WSTATS
+export OS_CALLBACKS_SINGLE_MODE
+export OS_CALLBACKS_RELAXED_MODE
+export OS_TRACE
+export MRU_OVERLAYS
+export DMEM_VA_SUPPORTED
+export DMREAD_WAR_200142015
+export DMTAG_WAR_1845883
+export ON_DEMAND_PAGING_OVL_IMEM
+export TASK_RESTART
+export FB_QUEUES
+export RTOS_VERSION
+export QUEUE_HALT_ON_FULL
+export TASK_SYNC
+export SCHEDULER_2X
+export SCHEDULER_2X_AUTO
+export INSTRUMENTATION
+export INSTRUMENTATION_PTIMER
+export INSTRUMENTATION_PROTECT
+export USTREAMER
+export USTREAMER_PROTECT
+export USTREAMER_PTIMER
+export HEAP_BLOCKING
+export WATCHDOG_ENABLE
+export LWOS_VERSION
+export ON_DEMAND_PAGING_BLK
+export MEMMAP_PATH
+export TASK_QUEUE_MAP
+export QUEUE_MSG_BUF
+export QUEUE_MSG_BUF_SIZE
+export IS_SSP_ENABLED
+export IS_SSP_ENABLED_WITH_SCP
+export IS_SSP_ENABLED_PER_TASK
+export LIB_ACR
+export ACR_CMN_SRC
+export EXCLUDE_LWOSDEBUG
+export LIB_MUTEX_SEMAPHORE_ONLY
+export PEDANTIC_BUILD
+export BAR0_DEFS_PATH
+export EMEM_SUPPORTED
+export UINT_OVERFLOW_CHECK
+export DMEM_OVL_SIZE_LONG
+export PMU_OUTPUTDIR
+export SUBMAKE_CFLAGS
+export SUBMAKE_ASMFLAGS
+export FREEABLE_HEAP
+export LWRISCV_PAGEFAULT_TYPE
+export ODP_ENABLED
+export FAULT_RECOVERY
+export LWRISCV_CORE_DUMP
+export LWRISCV_PARTITION_SWITCH
+export LWRISCV_MPU_DUMP_ENABLED
+export LWRISCV_DEBUG_PRINT_LEVEL
+export LWRISCV_SYMBOL_RESOLVER
+export LWRISCV_MPU_FBHUB_SUSPEND
+export LWRISCV_MPU_DIRTY_BIT
+export LWRISCV_MPU_FBHUB_ALLOWED
+export LWRISCV_HAS_DCACHE
+export DMEM_END_CARVEOUT_SIZE
+export DMA_NACK_SUPPORTED
+export VCAST_INSTRUMENT
+export USE_CSB
+export USE_CBB
+export USE_TRUE_BREAKPOINT
+export BOOT_FROM_HS
+export SCHEDULER_ENABLED
+export CHIP_MANUAL_PATH
+export ELF_IN_PLACE
+export ELF_IN_PLACE_FULL_IF_NOWPR
+export ELF_IN_PLACE_FULL_ODP_COW
+export LWRISCV_MTIME_TICK_SHIFT
+export LWRISCV_PRINT_RAW_MODE
+export SANITIZER_COV_INSTRUMENT
+export ANALYZE_DEPS
+export FLCN_SCRIPT_DEPS
+ifneq ($(strip $(LWRISCV_SDK_VERSION)),)
+  export LWRISCV_SDK
+  export LWRISCV_SDK_PROFILE
+endif
+
+ifneq ($(LS_ENCRYPTION_MODE), 0)
+  export SFK_CHIP
+ifdef SFK_CHIP_1
+  export SFK_CHIP_1
+endif
+endif
+
+###############################################################################
+# Submake Configuration
+#
+# This makefile builds libraries and tools that are shared with other projects.
+# Many of these builds may be lwstomized based on the needs of the project
+# building it. It is therefore necessary to ensure isolation between the
+# projects. Isolation is also required to allow for parallelization of project
+# builds.
+#
+# Isolation is achieved by ensuring that all build output is kept separate
+# between the projects. Ideally, output could all be redirected to a path
+# defined within the PMU's/project's output directory. However, the common
+# lwmake rules require that each submake target's output directory be contained
+# within that target's source directory. As a result, the only way to ensure
+# isolation is by establishing proper namespacing within each submake target's
+# local output directory.
+###############################################################################
+
+ifneq ($(LW_BUILD_TYPE),release)
+  $(error Bad build options for PMU, don't use lwmake debug or lwmake develop)
+endif
+
+SUBMAKE_NAMESPACE := pmu
+SUBMAKE_OUTPUTDIR := _out/$(SUBMAKE_NAMESPACE)/$(LW_PROJ)_$(UPROC_ARCH)_$(LW_BUILD_TYPE)
+
+#
+# For PMU test profiles, we want to use the common implementations of the RISC-V
+# libraries (used by the "standard" profile), so find any test profile suffix
+# that might exist in the profile name and subst it out.
+#
+RISCV_BASE_PROJ := \
+  $(strip $(subst $(strip \
+    $(foreach \
+      testProfile, \
+      $(PMU_PROFILE_TEST_SUFFIXES), \
+      $(findstring $(testProfile),$(PROJ)))),, \
+    $(PROJ)))
+
+###############################################################################
+# FMC dry-run build
+###############################################################################
+
+ifeq ($(LWRISCV_FMC_BUILD_DRY_RUN),true)
+  FMC_BASE_PROFILE   := $(strip $(subst -,_,$(PMUCFG_PROFILE)))
+
+  SUBMAKE_TARGETS    += FMC FMC_INST
+  FMC_MAKE_ARGS      := PROD_SIGN=0 PARTITIONS_DRY_RUN_BUILD=1 PROFILE=$(FMC_BASE_PROFILE)
+  FMC_INST_MAKE_ARGS := PROD_SIGN=0 PARTITIONS_DRY_RUN_BUILD=1 PROFILE=$(FMC_BASE_PROFILE)_inst
+endif
+
+###############################################################################
+# RTOS Library
+###############################################################################
+
+LIBS      = $(LW_RTOS_LIB)
+LIB_RTOS := $(RTOS_SRC)/$(SUBMAKE_OUTPUTDIR)/$(LW_RTOS_LIB_FILENAME)
+
+SUBMAKE_TARGETS += RTOS
+$(LIB_RTOS): build.submake.RTOS ;
+
+###############################################################################
+# Bootloader Configuration
+###############################################################################
+ifeq ($(LW_TARGET_OS),riscv)
+  LDR_BIN         := $(LDR_SRC)/$(SUBMAKE_OUTPUTDIR)/g_pmu_rvbl_$(PROJ).bin
+  LDR_MAKE_ARGS   := BLCFG_PROFILE=pmu_rvbl_$(PROJ)
+  LDR_IMEM_OFFS   ?= 0x5e00
+
+  SUBMAKE_TARGETS += LDR
+  $(LDR_BIN): build.submake.LDR ;
+else
+  LDR_BIN        := $(LDR_SRC)/$(SUBMAKE_OUTPUTDIR)/loader.0x00000000.bin
+
+  #
+  # The smallest IMEM/DMEM for a supported profile today is 24k. Put
+  # the bootloader stack and code at the top of the memory spaces
+  # leaving two blocks of buffer. For DMEM, the init arguments are placed at
+  # the top of the DMEM.
+  #
+  LDR_IMEM_OFFS  ?= 0x5e00
+  LDR_STACK_OFFS ?= 0x5e00
+
+  LDR_MAKE_ARGS  := BLCFG_PROFILE=pmu_bl_rtos
+  LDR_MAKE_ARGS  += IMEM_OFFS=$(LDR_IMEM_OFFS)
+  LDR_MAKE_ARGS  += STACK_OFFS=$(LDR_STACK_OFFS)
+  LDR_MAKE_ARGS  += FALCON_ARCH=$(FALCON_ARCH)
+  LDR_MAKE_ARGS  += MANUAL_PATH=$(word 1, $(MANUAL_PATHS))
+  LDR_MAKE_ARGS  += NO_RELEASE=true
+
+  SUBMAKE_TARGETS += LDR
+  $(LDR_BIN): build.submake.LDR ;
+endif
+
+
+###############################################################################
+# [Dec, 2016] Temporary check. Remove it within a month.
+# Check for the latest MingW version of falcon6 compiler, to avoid regression
+###############################################################################
+ifeq ($(PLATFORM),MinGW)
+    ifeq ($(LW_TARGET_ARCH),falcon6)
+        ifeq ($(wildcard $(LW_TOOLS)/falcon-gcc/$(FALCON_TOOLS_BUILD)/$(PLATFORM)/falcon-elf-gcc/lib/gcc/falcon-elf/4.3.2/readme),)
+            $(error Please use the latest version of Falcon 6.2.2 compiler.)
+        endif
+    endif
+endif
+
+###############################################################################
+# Uproc Common Library
+###############################################################################
+
+LIB_UPROC_CMN := $(LIB_UPROC_CMN_SRC)/$(SUBMAKE_OUTPUTDIR)/libUprocCmn.a
+
+SUBMAKE_TARGETS += LIB_UPROC_CMN
+$(LIB_UPROC_CMN): build.submake.LIB_UPROC_CMN ;
+
+###############################################################################
+# SCP Library
+###############################################################################
+ifeq ($(IS_SSP_ENABLED),true)
+  ifeq ($(IS_SSP_ENABLED_WITH_SCP),true)
+    LIB_SCP := $(SCP_SRC)/$(SUBMAKE_OUTPUTDIR)/libSCP.a
+
+    SUBMAKE_TARGETS += SCP
+    $(LIB_SCP): build.submake.SCP ;
+  endif
+endif
+
+#############################################################################
+# Drivers
+###############################################################################
+ifeq ($(LW_TARGET_OS),riscv)
+  LIB_DRIVERS := $(DRIVERS_SRC)/$(SUBMAKE_OUTPUTDIR)/libDrivers.a
+  DRIVERS_MAKE_ARGS := DRIVERSCFG_PROFILE=drivers-$(subst $(LW_PROJ_SUFFIX),,$(RISCV_BASE_PROJ))
+
+  SUBMAKE_TARGETS += DRIVERS
+  $(LIB_DRIVERS): build.submake.DRIVERS ;
+endif
+
+###############################################################################
+# Shlib
+###############################################################################
+ifeq ($(LW_TARGET_OS),riscv)
+  LIB_SHLIB := $(SHLIB_SRC)/$(SUBMAKE_OUTPUTDIR)/libShlib.a
+  SHLIB_MAKE_ARGS := SHLIBCFG_PROFILE=shlib-$(subst $(LW_PROJ_SUFFIX),,$(RISCV_BASE_PROJ))
+
+  SUBMAKE_TARGETS += SHLIB
+  $(LIB_SHLIB): build.submake.SHLIB ;
+endif
+
+###############################################################################
+# Syslib
+###############################################################################
+ifeq ($(LW_TARGET_OS),riscv)
+  LIB_SYSLIB := $(SYSLIB_SRC)/$(SUBMAKE_OUTPUTDIR)/libSyslib.a
+  SYSLIB_MAKE_ARGS := SYSLIBCFG_PROFILE=syslib-$(subst $(LW_PROJ_SUFFIX),,$(RISCV_BASE_PROJ))
+
+  SUBMAKE_TARGETS += SYSLIB
+  $(LIB_SYSLIB): build.submake.SYSLIB ;
+endif
+
+###############################################################################
+# Uproc LWOS Library
+###############################################################################
+
+LIB_UPROC_LWOS := $(LIB_UPROC_LWOS_SRC)/$(SUBMAKE_OUTPUTDIR)/libUprocLwos.a
+
+SUBMAKE_TARGETS += LIB_UPROC_LWOS
+
+$(LIB_UPROC_LWOS): build.submake.LIB_UPROC_LWOS ;
+
+ifeq ($(LIB_ACR),true)
+    LIB_ACR_CMN := $(ACR_CMN_SRC)/$(SUBMAKE_OUTPUTDIR)/libAcrCmn.a
+    SUBMAKE_TARGETS += ACR_CMN
+    $(LIB_ACR_CMN): build.submake.ACR_CMN ;
+endif
+
+###############################################################################
+# Mutex library
+###############################################################################
+
+# TO-DO : Re-enable build for MUTEX for riscv
+LIB_MUTEX := $(MUTEX_SRC)/$(SUBMAKE_OUTPUTDIR)/libMutex.a
+
+SUBMAKE_TARGETS += MUTEX
+
+$(LIB_MUTEX): build.submake.MUTEX ;
+
+###############################################################################
+# FSP RPC library
+###############################################################################
+
+ifeq ($(LIB_FSP_RPC),true)
+  LIB_FSP_RPC_SRC := $(FSP_RPC_SRC)/$(SUBMAKE_OUTPUTDIR)/libFspRpc.a
+
+  SUBMAKE_TARGETS += FSP_RPC
+
+  $(LIB_FSP_RPC_SRC): build.submake.FSP_RPC ;
+endif
+
+###############################################################################
+# FMC Monitor
+###############################################################################
+RVMKIMG_PARAMS :=
+MONITOR_CODE   :=
+MONITOR_DATA   :=
+MANIFEST_OUT   :=
+LIB_MONITOR    :=
+
+ifeq ($(LW_TARGET_OS),riscv)
+    # Remove the trailing _riscv from $(PROJ)
+    CHIP_PROJ := $(firstword $(subst _, ,$(PROJ)))
+    MONITOR_PREFIX      := g_sepkern_pmu_$(CHIP_PROJ)_riscv
+    MONITOR_DATA_PRD    := $(LW_SOURCE)/drivers/resman/kernel/inc/fmc/monitor/bin/pmu/$(CHIP_PROJ)/$(MONITOR_PREFIX)_image.data.encrypt.bin
+    MONITOR_CODE_PRD    := $(LW_SOURCE)/drivers/resman/kernel/inc/fmc/monitor/bin/pmu/$(CHIP_PROJ)/$(MONITOR_PREFIX)_image.text.encrypt.bin
+    MANIFEST_OUT_PRD    := $(LW_SOURCE)/drivers/resman/kernel/inc/fmc/monitor/bin/pmu/$(CHIP_PROJ)/$(MONITOR_PREFIX)_manifest.bin_prd_enc.bin
+
+    MONITOR_DATA_DBG    := $(LW_SOURCE)/drivers/resman/kernel/inc/fmc/monitor/bin/pmu/$(CHIP_PROJ)/$(MONITOR_PREFIX)_debug_image.data.encrypt.bin
+    MONITOR_CODE_DBG    := $(LW_SOURCE)/drivers/resman/kernel/inc/fmc/monitor/bin/pmu/$(CHIP_PROJ)/$(MONITOR_PREFIX)_debug_image.text.encrypt.bin
+    MANIFEST_OUT_DBG    := $(LW_SOURCE)/drivers/resman/kernel/inc/fmc/monitor/bin/pmu/$(CHIP_PROJ)/$(MONITOR_PREFIX)_manifest.bin_dbg_enc.bin
+endif
+
+###############################################################################
+# GCC SanitizerCoverage support
+###############################################################################
+
+SANITIZER_COV_INSTRUMENT ?= false
+
+ifeq ($(SANITIZER_COV_SUPPORTED),true)
+  ifeq ($(SANITIZER_COV_INSTRUMENT),true)
+      include $(PMU_CFG)/pmu-sanitizer-cov.mk
+
+      LIB_SANITIZERCOV := $(SANITIZERCOV_SRC)/$(SUBMAKE_OUTPUTDIR)/libsanitizercov.a
+      SUBMAKE_TARGETS += SANITIZERCOV
+      $(LIB_SANITIZERCOV): build.submake.SANITIZERCOV ;
+  endif
+endif
+
+###############################################################################
+# Additional libraries to link against
+###############################################################################
+
+LIB_SRC_DIRS :=
+
+LIB_SRC_DIRS += $(RTOS_SRC)
+LIB_SRC_DIRS += $(LIB_UPROC_LWOS_SRC)
+LIB_SRC_DIRS += $(LIB_UPROC_CMN_SRC)
+LIB_SRC_DIRS += $(MUTEX_SRC)
+
+LIBS += Mutex
+ifeq ($(LIB_ACR),true)
+    LIB_SRC_DIRS += $(ACR_CMN_SRC)
+    LIBS    += AcrCmn
+endif
+
+ifeq ($(LW_TARGET_OS),riscv)
+  LIB_SRC_DIRS += $(DRIVERS_SRC)
+  LIB_SRC_DIRS += $(SHLIB_SRC)
+  LIB_SRC_DIRS += $(SYSLIB_SRC)
+  LIBS += Drivers
+  LIBS += Shlib
+  LIBS += Syslib
+endif
+
+# Libraries should be placed in an order for linker to resolve dependencies.
+# Dependent library should be placed first.
+# UprocRtos is referenced by some of the libs above, thus keeping it here after
+# the dependent libraries to resolve the dependency issue.
+LIBS += UprocLwos UprocCmn
+
+ifeq ($(IS_SSP_ENABLED),true)
+  ifeq ($(IS_SSP_ENABLED_WITH_SCP),true)
+    LIB_SRC_DIRS += $(SCP_SRC)
+    LIBS += SCP
+  endif
+endif
+
+ifeq ($(SANITIZER_COV_SUPPORTED),true)
+  ifeq ($(SANITIZER_COV_INSTRUMENT),true)
+    LIB_SRC_DIRS += $(SANITIZERCOV_SRC)
+    LIBS += sanitizercov
+  endif
+endif
+
+ifeq ($(LIB_FSP_RPC),true)
+  LIB_SRC_DIRS += $(FSP_RPC_SRC)
+  LIBS += FspRpc
+endif
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+#
+# Note: we do *not* add the drivers/common/inc/hwref path to LW_INCLUDES. This
+# is to prevent #includes of the form "family/chip/header.h"; #includes in that
+# form can lead to inadvertently using #defines that don't apply to the current
+# chip. Instead, the directory for a given chip/profile's headers should be
+# added to the variable MANUAL_PATHS in config/pmu-profiles.mk, and the headers
+# should be #included in the form "header.h"
+#
+
+LW_INCLUDES += $(LIB_UPROC_LWOS_SRC)/inc
+LW_INCLUDES += $(PMU_SW)/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/common/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(LW_RTOS_INCLUDES)
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+LW_INCLUDES += $(CMNOUTDIR)
+LW_INCLUDES += $(PMURPC_OUTDIR)
+LW_INCLUDES += $(MUTEX_SRC)/inc
+LW_INCLUDES += $(LIB_UPROC_CMN_SRC)/inc
+LW_INCLUDES += $(SCP_SRC)/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/vbios/inc
+ifeq ($(LIB_FSP_RPC),true)
+  LW_INCLUDES += $(FSP_RPC_SRC)/inc
+endif
+
+ifeq ($(LW_TARGET_OS),riscv)
+    LW_INCLUDES += $(DRIVERS_SRC)/../inc
+    LW_INCLUDES += $(SHLIB_SRC)/../inc
+    LW_INCLUDES += $(SYSLIB_SRC)/../inc
+    LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/inc
+    ifneq ($(strip $(LWRISCV_SDK_VERSION)),)
+      LW_INCLUDES += $(LWRISCV_SDK)/inc
+      LW_INCLUDES += $(LWRISCV_SDK_PROFILE)/inc
+    endif
+    LW_INCLUDES += $(LWRISCV_TOOLS)/include
+    LW_INCLUDES += $(MEMMAP_PATH)
+else
+    LW_INCLUDES += $(FALCON_TOOLS)/include
+endif
+
+ifeq ($(LS_FALCON_TEGRA),true)
+    LW_INCLUDES += $(LW_SOURCE)/uproc/tegra_acr/inc
+endif
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+# TO-DO : Once riscv toolchain is enabled, check if RISCV_TARGET is
+#         really needed.
+###############################################################################
+IMG_PREFIX_DEBUG  := g_c85b6_$(PROJ)_debug
+IMG_PREFIX        := g_c85b6_$(PROJ)
+IMG_TARGET        := $(OUTPUTDIR)/$(IMG_PREFIX)
+IMG_TARGET_DEBUG  := $(OUTPUTDIR)/$(IMG_PREFIX_DEBUG)
+
+#
+# The SFK_CHIP variable has been set by referring to Unit.pm to handle different encrypted.bin
+# files being released for different SFKs present for the same profile.
+# This has been added to support LS Encryption feature
+# DEBUG_ENC is required so as to distinguished between
+# debug/prod HS signed image
+#
+ifneq ($(LS_ENCRYPTION_MODE), 0)
+  ifdef SFK_CHIP
+    IMG_TARGET_ENC       := $(IMG_TARGET)_$(SFK_CHIP)
+    IMG_TARGET_DEBUG_ENC := $(IMG_TARGET_DEBUG)_$(SFK_CHIP)
+  else # SFK_CHIP
+    IMG_TARGET_ENC       := $(IMG_TARGET)
+    IMG_TARGET_DEBUG_ENC := $(IMG_TARGET_DEBUG)
+  endif # SFK_CHIP
+  ifdef SFK_CHIP_1
+    IMG_TARGET_ENC_SFK_CHIP_1       := $(IMG_TARGET)_$(SFK_CHIP_1)
+    IMG_TARGET_DEBUG_ENC_SFK_CHIP_1 := $(IMG_TARGET_DEBUG)_$(SFK_CHIP_1)
+  endif
+endif
+
+IMG_READELF         := $(IMG_TARGET).readelf
+IMG_BIN             := $(IMG_TARGET)_image.bin
+IMG_BIN_DEBUG       := $(IMG_TARGET_DEBUG)_image.bin
+
+IMG_SIGN            := $(IMG_TARGET)_sign.bin
+IMG_SIGN_DEBUG      := $(IMG_TARGET_DEBUG)_sign.bin
+ifeq ($(SIGN_LICENSE), CODESIGN_LS_PKC)
+  IMG_SIG_H                    := $(IMG_TARGET)_pkc_ls_sig.h
+  IMG_SIG_H_DEBUG              := $(IMG_TARGET_DEBUG)_pkc_ls_sig.h
+  IMG_SIG_H_DEBUG_FMOD         := $(IMG_TARGET_DEBUG)_fmodel_pkc_ls_sig.h
+  IMG_SIG_C                    := $(IMG_TARGET)_pkc_ls_sig.c
+  IMG_SIG_C_DEBUG              := $(IMG_TARGET_DEBUG)_pkc_ls_sig.c
+  IMG_SIG_OBJ                  := $(IMG_TARGET)_pkc_ls_sig.o
+  IMG_SIG_OBJ_DEBUG            := $(IMG_TARGET_DEBUG)_pkc_ls_sig.o
+  IMG_SIG_BIN                  := $(IMG_TARGET)_pkc_ls_sig.bin
+  IMG_SIG_BIN_DEBUG            := $(IMG_TARGET_DEBUG)_pkc_ls_sig.bin
+  IMG_SIG_AES_H                := $(IMG_TARGET)_sig.h
+  IMG_SIG_AES_H_DEBUG          := $(IMG_TARGET_DEBUG)_sig.h
+  IMG_SIG_AES_NAME             := $(notdir $(IMG_SIG_AES_H))
+  IMG_SIG_AES_NAME_DEBUG       := $(notdir $(IMG_SIG_AES_H_DEBUG))
+ifneq ($(LS_ENCRYPTION_MODE), 0)
+  IMG_PROD_ENCRYPTED_BIN       := $(IMG_TARGET_ENC)_image_prod_encrypted.bin
+  IMG_DBG_ENCRYPTED_BIN        := $(IMG_TARGET_DEBUG_ENC)_image_debug_encrypted.bin
+  IMG_PROD_ENCRYPTED_BIN_NAME  := $(notdir $(IMG_PROD_ENCRYPTED_BIN))
+  IMG_DBG_ENCRYPTED_BIN_NAME   := $(notdir $(IMG_DBG_ENCRYPTED_BIN))
+endif
+else
+  IMG_SIG_H           := $(IMG_TARGET)_sig.h
+  IMG_SIG_H_DEBUG     := $(IMG_TARGET_DEBUG)_sig.h
+  IMG_SIG_C           := $(IMG_TARGET)_sig.c
+  IMG_SIG_C_DEBUG     := $(IMG_TARGET_DEBUG)_sig.c
+  IMG_SIG_OBJ         := $(IMG_TARGET)_sig.o
+  IMG_SIG_OBJ_DEBUG   := $(IMG_TARGET_DEBUG)_sig.o
+  IMG_SIG_BIN         := $(IMG_TARGET)_sig.bin
+  IMG_SIG_BIN_DEBUG   := $(IMG_TARGET_DEBUG)_sig.bin
+ifeq ($(UCODE_HASH_BIN_RELEASED), true)
+  IMG_PROD_UCODE_HASH_BIN         := $(IMG_TARGET)_image_prod_measurement.bin
+endif
+ifneq ($(LS_ENCRYPTION_MODE), 0)
+  IMG_PROD_ENCRYPTED_BIN       := $(IMG_TARGET_ENC)_image_prod_encrypted.bin
+  IMG_DBG_ENCRYPTED_BIN        := $(IMG_TARGET_ENC)_image_debug_encrypted.bin
+  IMG_PROD_ENCRYPTED_BIN_NAME  := $(notdir $(IMG_PROD_ENCRYPTED_BIN))
+  IMG_DBG_ENCRYPTED_BIN_NAME   := $(notdir $(IMG_DBG_ENCRYPTED_BIN))
+ifdef SFK_CHIP_1
+  IMG_DBG_ENCRYPTED_BIN        += $(IMG_TARGET_ENC_SFK_CHIP_1)_image_debug_encrypted.bin
+  IMG_PROD_ENCRYPTED_BIN       += $(IMG_TARGET_ENC_SFK_CHIP_1)_image_prod_encrypted.bin
+  IMG_DBG_ENCRYPTED_BIN_NAME   += $(notdir $(IMG_TARGET_ENC_SFK_CHIP_1)_image_debug_encrypted.bin)
+  IMG_PROD_ENCRYPTED_BIN_NAME  += $(notdir $(IMG_TARGET_ENC_SFK_CHIP_1)_image_prod_encrypted.bin)
+endif
+endif
+endif
+
+IMG_SIG_NAME        := $(notdir $(IMG_SIG_H))
+IMG_SIG_NAME_DEBUG  := $(notdir $(IMG_SIG_H_DEBUG))
+
+IMG_OBJDUMP         := $(IMG_TARGET).objdump
+IMG_NM              := $(IMG_TARGET).nm
+IMG_DBGLINE         := $(IMG_TARGET).dbgline
+DESC_BIN            := $(IMG_TARGET)_desc.bin
+DESC_BIN_DEBUG      := $(IMG_TARGET_DEBUG)_desc.bin
+
+ifeq ($(LW_TARGET_OS),riscv)
+  ELF_TARGET        := $(IMG_TARGET)
+  ELF_STATS_TXT     := $(ELF_TARGET).txt
+  ELF_FILE          := $(IMG_TARGET).elf
+  # ELF_FILE_BIN is a copy of ELF_FILE with different ext, for RM access
+  ELF_FILE_BIN      := $(IMG_TARGET).elf.bin
+  IMG_ELF_NO_SYM    := $(IMG_TARGET)_nosym.elf
+  ELF_MAP           := $(IMG_TARGET).map
+  ELF_SECTIONS      := $(IMG_TARGET).sections
+  # ELF_LOGGING_BIN is used for build system tracking, to check logging metadata diff
+  ELF_LOGGING_BIN   := $(IMG_TARGET).logging.bin
+else
+  IMG_ELF           := $(IMG_TARGET).out
+  IMG_H             := $(IMG_TARGET).h
+  IMG_DT            := $(IMG_TARGET).dt
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+RELEASE_FILES = $(IMG_BIN) $(IMG_NM) $(IMG_OBJDUMP) $(IMG_READELF)  \
+                $(DESC_BIN) $(IMG_H)
+else
+RELEASE_FILES = $(ELF_FILE) $(IMG_NM) $(IMG_OBJDUMP) $(IMG_READELF) \
+                $(IMG_BIN) $(DESC_BIN) $(ELF_STATS_TXT) $(ELF_FILE_BIN) \
+                $(ELF_LOGGING_BIN)
+endif
+
+ifeq ($(LW_TARGET_OS),riscv)
+RELEASE_FILES += $(IMG_BIN_DEBUG) $(DESC_BIN_DEBUG)
+endif
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+CFLAGS  += -DPMU_LOADER_OFFSET=$(LDR_IMEM_OFFS)
+
+ifeq ("$(SAVE_TEMPS)","true")
+  CFLAGS += -save-temps
+endif
+
+LIBDIRS := $(addsuffix /$(SUBMAKE_OUTPUTDIR),$(LIB_SRC_DIRS))
+
+LDFLAGS += -L $(OUTPUTDIR)
+LDFLAGS += -T $(OUTPUTDIR)/g_sections.ld
+LDFLAGS += $(addprefix -L,$(LIBDIRS))
+LDFLAGS += $(addprefix -l,$(LIBS))
+LDFLAGS += -nostartfiles
+
+#
+# Prevent default libs such as libssp from being linked,
+# allowing us to provide our own lwstomizable implementation.
+#
+LDFLAGS += -nostdlib -nodefaultlibs
+
+LDFLAGS += --coverage
+
+LIBS    += gcc
+
+ifeq ($(LW_TARGET_OS),riscv)
+  LD_INCLUDES := -I$(MEMMAP_PATH)
+  LD_INCLUDES += $(addprefix -I,$(MANUAL_PATHS))
+
+  ASMFLAGS += $(CFLAGS) $(addprefix -I,$(LW_INCLUDES))
+
+  LDFLAGS := -Wl,--start-group $(LDFLAGS) -Wl,--end-group
+  LDFLAGS += -Og -g
+else
+  LDFLAGS += -lfalcon
+endif
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+
+SOURCES := $(PMUSRC_ALL)
+
+#
+# Use target-specific variable values to add -mlarge-code to CFLAGS for any
+# targets in LARGE_SRC_FILES.
+# Note that -mlarge-code is deprecated in falcon-tools v6.2.1 and higher,
+# and will not have any effect if -msize32k is not set
+#
+LARGE_OBJ_FILES = $(addprefix $(OUTPUTDIR)/,$(LARGE_SRC_FILES:.c=.o))
+$(LARGE_OBJ_FILES) : CFLAGS += -mlarge-code
+
+# If LARGE_SRC_FILES file list changed in $(PMUCFG_PROFILE).mk
+# rebuild the object files
+$(LARGE_OBJ_FILES) : $(PMU_CFG)/$(PMUCFG_PROFILE).mk
+
+###############################################################################
+# Some modules will complain when its internal jump tables refer to an address
+# beyond what the linker can address.  The linker usually points to somewhere in
+# rodata with 'no_symbol'; e.g.,
+#
+# _out/gk10x/task_gcx.o:(.rodata+0x66): relocation truncated to fit:
+#     R_FALCON_16 against `no symbol'
+###############################################################################
+
+#
+# Use target-specific variable values to add -fno-jump-tables to CFLAGS for any
+# targets in NO_JMPTBLS_SRC_FILES.
+#
+NO_JMPTBLS_OBJ_FILES = $(addprefix $(OUTPUTDIR)/,$(NO_JMPTBLS_SRC_FILES:.c=.o))
+$(NO_JMPTBLS_OBJ_FILES) : CFLAGS += -fno-jump-tables
+
+# If NO_JMPTBLS_OBJ_FILES file list changed in $(PMUCFG_PROFILE).mk
+# rebuild the object files
+$(NO_JMPTBLS_OBJ_FILES) : $(PMU_CFG)/$(PMUCFG_PROFILE).mk
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(..)); delete $$ELW{PWD}; \
+                  print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Rule for running mkimage script to produce the image c-file, header, and binary.
+###############################################################################
+
+ifeq ($(LW_TARGET_OS),falcon)
+MKIMAGE = $(BUILD_SCRIPTS)/mkimage/flcnmkimg.pl
+
+MKIMAGE_ARGS  = --bootloaderFilename           $(LDR_BIN)
+MKIMAGE_ARGS += --bootloaderImemOffset         $(LDR_IMEM_OFFS)
+MKIMAGE_ARGS += --bootloaderStackOffset        $(LDR_STACK_OFFS)
+MKIMAGE_ARGS += --rm-img-hfile                 $(IMG_H)
+MKIMAGE_ARGS += --rm-img-bfile                 $(IMG_BIN)
+MKIMAGE_ARGS += --rm-img-signfile              $(IMG_SIGN)
+MKIMAGE_ARGS += --rm-desc-bfile                $(DESC_BIN)
+MKIMAGE_ARGS += --rm-desc-tfile                $(OUTPUTDIR)/rmflcnucode.h
+MKIMAGE_ARGS += --rm-image-basename            g_pmu_falcon_ucode_$(PROJ)
+MKIMAGE_ARGS += --rm-descriptor-structure-name RM_FLCN_UCODE_DESC
+MKIMAGE_ARGS += --acl                          $(APP_P4_CL)
+MKIMAGE_ARGS += --falcon-tools                 $(FALCON_TOOLS)
+MKIMAGE_ARGS += --outdir                       $(OUTPUTDIR)
+MKIMAGE_ARGS += --output-prefix                $(BUILD_PROJECT_NAME)
+MKIMAGE_ARGS += $(IMG_ELF)
+endif
+###############################################################################
+# Variables needed to ilwoke the signing client for LS Falcons
+###############################################################################
+
+# common paths
+SIGN_ROOT           = $(LW_SOURCE)/apps/codesigning
+SIGN_CLIENT         = $(SIGN_ROOT)/client/makefile.lwmk
+
+# Common args:
+SIGN_LICENSE       ?= CODESIGN_LS
+SIGN_PERF_TRACKING  = 0
+
+SIGN_ARGS           = LICENSE=$(SIGN_LICENSE)
+SIGN_ARGS          += TRACK_PERF=$(SIGN_PERF_TRACKING)
+SIGN_ARGS          += WORK_DIR=$(OUTPUTDIR)
+
+ifeq ($(LW_TARGET_OS),riscv)
+  SIGN_ARGS_DEBUG   = LICENSE=$(SIGN_LICENSE)
+  SIGN_ARGS_DEBUG  += TRACK_PERF=$(SIGN_PERF_TRACKING)
+  SIGN_ARGS_DEBUG  += WORK_DIR=$(OUTPUTDIR)
+endif
+
+# CODESIGN_LS specific args:
+
+# Check binary (sign only if binary changed)
+# this option can be specified when ilwoking build
+# (e.g. lwmake SIGN_CHECK_BINARY=0)
+SIGN_CHECK_BINARY  ?= 1
+
+# Sign locally, these options can be specified when ilwoking build
+SIGN_LOCAL         ?= 0
+SIGN_SERVER        ?= 1
+
+# Get chip and unit (pmu_riscv is treated as a separate unit)
+SIGN_CHIP           = $(subst _riscv,,$(subst pmu-,,$(PMUCFG_PROFILE)))
+SIGN_UNIT           = pmu$(findstring _riscv,$(PMUCFG_PROFILE))
+
+# construct the client specific arguement for CODESIGN_LS or CODESIGN_LS_PKC
+# we set the release path for the client to be OUTPUTDIR because
+# the release script will be responsible for releasing the signed
+# header
+# NOTE:
+#    With SIGN_LICENSE set to CODESIGN_LS_PKC, PKC signature is genrated
+#    for LS uCodes. LS_UCODE_ID is the extra paramtere passed.
+ifeq ($(SIGN_LICENSE), CODESIGN_LS_PKC)
+SIGN_ARGS          += CLIENT_PARAMS="$(IMG_BIN) $(IMG_SIGN) $(OUTPUTDIR) \
+    $(SIGN_CHECK_BINARY) $(RELEASE_PATH) $(SIGN_LOCAL) $(SIGN_SERVER) \
+    $(SIGN_CHIP) $(SIGN_UNIT) $(IMG_SIG_H) $(LS_UCODE_ID) \
+    $(LS_UCODE_VERSION) '' 1 $(LS_ENCRYPTION_MODE) $(IMG_PREFIX)"
+
+ifeq ($(LW_TARGET_OS),riscv)
+  SIGN_ARGS_DEBUG   += CLIENT_PARAMS="$(IMG_BIN_DEBUG) $(IMG_SIGN_DEBUG) $(OUTPUTDIR) \
+     $(SIGN_CHECK_BINARY) $(RELEASE_PATH) $(SIGN_LOCAL) $(SIGN_SERVER) \
+     $(SIGN_CHIP) $(SIGN_UNIT) $(IMG_SIG_H_DEBUG) $(LS_UCODE_ID) \
+     $(LS_UCODE_VERSION) '' 1 $(LS_ENCRYPTION_MODE) $(IMG_PREFIX_DEBUG)"
+
+endif
+
+else
+SIGN_ARGS          += CLIENT_PARAMS="$(IMG_BIN) $(IMG_SIGN) $(OUTPUTDIR) \
+    $(SIGN_CHECK_BINARY) $(RELEASE_PATH) $(SIGN_LOCAL) $(SIGN_SERVER) \
+    $(SIGN_CHIP) $(SIGN_UNIT) $(IMG_SIG_H) \
+     $(LS_UCODE_VERSION) '' 1 $(LS_ENCRYPTION_MODE) $(IMG_PREFIX)"
+
+ifeq ($(LW_TARGET_OS),riscv)
+  SIGN_ARGS_DEBUG   += CLIENT_PARAMS="$(IMG_BIN_DEBUG) $(IMG_SIGN_DEBUG) $(OUTPUTDIR) \
+    $(SIGN_CHECK_BINARY) $(RELEASE_PATH) $(SIGN_LOCAL) $(SIGN_SERVER) \
+    $(SIGN_CHIP) $(SIGN_UNIT) $(IMG_SIG_H_DEBUG) \
+    $(LS_UCODE_VERSION) '' 1 $(LS_ENCRYPTION_MODE) $(IMG_PREFIX_DEBUG)"
+endif
+
+endif
+
+# Polling args used for polling
+# Clean can use the same args
+POLL_ARGS           = LICENSE=$(SIGN_LICENSE)
+POLL_ARGS          += TRACK_PERF=$(SIGN_PERF_TRACKING)
+POLL_ARGS          += WORK_DIR=$(OUTPUTDIR)
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(PMUCFG_PROFILE)]"
+
+
+###############################################################################
+# Rules to generate header file for FLCN/RM communication
+###############################################################################
+
+FLCNRPC_OUTDIR       := $(PMURPC_OUTDIR)
+FLCNRPC_MODE         := flcn
+FLCNRPC_NAME         := $(PMUCFG_PROFILE)
+
+include $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc/pmu/pmurpc.mk
+
+###############################################################################
+# Rules to generate pre-processed header files for select PMU units
+###############################################################################
+
+PREPROC_OUTDIR = $(CMNOUTDIR)
+PREPROC_INCDIR = $(PMU_SW)/inc
+
+include $(LW_SOURCE)/pmu_sw/build/header_preprocess.mk
+
+###############################################################################
+# Generated header files
+###############################################################################
+
+GEN_PROFILE_HEADER  := $(OUTPUTDIR)/config/g_profile.h
+GEN_TASKS_HEADER    := $(OUTPUTDIR)/config/g_tasks.h
+GEN_ANALYZE_HEADER  := $(OUTPUTDIR)/config/g_analyze.h
+
+ifeq ($(LW_TARGET_OS),riscv)
+  GEN_SECTIONS_HEADER           := $(OUTPUTDIR)/config/g_sections_riscv.h
+  GEN_SECTIONS_SOURCE           := $(OUTPUTDIR)/config/g_sections_data.c
+  GEN_SECTIONS_OBJ              := $(OUTPUTDIR)/$(OUTPUTDIR)/config/g_sections_data.o
+  GEN_SECTIONS_HEADER_TEMPLATE  := $(LWUPROC)/build/templates/gt_sections_riscv.h
+
+  SOURCES += $(GEN_SECTIONS_SOURCE)
+endif
+
+GEN_HEADERS  =
+GEN_HEADERS += $(GEN_PROFILE_HEADER)
+GEN_HEADERS += $(GEN_TASKS_HEADER)
+GEN_HEADERS += $(GEN_ANALYZE_HEADER)
+GEN_HEADERS += $(GEN_PMU_RPC_HEADER)    # defined in pmurpc.mk
+GEN_HEADERS += $(GEN_PREPROC_HEADERS)   # defined in header_preprocess.mk
+ifdef GEN_SECTIONS_HEADER
+  GEN_HEADERS += $(GEN_SECTIONS_HEADER)
+endif
+
+# Most (all?) of the objects need the generated headers
+$(OBJECTS): $(GEN_HEADERS)
+
+
+###############################################################################
+# Load lwConfig to generate guardword list and also for using the guardword
+# scanner later
+###############################################################################
+
+CHECK_GUARDWORD = $(OUTPUTDIR)/_guardwordCheck
+
+LWCFG_DEFAULT_GEN       = --guardwordOutputFile=$(LWCFG_GUARDWORD_FILE)
+LWCFG_DEFAULT_GEN       += --headerOutputFile=$(LWCFG_HEADER)
+LW_GUARDWORD            = 1
+ifeq ($(LW_VERBOSE),0)
+  LWCFG_VERBOSE         = quiet
+endif
+include $(LW_SOURCE)/drivers/common/build/lwconfig.lwmk
+
+$(CHECK_GUARDWORD): $(IMG_BIN)
+	$(ECHO) $(BUILD_PROJECT_NAME) guardword check
+	$(call LW_CHECK_GUARDWORDS_CMD,$(IMG_BIN))
+	$(ECHO) "dummy file for makefile dependency : lwconfig guardword" > $@
+
+all: $(CHECK_GUARDWORD)
+
+###############################################################################
+# Relink the image if any file in LINK_DEPS is changed
+###############################################################################
+
+LINK_DEPS += $(OUTPUTDIR)/g_sections.ld
+LINK_DEPS += $(OBJECTS)
+
+###############################################################################
+# Additional dependencies of the ELF image
+###############################################################################
+
+LINK_DEPS += $(LIB_RTOS)
+LINK_DEPS += $(LIB_UPROC_LWOS)
+LINK_DEPS += $(LIB_UPROC_CMN)
+LINK_DEPS += $(LIB_MUTEX)
+
+ifeq ($(LIB_ACR),true)
+  LINK_DEPS += $(LIB_ACR_CMN)
+endif
+
+ifeq ($(IS_SSP_ENABLED),true)
+  ifeq ($(IS_SSP_ENABLED_WITH_SCP),true)
+    LINK_DEPS += $(LIB_SCP)
+  endif
+endif
+
+LINK_DEPS += $(LDR_BIN)
+
+ifeq ($(LW_TARGET_OS),riscv)
+  LINK_DEPS += $(LIB_DRIVERS) $(LIB_SHLIB) $(LIB_SYSLIB)
+
+  ifeq ($(LW_TARGET_OS),riscv)
+    LINK_DEPS += $(MONITOR_DATA_PRD)
+    LINK_DEPS += $(MONITOR_CODE_PRD)
+  endif
+endif
+
+ifeq ($(SANITIZER_COV_SUPPORTED),true)
+  ifeq ($(SANITIZER_COV_INSTRUMENT),true)
+    LINK_DEPS += $(LIB_SANITIZERCOV)
+  endif
+endif
+
+###############################################################################
+# Define a utility macro for ilwoking make (submake) on any external libraries
+# or utilities that this build depends upon. The macro will establish the
+# targets and dependencies between the builds, override the output directory
+# of the submake build, and pass any other (optional) make arguments to the
+# submake build.
+#
+# Arguments:
+#     $(1) - name of the submake build
+#
+# The name supplied is used to define the the name of target for the build.
+# This macro will also use the name to construct the name of make-var
+# containing the path to the submake build's source directory. The caller is
+# responsible for defining this make-var. For an example, if $(1) is set to
+# 'FOO', this macro requires that the make-var 'FOO_SRC' be defined and that it
+# points to the source directory where the makefile for the project is located.
+# It may sometimes be desired to pass additional arguments/overrides on the
+# submake build command-line. In such cases, the caller may define a similarly
+# named make-var suffixed with _MAKE_ARGS and assign to it the list of
+# arguments that should be passed to the build. This is optional, if the make-
+# var is not defined, no additional arguments will be supplied.
+###############################################################################
+
+#
+# Define a patched variant of the cmd args, which doesn't rely on space
+# escapes for quoted arguments.
+#
+# Lwmake tends to strip quotes from args. In quoted args that have a space,
+# it escapes the space with a backslash, but that breaks on Windows if passed to submakes.
+#
+# Right now the only valid argument for the PMU makefile with a space in it is a profile list.
+# Submakes don't actually need it, but it's easier to just patch it.
+#
+ifneq ($(strip $(PMUCFG_PROFILES)),)
+  CMDGOALS_PATCHED := $(subst $(PMUCFG_PROFILES), "$(PMUCFG_PROFILES)", $(MAKECMDGOALS))
+  CMDGOALS_PATCHED := $(subst ""$(PMUCFG_PROFILES)"", "$(PMUCFG_PROFILES)", $(CMDGOALS_PATCHED))
+else
+  CMDGOALS_PATCHED := $(MAKECMDGOALS)
+endif
+
+#
+# Inside the SUBMAKE_DEFINITION define, it is absolutely necessary to use $$
+# in $$($(1)_SRC) $$($(1)_MAKE_ARGS) etc. (and also for built-ins like $@ you'd
+# have to use $$@ if you ever use them inside the define). Remember,
+# the SUBMAKE_DEFINITION define is expanded twice!
+#
+# Of course, using $$ escapes for variables like SUBMAKE_OUTPUTDIR
+# is not really needed, since it doesn't matter how many times we expand
+# them (unless someone puts a $ in one of the values), but it's still a good
+# convention to have.
+#
+
+define SUBMAKE_DEFINITION
+  .PHONY: build.submake.$(1) clobber.submake.$(1)
+
+  build: build.submake.$(1)
+  clobber: clobber.submake.$(1)
+
+  $(1)_MAKE_ARGS ?=
+
+  build.submake.$(1) clobber.submake.$(1):
+	  @$$(MAKE) -C $$($(1)_SRC) -f makefile.lwmk \
+        OUTPUTDIR=$$(SUBMAKE_OUTPUTDIR)          \
+        LW_TARGET_ARCH=$$(LW_TARGET_ARCH)        \
+        $$($(1)_MAKE_ARGS)                       \
+        $$(CMDGOALS_PATCHED)
+
+  ifneq (,$$(findstring lwriscv,$$(UPROC_ARCH)))
+    ifdef GEN_SECTIONS_SOURCE
+      build.submake.$(1): $$(GEN_SECTIONS_SOURCE)
+      build.submake.$(1): $$(GEN_SECTIONS_OBJ)
+    endif
+    ifdef GEN_SECTIONS_HEADER
+      build.submake.$(1): $$(GEN_SECTIONS_HEADER)
+    endif
+    ifdef GEN_PROFILE_HEADER
+      build.submake.$(1): $$(GEN_PROFILE_HEADER)
+    endif
+  endif
+endef
+
+###############################################################################
+# Create the target/rule definitions for each submake target
+###############################################################################
+
+$(foreach target, $(SUBMAKE_TARGETS), \
+  $(eval $(call SUBMAKE_DEFINITION,$(strip $(target)))))
+
+###############################################################################
+# Vectorcast support
+###############################################################################
+
+ifdef VCAST_INSTRUMENT
+  include $(PMU_CFG)/pmu-vcast.mk
+endif
+
+###############################################################################
+# Rules for buildig the ELF image and binary files
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+
+all: $(IMG_BIN)
+
+ifeq ($(LW_TARGET_OS),falcon)
+
+$(IMG_BIN): $(IMG_ELF)
+	$(PMUCFG_PERL) $(MKIMAGE) $(MKIMAGE_ARGS)
+
+# $(IMG_H) is created as part of the $(IMG_BIN) recipe
+$(IMG_H): $(IMG_BIN)
+
+else
+STRIP = $(LWRISCV_TOOLS)/bin/$(LWRISCV_PREFIX)strip
+
+$(IMG_BIN): $(LDR_BIN) $(ELF_FILE) $(IMG_READELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) dumping logging metadata
+	$(OBJCOPY) --dump-section .logging=$(ELF_LOGGING_BIN) $(ELF_FILE)
+	$(ECHO) $(BUILD_PROJECT_NAME) copying $(ELF_FILE) to $(ELF_FILE_BIN) for RM access
+	$(COPY) $(ELF_FILE) $(ELF_FILE_BIN)
+	$(ECHO) $(BUILD_PROJECT_NAME) stripping DWARF debug data from $(ELF_FILE_BIN) to optimize size
+	$(STRIP) --strip-debug $(ELF_FILE_BIN)
+	$(ECHO) $(BUILD_PROJECT_NAME) stripping image
+	$(COPY) $(ELF_FILE) $(IMG_ELF_NO_SYM)
+	$(STRIP) -w --strip-unneeded $(IMG_ELF_NO_SYM)
+	$(ECHO) $(BUILD_PROJECT_NAME) dropping logging metadata from image
+	$(OBJCOPY) --remove-section .logging $(IMG_ELF_NO_SYM)
+	$(OBJCOPY) --remove-section .logging_metadata $(IMG_ELF_NO_SYM)
+	$(ECHO) $(BUILD_PROJECT_NAME) mangling section names
+	$(ECHO) $(BUILD_PROJECT_NAME) generating .mangle file to mangle section names
+	$(PERL) $(BUILD_SCRIPTS)/section-name-mangle.pl $(IMG_TARGET)
+	$(ECHO) $(BUILD_PROJECT_NAME) mangling section names
+	$(OBJCOPY) @$(IMG_TARGET).mangle
+	$(ECHO) $(BUILD_PROJECT_NAME) generating for riscv prod $(notdir $(IMG_BIN))
+	$(PERL) $(BUILD_SCRIPTS)/mkimage/rvmkimg.pl  \
+            --monitorCode $(MONITOR_CODE_PRD)        \
+            --monitorData $(MONITOR_DATA_PRD)        \
+            --manifest $(MANIFEST_OUT_PRD)           \
+            --useMonitor                             \
+            --loaderFile        $(LDR_BIN)           \
+            --elfFile           $(IMG_ELF_NO_SYM)    \
+            --readelf           $(IMG_READELF)       \
+            --outFilePrefix     $(IMG_PREFIX)        \
+            --outDir            $(OUTPUTDIR)         \
+            --appVersion        $(APP_P4_CL)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating for riscv debug $(notdir $(IMG_BIN))
+	$(PERL) $(BUILD_SCRIPTS)/mkimage/rvmkimg.pl      \
+            --monitorCode $(MONITOR_CODE_DBG)        \
+            --monitorData $(MONITOR_DATA_DBG)        \
+            --manifest $(MANIFEST_OUT_DBG)           \
+            --useMonitor                             \
+            --loaderFile        $(LDR_BIN)           \
+            --elfFile           $(IMG_ELF_NO_SYM)    \
+            --readelf           $(IMG_READELF)       \
+            --outFilePrefix     $(IMG_PREFIX_DEBUG)  \
+            --outDir            $(OUTPUTDIR)         \
+            --appVersion        $(APP_P4_CL)
+endif
+
+#
+# Just like the Falcon make-image script, rvmkimg.pl also produces this file,
+# even though the path to it is not passed in as an explicit argument.
+#
+$(DESC_BIN): $(IMG_BIN)
+
+###############################################################################
+# Rules for LS signing
+###############################################################################
+
+#
+# We need to turn off --output-sync for the signing process, since otherwise
+# no interactive messages / warning etc would be displayed.
+#
+SIGN_MAKE_FLAGS = -Onone --no-print-directory
+
+#
+# We always want to generate sig when IMG_BIN has changed.
+#
+# Start by pre-emptively copying the current LS header from RM
+# in case it turns out that submission is not required.
+# This is a bit hacky but needed to handle building with no releasing and no
+# binary change correctly. Without this, builds which don't change the binary
+# wouldn't be able to generate an IMG_SIG_BIN and thus wouldn't work via the
+# -rmkey BindataFileDir MODS flag in LS mode.
+# cat and write instead of copying to avoid replicating the read-only flag.
+# Then actually try to submit.
+#
+# For RISC-V we also copy AES signatures to pull PMU build in case only
+# Separation Kernel changes (with no PMU changes).
+# This is temp hack until build system is split for debug and release images.
+#
+# For fmodel, we generate a separate pkc ls sig version patched to ensure that
+# it doesn't require encryption, so that fmodel can use the decrypted binary
+# to avoid the decryption latency.
+#
+$(IMG_SIG_H): $(IMG_BIN)
+	-$(CAT) $(RELEASE_PATH)/$(IMG_SIG_NAME) > $@
+ifeq ($(LW_TARGET_OS),riscv)
+	-$(CAT) $(RELEASE_PATH)/$(IMG_SIG_NAME_DEBUG) > $(IMG_SIG_H_DEBUG)
+  ifeq ($(SIGN_LICENSE), CODESIGN_LS_PKC)
+	  -$(CAT) $(RELEASE_PATH)/$(IMG_SIG_AES_NAME) > $(IMG_SIG_AES_H)
+	  -$(CAT) $(RELEASE_PATH)/$(IMG_SIG_AES_NAME_DEBUG) > $(IMG_SIG_AES_H_DEBUG)
+    ifneq ($(LS_ENCRYPTION_MODE), 0)
+	    -$(CAT) $(RELEASE_PATH)/$(IMG_PROD_ENCRYPTED_BIN_NAME) > $(IMG_PROD_ENCRYPTED_BIN)
+	    -$(CAT) $(RELEASE_PATH)/$(IMG_DBG_ENCRYPTED_BIN_NAME) > $(IMG_DBG_ENCRYPTED_BIN)
+    endif
+  endif
+endif
+	$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) clean $(POLL_ARGS)
+	$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) submit $(SIGN_ARGS)
+ifeq ($(LW_TARGET_OS),riscv)
+	$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) submit $(SIGN_ARGS_DEBUG)
+endif
+	$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) poll $(POLL_ARGS)
+ifeq ($(SIGN_LICENSE), CODESIGN_LS_PKC)
+  ifeq ($(LW_TARGET_OS),riscv)
+	  $(PERL) -pe "s/\.lsUcodeEncryptFlag\s+=\s+\*\/\s+1,/.lsUcodeEncryptFlag = *\/ 0,/" $(IMG_SIG_H_DEBUG) > $(IMG_SIG_H_DEBUG_FMOD)
+  endif
+endif
+
+ifeq ($(LS_FALCON), true)
+  all: $(IMG_SIG_BIN)
+  install: $(IMG_SIG_BIN)
+  RELEASE_FILES += $(IMG_SIG_H)
+  ifeq ($(LW_TARGET_OS),riscv)
+    RELEASE_FILES += $(IMG_SIG_H_DEBUG)
+  endif
+  ifeq ($(UCODE_HASH_BIN_RELEASED),true)
+    ifeq ($(SIGN_LOCAL), 0)
+      RELEASE_FILES += $(IMG_PROD_UCODE_HASH_BIN)
+    endif
+  endif
+  ifeq ($(SIGN_LICENSE), CODESIGN_LS_PKC)
+    RELEASE_FILES += $(IMG_SIG_AES_H)
+    ifeq ($(LW_TARGET_OS),riscv)
+      RELEASE_FILES += $(IMG_SIG_AES_H_DEBUG)
+      RELEASE_FILES += $(IMG_SIG_H_DEBUG_FMOD)
+    endif
+  endif
+endif
+
+# release encrypted image if LS encryption is enabled
+ifneq ($(LS_ENCRYPTION_MODE), 0)
+   RELEASE_FILES += $(IMG_DBG_ENCRYPTED_BIN)
+   ifeq ($(SIGN_LOCAL), 0)
+     ifeq ($(LS_PKC_PROD_ENC_ENABLED), true)
+          RELEASE_FILES += $(IMG_PROD_ENCRYPTED_BIN)
+     endif
+   endif
+endif
+
+###############################################################################
+# Rules for creating binary representation of LS sig
+###############################################################################
+
+LS_SIG_INCLUDE_DIRS = $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc $(LW_SOURCE)/sdk/lwpu/inc/
+
+LS_SIG_BIN_FLAGS :=
+LS_SIG_BIN_FLAGS += -include $(LW_SOURCE)/sdk/lwpu/inc/lwtypes.h
+LS_SIG_BIN_FLAGS += $(addprefix -I,$(LS_SIG_INCLUDE_DIRS))
+
+# GA10X onwards LS signature format is changed and requires few more headers.
+# Bug 200610782 is filed to explore if  LS server itself can include these headers
+# before returning signature file. Till then required headers are inserted into IMG_SIG_C.
+$(IMG_SIG_C): $(IMG_SIG_H)
+	$(ECHO) Creating binary representation of LS sig...
+ifeq ($(SIGN_LICENSE), CODESIGN_LS_PKC)
+	$(ECHO) "#include <flcnifcmn.h>" > $@
+	$(ECHO) "#include <rmlsfm_new_wpr_blob.h>" >> $@
+  ifeq ($(LW_TARGET_OS),riscv)
+	  $(ECHO) "#include <flcnifcmn.h>" > $(IMG_SIG_C_DEBUG)
+	  $(ECHO) "#include <rmlsfm_new_wpr_blob.h>" >> $(IMG_SIG_C_DEBUG)
+  endif
+endif
+	$(CAT) $< >> $@
+ifeq ($(LW_TARGET_OS),riscv)
+	$(CAT) $(IMG_SIG_H_DEBUG) >> $(IMG_SIG_C_DEBUG)
+endif
+
+$(IMG_SIG_OBJ): $(IMG_SIG_C)
+	$(CC) -c $< -o $@ $(LS_SIG_BIN_FLAGS)
+ifeq ($(LW_TARGET_OS),riscv)
+	$(CC) -c $(IMG_SIG_C_DEBUG) -o $(IMG_SIG_OBJ_DEBUG) $(LS_SIG_BIN_FLAGS)
+endif
+
+$(IMG_SIG_BIN): $(IMG_SIG_OBJ)
+	$(OBJCOPY) -O binary $< $@
+	-$(RM) $(IMG_SIG_OBJ)
+	-$(RM) $(IMG_SIG_C)
+ifeq ($(LW_TARGET_OS),riscv)
+	$(OBJCOPY) -O binary $(IMG_SIG_OBJ_DEBUG) $(IMG_SIG_BIN_DEBUG)
+	-$(RM) $(IMG_SIG_OBJ_DEBUG)
+	-$(RM) $(IMG_SIG_C_DEBUG)
+endif
+
+###############################################################################
+# Rules for genRmProp
+###############################################################################
+
+GEN_TMP_SETPROP_C  := $(CMNOUTDIR)/g_tmp_pmuSetUcodeProp.c
+
+genRmProp: $(GEN_TMP_SETPROP_C)
+
+$(GEN_TMP_SETPROP_C): $(PMU_CFG)/Features.pm $(PMU_CFG)/pmu-config.cfg $(PMU_BUILD)/genRmProp.pl
+	$(PERL) $(PMU_BUILD)/genRmProp.pl                              \
+            --lwroot $(LW_SOURCE) --output-dir $(CMNOUTDIR)        \
+            --p4 $(P4) --perl $(PERL)
+
+all: genRmProp
+
+###############################################################################
+# Common dependency files for rtos-flcn-script.pl exelwtion
+###############################################################################
+FLCN_SCRIPT_DEPS =
+
+FLCN_SCRIPT_DEPS += $(BUILD_SCRIPTS)/rtos-flcn-script.pl
+FLCN_SCRIPT_DEPS += $(BUILD_SCRIPTS)/impl/TasksImpl.pm
+FLCN_SCRIPT_DEPS += $(BUILD_SCRIPTS)/impl/ProfilesImpl.pm
+FLCN_SCRIPT_DEPS += $(BUILD_SCRIPTS)/impl/OverlaysImpl.pm
+
+###############################################################################
+# Rules to generate header file g_profile.h
+###############################################################################
+
+$(GEN_PROFILE_HEADER): $(PMU_BUILD)/Profiles.pm $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(PERL) -I$(PMU_BUILD) -I$(BUILD_SCRIPTS) \
+        -I$(LW_SOURCE)/drivers/common/chip-config                        \
+        $(BUILD_SCRIPTS)/rtos-flcn-script.pl --profile $(PMUCFG_PROFILE) \
+        --arch $(LW_TARGET_OS) --lwroot $(LW_SOURCE) --perl $(PERL)      \
+        --gen-profile-header --outfile $(GEN_PROFILE_HEADER)
+
+
+###############################################################################
+# Rules to generate header file g_tasks.h
+###############################################################################
+
+$(GEN_TASKS_HEADER): $(PMU_BUILD)/Tasks.pm $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(PERL) -I$(PMU_BUILD) -I$(BUILD_SCRIPTS) \
+        -I$(LW_SOURCE)/drivers/common/chip-config                        \
+        $(BUILD_SCRIPTS)/rtos-flcn-script.pl --profile $(PMUCFG_PROFILE) \
+        --arch $(LW_TARGET_OS) --lwroot $(LW_SOURCE) --perl $(PERL)      \
+        --gen-ostask-header --outfile $(GEN_TASKS_HEADER)
+
+###############################################################################
+# Rules to generate header file g_analyze.h
+###############################################################################
+
+$(GEN_ANALYZE_HEADER): $(PMU_BUILD)/Analyze.pm $(PMU_BUILD)/Tasks.pm $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(PERL) -I$(PMU_BUILD) -I$(BUILD_SCRIPTS) \
+        -I$(LW_SOURCE)/drivers/common/chip-config                        \
+        $(BUILD_SCRIPTS)/rtos-flcn-script.pl --profile $(PMUCFG_PROFILE) \
+        --arch $(LW_TARGET_OS) --lwroot $(LW_SOURCE) --perl $(PERL)      \
+        --gen-analyze-header --outfile $(GEN_ANALYZE_HEADER)
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files is the prerequisite
+# for this rule.
+###############################################################################
+ifeq ($(LW_TARGET_OS),falcon)
+#
+# MMINTS-TODO: RISCV checks are very inconsistently done throughout the makefile.
+# Switch them to a unified style in a follow-up to prevent mistakes!
+#
+$(IMG_ELF): $(LINK_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(CFLAGS) $(OBJECTS) -o $(IMG_ELF) $(LDFLAGS)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_READELF)
+	$(OBJDUMP) -d    $(IMG_ELF) >> $(IMG_OBJDUMP)
+	$(OBJDUMP) -S -d $(IMG_ELF) >> $(IMG_OBJDUMP).source
+	$(NM)      -S -n $(IMG_ELF) >>  $(IMG_NM)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_READELF))
+	$(READELF) --wide --all $(IMG_ELF) >> $(IMG_READELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(IMG_ELF) >> $(IMG_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(IMG_ELF)
+else
+  # To avoid overflowing max cmd length in Windows: dump all args to ld to intermediate file via $(file)
+  $(ELF_FILE): $(LINK_DEPS)
+	  $(ECHO) $(BUILD_PROJECT_NAME) generating for riscv $(notdir $@)
+	  $(file >$(IMG_PREFIX).ldargs,$(CFLAGS) $(OBJECTS) -o $(ELF_FILE) $(LDFLAGS))
+	  $(CC) @$(IMG_PREFIX).ldargs
+	  $(RM) $(IMG_PREFIX).ldargs
+
+# Not only .readelf, this recipe generates all debugging releated files, including
+# .nm, .objdump, .objdump.source... etc.
+$(IMG_READELF): $(ELF_FILE)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_READELF)
+	$(OBJDUMP) -d    $(ELF_FILE) >> $(IMG_OBJDUMP)
+	$(OBJDUMP) -S -d $(ELF_FILE) >> $(IMG_OBJDUMP).source
+	$(NM)      -S -n $(ELF_FILE) >> $(IMG_NM)
+	$(PERL) $(BUILD_SCRIPTS)/nm-file-sort.pl $(IMG_NM)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating for riscv $(notdir $(IMG_READELF))
+	$(READELF) --all $(ELF_FILE) >> $(IMG_READELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating  for riscv $(notdir $(IMG_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(ELF_FILE) >> $(IMG_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(ELF_FILE)
+	$(NM)      $(ELF_FILE) >> $(ELF_MAP)
+	$(READELF) -S -W $(ELF_FILE) > $(ELF_SECTIONS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating for riscv $(notdir $(ELF_STATS_TXT))
+	$(PERL) $(BUILD_SCRIPTS)/riscv-stats-gen.pl $(ELF_TARGET) $(ELF_STATS_TXT)
+
+endif
+
+#
+# Trigger the process by adding a phony prerequisite to 'all' called 'install'.
+# The rule to rebuild that target will perform the install process and will copy
+# the files to the RM if necessary.
+# Skip this process if the user has requested that files NOT be installed via
+# NO_INSTALL=true.
+#
+ifneq ("$(NO_RELEASE)","true")
+  .PHONY: install
+  all: install
+endif
+
+###############################################################################
+# Rules to check Tasks IMEM Overlays and Resident code boundary
+###############################################################################
+ifeq ($(LW_TARGET_OS),falcon)
+# a dummy file to maintain the dependency.  Run the check only when IMG_H has a change
+CHECK_OVL = $(OUTPUTDIR)/_ovlCheck
+
+ifeq (,$(findstring true, $(ON_DEMAND_PAGING_BLK)))
+$(CHECK_OVL): $(IMG_H) $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) overlay sanity and resident code boundary check
+	$(PERL) -I$(PMU_BUILD) -I$(BUILD_SCRIPTS) \
+        -I$(LW_SOURCE)/drivers/common/chip-config                        \
+        $(BUILD_SCRIPTS)/rtos-flcn-script.pl --profile $(PMUCFG_PROFILE) \
+        --arch $(LW_TARGET_OS) --lwroot $(LW_SOURCE) --perl $(PERL)      \
+        --check-overlays-imem --check-nm-file $(IMG_NM) --verbose $(LW_VERBOSE)
+	$(ECHO) "dummy file for makefile dependency : [ rtos-flcn-script.pl --check-overlays-imem --check-nm-file ]" > $@
+else # ON_DEMAND_PAGING_BLK
+# In the full-resident case, don't use --check-overlays-imem, because there are no overlay sections
+# In the ODP turned on cases, we don't have imem overlay limit
+$(CHECK_OVL): $(IMG_H) $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) overlay sanity and resident code boundary check
+	$(PERL) -I$(PMU_BUILD) -I$(BUILD_SCRIPTS) \
+        -I$(LW_SOURCE)/drivers/common/chip-config                        \
+        $(BUILD_SCRIPTS)/rtos-flcn-script.pl --profile $(PMUCFG_PROFILE) \
+        --lwroot $(LW_SOURCE) --perl $(PERL)                             \
+        --check-nm-file $(IMG_NM) --verbose $(LW_VERBOSE)
+	$(ECHO) "dummy file for makefile dependency : [ rtos-flcn-script.pl --check-nm-file ]" > $@
+endif # ON_DEMAND_PAGING_BLK
+
+all: $(CHECK_OVL)
+
+# make ls signing happen after CHECK_OVL to reduce signing server load
+$(IMG_SIG_H): $(CHECK_OVL)
+endif
+###############################################################################
+# Rules to analyze objdump to generate calltree, stack, & overlay info
+###############################################################################
+
+ANALYZE_DIR = $(OUTPUTDIR)/_analysis
+# a dummy file to maintain the dependency
+ANALYZE_OBJDUMP = $(ANALYZE_DIR)/_analyzed
+ANALYZE_SUMMARY = $(ANALYZE_DIR)/summary.txt
+ANALYZE_RELEASE = $(IMG_TARGET)_analysis.txt
+RELEASE_FILES  += $(ANALYZE_RELEASE)
+
+ANALYZE_DEPS += $(PMU_BUILD)/Tasks.pm
+ANALYZE_DEPS += $(PMU_BUILD)/Analyze.pm
+
+ANALYZE_DEPS += $(BUILD_SCRIPTS)/analyze/UcodeAnalyze.pm
+ANALYZE_DEPS += $(BUILD_SCRIPTS)/analyze/Output.pm
+
+ifeq ($(LW_TARGET_OS),falcon)
+  OVERLAYSIMEM = OverlaysImem.pm
+  OVERLAYSDMEM = OverlaysDmem.pm
+
+  VALIDATE_OBJDUMP_OVERLAYS_CONFIG ?=
+
+  # Don't validate overlays for ODP builds
+  ifeq ($(ON_DEMAND_PAGING_BLK),true)
+    VALIDATE_OBJDUMP_OVERLAYS_CONFIG := --validate-no-objdump-overlays
+  endif
+
+  ANALYZE_DEPS += $(IMG_ELF)
+  ANALYZE_DEPS += $(PMU_BUILD)/$(OVERLAYSDMEM)
+
+  ANALYZE_OVL_ARGS := --overlaysdmem-file $(OVERLAYSDMEM)     \
+                      $(VALIDATE_OBJDUMP_OVERLAYS_CONFIG)
+
+  $(CHECK_OVL): $(ANALYZE_OBJDUMP)
+else
+  ANALYZE_DEPS += $(IMG_READELF)
+
+  ANALYZE_OVL_ARGS :=
+endif
+
+$(ANALYZE_OBJDUMP): $(ANALYZE_DEPS) $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) analyzing objdump
+	$(MKDIR) $(ANALYZE_DIR)
+	$(PERL) -I$(PMU_BUILD) -I$(BUILD_SCRIPTS) \
+        -I$(LW_SOURCE)/drivers/common/chip-config                        \
+        $(BUILD_SCRIPTS)/rtos-flcn-script.pl --profile $(PMUCFG_PROFILE) \
+        --arch $(LW_TARGET_OS) --lwroot $(LW_SOURCE) --perl $(PERL)      \
+        --verbose $(LW_VERBOSE) --analyze-objdump $(IMG_OBJDUMP)         \
+        --outfile $(ANALYZE_DIR) $(ANALYZE_OVL_ARGS)
+	$(ECHO) analyzed > $(ANALYZE_OBJDUMP)
+
+$(ANALYZE_RELEASE): $(ANALYZE_OBJDUMP)
+	$(COPY) $(ANALYZE_SUMMARY) $(ANALYZE_RELEASE)
+
+install: $(ANALYZE_RELEASE)
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(BUILD_SCRIPTS)/release-imgs-if-changed.pl
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_ARGS += --output-prefix $(BUILD_PROJECT_NAME)
+ifeq ($(LW_TARGET_OS),riscv)
+  RELEASE_IMG_ARGS += --image       $(IMG_BIN_DEBUG)
+else
+  RELEASE_IMG_ARGS += --image       $(IMG_BIN)
+endif
+# Specifying this allows symbol changes to be properly released
+RELEASE_IMG_ARGS += --symbols       $(IMG_NM)
+ifeq ($(LW_TARGET_OS),riscv)
+  # Specifying this allows logging metadata changes to be properly released.
+  # MMINTS-TODO: limit release file set for this case to only include .elf file?
+  RELEASE_IMG_ARGS += --logging     $(ELF_LOGGING_BIN)
+endif
+RELEASE_IMG_ARGS += --p4            $(P4)
+
+RELEASE_PATH = ../../drivers/resman/kernel/inc/pmu/bin
+
+RELEASE_IMG_ARGS += --release-path $(RELEASE_PATH)
+
+RELEASE_IMG_ARGS += --release-files            \
+  $(subst $(SPACE),$(COMMA),$(RELEASE_FILES))
+
+# unless disabled, make sure the environment is fresh before installing
+ifneq ("$(NO_CHECK_BUILD)","true")
+  .PHONY: checkbuild
+  install: checkbuild
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+  install: $(IMG_BIN) $(IMG_H)
+	  $(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)
+else
+  install: $(IMG_BIN)
+	  $(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)
+endif
+###############################################################################
+# 'forcesync' is the same as the 'install' target except that we force the
+# files to be installed (ie. regardless of whether or not the c-file differs
+# from the RM version).
+###############################################################################
+
+forcesync: install
+forcesync: RELEASE_IMG_ARGS += --force
+
+###############################################################################
+# Rule for running a script that checks select files and directories in the
+# environment and checks w/perforce that they are up-to-date (ie. TOT).
+###############################################################################
+
+CHECK_ELW_SCRIPT = $(BUILD_SCRIPTS)/check-build-elw.pl
+
+# files/directories added to this list will be checked
+CHECK_ELW_FILES += $(SIGN_ROOT)
+CHECK_ELW_FILES += $(LW_SOURCE)/pmu_sw
+CHECK_ELW_FILES += $(LW_SOURCE)/uproc/build
+CHECK_ELW_FILES += $(LIB_SRC_DIRS)
+
+CHECK_ELW_ARGS  += --check-list $(subst $(SPACE),$(COMMA),$(CHECK_ELW_FILES))
+CHECK_ELW_ARGS  += --p4 $(P4)
+
+ifneq ($(LW_DVS_BLD),1)
+checkbuild:
+	-$(PERL) $(CHECK_ELW_SCRIPT) $(CHECK_ELW_ARGS)
+else
+checkbuild:
+endif
+
+###############################################################################
+# Rule for generating .dt/symdump file
+###############################################################################
+
+ifeq ($(LW_TARGET_OS),falcon)
+  SYMDUMP_SCRIPT = $(BUILD_SCRIPTS)/symdump/symdump.pl
+
+  SYMDUMP_ARGS  += $(IMG_ELF) $(IMG_DT)
+  SYMDUMP_ARGS  += --falcon-tools $(FALCON_TOOLS)
+  SYMDUMP_ARGS  += --acl          $(APP_P4_CL)
+
+  $(IMG_DT):
+	  -$(PERL) $(SYMDUMP_SCRIPT) $(SYMDUMP_ARGS)
+
+  ifeq ("$(INCLUDE_DT)","true")
+    all: $(IMG_DT)
+  endif
+endif
+
+###############################################################################
+# Rule for generating overlay sections linker-script
+###############################################################################
+ifeq ($(LW_TARGET_OS),riscv)
+  LDGEN_TEMPLATE := $(LWUPROC)/build/templates/gt_sections_riscv.ld
+else
+  LDGEN_TEMPLATE := $(LWUPROC)/build/templates/gt_sections.ld
+endif
+
+LDGEN_SCRIPT    = $(BUILD_SCRIPTS)/rtos-flcn-script.pl --gen-ldscript
+LDGEN_INCLUDES += -I$(PMU_BUILD)
+LDGEN_INCLUDES += -I$(LW_SOURCE)/drivers/common/chip-config
+LDGEN_INCLUDES += -I$(BUILD_SCRIPTS)
+
+ifeq ($(LW_TARGET_OS),riscv)
+  LDGEN_SCRIPT += --gen-dmem-end-carveout=$(DMEM_END_CARVEOUT_SIZE)
+  ifeq ($(LWRISCV_PARTITION_SWITCH), true)
+    LDGEN_SCRIPT += --gen-identity-mapped-sections
+  endif
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+LDGEN_DEPS     += $(PMU_BUILD)/$(OVERLAYSIMEM)
+LDGEN_DEPS     += $(PMU_BUILD)/$(OVERLAYSDMEM)
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/GenLdscriptFalcon.pm
+else
+LDGEN_DEPS     += $(PMU_BUILD)/RiscvSectionsCode.pm
+LDGEN_DEPS     += $(PMU_BUILD)/RiscvSectionsData.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/GenLdscriptRiscv.pm
+endif
+
+LDGEN_DEPS     += $(PMU_BUILD)/Profiles.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/GenLdscript.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfInputSectionImem.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfOutputSectionImem.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfKeepSectionImem.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfOutputSectionDmem.pm
+LDGEN_DEPS     += $(LDGEN_TEMPLATE)
+
+ifeq ($(LW_TARGET_OS),falcon)
+LDGEN_ARGS     += --overlaysimem-file $(OVERLAYSIMEM)
+LDGEN_ARGS     += --overlaysdmem-file $(OVERLAYSDMEM)
+endif
+
+LDGEN_ARGS     += --lwroot $(LW_SOURCE)
+LDGEN_ARGS     += --arch $(LW_TARGET_OS)
+LDGEN_ARGS     += --lwroot $(LW_SOURCE)
+LDGEN_ARGS     += --perl $(PERL)
+LDGEN_ARGS     += --profile $(PMUCFG_PROFILE)
+ifeq ($(ELF_IN_PLACE), true)
+  LDGEN_ARGS   += --elf-in-place
+
+  ifeq ($(ELF_IN_PLACE_FULL_ODP_COW), true)
+    LDGEN_ARGS += --elf-in-place-odp-cow
+  endif
+endif
+LDGEN_ARGS     += --template $(LDGEN_TEMPLATE)
+LDGEN_ARGS     += --outfile $(OUTPUTDIR)/g_sections.ld
+ifeq ($(DMEM_OVL_SIZE_LONG), true)
+  LDGEN_ARGS   += --dmem-ovl-vars-long
+endif
+
+LDGEN_DEPS     += $(LDGEN_TEMPLATE)
+LDGEN_ARGS     += --template $(LDGEN_TEMPLATE)
+
+$(OUTPUTDIR)/g_sections.ld: $(LDGEN_DEPS) $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(PERL) $(LDGEN_INCLUDES) $(LDGEN_SCRIPT) $(LDGEN_ARGS)
+
+###############################################################################
+# Rules to generate header file g_sections_riscv.h
+###############################################################################
+
+ifdef GEN_SECTIONS_HEADER
+  $(GEN_SECTIONS_HEADER): $(LDGEN_DEPS) $(GEN_SECTIONS_HEADER_TEMPLATE) $(FLCN_SCRIPT_DEPS)
+		$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+		$(PERL) -I$(PMU_BUILD) -I$(BUILD_SCRIPTS) \
+          -I$(LW_SOURCE)/drivers/common/chip-config                        \
+          $(BUILD_SCRIPTS)/rtos-flcn-script.pl --profile $(PMUCFG_PROFILE) \
+          --arch $(LW_TARGET_OS) --lwroot $(LW_SOURCE) --perl $(PERL)      \
+          --gen-sections-header --template $(GEN_SECTIONS_HEADER_TEMPLATE) \
+          --outfile $(GEN_SECTIONS_HEADER)
+endif
+
+###############################################################################
+# Rules to generate header file g_sections_data.c
+###############################################################################
+
+ifdef GEN_SECTIONS_SOURCE
+  $(GEN_SECTIONS_SOURCE): $(LDGEN_DEPS) $(FLCN_SCRIPT_DEPS)
+		$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+		$(PERL) -I$(PMU_BUILD) -I$(BUILD_SCRIPTS) \
+          -I$(LW_SOURCE)/drivers/common/chip-config                        \
+          $(BUILD_SCRIPTS)/rtos-flcn-script.pl --profile $(PMUCFG_PROFILE) \
+          --arch $(LW_TARGET_OS) --lwroot $(LW_SOURCE) --perl $(PERL)      \
+          --gen-sections-source --outfile $(GEN_SECTIONS_SOURCE)
+endif
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and only allow
+# clobbering for PMU. The top-level makefile for PMU will re-route clean to
+# clobber when ilwoking make-profile.lwmk as a submake.
+# While some PMU submakes do override clean to a clobber equivalent, some
+# of them don't do that, and we don't want to rely on that behavior anyway.
+#
+clean_pmu:
+	$(error clean not supported for PMU make-profile.lwmk, please use clobber)
+
+.PHONY: clean_pmu
+clean: clean_pmu
+
+clobber_pmu:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+	-$(RMDIR) -rf $(CMNOUTDIR)
+
+.PHONY: clobber_pmu
+clobber: clobber_pmu

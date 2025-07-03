@@ -1,0 +1,163 @@
+# -*- mode: perl; -*-
+
+# FBFALCON Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $fbfalconHal = [
+
+    # per-GPU defaults for FBFALCON for all interfaces below
+    DEFAULTS => [
+        FLAGS   => ":DIRECT_HAL_CALLS",
+    ],
+
+
+    # HAL Interfaces
+    # ********************************************************************************
+    
+    HAL_INTERFACES => [
+     
+        INIT => [
+            DESCRIPTION => "FBFALCON chip specific initialization",
+            RETURN_TYPE => LW_STATUS,
+            ARGUMENTS   => void,
+            FLAGS       => ":NO_STUB",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("init", "__FUNC__")',
+            
+            _v01_00     => [ ALL,],
+        ],
+
+        LOAD_BOOT_TRAINING_TABLE => [
+            DESCRIPTION => "load boot time training data table for gddr6 starting with Turing",
+            RETURN_TYPE => void,
+            ARGUMENTS   => "LwU32 *pdmem", 
+            FLAGS      => ":NO_STUB",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("init", "__FUNC__")',
+
+            _GV100      => [ GV100, ],
+            _TU102      => [ TU10X, GA100, ],
+            _GA102      => [ GA102_and_later, ],
+        ],
+        
+        LOAD_GPIO_TABLE => [
+            DESCRIPTION => "load gpio table to find gpio ports for voltage switches",
+            RETURN_TYPE => void,
+            ARGUMENTS   => "LwU32 dmem",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("init", "__FUNC__")', 
+            
+            _STUB       => [ pre_GH100, ],
+            _GH100      => [ GH100_and_later, ],
+        ],
+        
+        FIND_GPIO_PIN => [
+            DESCRIPTION => "find gpio pin in gpio table",
+            RETURN_TYPE => LwU8,
+            ARGUMENTS   => "LwU32 gpioFunction",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("init", "__FUNC__")', 
+            
+            _GV100       => [ pre_GH100, ],
+            _GH100      => [ GH100_and_later, ],
+        ],
+
+        DETECT_PARTITIONS => [
+            DESCRIPTION => "read all the fuses for partition masks and half partitions masks",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void, 
+            FLAGS      => ":NO_STUB",
+
+            _GV100      => [ GV100, ],
+            _TU102      => [ TU102, GA102, AD102, GA100, ],
+            _GH100      => [ GH100_and_later, ],
+        ],
+        
+        IS_HALF_PARTITION_ENABLED => [ 
+            DESCRIPTION => "checks if half partitions is enabled for a given partition",
+            RETURN_TYPE => LwBool,
+            ARGUMENTS   => "LwU8 partition", 
+            FLAGS      => ":NO_STUB",
+
+            _GA102      => [ GA102_and_later, ],
+            _TU102      => [ pre_GA102, ],
+        ],
+        
+        VERIFY_FALCON_SELWRE_RUN_MODE => [
+            DESCRIPTION => "verify this falcon is running in secure mode",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void, 
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("init", "__FUNC__")',
+
+            _STUB       => [ pre_TU10X, GA10X_and_later, ],
+            _TU102      => [ TU10X ],
+        ],
+        
+        ILLEGAL_INTERRUPT => [
+            DESCRIPTION => "process unrecognized interrupt",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void, 
+            FLAGS       => ":NO_STUB",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+            
+            _GV100      => [ pre_GA10X, ],
+            _GA100      => [ GA100_and_later, ],
+        ],
+        
+        FIND_FREQUENCY_TABLE_ENTRY => [
+            DESCRIPTION => "find pmct entry for request frequency",
+            RETURN_TYPE => LwU8,
+            ARGUMENTS   => "LwU16 targetFrequencyMHz", 
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+            FLAGS       => ":NO_STUB",
+           
+            _TU10X      => [ pre_GA102, ],
+            _GA102      => [ GA102_and_later, ],
+        ],
+        
+        SELECT_TABLE => [
+            DESCRIPTION => "find pmct entry for request frequency",
+            RETURN_TYPE => void,
+            ARGUMENTS   => "LwU16 targetFrequencyMHz", 
+            FLAGS       => ":NO_STUB",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+            
+            _GV100      => [ GV100, GA100, ],
+            _TU10X      => [ TU10X, GA102_and_later ],
+        ],
+        
+        CHECK_FUSING => [
+            DESCRIPTION => "check for bad fusing",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void, 
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("init", "__FUNC__")',
+            
+            _STUB       => [ pre_GA102, ],
+            _GA102      => [ GA102_and_later, ],
+         ],
+         
+         CHECK_REVOCATION => [
+            DESCRIPTION => "check revocation ids",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void, 
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+            
+            _STUB       => [ pre_TU102, ],
+            _TU102      => [ TU10X ],
+            _GA102      => [ GA10X, AD10X, ],
+            _GH100      => [ GH100_and_later ],
+         ],
+         
+         POST_DRAM_TEMPERATURE => [
+            DESCRIPTION => "post the dram temperature to external register for the pmu temp monitor",
+            RETURN_TYPE => void,
+            ARGUMENTS   => "LwU32 dramTemperature", 
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+            
+            _STUB       => [ pre_GA102, ],
+            _GA102      => [ GA102_and_later, ],
+         ],       
+        
+    ],   # HAL_INTERFACES
+
+];
+
+# return a reference to the Hal definition
+return $fbfalconHal;
+

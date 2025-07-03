@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# soe-config
+# just run rmconfig using our config file
+
+# bail on any error
+set -e
+
+[ -f soe-config.cfg ]  ||  cd ../config
+[ -f soe-config.cfg ]  ||  { echo Cannot find soe-config.cfg >&2; exit 1; }
+
+cd ../src
+
+# NOTE: '--mode soe-config' must be the first argument to rmconfig
+exec ${PERL:-perl} ../../../drivers/common/chip-config/chip-config.pl \
+                   --mode soe-config \
+                   --config ../config/soe-config.cfg \
+                   --source-root ../src \
+                   "$@"

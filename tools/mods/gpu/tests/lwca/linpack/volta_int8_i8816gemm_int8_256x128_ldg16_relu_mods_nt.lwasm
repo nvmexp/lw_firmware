@@ -1,0 +1,1653 @@
+.headerflags	@"EF_LWDA_TEXMODE_UNIFIED EF_LWDA_64BIT_ADDRESS EF_LWDA_SM72 EF_LWDA_PTX_SM(EF_LWDA_SM72) "
+
+	.section       .text.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt,"ax",@progbits
+	.sectionflags	@"SHF_BARRIERS=1"
+	.align 128
+	.global        volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt
+	.type          volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt,@function
+	.size          volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt,(volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END - volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt)
+	.other         volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt,@"STO_LWDA_ENTRY STV_DEFAULT"
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt:
+.text.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt:
+      MOV  R167, RZ ?W2;                                     // MOV ctaRow_HI, RZ
+      MOV   R169, c[0][0x1d4] ?W4;                           // MOV mode, Mode
+      S2R  R168, SR_CTAid.Z &wr=4 ?W2;                       // S2R batchIdx, SR_CTAid.Z
+      S2R R0, SR_VirtId &wr=4 ?W2;                           // S2R smId, SR_VirtId
+      S2R R164, SR_Tid.X &wr=4 ?W2;                          // S2R tidx, SR_Tid.X
+      S2R R166, SR_CTAid.X &wr=4 ?W2;                        // S2R ctaRow, SR_CTAid.X
+      S2R R165, SR_CTAid.Y &wr=4 ?W2;                        // S2R ctaCol, SR_CTAid.Y
+      LOP.AND  R1, R169, 0xf00 ?W2;                          // LOP.AND log2GroupCols, mode, 0xf00
+      LOP.AND  P5, RZ, R169, 0x1000 ?W2;                     // LOP.AND P5, RZ, mode, 0x1000
+      SHR.U32  R1, R1, 8 ?W4;                                // SHR.U32 log2GroupCols, log2GroupCols, 8
+      BMSK     R2, R1, 1 ?W2;                                // BMSK groupCols, log2GroupCols, 1
+      BMSK     R3, RZ, R1 ?W2;                               // BMSK mask, RZ, log2GroupCols
+      PSETP.AND P4, !PT, !PT ?W2;                            // PSETP.AND P4, !PT, !PT
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_prolog_cta_swizzle_loop:
+      LOP.OR   R4, R165, R3 &req=4 ?W2;                      // LOP.OR testCol, ctaCol, mask
+      ISETP.EQ P3, R3, 3 ?W2;                                // ISETP.EQ P3, mask, 3
+      ISETP.LT P2, R4, c[0x0][0x010] ?W2;                    // ISETP.LT P2, testCol, GridDimY
+      LOP.AND  R5,  R165.reuse,  R3.reuse ?W2;               // LOP.AND colMod, ctaCol.reuse, mask.reuse
+      LOP.AND  R8,  R165,        R2 ?W2;                     // LOP.AND colBit, ctaCol, groupCols
+      ISETP.EQ.AND P3, PT, R4, c[0x0][0x010], P3 ?W2;        // ISETP.EQ.AND P3, PT, testCol, GridDimY, P3
+      LOP.AND  R6, R165.reuse, ~R3 ?W1;                      // LOP.AND colBase, ctaCol.reuse, ~mask
+      IMAD.U32 R7, R5, c[0x0][0x00c], R166 &req=4 ?W1;       // IMAD.U32 linear, colMod, GridDimX, ctaRow
+(P5)  ISETP.EQ.XOR P4, PT, R8, R2, P4 ?W2;                   // @P5 ISETP.EQ.XOR P4, PT, colBit, groupCols, P4
+      SHR.U32 R2, R2, 1 ?W2;                                 // SHR.U32 groupCols, groupCols, 1
+(P2)  BRA volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_prolog_cta_swizzle_group_col_pow2 ?W5; // @P2 BRA volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_prolog_cta_swizzle_group_col_pow2
+(!P3) SHR.U32  R3, R3, 1 ?W2;                                // @!P3 SHR.U32 mask, mask, 1
+(!P3) IADD     R1, R1, -1 ?W2;                               // @!P3 IADD log2GroupCols, log2GroupCols, -1
+(!P3) BRA volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_prolog_cta_swizzle_loop ?W5; // @!P3 BRA volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_prolog_cta_swizzle_loop
+      IMUL.WIDE.U32 R10, R7, 0x55555556 ?W1;                 // IMUL.WIDE.U32 swizRow64, linear, 0x55555556
+      IADD  R165, R6, R7 ?W5;                                // IADD ctaCol, colBase, linear
+      IMAD.U32 R165, R11, -3, R165 ?W1;                      // IMAD.U32 ctaCol, swizRow, -3, ctaCol
+(!P4) MOV R166, R11 ?W2;                                     // @!P4 MOV ctaRow, swizRow
+(P4)  IADD.X R166, ~R11, c[0x0][0x00c], !PT ?W2;             // @P4 IADD.X ctaRow, ~swizRow, GridDimX, !PT
+      BRA volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_prolog_cta_swizzle_done ?W5; // BRA volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_prolog_cta_swizzle_done
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_prolog_cta_swizzle_group_col_pow2:
+      SHR.U32 R166, R7, R1 ?W2;                              // SHR.U32 ctaRow, linear, log2GroupCols
+      LOP3.LUT  R165, R6, R7, R3, 0xf8 ?W2;                  // LOP3.LUT ctaCol, colBase, linear, mask, B_AND_C__OR_A ?WiT
+(P4)  IADD.X R166, ~R166, c[0x0][0x00c], !PT ?W4;            // @P4 IADD.X ctaRow, ~ctaRow, GridDimX, !PT
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_prolog_cta_swizzle_done:
+      SHR.U32 R0, R0, 20 ?W2;                                // SHR.U32 smId, smId, 20
+      LOP.AND P3, RZ, R169, 0x10000 ?W2;                     // LOP.AND P3, RZ, mode, 0x10000
+      IMAD.LO.U32 R4, R168, c[0x0][0x010], R165 ?W5;         // IMAD.LO.U32 ctaIdx, batchIdx, GridDimY, ctaCol
+      IMAD.WIDE.U32 R4, R4, c[0x0][0x00c], R166 ?W5;         // IMAD.WIDE.U32 ctaIdx, ctaIdx, GridDimX, ctaRow
+      LOP.AND R0, R0, 0x1ff ?W2;                             // LOP.AND smId, smId, 0x1ff
+      LEA.LO   R2, P2, R4.reuse, c[0][0x1c8], 1 ?W4;         // LEA.LO syncPointer, predCarry, ctaIdx.reuse, Sync, 1
+      LEA.HI.X R3, R4, c[0][0x1cc], R5, 1, P2 ?W8;           // LEA.HI.X syncPointer_HI, ctaIdx, Sync_HI, ctaIdx_HI, 1, predCarry
+(P3)  STG.E.EN.U16.WEAK [R2], R0 &rd=5 ?W2;                  // @P3 STG.E.EN.U16.WEAK [syncPointer], smId
+      LOP.AND P3, RZ, R169, 4 ?W2;                           // LOP.AND P3, RZ, mode, 4
+      IMAD.LO.U32 R1, R168, c[0][0x1d0], RZ &req=4 ?W5;      // IMAD.LO.U32 temp0, batchIdx, ChunkK, RZ
+      IADD    R1, -R1, c[0][0x1c4] ?W2;                      // IADD temp0, -temp0, CountK
+      MOV     R162, c[0][0x1c4] ?W2;                         // MOV counterK, CountK
+      ISETP.LT.AND  P4, PT, R1, c[0][0x1d0], P3 ?W2;         // ISETP.LT.AND P4, PT, temp0, ChunkK, P3
+(P3)  MOV        R162, c[0][0x1d0] ?W10;                     // @P3 MOV counterK, ChunkK
+(P4)  MOV        R162, R1 ?W4;                               // @P4 MOV counterK, temp0
+      SHL R170, R164, 2 &req=4 ?W8;                          // SHL sharedZeroOffset, tidx, 2
+      STS.32 [R170 + 0x6000], RZ ?W2;                        // STS.32 [sharedZeroOffset + 0x6000], RZ
+      MOV R163, 0x6000 ?W2;                                  // MOV sharedPageFlip, 0x6000
+      MOV  R7, RZ ?W2;                                       // MOV offsetA_HI, RZ
+      LOP.AND R1, R164, 255 &req=4 ?W2;                      // LOP.AND contiguousIdA, swizTidx, 255
+      SHR.U32 R4, R164, 8 ?W2;                               // SHR.U32 crosswiseIdA, swizTidx, 8
+      LOP.AND R8, R1, 0x1 ?W2;                               // LOP.AND interleavedOffsetA, contiguousIdA, 0x1
+      SHR.U32 R5, R1, 1 ?W2;                                 // SHR.U32 interleavedIdA, contiguousIdA, 1
+      SHL R8, R8, 4 ?W2;                                     // SHL interleavedOffsetA, interleavedOffsetA, 4
+      LEA R6, R166, R5, 8 &req=4 ?W4;                        // LEA offsetA, ctaRow, interleavedIdA, 8
+      IADD R9, R6, -c[0][0x1bc] ?W2;                         // IADD diffContiguousA, offsetA, -CountM
+      LEA R6, R6, R8, 5 ?W5;                                 // LEA offsetA, offsetA, interleavedOffsetA, 5
+      IMAD.WIDE.U32 R6, R4, c[0][0x1b0], R6 ?W2;             // IMAD.WIDE.U32 offsetA, crosswiseIdA, StrideA, offsetA
+      LEA R156, R4, 0x0, 13 ?W4;                             // LEA sharedWriteA, crosswiseIdA, 0x0, 13
+      LEA R156, R1, R156, 4 ?W2;                             // LEA sharedWriteA, contiguousIdA, sharedWriteA, 4
+      MOV  R13, RZ ?W2;                                      // MOV offsetB_HI, RZ
+      LOP.AND R10, R164, 255 ?W2;                            // LOP.AND contiguousIdB, swizTidx, 255
+      SHR.U32 R11, R164, 8 ?W2;                              // SHR.U32 crosswiseIdB, swizTidx, 8
+      LOP.AND R15, R10, 0x1 ?W2;                             // LOP.AND interleavedOffsetB, contiguousIdB, 0x1
+      SHR.U32 R14, R10, 1 ?W2;                               // SHR.U32 interleavedIdB, contiguousIdB, 1
+      SHL R15, R15, 4 ?W2;                                   // SHL interleavedOffsetB, interleavedOffsetB, 4
+      LEA R12, R165, R14, 7 &req=4 ?W4;                      // LEA offsetB, ctaCol, interleavedIdB, 7
+      IADD R16, R12, -c[0][0x1c0] ?W2;                       // IADD diffContiguousB, offsetB, -CountN
+      LEA R12, R12, R15, 5 ?W5;                              // LEA offsetB, offsetB, interleavedOffsetB, 5
+      IMAD.WIDE.U32 R12, R11, c[0][0x1b4], R12 ?W2;          // IMAD.WIDE.U32 offsetB, crosswiseIdB, StrideB, offsetB
+      LOP.AND R17, R164, 0x1 ?W2;                            // LOP.AND tmp0, tidx, 0x1
+      LOP.AND R18, R164, 0x6 ?W2;                            // LOP.AND tmp1, tidx, 0x6
+      LOP.AND R20, R164, 0x8 ?W2;                            // LOP.AND shmColId, tidx, 0x8
+      SHR R19, R164, 0x4 ?W2;                                // SHR shmRowId, tidx, 0x4
+      SHR R20, R20, 0x3 ?W4;                                 // SHR shmColId, shmColId, 0x3
+      IMAD R19, R19, 0x80, RZ ?W2;                           // IMAD shmRowId, shmRowId, 0x80, RZ
+      IADD R20, R20, R18 ?W4;                                // IADD shmColId, shmColId, tmp1
+      IMAD R19, R17, 0x800, R19 ?W2;                         // IMAD shmRowId, tmp0, 0x800, shmRowId
+      LOP.XOR R20, R20, R17 ?W6;                             // LOP.XOR shmColId, shmColId, tmp0
+      IMAD R19, R20, 16, R19 ?W6;                            // IMAD shmRowId, shmColId, 16, shmRowId
+      LEA R157, R19, 0x4000, 0 ?W2;                          // LEA sharedWriteB, shmRowId, 0x4000, 0
+      LOP.AND P2, R21, R169, 0x7 ?W12EG;                     // LOP.AND predCarry, temp0, mode, 0x7
+      MOV  R144,    c[0][0x160] ?W2;                         // MOV readPtrA0, BaseA
+      MOV  R145, c[0][0x164] ?W2;                            // MOV readPtrA0_HI, BaseA_HI
+(!P2) BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALCA_PROLOG ?W5; // @!predCarry BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALCA_PROLOG
+      ISETP.EQ  P2, R21, 0x2 ?W12EG;                         // ISETP.EQ predCarry, temp0, 0x2
+(!P2) BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_BATCHED_CONTIG_PTR_CALCA_PROLOG ?W5; // @!predCarry BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_BATCHED_CONTIG_PTR_CALCA_PROLOG
+      LEA.LO   R144, P2, R168.reuse, c[0][0x160], 3 ?W4;     // LEA.LO readPtrA0, predCarry, batchIdx.reuse, BaseA, 3
+      LEA.HI.X R145, R168, c[0][0x164], RZ, 3, P2 ?W8;       // LEA.HI.X readPtrA0_HI, batchIdx, BaseA_HI, RZ, 3, predCarry
+      LDG.E.EN.64.CONSTANT.GPU R144, [R144] &rd=5 &wr=0 ?W2; // LDG.E.EN.64.CONSTANT.GPU readPtrA0, [readPtrA0]
+      BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALCA_PROLOG ?W5; // BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALCA_PROLOG
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_BATCHED_CONTIG_PTR_CALCA_PROLOG:
+      IMAD.WIDE.U32 R22,    R168, c[0][0x198],    RZ &req=4 ?W4; // IMAD.WIDE.U32 elementOffset, batchIdx, MatrixStrideA, RZ
+      IMAD.LO.U32   R23, R168, c[0][0x19c], R23 ?W2;         // IMAD.LO.U32 elementOffset_HI, batchIdx, MatrixStrideA_HI, elementOffset_HI
+      LEA.LO   R144, P2, R22.reuse, c[0][0x160], 0 ?W4;      // LEA.LO readPtrA0, predCarry, elementOffset.reuse, BaseA, 0
+      LEA.HI.X R145, R22, c[0][0x164], R23, 0, P2 ?W2;       // LEA.HI.X readPtrA0_HI, elementOffset, BaseA_HI, elementOffset_HI, 0, predCarry
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALCA_PROLOG:
+      LEA.LO   R144, P2, R6.reuse, R144, 0 &req=0 ?W4;       // LEA.LO readPtrA0, predCarry, offsetA.reuse, readPtrA0, 0
+      LEA.HI.X R145, R6, R145, R7, 0, P2 ?W2;                // LEA.HI.X readPtrA0_HI, offsetA, readPtrA0_HI, offsetA_HI, 0, predCarry
+      LOP.AND P2, R21, R169, 0x7 ?W12EG;                     // LOP.AND predCarry, temp0, mode, 0x7
+      MOV  R146,    c[0][0x168] ?W2;                         // MOV readPtrB0, BaseB
+      MOV  R147, c[0][0x16c] ?W2;                            // MOV readPtrB0_HI, BaseB_HI
+(!P2) BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALCB_PROLOG ?W5; // @!predCarry BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALCB_PROLOG
+      ISETP.EQ  P2, R21, 0x2 ?W12EG;                         // ISETP.EQ predCarry, temp0, 0x2
+(!P2) BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_BATCHED_CONTIG_PTR_CALCB_PROLOG ?W5; // @!predCarry BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_BATCHED_CONTIG_PTR_CALCB_PROLOG
+      LEA.LO   R146, P2, R168.reuse, c[0][0x168], 3 ?W4;     // LEA.LO readPtrB0, predCarry, batchIdx.reuse, BaseB, 3
+      LEA.HI.X R147, R168, c[0][0x16c], RZ, 3, P2 ?W8;       // LEA.HI.X readPtrB0_HI, batchIdx, BaseB_HI, RZ, 3, predCarry
+      LDG.E.EN.64.CONSTANT.GPU R146, [R146] &rd=5 &wr=0 ?W2; // LDG.E.EN.64.CONSTANT.GPU readPtrB0, [readPtrB0]
+      BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALCB_PROLOG ?W5; // BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALCB_PROLOG
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_BATCHED_CONTIG_PTR_CALCB_PROLOG:
+      IMAD.WIDE.U32 R22,    R168, c[0][0x1a0],    RZ &req=4 ?W4; // IMAD.WIDE.U32 elementOffset, batchIdx, MatrixStrideB, RZ
+      IMAD.LO.U32   R23, R168, c[0][0x1a4], R23 ?W2;         // IMAD.LO.U32 elementOffset_HI, batchIdx, MatrixStrideB_HI, elementOffset_HI
+      LEA.LO   R146, P2, R22.reuse, c[0][0x168], 0 ?W4;      // LEA.LO readPtrB0, predCarry, elementOffset.reuse, BaseB, 0
+      LEA.HI.X R147, R22, c[0][0x16c], R23, 0, P2 ?W2;       // LEA.HI.X readPtrB0_HI, elementOffset, BaseB_HI, elementOffset_HI, 0, predCarry
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALCB_PROLOG:
+      LEA.LO   R146, P2, R12.reuse, R146, 0 &req=0 ?W4;      // LEA.LO readPtrB0, predCarry, offsetB.reuse, readPtrB0, 0
+      LEA.HI.X R147, R12, R147, R13, 0, P2 ?W2;              // LEA.HI.X readPtrB0_HI, offsetB, readPtrB0_HI, offsetB_HI, 0, predCarry
+      IADD R21, R4, -R162 ?W4;                               // IADD diffCrosswiseA, crosswiseIdA, -counterK
+      ISETP.LT P0, R21, 0 ?W4;                               // ISETP.LT P0, diffCrosswiseA, 0
+      ISETP.LT.AND P3, PT, R9, 0, P0 ?W2;                    // ISETP.LT.AND P3, PT, diffContiguousA, 0, P0
+      ISETP.LT.AND P4, PT, R9, -128, P0 ?W2;                 // ISETP.LT.AND P4, PT, diffContiguousA, -128, P0
+      ISETP.LT P0, R21, -1 ?W4;                              // ISETP.LT P0, diffCrosswiseA, -1
+      ISETP.LT.AND P5, PT, R9, 0, P0 ?W2;                    // ISETP.LT.AND P5, PT, diffContiguousA, 0, P0
+      ISETP.LT.AND P6, PT, R9, -128, P0 ?W4;                 // ISETP.LT.AND P6, PT, diffContiguousA, -128, P0
+      P2R.B0 R161, PR, RZ, 0x78 ?W2;                         // P2R.B0 predStorage0, PR, RZ, 0x78
+      IADD R22, R11, -R162 ?W4;                              // IADD diffCrosswiseB, crosswiseIdB, -counterK
+      ISETP.LT P0, R16, RZ ?W4;                              // ISETP.LT P0, diffContiguousB, RZ
+      ISETP.LT.AND P3, PT, R22, 0, P0 ?W2;                   // ISETP.LT.AND P3, PT, diffCrosswiseB, 0, P0
+      ISETP.LT.AND P4, PT, R22, -1, P0 ?W4;                  // ISETP.LT.AND P4, PT, diffCrosswiseB, -1, P0
+      P2R.B1 R161, PR, R161, 0x18 ?W2;                       // P2R.B1 predStorage0, PR, predStorage0, 0x18
+      BAR.SYNC.DEFER_BLOCKING 0 ?W5;                         // BAR.SYNC.DEFER_BLOCKING 0
+      IADD R162, R162, -2 ?W2;                               // IADD counterK, counterK, -2
+      R2P PR, R161.B0, 0x78 ?W12EG;                          // R2P PR, predStorage0.B0, 0x78
+(P3)  LDG.E.EN.128.CONSTANT.GPU R128, [R144 + 0x0] &rd=5 &wr=0 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.128.CONSTANT.GPU fetchRegA0, [readPtrA0 + 0x0]
+(!P3) MOV R128, RZ ?W2;                                      // @!P3 MOV fetchRegA0, RZ
+(!P3) MOV R129, RZ ?W2;                                      // @!P3 MOV fetchRegA1, RZ
+(!P3) MOV R130, RZ ?W2;                                      // @!P3 MOV fetchRegA2, RZ
+(!P3) MOV R131, RZ ?W2;                                      // @!P3 MOV fetchRegA3, RZ
+(P4)  LDG.E.EN.128.CONSTANT.GPU R132, [R144 + 0x1000] &rd=5 &wr=0 ?W2 ?BARRIER_EXEMPT; // @P4 LDG.E.EN.128.CONSTANT.GPU fetchRegA4, [readPtrA0 + 0x1000]
+(!P4) MOV R132, RZ ?W2;                                      // @!P4 MOV fetchRegA4, RZ
+(!P4) MOV R133, RZ ?W2;                                      // @!P4 MOV fetchRegA5, RZ
+(!P4) MOV R134, RZ ?W2;                                      // @!P4 MOV fetchRegA6, RZ
+(!P4) MOV R135, RZ ?W2;                                      // @!P4 MOV fetchRegA7, RZ
+      IADD   R144, P2, R144,   c[0][0x178] &req=5 ?W4;       // IADD readPtrA0, predCarry, readPtrA0, IncFastA
+      IADD.X R145,         R145, c[0][0x17c], P2 ?W8;        // IADD.X readPtrA0_HI, readPtrA0_HI, IncFastA_HI, predCarry
+(P5)  LDG.E.EN.128.CONSTANT.GPU R136, [R144 + 0x0] &rd=5 &wr=0 ?W2 ?BARRIER_EXEMPT; // @P5 LDG.E.EN.128.CONSTANT.GPU fetchRegA8, [readPtrA0 + 0x0]
+(!P5) MOV R136, RZ ?W2;                                      // @!P5 MOV fetchRegA8, RZ
+(!P5) MOV R137, RZ ?W2;                                      // @!P5 MOV fetchRegA9, RZ
+(!P5) MOV R138, RZ ?W2;                                      // @!P5 MOV fetchRegA10, RZ
+(!P5) MOV R139, RZ ?W2;                                      // @!P5 MOV fetchRegA11, RZ
+(P6)  LDG.E.EN.128.CONSTANT.GPU R140, [R144 + 0x1000] &rd=5 &wr=0 ?W2 ?BARRIER_EXEMPT; // @P6 LDG.E.EN.128.CONSTANT.GPU fetchRegA12, [readPtrA0 + 0x1000]
+(!P6) MOV R140, RZ ?W2;                                      // @!P6 MOV fetchRegA12, RZ
+(!P6) MOV R141, RZ ?W2;                                      // @!P6 MOV fetchRegA13, RZ
+(!P6) MOV R142, RZ ?W2;                                      // @!P6 MOV fetchRegA14, RZ
+(!P6) MOV R143, RZ ?W2;                                      // @!P6 MOV fetchRegA15, RZ
+      IADD   R144, P2, R144,   c[0][0x188] &req=5 ?W4;       // IADD readPtrA0, predCarry, readPtrA0, IncSlowA
+      IADD.X R145,         R145, c[0][0x18c], P2 ?W8;        // IADD.X readPtrA0_HI, readPtrA0_HI, IncSlowA_HI, predCarry
+      R2P PR, R161.B1, 0x18 ?W12EG;                          // R2P PR, predStorage0.B1, 0x18
+(P3)  LDG.E.EN.128.CONSTANT.GPU R148, [R146 + 0x0] &rd=5 &wr=1 ?W2 ?BARRIER_EXEMPT; // @P3 LDG.E.EN.128.CONSTANT.GPU fetchRegB0, [readPtrB0 + 0x0]
+(!P3) MOV R148, RZ ?W2;                                      // @!P3 MOV fetchRegB0, RZ
+(!P3) MOV R149, RZ ?W2;                                      // @!P3 MOV fetchRegB1, RZ
+(!P3) MOV R150, RZ ?W2;                                      // @!P3 MOV fetchRegB2, RZ
+(!P3) MOV R151, RZ ?W2;                                      // @!P3 MOV fetchRegB3, RZ
+      IADD   R146, P2, R146,   c[0][0x180] &req=5 ?W4;       // IADD readPtrB0, predCarry, readPtrB0, IncFastB
+      IADD.X R147,         R147, c[0][0x184], P2 ?W8;        // IADD.X readPtrB0_HI, readPtrB0_HI, IncFastB_HI, predCarry
+(P4)  LDG.E.EN.128.CONSTANT.GPU R152, [R146 + 0x0] &rd=5 &wr=1 ?W2 ?BARRIER_EXEMPT; // @P4 LDG.E.EN.128.CONSTANT.GPU fetchRegB4, [readPtrB0 + 0x0]
+(!P4) MOV R152, RZ ?W2;                                      // @!P4 MOV fetchRegB4, RZ
+(!P4) MOV R153, RZ ?W2;                                      // @!P4 MOV fetchRegB5, RZ
+(!P4) MOV R154, RZ ?W2;                                      // @!P4 MOV fetchRegB6, RZ
+(!P4) MOV R155, RZ ?W2;                                      // @!P4 MOV fetchRegB7, RZ
+      IADD   R146, P2, R146,   c[0][0x190] &req=5 ?W4;       // IADD readPtrB0, predCarry, readPtrB0, IncSlowB
+      IADD.X R147,         R147, c[0][0x194], P2 ?W8;        // IADD.X readPtrB0_HI, readPtrB0_HI, IncSlowB_HI, predCarry
+// Virtual ?REQ_BAR found on next instruction, stop putting ?BARRIER_EXEMPT on decoupled instructions
+      LDS.U.128 R0,   [0x6000] &wr=4 ?W2;                    // LDS.U.128 R0, [0x6000]
+      CS2R.64  R4,   SRZ ?W2;                                // CS2R.64 R4, SRZ
+      CS2R.64  R6,   SRZ ?W2;                                // CS2R.64 R6, SRZ
+      LDS.U.128 R8,   [0x6000] &wr=4 ?W2;                    // LDS.U.128 R8, [0x6000]
+      CS2R.64  R12,   SRZ ?W2;                               // CS2R.64 R12, SRZ
+      CS2R.64  R14,   SRZ ?W2;                               // CS2R.64 R14, SRZ
+      LDS.U.128 R16,  [0x6000] &wr=4 ?W2;                    // LDS.U.128 R16, [0x6000]
+      CS2R.64  R20,  SRZ ?W2;                                // CS2R.64 R20, SRZ
+      CS2R.64  R22,  SRZ ?W2;                                // CS2R.64 R22, SRZ
+      LDS.U.128 R24,  [0x6000] &wr=4 ?W2;                    // LDS.U.128 R24, [0x6000]
+      CS2R.64  R28,  SRZ ?W2;                                // CS2R.64 R28, SRZ
+      CS2R.64  R30,  SRZ ?W2;                                // CS2R.64 R30, SRZ
+      LDS.U.128 R32,  [0x6000] &wr=4 ?W2;                    // LDS.U.128 R32, [0x6000]
+      CS2R.64  R36,  SRZ ?W2;                                // CS2R.64 R36, SRZ
+      CS2R.64  R38,  SRZ ?W2;                                // CS2R.64 R38, SRZ
+      LDS.U.128 R40,  [0x6000] &wr=4 ?W2;                    // LDS.U.128 R40, [0x6000]
+      CS2R.64  R44,  SRZ ?W2;                                // CS2R.64 R44, SRZ
+      CS2R.64  R46,  SRZ ?W2;                                // CS2R.64 R46, SRZ
+      LDS.U.128 R48,  [0x6000] &wr=4 ?W2;                    // LDS.U.128 R48, [0x6000]
+      CS2R.64  R52,  SRZ ?W2;                                // CS2R.64 R52, SRZ
+      CS2R.64  R54,  SRZ ?W2;                                // CS2R.64 R54, SRZ
+      LDS.U.128 R56,  [0x6000] &wr=4 ?W2;                    // LDS.U.128 R56, [0x6000]
+      CS2R.64  R60,  SRZ ?W2;                                // CS2R.64 R60, SRZ
+      CS2R.64  R62,  SRZ ?W2;                                // CS2R.64 R62, SRZ
+      LDS.U.128 R64,  [0x6000] &wr=4 ?W2;                    // LDS.U.128 R64, [0x6000]
+      CS2R.64  R68,  SRZ ?W2;                                // CS2R.64 R68, SRZ
+      CS2R.64  R70,  SRZ ?W2;                                // CS2R.64 R70, SRZ
+      LDS.U.128 R72,  [0x6000] &wr=4 ?W2;                    // LDS.U.128 R72, [0x6000]
+      CS2R.64  R76,  SRZ ?W2;                                // CS2R.64 R76, SRZ
+      CS2R.64  R78,  SRZ ?W2;                                // CS2R.64 R78, SRZ
+      LDS.U.128 R80,  [0x6000] &wr=4 ?W2;                    // LDS.U.128 R80, [0x6000]
+      CS2R.64  R84,  SRZ ?W2;                                // CS2R.64 R84, SRZ
+      CS2R.64  R86,  SRZ ?W2;                                // CS2R.64 R86, SRZ
+      LDS.U.128 R88,  [0x6000] &wr=4 ?W2;                    // LDS.U.128 R88, [0x6000]
+      CS2R.64  R92,  SRZ ?W2;                                // CS2R.64 R92, SRZ
+      CS2R.64  R94,  SRZ ?W2;                                // CS2R.64 R94, SRZ
+      LDS.U.128 R96,  [0x6000] &wr=4 ?W2;                    // LDS.U.128 R96, [0x6000]
+      CS2R.64  R100,  SRZ ?W2;                               // CS2R.64 R100, SRZ
+      CS2R.64  R102,  SRZ ?W2;                               // CS2R.64 R102, SRZ
+      LDS.U.128 R104, [0x6000] &wr=4 ?W2;                    // LDS.U.128 R104, [0x6000]
+      CS2R.64  R108, SRZ ?W2;                                // CS2R.64 R108, SRZ
+      CS2R.64  R110, SRZ ?W2;                                // CS2R.64 R110, SRZ
+      LDS.U.128 R112, [0x6000] &wr=4 ?W2;                    // LDS.U.128 R112, [0x6000]
+      CS2R.64  R116, SRZ ?W2;                                // CS2R.64 R116, SRZ
+      CS2R.64  R118, SRZ ?W2;                                // CS2R.64 R118, SRZ
+      LDS.U.128 R120, [0x6000] &wr=4 ?W2;                    // LDS.U.128 R120, [0x6000]
+      CS2R.64  R124, SRZ ?W2;                                // CS2R.64 R124, SRZ
+      CS2R.64  R126, SRZ ?W2;                                // CS2R.64 R126, SRZ
+      SHR     R169, R164.reuse, 5 ?W2;                       // SHR awTid, tidx.reuse, 5
+      LOP.AND R168, R164, 0x1f ?W2;                          // LOP.AND aiTid, tidx, 0x1f
+      LOP.AND R169, R169, 3 ?W2;                             // LOP.AND awTid, awTid, 3
+      SHL     R168, R168, 3 ?W2;                             // SHL aiTid, aiTid, 3
+      SHL     R169, R169, 11 ?W4;                            // SHL awTid, awTid, 11
+      IADD    R158, R169, R168 ?W2;                          // IADD sharedA, awTid, aiTid
+      LOP.AND R171, R164.reuse, 0x1f ?W2;                    // LOP.AND bmTid, tidx.reuse, 0x1f
+      SHR     R172, R164, 7 ?W2;                             // SHR bwTid, tidx, 7
+      LOP.AND R173, R171, 0x7 ?W2;                           // LOP.AND tmp0, bmTid, 0x7
+      SHR R174, R171, 0x3 ?W2;                               // SHR tmp1, bmTid, 0x3
+      SHR R173, R173, 0x2 ?W6;                               // SHR tmp0, tmp0, 0x2
+      IMAD R175, R174, 8, R173 ?W2;                          // IMAD tmp2, tmp1, 8, tmp0
+      LOP.AND R174, R171, 3 ?W6;                             // LOP.AND tmp1, bmTid, 3
+      IMAD R175, R174, 2, R175 ?W2;                          // IMAD tmp2, tmp1, 2, tmp2
+      SHL     R172, R172, 6 ?W4;                             // SHL bwTid, bwTid, 6
+      LOP.OR  R159, R172, R175 ?W4;                          // LOP.OR sharedB0, bwTid, tmp2
+      LEA     R159, R159, 0x4000, 4 ?W4;                     // LEA sharedB0, sharedB0, 0x4000, 4
+      LOP.XOR R160, R159, 0x810 ?W2;                         // LOP.XOR sharedB1, sharedB0, 0x810
+      ISETP.GE P0, R162, 2 ?W2;                              // ISETP.GE P0, counterK, 2
+      STS.128 [R156 + 0x0], R128 &req={0} ?W2;               // STS.128 [sharedWriteA + 0x0], fetchRegA0
+      STS.128 [R156 + 0x1000], R132 ?W2;                     // STS.128 [sharedWriteA + 0x1000], fetchRegA4
+      STS.128 [R156 + 0x2000], R136 ?W2;                     // STS.128 [sharedWriteA + 0x2000], fetchRegA8
+      STS.128 [R156 + 0x3000], R140 &rd=5 ?W2;               // STS.128 [sharedWriteA + 0x3000], fetchRegA12
+      STS.128 [R157 + 0x0], R148 &req={1} ?W2;               // STS.128 [sharedWriteB + 0x0], fetchRegB0
+      STS.128 [R157 + 0x1000], R152 &rd=5 ?W2;               // STS.128 [sharedWriteB + 0x1000], fetchRegB4
+      BAR.SYNC.DEFER_BLOCKING 0 ?W5;                         // BAR.SYNC.DEFER_BLOCKING 0
+      IADD R156, R156, R163 &req=5 ?W8;                      // IADD sharedWriteA, sharedWriteA, sharedPageFlip
+      IADD R157, R157, R163 &req=5 ?W8;                      // IADD sharedWriteB, sharedWriteB, sharedPageFlip
+// Virtual ?REQ_BAR found on next instruction, stop putting ?BARRIER_EXEMPT on decoupled instructions
+      LDS.U.64 R164, [R158 + 0x0] &wr=4 ?W2;                 // LDS.U.64 A_r0_k0, [sharedA + 0x0]
+      LDS.U.64 R166, [R158 + 0x100] &wr=4 ?W2;               // LDS.U.64 A_r1_k0, [sharedA + 0x100]
+      LDS.U.128 R196, [R159 + 0x0] &wr=4 ?W2;                // LDS.U.128 B_c0_k0, [sharedB0 + 0x0]
+      LDS.U.64 R168, [R158 + 0x200] &wr=4 ?W2;               // LDS.U.64 A_r2_k0, [sharedA + 0x200]
+      LDS.U.128 R200, [R159 + 0x200] &rd=5 &wr=4 ?W2;        // LDS.U.128 B_c4_k0, [sharedB0 + 0x200]
+      LDS.U.64 R170, [R158 + 0x300] &wr=4 ?W2;               // LDS.U.64 A_r3_k0, [sharedA + 0x300]
+      LDS.U.64 R172, [R158 + 0x400] &wr=4 ?W2;               // LDS.U.64 A_r4_k0, [sharedA + 0x400]
+      LDS.U.64 R174, [R158 + 0x500] &wr=4 ?W2;               // LDS.U.64 A_r5_k0, [sharedA + 0x500]
+      LDS.U.64 R176, [R158 + 0x600] &wr=4 ?W2;               // LDS.U.64 A_r6_k0, [sharedA + 0x600]
+      LDS.U.64 R178, [R158 + 0x700] &rd=5 &wr=4 ?W2;         // LDS.U.64 A_r7_k0, [sharedA + 0x700]
+(!P0) BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_K_RESIDUE ?W5; // @!P0 BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_K_RESIDUE
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_LOOP:
+      IMMA.8816.S8.S8.SAT R0, R164.ROW, R196.reuse.COL, R0 &req={4,4} ?W2; // IMMA.8816.S8.S8.SAT C_r0_c0, A_r0_k0.ROW, B_c0_k0.reuse.COL, C_r0_c0
+      R2P PR, R161.B0, 0x78 ?W2;                             // R2P PR, predStorage0.B0, 0x78
+      IMMA.8816.S8.S8.SAT R16, R166.ROW, R196.reuse.COL, R16 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c0, A_r1_k0.ROW, B_c0_k0.reuse.COL, C_r1_c0
+      IMMA.8816.S8.S8.SAT R32, R168.ROW, R196.reuse.COL, R32 ?W2; // IMMA.8816.S8.S8.SAT C_r2_c0, A_r2_k0.ROW, B_c0_k0.reuse.COL, C_r2_c0
+      IADD R163, RZ, -R163 ?W2;                              // IADD sharedPageFlip, RZ, -sharedPageFlip
+      IMMA.8816.S8.S8.SAT R48, R170.ROW, R196.reuse.COL, R48 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c0, A_r3_k0.ROW, B_c0_k0.reuse.COL, C_r3_c0
+      IMMA.8816.S8.S8.SAT R64, R172.ROW, R196.reuse.COL, R64 ?W2; // IMMA.8816.S8.S8.SAT C_r4_c0, A_r4_k0.ROW, B_c0_k0.reuse.COL, C_r4_c0
+      LDS.U.128 R204, [R160 + 0x0] &wr=4 ?W2;                // LDS.U.128 B_c0_k1, [sharedB1 + 0x0]
+      IMMA.8816.S8.S8.SAT R80, R174.ROW, R196.reuse.COL, R80 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c0, A_r5_k0.ROW, B_c0_k0.reuse.COL, C_r5_c0
+      IMMA.8816.S8.S8.SAT R96, R176.ROW, R196.reuse.COL, R96 ?W2; // IMMA.8816.S8.S8.SAT C_r6_c0, A_r6_k0.ROW, B_c0_k0.reuse.COL, C_r6_c0
+      LDS.U.128 R208, [R160 + 0x200] &wr=4 ?W2;              // LDS.U.128 B_c4_k1, [sharedB1 + 0x200]
+      IMMA.8816.S8.S8.SAT R112, R178.reuse.ROW, R196.COL, R112 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c0, A_r7_k0.reuse.ROW, B_c0_k0.COL, C_r7_c0
+      IMMA.8816.S8.S8.SAT R114, R178.ROW, R197.reuse.COL, R114 ?W2; // IMMA.8816.S8.S8.SAT C_r7_c2, A_r7_k0.ROW, B_c1_k0.reuse.COL, C_r7_c2
+(P3)  LDG.E.EN.128.CONSTANT.GPU R128, [R144 + 0x0] &rd=5 &wr=0 ?W2; // @P3 LDG.E.EN.128.CONSTANT.GPU fetchRegA0, [readPtrA0 + 0x0]
+      IMMA.8816.S8.S8.SAT R98, R176.ROW, R197.reuse.COL, R98 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c2, A_r6_k0.ROW, B_c1_k0.reuse.COL, C_r6_c2
+      IMMA.8816.S8.S8.SAT R82, R174.ROW, R197.reuse.COL, R82 ?W2; // IMMA.8816.S8.S8.SAT C_r5_c2, A_r5_k0.ROW, B_c1_k0.reuse.COL, C_r5_c2
+(P4)  LDG.E.EN.128.CONSTANT.GPU R132, [R144 + 0x1000] &rd=5 &wr=0 ?W2; // @P4 LDG.E.EN.128.CONSTANT.GPU fetchRegA4, [readPtrA0 + 0x1000]
+      IMMA.8816.S8.S8.SAT R66, R172.ROW, R197.reuse.COL, R66 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c2, A_r4_k0.ROW, B_c1_k0.reuse.COL, C_r4_c2
+      IMMA.8816.S8.S8.SAT R50, R170.ROW, R197.reuse.COL, R50 ?W2; // IMMA.8816.S8.S8.SAT C_r3_c2, A_r3_k0.ROW, B_c1_k0.reuse.COL, C_r3_c2
+      IADD   R144, P2, R144,   c[0][0x178] &req=5 ?W2;       // IADD readPtrA0, predCarry, readPtrA0, IncFastA
+      IMMA.8816.S8.S8.SAT R34, R168.ROW, R197.reuse.COL, R34 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c2, A_r2_k0.ROW, B_c1_k0.reuse.COL, C_r2_c2
+      IMMA.8816.S8.S8.SAT R18, R166.ROW, R197.reuse.COL, R18 ?W2; // IMMA.8816.S8.S8.SAT C_r1_c2, A_r1_k0.ROW, B_c1_k0.reuse.COL, C_r1_c2
+      IADD.X R145,         R145, c[0][0x17c], P2 ?W2;        // IADD.X readPtrA0_HI, readPtrA0_HI, IncFastA_HI, predCarry
+      IMMA.8816.S8.S8.SAT R2, R164.reuse.ROW, R197.COL, R2 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c2, A_r0_k0.reuse.ROW, B_c1_k0.COL, C_r0_c2
+      IMMA.8816.S8.S8.SAT R4, R164.ROW, R198.reuse.COL, R4 ?W2; // IMMA.8816.S8.S8.SAT C_r0_c4, A_r0_k0.ROW, B_c2_k0.reuse.COL, C_r0_c4
+(P5)  LDG.E.EN.128.CONSTANT.GPU R136, [R144 + 0x0] &rd=5 &wr=0 ?W2; // @P5 LDG.E.EN.128.CONSTANT.GPU fetchRegA8, [readPtrA0 + 0x0]
+      IMMA.8816.S8.S8.SAT R20, R166.ROW, R198.reuse.COL, R20 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c4, A_r1_k0.ROW, B_c2_k0.reuse.COL, C_r1_c4
+      IMMA.8816.S8.S8.SAT R36, R168.ROW, R198.reuse.COL, R36 ?W2; // IMMA.8816.S8.S8.SAT C_r2_c4, A_r2_k0.ROW, B_c2_k0.reuse.COL, C_r2_c4
+(P6)  LDG.E.EN.128.CONSTANT.GPU R140, [R144 + 0x1000] &rd=5 &wr=0 ?W2; // @P6 LDG.E.EN.128.CONSTANT.GPU fetchRegA12, [readPtrA0 + 0x1000]
+      IMMA.8816.S8.S8.SAT R52, R170.ROW, R198.reuse.COL, R52 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c4, A_r3_k0.ROW, B_c2_k0.reuse.COL, C_r3_c4
+      IMMA.8816.S8.S8.SAT R68, R172.ROW, R198.reuse.COL, R68 ?W2; // IMMA.8816.S8.S8.SAT C_r4_c4, A_r4_k0.ROW, B_c2_k0.reuse.COL, C_r4_c4
+      IADD   R144, P2, R144,   c[0][0x188] &req=5 ?W2;       // IADD readPtrA0, predCarry, readPtrA0, IncSlowA
+      IMMA.8816.S8.S8.SAT R84, R174.ROW, R198.reuse.COL, R84 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c4, A_r5_k0.ROW, B_c2_k0.reuse.COL, C_r5_c4
+      IMMA.8816.S8.S8.SAT R100, R176.ROW, R198.reuse.COL, R100 ?W2; // IMMA.8816.S8.S8.SAT C_r6_c4, A_r6_k0.ROW, B_c2_k0.reuse.COL, C_r6_c4
+      IADD.X R145,         R145, c[0][0x18c], P2 ?W2;        // IADD.X readPtrA0_HI, readPtrA0_HI, IncSlowA_HI, predCarry
+      IMMA.8816.S8.S8.SAT R116, R178.reuse.ROW, R198.COL, R116 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c4, A_r7_k0.reuse.ROW, B_c2_k0.COL, C_r7_c4
+      IMMA.8816.S8.S8.SAT R118, R178.ROW, R199.reuse.COL, R118 ?W2; // IMMA.8816.S8.S8.SAT C_r7_c6, A_r7_k0.ROW, B_c3_k0.reuse.COL, C_r7_c6
+      R2P PR, R161.B1, 0x18 ?W2;                             // R2P PR, predStorage0.B1, 0x18
+      IMMA.8816.S8.S8.SAT R102, R176.ROW, R199.reuse.COL, R102 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c6, A_r6_k0.ROW, B_c3_k0.reuse.COL, C_r6_c6
+      IMMA.8816.S8.S8.SAT R86, R174.ROW, R199.reuse.COL, R86 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c6, A_r5_k0.ROW, B_c3_k0.reuse.COL, C_r5_c6
+      IMMA.8816.S8.S8.SAT R70, R172.ROW, R199.reuse.COL, R70 ?W2; // IMMA.8816.S8.S8.SAT C_r4_c6, A_r4_k0.ROW, B_c3_k0.reuse.COL, C_r4_c6
+(P3)  LDG.E.EN.128.CONSTANT.GPU R148, [R146 + 0x0] &rd=5 &wr=1 ?W2; // @P3 LDG.E.EN.128.CONSTANT.GPU fetchRegB0, [readPtrB0 + 0x0]
+      IMMA.8816.S8.S8.SAT R54, R170.ROW, R199.reuse.COL, R54 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c6, A_r3_k0.ROW, B_c3_k0.reuse.COL, C_r3_c6
+      IMMA.8816.S8.S8.SAT R38, R168.ROW, R199.reuse.COL, R38 ?W2; // IMMA.8816.S8.S8.SAT C_r2_c6, A_r2_k0.ROW, B_c3_k0.reuse.COL, C_r2_c6
+      IADD   R146, P2, R146,   c[0][0x180] &req=5 ?W2;       // IADD readPtrB0, predCarry, readPtrB0, IncFastB
+      IMMA.8816.S8.S8.SAT R22, R166.ROW, R199.reuse.COL, R22 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c6, A_r1_k0.ROW, B_c3_k0.reuse.COL, C_r1_c6
+      IMMA.8816.S8.S8.SAT R6, R164.reuse.ROW, R199.COL, R6 ?W2; // IMMA.8816.S8.S8.SAT C_r0_c6, A_r0_k0.reuse.ROW, B_c3_k0.COL, C_r0_c6
+      IADD.X R147,         R147, c[0][0x184], P2 ?W2;        // IADD.X readPtrB0_HI, readPtrB0_HI, IncFastB_HI, predCarry
+      IMMA.8816.S8.S8.SAT R8, R164.ROW, R200.reuse.COL, R8 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c8, A_r0_k0.ROW, B_c4_k0.reuse.COL, C_r0_c8
+      IMMA.8816.S8.S8.SAT R24, R166.ROW, R200.reuse.COL, R24 ?W2; // IMMA.8816.S8.S8.SAT C_r1_c8, A_r1_k0.ROW, B_c4_k0.reuse.COL, C_r1_c8
+(P4)  LDG.E.EN.128.CONSTANT.GPU R152, [R146 + 0x0] &rd=5 &wr=1 ?W2; // @P4 LDG.E.EN.128.CONSTANT.GPU fetchRegB4, [readPtrB0 + 0x0]
+      IMMA.8816.S8.S8.SAT R40, R168.ROW, R200.reuse.COL, R40 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c8, A_r2_k0.ROW, B_c4_k0.reuse.COL, C_r2_c8
+      IMMA.8816.S8.S8.SAT R56, R170.ROW, R200.reuse.COL, R56 ?W2; // IMMA.8816.S8.S8.SAT C_r3_c8, A_r3_k0.ROW, B_c4_k0.reuse.COL, C_r3_c8
+      IADD   R146, P2, R146,   c[0][0x190] &req=5 ?W2;       // IADD readPtrB0, predCarry, readPtrB0, IncSlowB
+      IMMA.8816.S8.S8.SAT R72, R172.ROW, R200.reuse.COL, R72 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c8, A_r4_k0.ROW, B_c4_k0.reuse.COL, C_r4_c8
+      IMMA.8816.S8.S8.SAT R88, R174.ROW, R200.reuse.COL, R88 ?W2; // IMMA.8816.S8.S8.SAT C_r5_c8, A_r5_k0.ROW, B_c4_k0.reuse.COL, C_r5_c8
+      IADD.X R147,         R147, c[0][0x194], P2 ?W2;        // IADD.X readPtrB0_HI, readPtrB0_HI, IncSlowB_HI, predCarry
+      IMMA.8816.S8.S8.SAT R104, R176.ROW, R200.reuse.COL, R104 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c8, A_r6_k0.ROW, B_c4_k0.reuse.COL, C_r6_c8
+      IMMA.8816.S8.S8.SAT R120, R178.reuse.ROW, R200.COL, R120 ?W2; // IMMA.8816.S8.S8.SAT C_r7_c8, A_r7_k0.reuse.ROW, B_c4_k0.COL, C_r7_c8
+      IADD32I R162, R162, -2 ?W2;                            // IADD32I counterK, counterK, -2
+      IMMA.8816.S8.S8.SAT R122, R178.ROW, R201.reuse.COL, R122 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c10, A_r7_k0.ROW, B_c5_k0.reuse.COL, C_r7_c10
+      IMMA.8816.S8.S8.SAT R106, R176.ROW, R201.reuse.COL, R106 ?W2; // IMMA.8816.S8.S8.SAT C_r6_c10, A_r6_k0.ROW, B_c5_k0.reuse.COL, C_r6_c10
+      ISETP.GE P0, R162, 2 ?W2;                              // ISETP.GE P0, counterK, 2
+      IMMA.8816.S8.S8.SAT R90, R174.ROW, R201.reuse.COL, R90 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c10, A_r5_k0.ROW, B_c5_k0.reuse.COL, C_r5_c10
+      IMMA.8816.S8.S8.SAT R74, R172.ROW, R201.reuse.COL, R74 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c10, A_r4_k0.ROW, B_c5_k0.reuse.COL, C_r4_c10
+      IMMA.8816.S8.S8.SAT R58, R170.ROW, R201.reuse.COL, R58 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c10, A_r3_k0.ROW, B_c5_k0.reuse.COL, C_r3_c10
+      IMMA.8816.S8.S8.SAT R42, R168.ROW, R201.reuse.COL, R42 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c10, A_r2_k0.ROW, B_c5_k0.reuse.COL, C_r2_c10
+      IMMA.8816.S8.S8.SAT R26, R166.ROW, R201.reuse.COL, R26 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c10, A_r1_k0.ROW, B_c5_k0.reuse.COL, C_r1_c10
+      IMMA.8816.S8.S8.SAT R10, R164.reuse.ROW, R201.COL, R10 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c10, A_r0_k0.reuse.ROW, B_c5_k0.COL, C_r0_c10
+      IMMA.8816.S8.S8.SAT R12, R164.ROW, R202.reuse.COL, R12 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c12, A_r0_k0.ROW, B_c6_k0.reuse.COL, C_r0_c12
+      IMMA.8816.S8.S8.SAT R28, R166.ROW, R202.reuse.COL, R28 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c12, A_r1_k0.ROW, B_c6_k0.reuse.COL, C_r1_c12
+      IMMA.8816.S8.S8.SAT R44, R168.ROW, R202.reuse.COL, R44 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c12, A_r2_k0.ROW, B_c6_k0.reuse.COL, C_r2_c12
+      IMMA.8816.S8.S8.SAT R60, R170.ROW, R202.reuse.COL, R60 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c12, A_r3_k0.ROW, B_c6_k0.reuse.COL, C_r3_c12
+      IMMA.8816.S8.S8.SAT R76, R172.ROW, R202.reuse.COL, R76 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c12, A_r4_k0.ROW, B_c6_k0.reuse.COL, C_r4_c12
+      IMMA.8816.S8.S8.SAT R92, R174.ROW, R202.reuse.COL, R92 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c12, A_r5_k0.ROW, B_c6_k0.reuse.COL, C_r5_c12
+      IMMA.8816.S8.S8.SAT R108, R176.ROW, R202.reuse.COL, R108 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c12, A_r6_k0.ROW, B_c6_k0.reuse.COL, C_r6_c12
+      IMMA.8816.S8.S8.SAT R124, R178.reuse.ROW, R202.COL, R124 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c12, A_r7_k0.reuse.ROW, B_c6_k0.COL, C_r7_c12
+      IMMA.8816.S8.S8.SAT R126, R178.ROW, R203.reuse.COL, R126 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c14, A_r7_k0.ROW, B_c7_k0.reuse.COL, C_r7_c14
+      IMMA.8816.S8.S8.SAT R110, R176.ROW, R203.reuse.COL, R110 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c14, A_r6_k0.ROW, B_c7_k0.reuse.COL, C_r6_c14
+      IMMA.8816.S8.S8.SAT R94, R174.ROW, R203.reuse.COL, R94 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c14, A_r5_k0.ROW, B_c7_k0.reuse.COL, C_r5_c14
+      IMMA.8816.S8.S8.SAT R78, R172.ROW, R203.reuse.COL, R78 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c14, A_r4_k0.ROW, B_c7_k0.reuse.COL, C_r4_c14
+      IMMA.8816.S8.S8.SAT R62, R170.ROW, R203.reuse.COL, R62 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c14, A_r3_k0.ROW, B_c7_k0.reuse.COL, C_r3_c14
+      IMMA.8816.S8.S8.SAT R46, R168.ROW, R203.reuse.COL, R46 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c14, A_r2_k0.ROW, B_c7_k0.reuse.COL, C_r2_c14
+      IMMA.8816.S8.S8.SAT R30, R166.ROW, R203.reuse.COL, R30 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c14, A_r1_k0.ROW, B_c7_k0.reuse.COL, C_r1_c14
+      IMMA.8816.S8.S8.SAT R14, R164.ROW, R203.COL, R14 &wr=4 ?W4EG; // IMMA.8816.S8.S8.SAT C_r0_c14, A_r0_k0.ROW, B_c7_k0.COL, C_r0_c14
+      IMMA.8816.S8.S8.SAT R0, R165.ROW, R204.reuse.COL, R0 &req={4,4} ?W2; // IMMA.8816.S8.S8.SAT C_r0_c0, A_r0_k1.ROW, B_c0_k1.reuse.COL, C_r0_c0
+      LDS.U.64 R180, [R158 + 0x2000] &wr=4 ?W2;              // LDS.U.64 A_r0_k2, [sharedA + 0x2000]
+      IMMA.8816.S8.S8.SAT R16, R167.ROW, R204.reuse.COL, R16 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c0, A_r1_k1.ROW, B_c0_k1.reuse.COL, C_r1_c0
+      IMMA.8816.S8.S8.SAT R32, R169.ROW, R204.reuse.COL, R32 ?W2; // IMMA.8816.S8.S8.SAT C_r2_c0, A_r2_k1.ROW, B_c0_k1.reuse.COL, C_r2_c0
+      LDS.U.128 R196, [R159 + 0x1000] &wr=4 ?W2;             // LDS.U.128 B_c0_k0, [sharedB0 + 0x1000]
+      IMMA.8816.S8.S8.SAT R48, R171.ROW, R204.reuse.COL, R48 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c0, A_r3_k1.ROW, B_c0_k1.reuse.COL, C_r3_c0
+      IMMA.8816.S8.S8.SAT R64, R173.ROW, R204.reuse.COL, R64 ?W2; // IMMA.8816.S8.S8.SAT C_r4_c0, A_r4_k1.ROW, B_c0_k1.reuse.COL, C_r4_c0
+      LDS.U.64 R182, [R158 + 0x2100] &wr=4 ?W2;              // LDS.U.64 A_r1_k2, [sharedA + 0x2100]
+      IMMA.8816.S8.S8.SAT R80, R175.ROW, R204.reuse.COL, R80 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c0, A_r5_k1.ROW, B_c0_k1.reuse.COL, C_r5_c0
+      IMMA.8816.S8.S8.SAT R96, R177.ROW, R204.reuse.COL, R96 ?W2; // IMMA.8816.S8.S8.SAT C_r6_c0, A_r6_k1.ROW, B_c0_k1.reuse.COL, C_r6_c0
+      LDS.U.128 R200, [R159 + 0x1200] &wr=4 ?W2;             // LDS.U.128 B_c4_k0, [sharedB0 + 0x1200]
+      IMMA.8816.S8.S8.SAT R112, R179.reuse.ROW, R204.COL, R112 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c0, A_r7_k1.reuse.ROW, B_c0_k1.COL, C_r7_c0
+      IMMA.8816.S8.S8.SAT R114, R179.ROW, R205.reuse.COL, R114 ?W2; // IMMA.8816.S8.S8.SAT C_r7_c2, A_r7_k1.ROW, B_c1_k1.reuse.COL, C_r7_c2
+      LDS.U.64 R184, [R158 + 0x2200] &wr=4 ?W2;              // LDS.U.64 A_r2_k2, [sharedA + 0x2200]
+      IMMA.8816.S8.S8.SAT R98, R177.ROW, R205.reuse.COL, R98 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c2, A_r6_k1.ROW, B_c1_k1.reuse.COL, C_r6_c2
+      IMMA.8816.S8.S8.SAT R82, R175.ROW, R205.reuse.COL, R82 ?W2; // IMMA.8816.S8.S8.SAT C_r5_c2, A_r5_k1.ROW, B_c1_k1.reuse.COL, C_r5_c2
+      LDS.U.64 R186, [R158 + 0x2300] &wr=4 ?W2;              // LDS.U.64 A_r3_k2, [sharedA + 0x2300]
+      IMMA.8816.S8.S8.SAT R66, R173.ROW, R205.reuse.COL, R66 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c2, A_r4_k1.ROW, B_c1_k1.reuse.COL, C_r4_c2
+      IMMA.8816.S8.S8.SAT R50, R171.ROW, R205.reuse.COL, R50 ?W2; // IMMA.8816.S8.S8.SAT C_r3_c2, A_r3_k1.ROW, B_c1_k1.reuse.COL, C_r3_c2
+      LDS.U.64 R188, [R158 + 0x2400] &wr=4 ?W2;              // LDS.U.64 A_r4_k2, [sharedA + 0x2400]
+      IMMA.8816.S8.S8.SAT R34, R169.ROW, R205.reuse.COL, R34 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c2, A_r2_k1.ROW, B_c1_k1.reuse.COL, C_r2_c2
+      IMMA.8816.S8.S8.SAT R18, R167.ROW, R205.reuse.COL, R18 ?W2; // IMMA.8816.S8.S8.SAT C_r1_c2, A_r1_k1.ROW, B_c1_k1.reuse.COL, C_r1_c2
+      LDS.U.64 R190, [R158 + 0x2500] &wr=4 ?W2;              // LDS.U.64 A_r5_k2, [sharedA + 0x2500]
+      IMMA.8816.S8.S8.SAT R2, R165.reuse.ROW, R205.COL, R2 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c2, A_r0_k1.reuse.ROW, B_c1_k1.COL, C_r0_c2
+      IMMA.8816.S8.S8.SAT R4, R165.ROW, R206.reuse.COL, R4 ?W2; // IMMA.8816.S8.S8.SAT C_r0_c4, A_r0_k1.ROW, B_c2_k1.reuse.COL, C_r0_c4
+      LDS.U.64 R192, [R158 + 0x2600] &wr=4 ?W2;              // LDS.U.64 A_r6_k2, [sharedA + 0x2600]
+      IMMA.8816.S8.S8.SAT R20, R167.ROW, R206.reuse.COL, R20 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c4, A_r1_k1.ROW, B_c2_k1.reuse.COL, C_r1_c4
+      IMMA.8816.S8.S8.SAT R36, R169.ROW, R206.reuse.COL, R36 ?W2; // IMMA.8816.S8.S8.SAT C_r2_c4, A_r2_k1.ROW, B_c2_k1.reuse.COL, C_r2_c4
+      LDS.U.64 R194, [R158 + 0x2700] &rd=5 &wr=4 ?W2;        // LDS.U.64 A_r7_k2, [sharedA + 0x2700]
+      IMMA.8816.S8.S8.SAT R52, R171.ROW, R206.reuse.COL, R52 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c4, A_r3_k1.ROW, B_c2_k1.reuse.COL, C_r3_c4
+      IMMA.8816.S8.S8.SAT R68, R173.ROW, R206.reuse.COL, R68 ?W2; // IMMA.8816.S8.S8.SAT C_r4_c4, A_r4_k1.ROW, B_c2_k1.reuse.COL, C_r4_c4
+      IADD R158, R158, -R163 &req=5 ?W2;                     // IADD sharedA, sharedA, -sharedPageFlip
+      IMMA.8816.S8.S8.SAT R84, R175.ROW, R206.reuse.COL, R84 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c4, A_r5_k1.ROW, B_c2_k1.reuse.COL, C_r5_c4
+      IMMA.8816.S8.S8.SAT R100, R177.ROW, R206.reuse.COL, R100 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c4, A_r6_k1.ROW, B_c2_k1.reuse.COL, C_r6_c4
+      IMMA.8816.S8.S8.SAT R116, R179.reuse.ROW, R206.COL, R116 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c4, A_r7_k1.reuse.ROW, B_c2_k1.COL, C_r7_c4
+      IMMA.8816.S8.S8.SAT R118, R179.ROW, R207.reuse.COL, R118 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c6, A_r7_k1.ROW, B_c3_k1.reuse.COL, C_r7_c6
+      IMMA.8816.S8.S8.SAT R102, R177.ROW, R207.reuse.COL, R102 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c6, A_r6_k1.ROW, B_c3_k1.reuse.COL, C_r6_c6
+      IMMA.8816.S8.S8.SAT R86, R175.ROW, R207.reuse.COL, R86 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c6, A_r5_k1.ROW, B_c3_k1.reuse.COL, C_r5_c6
+      IMMA.8816.S8.S8.SAT R70, R173.ROW, R207.reuse.COL, R70 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c6, A_r4_k1.ROW, B_c3_k1.reuse.COL, C_r4_c6
+      IMMA.8816.S8.S8.SAT R54, R171.ROW, R207.reuse.COL, R54 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c6, A_r3_k1.ROW, B_c3_k1.reuse.COL, C_r3_c6
+      IMMA.8816.S8.S8.SAT R38, R169.ROW, R207.reuse.COL, R38 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c6, A_r2_k1.ROW, B_c3_k1.reuse.COL, C_r2_c6
+      IMMA.8816.S8.S8.SAT R22, R167.ROW, R207.reuse.COL, R22 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c6, A_r1_k1.ROW, B_c3_k1.reuse.COL, C_r1_c6
+      IMMA.8816.S8.S8.SAT R6, R165.reuse.ROW, R207.COL, R6 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c6, A_r0_k1.reuse.ROW, B_c3_k1.COL, C_r0_c6
+      IMMA.8816.S8.S8.SAT R8, R165.ROW, R208.reuse.COL, R8 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c8, A_r0_k1.ROW, B_c4_k1.reuse.COL, C_r0_c8
+      IMMA.8816.S8.S8.SAT R24, R167.ROW, R208.reuse.COL, R24 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c8, A_r1_k1.ROW, B_c4_k1.reuse.COL, C_r1_c8
+      IMMA.8816.S8.S8.SAT R40, R169.ROW, R208.reuse.COL, R40 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c8, A_r2_k1.ROW, B_c4_k1.reuse.COL, C_r2_c8
+      IMMA.8816.S8.S8.SAT R56, R171.ROW, R208.reuse.COL, R56 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c8, A_r3_k1.ROW, B_c4_k1.reuse.COL, C_r3_c8
+      IMMA.8816.S8.S8.SAT R72, R173.ROW, R208.reuse.COL, R72 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c8, A_r4_k1.ROW, B_c4_k1.reuse.COL, C_r4_c8
+      IMMA.8816.S8.S8.SAT R88, R175.ROW, R208.reuse.COL, R88 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c8, A_r5_k1.ROW, B_c4_k1.reuse.COL, C_r5_c8
+      IMMA.8816.S8.S8.SAT R104, R177.ROW, R208.reuse.COL, R104 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c8, A_r6_k1.ROW, B_c4_k1.reuse.COL, C_r6_c8
+      IMMA.8816.S8.S8.SAT R120, R179.reuse.ROW, R208.COL, R120 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c8, A_r7_k1.reuse.ROW, B_c4_k1.COL, C_r7_c8
+      IMMA.8816.S8.S8.SAT R122, R179.ROW, R209.reuse.COL, R122 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c10, A_r7_k1.ROW, B_c5_k1.reuse.COL, C_r7_c10
+      IMMA.8816.S8.S8.SAT R106, R177.ROW, R209.reuse.COL, R106 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c10, A_r6_k1.ROW, B_c5_k1.reuse.COL, C_r6_c10
+      IMMA.8816.S8.S8.SAT R90, R175.ROW, R209.reuse.COL, R90 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c10, A_r5_k1.ROW, B_c5_k1.reuse.COL, C_r5_c10
+      IMMA.8816.S8.S8.SAT R74, R173.ROW, R209.reuse.COL, R74 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c10, A_r4_k1.ROW, B_c5_k1.reuse.COL, C_r4_c10
+      IMMA.8816.S8.S8.SAT R58, R171.ROW, R209.reuse.COL, R58 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c10, A_r3_k1.ROW, B_c5_k1.reuse.COL, C_r3_c10
+      IMMA.8816.S8.S8.SAT R42, R169.ROW, R209.reuse.COL, R42 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c10, A_r2_k1.ROW, B_c5_k1.reuse.COL, C_r2_c10
+      IMMA.8816.S8.S8.SAT R26, R167.ROW, R209.reuse.COL, R26 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c10, A_r1_k1.ROW, B_c5_k1.reuse.COL, C_r1_c10
+      IMMA.8816.S8.S8.SAT R10, R165.reuse.ROW, R209.COL, R10 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c10, A_r0_k1.reuse.ROW, B_c5_k1.COL, C_r0_c10
+      IMMA.8816.S8.S8.SAT R12, R165.ROW, R210.reuse.COL, R12 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c12, A_r0_k1.ROW, B_c6_k1.reuse.COL, C_r0_c12
+      IMMA.8816.S8.S8.SAT R28, R167.ROW, R210.reuse.COL, R28 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c12, A_r1_k1.ROW, B_c6_k1.reuse.COL, C_r1_c12
+      IMMA.8816.S8.S8.SAT R44, R169.ROW, R210.reuse.COL, R44 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c12, A_r2_k1.ROW, B_c6_k1.reuse.COL, C_r2_c12
+      IMMA.8816.S8.S8.SAT R60, R171.ROW, R210.reuse.COL, R60 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c12, A_r3_k1.ROW, B_c6_k1.reuse.COL, C_r3_c12
+      IMMA.8816.S8.S8.SAT R76, R173.ROW, R210.reuse.COL, R76 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c12, A_r4_k1.ROW, B_c6_k1.reuse.COL, C_r4_c12
+      IMMA.8816.S8.S8.SAT R92, R175.ROW, R210.reuse.COL, R92 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c12, A_r5_k1.ROW, B_c6_k1.reuse.COL, C_r5_c12
+      IMMA.8816.S8.S8.SAT R108, R177.ROW, R210.reuse.COL, R108 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c12, A_r6_k1.ROW, B_c6_k1.reuse.COL, C_r6_c12
+      IMMA.8816.S8.S8.SAT R124, R179.reuse.ROW, R210.COL, R124 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c12, A_r7_k1.reuse.ROW, B_c6_k1.COL, C_r7_c12
+      IMMA.8816.S8.S8.SAT R126, R179.ROW, R211.reuse.COL, R126 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c14, A_r7_k1.ROW, B_c7_k1.reuse.COL, C_r7_c14
+      IMMA.8816.S8.S8.SAT R110, R177.ROW, R211.reuse.COL, R110 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c14, A_r6_k1.ROW, B_c7_k1.reuse.COL, C_r6_c14
+      IMMA.8816.S8.S8.SAT R94, R175.ROW, R211.reuse.COL, R94 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c14, A_r5_k1.ROW, B_c7_k1.reuse.COL, C_r5_c14
+      IMMA.8816.S8.S8.SAT R78, R173.ROW, R211.reuse.COL, R78 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c14, A_r4_k1.ROW, B_c7_k1.reuse.COL, C_r4_c14
+      IMMA.8816.S8.S8.SAT R62, R171.ROW, R211.reuse.COL, R62 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c14, A_r3_k1.ROW, B_c7_k1.reuse.COL, C_r3_c14
+      IMMA.8816.S8.S8.SAT R46, R169.ROW, R211.reuse.COL, R46 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c14, A_r2_k1.ROW, B_c7_k1.reuse.COL, C_r2_c14
+      IMMA.8816.S8.S8.SAT R30, R167.ROW, R211.reuse.COL, R30 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c14, A_r1_k1.ROW, B_c7_k1.reuse.COL, C_r1_c14
+      IMMA.8816.S8.S8.SAT R14, R165.ROW, R211.COL, R14 &wr=4 ?W4EG; // IMMA.8816.S8.S8.SAT C_r0_c14, A_r0_k1.ROW, B_c7_k1.COL, C_r0_c14
+      IMMA.8816.S8.S8.SAT R0, R180.ROW, R196.reuse.COL, R0 &req={4,4} ?W2; // IMMA.8816.S8.S8.SAT C_r0_c0, A_r0_k2.ROW, B_c0_k0.reuse.COL, C_r0_c0
+      LDS.U.128 R204, [R160 + 0x1000] &wr=4 ?W2;             // LDS.U.128 B_c0_k1, [sharedB1 + 0x1000]
+      IMMA.8816.S8.S8.SAT R16, R182.ROW, R196.reuse.COL, R16 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c0, A_r1_k2.ROW, B_c0_k0.reuse.COL, C_r1_c0
+      IMMA.8816.S8.S8.SAT R32, R184.ROW, R196.reuse.COL, R32 ?W2; // IMMA.8816.S8.S8.SAT C_r2_c0, A_r2_k2.ROW, B_c0_k0.reuse.COL, C_r2_c0
+      LDS.U.128 R208, [R160 + 0x1200] &rd=5 &wr=4 ?W2;       // LDS.U.128 B_c4_k1, [sharedB1 + 0x1200]
+      IMMA.8816.S8.S8.SAT R48, R186.ROW, R196.reuse.COL, R48 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c0, A_r3_k2.ROW, B_c0_k0.reuse.COL, C_r3_c0
+      IMMA.8816.S8.S8.SAT R64, R188.ROW, R196.reuse.COL, R64 ?W2; // IMMA.8816.S8.S8.SAT C_r4_c0, A_r4_k2.ROW, B_c0_k0.reuse.COL, C_r4_c0
+      IADD R159, R159, -R163 &req=5 ?W2;                     // IADD sharedB0, sharedB0, -sharedPageFlip
+      IMMA.8816.S8.S8.SAT R80, R190.ROW, R196.reuse.COL, R80 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c0, A_r5_k2.ROW, B_c0_k0.reuse.COL, C_r5_c0
+      IMMA.8816.S8.S8.SAT R96, R192.ROW, R196.reuse.COL, R96 ?W2; // IMMA.8816.S8.S8.SAT C_r6_c0, A_r6_k2.ROW, B_c0_k0.reuse.COL, C_r6_c0
+      IADD R160, R160, -R163 ?W2;                            // IADD sharedB1, sharedB1, -sharedPageFlip
+      IMMA.8816.S8.S8.SAT R112, R194.reuse.ROW, R196.COL, R112 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c0, A_r7_k2.reuse.ROW, B_c0_k0.COL, C_r7_c0
+      IMMA.8816.S8.S8.SAT R114, R194.ROW, R197.reuse.COL, R114 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c2, A_r7_k2.ROW, B_c1_k0.reuse.COL, C_r7_c2
+      IMMA.8816.S8.S8.SAT R98, R192.ROW, R197.reuse.COL, R98 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c2, A_r6_k2.ROW, B_c1_k0.reuse.COL, C_r6_c2
+      IMMA.8816.S8.S8.SAT R82, R190.ROW, R197.reuse.COL, R82 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c2, A_r5_k2.ROW, B_c1_k0.reuse.COL, C_r5_c2
+      IMMA.8816.S8.S8.SAT R66, R188.ROW, R197.reuse.COL, R66 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c2, A_r4_k2.ROW, B_c1_k0.reuse.COL, C_r4_c2
+      IMMA.8816.S8.S8.SAT R50, R186.ROW, R197.reuse.COL, R50 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c2, A_r3_k2.ROW, B_c1_k0.reuse.COL, C_r3_c2
+      IMMA.8816.S8.S8.SAT R34, R184.ROW, R197.reuse.COL, R34 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c2, A_r2_k2.ROW, B_c1_k0.reuse.COL, C_r2_c2
+      IMMA.8816.S8.S8.SAT R18, R182.ROW, R197.reuse.COL, R18 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c2, A_r1_k2.ROW, B_c1_k0.reuse.COL, C_r1_c2
+      IMMA.8816.S8.S8.SAT R2, R180.reuse.ROW, R197.COL, R2 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c2, A_r0_k2.reuse.ROW, B_c1_k0.COL, C_r0_c2
+      IMMA.8816.S8.S8.SAT R4, R180.ROW, R198.reuse.COL, R4 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c4, A_r0_k2.ROW, B_c2_k0.reuse.COL, C_r0_c4
+      IMMA.8816.S8.S8.SAT R20, R182.ROW, R198.reuse.COL, R20 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c4, A_r1_k2.ROW, B_c2_k0.reuse.COL, C_r1_c4
+      IMMA.8816.S8.S8.SAT R36, R184.ROW, R198.reuse.COL, R36 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c4, A_r2_k2.ROW, B_c2_k0.reuse.COL, C_r2_c4
+      IMMA.8816.S8.S8.SAT R52, R186.ROW, R198.reuse.COL, R52 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c4, A_r3_k2.ROW, B_c2_k0.reuse.COL, C_r3_c4
+      IMMA.8816.S8.S8.SAT R68, R188.ROW, R198.reuse.COL, R68 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c4, A_r4_k2.ROW, B_c2_k0.reuse.COL, C_r4_c4
+      IMMA.8816.S8.S8.SAT R84, R190.ROW, R198.reuse.COL, R84 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c4, A_r5_k2.ROW, B_c2_k0.reuse.COL, C_r5_c4
+      IMMA.8816.S8.S8.SAT R100, R192.ROW, R198.reuse.COL, R100 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c4, A_r6_k2.ROW, B_c2_k0.reuse.COL, C_r6_c4
+      IMMA.8816.S8.S8.SAT R116, R194.reuse.ROW, R198.COL, R116 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c4, A_r7_k2.reuse.ROW, B_c2_k0.COL, C_r7_c4
+      IMMA.8816.S8.S8.SAT R118, R194.ROW, R199.reuse.COL, R118 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c6, A_r7_k2.ROW, B_c3_k0.reuse.COL, C_r7_c6
+      IMMA.8816.S8.S8.SAT R102, R192.ROW, R199.reuse.COL, R102 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c6, A_r6_k2.ROW, B_c3_k0.reuse.COL, C_r6_c6
+      IMMA.8816.S8.S8.SAT R86, R190.ROW, R199.reuse.COL, R86 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c6, A_r5_k2.ROW, B_c3_k0.reuse.COL, C_r5_c6
+      IMMA.8816.S8.S8.SAT R70, R188.ROW, R199.reuse.COL, R70 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c6, A_r4_k2.ROW, B_c3_k0.reuse.COL, C_r4_c6
+      IMMA.8816.S8.S8.SAT R54, R186.ROW, R199.reuse.COL, R54 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c6, A_r3_k2.ROW, B_c3_k0.reuse.COL, C_r3_c6
+      IMMA.8816.S8.S8.SAT R38, R184.ROW, R199.reuse.COL, R38 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c6, A_r2_k2.ROW, B_c3_k0.reuse.COL, C_r2_c6
+      IMMA.8816.S8.S8.SAT R22, R182.ROW, R199.reuse.COL, R22 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c6, A_r1_k2.ROW, B_c3_k0.reuse.COL, C_r1_c6
+      IMMA.8816.S8.S8.SAT R6, R180.reuse.ROW, R199.COL, R6 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c6, A_r0_k2.reuse.ROW, B_c3_k0.COL, C_r0_c6
+      IMMA.8816.S8.S8.SAT R8, R180.ROW, R200.reuse.COL, R8 ?W2; // IMMA.8816.S8.S8.SAT C_r0_c8, A_r0_k2.ROW, B_c4_k0.reuse.COL, C_r0_c8
+      STS.128 [R156 + 0x0], R128 &req={0} ?W2;               // STS.128 [sharedWriteA + 0x0], fetchRegA0
+      IMMA.8816.S8.S8.SAT R24, R182.ROW, R200.reuse.COL, R24 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c8, A_r1_k2.ROW, B_c4_k0.reuse.COL, C_r1_c8
+      IMMA.8816.S8.S8.SAT R40, R184.ROW, R200.reuse.COL, R40 ?W2; // IMMA.8816.S8.S8.SAT C_r2_c8, A_r2_k2.ROW, B_c4_k0.reuse.COL, C_r2_c8
+      STS.128 [R156 + 0x1000], R132 ?W2;                     // STS.128 [sharedWriteA + 0x1000], fetchRegA4
+      IMMA.8816.S8.S8.SAT R56, R186.ROW, R200.reuse.COL, R56 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c8, A_r3_k2.ROW, B_c4_k0.reuse.COL, C_r3_c8
+      IMMA.8816.S8.S8.SAT R72, R188.ROW, R200.reuse.COL, R72 ?W2; // IMMA.8816.S8.S8.SAT C_r4_c8, A_r4_k2.ROW, B_c4_k0.reuse.COL, C_r4_c8
+      STS.128 [R156 + 0x2000], R136 ?W2;                     // STS.128 [sharedWriteA + 0x2000], fetchRegA8
+      IMMA.8816.S8.S8.SAT R88, R190.ROW, R200.reuse.COL, R88 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c8, A_r5_k2.ROW, B_c4_k0.reuse.COL, C_r5_c8
+      IMMA.8816.S8.S8.SAT R104, R192.ROW, R200.reuse.COL, R104 ?W2; // IMMA.8816.S8.S8.SAT C_r6_c8, A_r6_k2.ROW, B_c4_k0.reuse.COL, C_r6_c8
+      STS.128 [R156 + 0x3000], R140 &rd=5 ?W2;               // STS.128 [sharedWriteA + 0x3000], fetchRegA12
+      IMMA.8816.S8.S8.SAT R120, R194.reuse.ROW, R200.COL, R120 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c8, A_r7_k2.reuse.ROW, B_c4_k0.COL, C_r7_c8
+      IMMA.8816.S8.S8.SAT R122, R194.ROW, R201.reuse.COL, R122 ?W2; // IMMA.8816.S8.S8.SAT C_r7_c10, A_r7_k2.ROW, B_c5_k0.reuse.COL, C_r7_c10
+      STS.128 [R157 + 0x0], R148 &req={1} ?W2;               // STS.128 [sharedWriteB + 0x0], fetchRegB0
+      IMMA.8816.S8.S8.SAT R106, R192.ROW, R201.reuse.COL, R106 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c10, A_r6_k2.ROW, B_c5_k0.reuse.COL, C_r6_c10
+      IMMA.8816.S8.S8.SAT R90, R190.ROW, R201.reuse.COL, R90 ?W2; // IMMA.8816.S8.S8.SAT C_r5_c10, A_r5_k2.ROW, B_c5_k0.reuse.COL, C_r5_c10
+      STS.128 [R157 + 0x1000], R152 &rd=5 ?W2;               // STS.128 [sharedWriteB + 0x1000], fetchRegB4
+      IMMA.8816.S8.S8.SAT R74, R188.ROW, R201.reuse.COL, R74 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c10, A_r4_k2.ROW, B_c5_k0.reuse.COL, C_r4_c10
+      IMMA.8816.S8.S8.SAT R58, R186.ROW, R201.reuse.COL, R58 ?W2; // IMMA.8816.S8.S8.SAT C_r3_c10, A_r3_k2.ROW, B_c5_k0.reuse.COL, C_r3_c10
+      BAR.SYNC.DEFER_BLOCKING 0 ?W5;                         // BAR.SYNC.DEFER_BLOCKING 0
+      IMMA.8816.S8.S8.SAT R42, R184.ROW, R201.reuse.COL, R42 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c10, A_r2_k2.ROW, B_c5_k0.reuse.COL, C_r2_c10
+      IMMA.8816.S8.S8.SAT R26, R182.ROW, R201.reuse.COL, R26 ?W2; // IMMA.8816.S8.S8.SAT C_r1_c10, A_r1_k2.ROW, B_c5_k0.reuse.COL, C_r1_c10
+      IADD R156, R156, R163 &req=5 ?W2;                      // IADD sharedWriteA, sharedWriteA, sharedPageFlip
+      IMMA.8816.S8.S8.SAT R10, R180.reuse.ROW, R201.COL, R10 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c10, A_r0_k2.reuse.ROW, B_c5_k0.COL, C_r0_c10
+      IMMA.8816.S8.S8.SAT R12, R180.ROW, R202.reuse.COL, R12 ?W2; // IMMA.8816.S8.S8.SAT C_r0_c12, A_r0_k2.ROW, B_c6_k0.reuse.COL, C_r0_c12
+      IADD R157, R157, R163 &req=5 ?W2;                      // IADD sharedWriteB, sharedWriteB, sharedPageFlip
+      IMMA.8816.S8.S8.SAT R28, R182.ROW, R202.reuse.COL, R28 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c12, A_r1_k2.ROW, B_c6_k0.reuse.COL, C_r1_c12
+      IMMA.8816.S8.S8.SAT R44, R184.ROW, R202.reuse.COL, R44 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c12, A_r2_k2.ROW, B_c6_k0.reuse.COL, C_r2_c12
+      IMMA.8816.S8.S8.SAT R60, R186.ROW, R202.reuse.COL, R60 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c12, A_r3_k2.ROW, B_c6_k0.reuse.COL, C_r3_c12
+      IMMA.8816.S8.S8.SAT R76, R188.ROW, R202.reuse.COL, R76 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c12, A_r4_k2.ROW, B_c6_k0.reuse.COL, C_r4_c12
+      IMMA.8816.S8.S8.SAT R92, R190.ROW, R202.reuse.COL, R92 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c12, A_r5_k2.ROW, B_c6_k0.reuse.COL, C_r5_c12
+      IMMA.8816.S8.S8.SAT R108, R192.ROW, R202.reuse.COL, R108 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c12, A_r6_k2.ROW, B_c6_k0.reuse.COL, C_r6_c12
+      IMMA.8816.S8.S8.SAT R124, R194.reuse.ROW, R202.COL, R124 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c12, A_r7_k2.reuse.ROW, B_c6_k0.COL, C_r7_c12
+      IMMA.8816.S8.S8.SAT R126, R194.ROW, R203.reuse.COL, R126 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c14, A_r7_k2.ROW, B_c7_k0.reuse.COL, C_r7_c14
+      IMMA.8816.S8.S8.SAT R110, R192.ROW, R203.reuse.COL, R110 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c14, A_r6_k2.ROW, B_c7_k0.reuse.COL, C_r6_c14
+      IMMA.8816.S8.S8.SAT R94, R190.ROW, R203.reuse.COL, R94 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c14, A_r5_k2.ROW, B_c7_k0.reuse.COL, C_r5_c14
+      IMMA.8816.S8.S8.SAT R78, R188.ROW, R203.reuse.COL, R78 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c14, A_r4_k2.ROW, B_c7_k0.reuse.COL, C_r4_c14
+      IMMA.8816.S8.S8.SAT R62, R186.ROW, R203.reuse.COL, R62 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c14, A_r3_k2.ROW, B_c7_k0.reuse.COL, C_r3_c14
+      IMMA.8816.S8.S8.SAT R46, R184.ROW, R203.reuse.COL, R46 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c14, A_r2_k2.ROW, B_c7_k0.reuse.COL, C_r2_c14
+      IMMA.8816.S8.S8.SAT R30, R182.ROW, R203.reuse.COL, R30 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c14, A_r1_k2.ROW, B_c7_k0.reuse.COL, C_r1_c14
+      IMMA.8816.S8.S8.SAT R14, R180.ROW, R203.COL, R14 &wr=4 ?W4EG; // IMMA.8816.S8.S8.SAT C_r0_c14, A_r0_k2.ROW, B_c7_k0.COL, C_r0_c14
+      IMMA.8816.S8.S8.SAT R0, R181.ROW, R204.reuse.COL, R0 &req={4,4} ?W2; // IMMA.8816.S8.S8.SAT C_r0_c0, A_r0_k3.ROW, B_c0_k1.reuse.COL, C_r0_c0
+// Virtual ?REQ_BAR found on next instruction, stop putting ?BARRIER_EXEMPT on decoupled instructions
+      LDS.U.64 R164, [R158 + 0x0] &wr=4 ?W2;                 // LDS.U.64 A_r0_k0, [sharedA + 0x0]
+      IMMA.8816.S8.S8.SAT R16, R183.ROW, R204.reuse.COL, R16 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c0, A_r1_k3.ROW, B_c0_k1.reuse.COL, C_r1_c0
+      IMMA.8816.S8.S8.SAT R32, R185.ROW, R204.reuse.COL, R32 ?W2; // IMMA.8816.S8.S8.SAT C_r2_c0, A_r2_k3.ROW, B_c0_k1.reuse.COL, C_r2_c0
+      LDS.U.64 R166, [R158 + 0x100] &wr=4 ?W2;               // LDS.U.64 A_r1_k0, [sharedA + 0x100]
+      IMMA.8816.S8.S8.SAT R48, R187.ROW, R204.reuse.COL, R48 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c0, A_r3_k3.ROW, B_c0_k1.reuse.COL, C_r3_c0
+      IMMA.8816.S8.S8.SAT R64, R189.ROW, R204.reuse.COL, R64 ?W2; // IMMA.8816.S8.S8.SAT C_r4_c0, A_r4_k3.ROW, B_c0_k1.reuse.COL, C_r4_c0
+      LDS.U.128 R196, [R159 + 0x0] &wr=4 ?W2;                // LDS.U.128 B_c0_k0, [sharedB0 + 0x0]
+      IMMA.8816.S8.S8.SAT R80, R191.ROW, R204.reuse.COL, R80 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c0, A_r5_k3.ROW, B_c0_k1.reuse.COL, C_r5_c0
+      IMMA.8816.S8.S8.SAT R96, R193.ROW, R204.reuse.COL, R96 ?W2; // IMMA.8816.S8.S8.SAT C_r6_c0, A_r6_k3.ROW, B_c0_k1.reuse.COL, C_r6_c0
+      LDS.U.64 R168, [R158 + 0x200] &wr=4 ?W2;               // LDS.U.64 A_r2_k0, [sharedA + 0x200]
+      IMMA.8816.S8.S8.SAT R112, R195.reuse.ROW, R204.COL, R112 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c0, A_r7_k3.reuse.ROW, B_c0_k1.COL, C_r7_c0
+      IMMA.8816.S8.S8.SAT R114, R195.ROW, R205.reuse.COL, R114 ?W2; // IMMA.8816.S8.S8.SAT C_r7_c2, A_r7_k3.ROW, B_c1_k1.reuse.COL, C_r7_c2
+      LDS.U.128 R200, [R159 + 0x200] &wr=4 ?W2;              // LDS.U.128 B_c4_k0, [sharedB0 + 0x200]
+      IMMA.8816.S8.S8.SAT R98, R193.ROW, R205.reuse.COL, R98 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c2, A_r6_k3.ROW, B_c1_k1.reuse.COL, C_r6_c2
+      IMMA.8816.S8.S8.SAT R82, R191.ROW, R205.reuse.COL, R82 ?W2; // IMMA.8816.S8.S8.SAT C_r5_c2, A_r5_k3.ROW, B_c1_k1.reuse.COL, C_r5_c2
+      LDS.U.64 R170, [R158 + 0x300] &wr=4 ?W2;               // LDS.U.64 A_r3_k0, [sharedA + 0x300]
+      IMMA.8816.S8.S8.SAT R66, R189.ROW, R205.reuse.COL, R66 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c2, A_r4_k3.ROW, B_c1_k1.reuse.COL, C_r4_c2
+      IMMA.8816.S8.S8.SAT R50, R187.ROW, R205.reuse.COL, R50 ?W2; // IMMA.8816.S8.S8.SAT C_r3_c2, A_r3_k3.ROW, B_c1_k1.reuse.COL, C_r3_c2
+      LDS.U.64 R172, [R158 + 0x400] &wr=4 ?W2;               // LDS.U.64 A_r4_k0, [sharedA + 0x400]
+      IMMA.8816.S8.S8.SAT R34, R185.ROW, R205.reuse.COL, R34 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c2, A_r2_k3.ROW, B_c1_k1.reuse.COL, C_r2_c2
+      IMMA.8816.S8.S8.SAT R18, R183.ROW, R205.reuse.COL, R18 ?W2; // IMMA.8816.S8.S8.SAT C_r1_c2, A_r1_k3.ROW, B_c1_k1.reuse.COL, C_r1_c2
+      LDS.U.64 R174, [R158 + 0x500] &wr=4 ?W2;               // LDS.U.64 A_r5_k0, [sharedA + 0x500]
+      IMMA.8816.S8.S8.SAT R2, R181.reuse.ROW, R205.COL, R2 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c2, A_r0_k3.reuse.ROW, B_c1_k1.COL, C_r0_c2
+      IMMA.8816.S8.S8.SAT R4, R181.ROW, R206.reuse.COL, R4 ?W2; // IMMA.8816.S8.S8.SAT C_r0_c4, A_r0_k3.ROW, B_c2_k1.reuse.COL, C_r0_c4
+      LDS.U.64 R176, [R158 + 0x600] &wr=4 ?W2;               // LDS.U.64 A_r6_k0, [sharedA + 0x600]
+      IMMA.8816.S8.S8.SAT R20, R183.ROW, R206.reuse.COL, R20 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c4, A_r1_k3.ROW, B_c2_k1.reuse.COL, C_r1_c4
+      IMMA.8816.S8.S8.SAT R36, R185.ROW, R206.reuse.COL, R36 ?W2; // IMMA.8816.S8.S8.SAT C_r2_c4, A_r2_k3.ROW, B_c2_k1.reuse.COL, C_r2_c4
+      LDS.U.64 R178, [R158 + 0x700] &wr=4 ?W2;               // LDS.U.64 A_r7_k0, [sharedA + 0x700]
+      IMMA.8816.S8.S8.SAT R52, R187.ROW, R206.reuse.COL, R52 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c4, A_r3_k3.ROW, B_c2_k1.reuse.COL, C_r3_c4
+      IMMA.8816.S8.S8.SAT R68, R189.ROW, R206.reuse.COL, R68 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c4, A_r4_k3.ROW, B_c2_k1.reuse.COL, C_r4_c4
+      IMMA.8816.S8.S8.SAT R84, R191.ROW, R206.reuse.COL, R84 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c4, A_r5_k3.ROW, B_c2_k1.reuse.COL, C_r5_c4
+      IMMA.8816.S8.S8.SAT R100, R193.ROW, R206.reuse.COL, R100 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c4, A_r6_k3.ROW, B_c2_k1.reuse.COL, C_r6_c4
+      IMMA.8816.S8.S8.SAT R116, R195.reuse.ROW, R206.COL, R116 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c4, A_r7_k3.reuse.ROW, B_c2_k1.COL, C_r7_c4
+      IMMA.8816.S8.S8.SAT R118, R195.ROW, R207.reuse.COL, R118 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c6, A_r7_k3.ROW, B_c3_k1.reuse.COL, C_r7_c6
+      IMMA.8816.S8.S8.SAT R102, R193.ROW, R207.reuse.COL, R102 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c6, A_r6_k3.ROW, B_c3_k1.reuse.COL, C_r6_c6
+      IMMA.8816.S8.S8.SAT R86, R191.ROW, R207.reuse.COL, R86 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c6, A_r5_k3.ROW, B_c3_k1.reuse.COL, C_r5_c6
+      IMMA.8816.S8.S8.SAT R70, R189.ROW, R207.reuse.COL, R70 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c6, A_r4_k3.ROW, B_c3_k1.reuse.COL, C_r4_c6
+      IMMA.8816.S8.S8.SAT R54, R187.ROW, R207.reuse.COL, R54 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c6, A_r3_k3.ROW, B_c3_k1.reuse.COL, C_r3_c6
+      IMMA.8816.S8.S8.SAT R38, R185.ROW, R207.reuse.COL, R38 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c6, A_r2_k3.ROW, B_c3_k1.reuse.COL, C_r2_c6
+      IMMA.8816.S8.S8.SAT R22, R183.ROW, R207.reuse.COL, R22 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c6, A_r1_k3.ROW, B_c3_k1.reuse.COL, C_r1_c6
+      IMMA.8816.S8.S8.SAT R6, R181.reuse.ROW, R207.COL, R6 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c6, A_r0_k3.reuse.ROW, B_c3_k1.COL, C_r0_c6
+      IMMA.8816.S8.S8.SAT R8, R181.ROW, R208.reuse.COL, R8 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c8, A_r0_k3.ROW, B_c4_k1.reuse.COL, C_r0_c8
+      IMMA.8816.S8.S8.SAT R24, R183.ROW, R208.reuse.COL, R24 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c8, A_r1_k3.ROW, B_c4_k1.reuse.COL, C_r1_c8
+      IMMA.8816.S8.S8.SAT R40, R185.ROW, R208.reuse.COL, R40 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c8, A_r2_k3.ROW, B_c4_k1.reuse.COL, C_r2_c8
+      IMMA.8816.S8.S8.SAT R56, R187.ROW, R208.reuse.COL, R56 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c8, A_r3_k3.ROW, B_c4_k1.reuse.COL, C_r3_c8
+      IMMA.8816.S8.S8.SAT R72, R189.ROW, R208.reuse.COL, R72 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c8, A_r4_k3.ROW, B_c4_k1.reuse.COL, C_r4_c8
+      IMMA.8816.S8.S8.SAT R88, R191.ROW, R208.reuse.COL, R88 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c8, A_r5_k3.ROW, B_c4_k1.reuse.COL, C_r5_c8
+      IMMA.8816.S8.S8.SAT R104, R193.ROW, R208.reuse.COL, R104 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c8, A_r6_k3.ROW, B_c4_k1.reuse.COL, C_r6_c8
+      IMMA.8816.S8.S8.SAT R120, R195.reuse.ROW, R208.COL, R120 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c8, A_r7_k3.reuse.ROW, B_c4_k1.COL, C_r7_c8
+      IMMA.8816.S8.S8.SAT R122, R195.ROW, R209.reuse.COL, R122 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c10, A_r7_k3.ROW, B_c5_k1.reuse.COL, C_r7_c10
+      IMMA.8816.S8.S8.SAT R106, R193.ROW, R209.reuse.COL, R106 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c10, A_r6_k3.ROW, B_c5_k1.reuse.COL, C_r6_c10
+      IMMA.8816.S8.S8.SAT R90, R191.ROW, R209.reuse.COL, R90 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c10, A_r5_k3.ROW, B_c5_k1.reuse.COL, C_r5_c10
+      IMMA.8816.S8.S8.SAT R74, R189.ROW, R209.reuse.COL, R74 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c10, A_r4_k3.ROW, B_c5_k1.reuse.COL, C_r4_c10
+      IMMA.8816.S8.S8.SAT R58, R187.ROW, R209.reuse.COL, R58 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c10, A_r3_k3.ROW, B_c5_k1.reuse.COL, C_r3_c10
+      IMMA.8816.S8.S8.SAT R42, R185.ROW, R209.reuse.COL, R42 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c10, A_r2_k3.ROW, B_c5_k1.reuse.COL, C_r2_c10
+      IMMA.8816.S8.S8.SAT R26, R183.ROW, R209.reuse.COL, R26 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c10, A_r1_k3.ROW, B_c5_k1.reuse.COL, C_r1_c10
+      IMMA.8816.S8.S8.SAT R10, R181.reuse.ROW, R209.COL, R10 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c10, A_r0_k3.reuse.ROW, B_c5_k1.COL, C_r0_c10
+      IMMA.8816.S8.S8.SAT R12, R181.ROW, R210.reuse.COL, R12 ?W4; // IMMA.8816.S8.S8.SAT C_r0_c12, A_r0_k3.ROW, B_c6_k1.reuse.COL, C_r0_c12
+      IMMA.8816.S8.S8.SAT R28, R183.ROW, R210.reuse.COL, R28 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c12, A_r1_k3.ROW, B_c6_k1.reuse.COL, C_r1_c12
+      IMMA.8816.S8.S8.SAT R44, R185.ROW, R210.reuse.COL, R44 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c12, A_r2_k3.ROW, B_c6_k1.reuse.COL, C_r2_c12
+      IMMA.8816.S8.S8.SAT R60, R187.ROW, R210.reuse.COL, R60 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c12, A_r3_k3.ROW, B_c6_k1.reuse.COL, C_r3_c12
+      IMMA.8816.S8.S8.SAT R76, R189.ROW, R210.reuse.COL, R76 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c12, A_r4_k3.ROW, B_c6_k1.reuse.COL, C_r4_c12
+      IMMA.8816.S8.S8.SAT R92, R191.ROW, R210.reuse.COL, R92 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c12, A_r5_k3.ROW, B_c6_k1.reuse.COL, C_r5_c12
+      IMMA.8816.S8.S8.SAT R108, R193.ROW, R210.reuse.COL, R108 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c12, A_r6_k3.ROW, B_c6_k1.reuse.COL, C_r6_c12
+      IMMA.8816.S8.S8.SAT R124, R195.reuse.ROW, R210.COL, R124 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c12, A_r7_k3.reuse.ROW, B_c6_k1.COL, C_r7_c12
+      IMMA.8816.S8.S8.SAT R126, R195.ROW, R211.reuse.COL, R126 ?W4; // IMMA.8816.S8.S8.SAT C_r7_c14, A_r7_k3.ROW, B_c7_k1.reuse.COL, C_r7_c14
+      IMMA.8816.S8.S8.SAT R110, R193.ROW, R211.reuse.COL, R110 ?W4; // IMMA.8816.S8.S8.SAT C_r6_c14, A_r6_k3.ROW, B_c7_k1.reuse.COL, C_r6_c14
+      IMMA.8816.S8.S8.SAT R94, R191.ROW, R211.reuse.COL, R94 ?W4; // IMMA.8816.S8.S8.SAT C_r5_c14, A_r5_k3.ROW, B_c7_k1.reuse.COL, C_r5_c14
+      IMMA.8816.S8.S8.SAT R78, R189.ROW, R211.reuse.COL, R78 ?W4; // IMMA.8816.S8.S8.SAT C_r4_c14, A_r4_k3.ROW, B_c7_k1.reuse.COL, C_r4_c14
+      IMMA.8816.S8.S8.SAT R62, R187.ROW, R211.reuse.COL, R62 ?W4; // IMMA.8816.S8.S8.SAT C_r3_c14, A_r3_k3.ROW, B_c7_k1.reuse.COL, C_r3_c14
+      IMMA.8816.S8.S8.SAT R46, R185.ROW, R211.reuse.COL, R46 ?W4; // IMMA.8816.S8.S8.SAT C_r2_c14, A_r2_k3.ROW, B_c7_k1.reuse.COL, C_r2_c14
+      IMMA.8816.S8.S8.SAT R30, R183.ROW, R211.reuse.COL, R30 ?W4; // IMMA.8816.S8.S8.SAT C_r1_c14, A_r1_k3.ROW, B_c7_k1.reuse.COL, C_r1_c14
+      IMMA.8816.S8.S8.SAT R14, R181.ROW, R211.COL, R14 &wr=4 ?W1EG; // IMMA.8816.S8.S8.SAT C_r0_c14, A_r0_k3.ROW, B_c7_k1.COL, C_r0_c14
+(P0)  BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_LOOP ?W5; // @P0 BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_LOOP
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_OF_LOOP:
+      ISETP.GT P0, R162, -2 ?W12EG;                          // ISETP.GT P0, counterK, -2
+(!P0) BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_EPILOG ?W5; // @!P0 BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_EPILOG
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_K_RESIDUE:
+      S2R R128, SR_Tid.X &req=5 &wr=4 ?W2;                   // S2R tidx, SR_Tid.X
+      SHR.U32 R129, R128, 8 &req=4 ?W4;                      // SHR.U32 id, swizTidx, 8
+      IADD R130, R129, -R162 ?W4;                            // IADD diffCrosswise, id, -counterK
+      ISETP.LT.AND P0, PT, R130, 0, PT ?W12EG;               // ISETP.LT.AND P0, PT, diffCrosswise, 0, PT
+(!P0) LOP32I.AND R161, R161, 0xffffffe7 ?W4;                 // @!P0 LOP32I.AND predStorage0, predStorage0, 0xffffffe7
+      ISETP.LT.AND P0, PT, R130, -1, PT ?W12EG;              // ISETP.LT.AND P0, PT, diffCrosswise, -1, PT
+(!P0) LOP32I.AND R161, R161, 0xffffff9f ?W4;                 // @!P0 LOP32I.AND predStorage0, predStorage0, 0xffffff9f
+      SHR.U32 R129, R128, 8 &req=4 ?W4;                      // SHR.U32 id, swizTidx, 8
+      IADD R130, R129, -R162 ?W4;                            // IADD diffCrosswise, id, -counterK
+      ISETP.LT.AND P0, PT, R130, 0, PT ?W12EG;               // ISETP.LT.AND P0, PT, diffCrosswise, 0, PT
+(!P0) LOP32I.AND R161, R161, 0xfffff7ff ?W4;                 // @!P0 LOP32I.AND predStorage0, predStorage0, 0xfffff7ff
+      ISETP.LT.AND P0, PT, R130, -1, PT ?W12EG;              // ISETP.LT.AND P0, PT, diffCrosswise, -1, PT
+(!P0) LOP32I.AND R161, R161, 0xffffefff ?W4;                 // @!P0 LOP32I.AND predStorage0, predStorage0, 0xffffefff
+      MOV R128, RZ ?W2;                                      // MOV fetchRegA0, RZ
+      MOV R129, RZ ?W2;                                      // MOV fetchRegA1, RZ
+      MOV R130, RZ ?W2;                                      // MOV fetchRegA2, RZ
+      MOV R131, RZ ?W2;                                      // MOV fetchRegA3, RZ
+      MOV R132, RZ ?W2;                                      // MOV fetchRegA4, RZ
+      MOV R133, RZ ?W2;                                      // MOV fetchRegA5, RZ
+      MOV R134, RZ ?W2;                                      // MOV fetchRegA6, RZ
+      MOV R135, RZ ?W2;                                      // MOV fetchRegA7, RZ
+      MOV R136, RZ ?W2;                                      // MOV fetchRegA8, RZ
+      MOV R137, RZ ?W2;                                      // MOV fetchRegA9, RZ
+      MOV R138, RZ ?W2;                                      // MOV fetchRegA10, RZ
+      MOV R139, RZ ?W2;                                      // MOV fetchRegA11, RZ
+      MOV R140, RZ ?W2;                                      // MOV fetchRegA12, RZ
+      MOV R141, RZ ?W2;                                      // MOV fetchRegA13, RZ
+      MOV R142, RZ ?W2;                                      // MOV fetchRegA14, RZ
+      MOV R143, RZ ?W2;                                      // MOV fetchRegA15, RZ
+      MOV R148, RZ ?W2;                                      // MOV fetchRegB0, RZ
+      MOV R149, RZ ?W2;                                      // MOV fetchRegB1, RZ
+      MOV R150, RZ ?W2;                                      // MOV fetchRegB2, RZ
+      MOV R151, RZ ?W2;                                      // MOV fetchRegB3, RZ
+      MOV R152, RZ ?W2;                                      // MOV fetchRegB4, RZ
+      MOV R153, RZ ?W2;                                      // MOV fetchRegB5, RZ
+      MOV R154, RZ ?W2;                                      // MOV fetchRegB6, RZ
+      MOV R155, RZ ?W2;                                      // MOV fetchRegB7, RZ
+      BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_LOOP ?W5; // BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_LOOP
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_EPILOG:
+      MOV R138, c[0][0x1d4] &req={0,1,2,3,4,5} ?W2;          // MOV mode, Mode
+      S2R R130, SR_Tid.x &wr=4 ?W2;                          // S2R tid, SR_Tid.x
+      S2R R131, SR_CTAid.x &wr=4 ?W2;                        // S2R ctaRow, SR_CTAid.x
+      S2R R132, SR_CTAid.y &wr=4 ?W2;                        // S2R ctaCol, SR_CTAid.y
+      S2R R133, SR_CTAid.z &wr=4 ?W2;                        // S2R batchIdx, SR_CTAid.z
+      PSETP.AND P0, PT, PT ?W2;                              // PSETP.AND P0, PT, PT
+      LOP.AND  R140, R138, 0xf00 ?W2;                        // LOP.AND log2GroupCols, mode, 0xf00
+      LOP.AND  P5, RZ, R138, 0x1000 ?W2;                     // LOP.AND P5, RZ, mode, 0x1000
+      SHR.U32  R140, R140, 8 ?W4;                            // SHR.U32 log2GroupCols, log2GroupCols, 8
+      BMSK     R141, R140, 1 ?W2;                            // BMSK groupCols, log2GroupCols, 1
+      BMSK     R144, RZ, R140 ?W2;                           // BMSK mask, RZ, log2GroupCols
+      PSETP.AND P4, !PT, !PT ?W2;                            // PSETP.AND P4, !PT, !PT
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_epilog_cta_swizzle_loop:
+      LOP.OR   R145, R132, R144 &req=4 ?W2;                  // LOP.OR testCol, ctaCol, mask
+      ISETP.EQ P3, R144, 3 ?W2;                              // ISETP.EQ P3, mask, 3
+      ISETP.LT P2, R145, c[0x0][0x010] ?W2;                  // ISETP.LT P2, testCol, GridDimY
+      LOP.AND  R146,  R132.reuse,  R144.reuse ?W2;           // LOP.AND colMod, ctaCol.reuse, mask.reuse
+      LOP.AND  R149,  R132,        R141 ?W2;                 // LOP.AND colBit, ctaCol, groupCols
+      ISETP.EQ.AND P3, PT, R145, c[0x0][0x010], P3 ?W2;      // ISETP.EQ.AND P3, PT, testCol, GridDimY, P3
+      LOP.AND  R147, R132.reuse, ~R144 ?W1;                  // LOP.AND colBase, ctaCol.reuse, ~mask
+      IMAD.U32 R148, R146, c[0x0][0x00c], R131 &req=4 ?W1;   // IMAD.U32 linear, colMod, GridDimX, ctaRow
+(P5)  ISETP.EQ.XOR P4, PT, R149, R141, P4 ?W2;               // @P5 ISETP.EQ.XOR P4, PT, colBit, groupCols, P4
+      SHR.U32 R141, R141, 1 ?W2;                             // SHR.U32 groupCols, groupCols, 1
+(P2)  BRA volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_epilog_cta_swizzle_group_col_pow2 ?W5; // @P2 BRA volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_epilog_cta_swizzle_group_col_pow2
+(!P3) SHR.U32  R144, R144, 1 ?W2;                            // @!P3 SHR.U32 mask, mask, 1
+(!P3) IADD     R140, R140, -1 ?W2;                           // @!P3 IADD log2GroupCols, log2GroupCols, -1
+(!P3) BRA volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_epilog_cta_swizzle_loop ?W5; // @!P3 BRA volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_epilog_cta_swizzle_loop
+      IMUL.WIDE.U32 R150, R148, 0x55555556 ?W1;              // IMUL.WIDE.U32 swizRow64, linear, 0x55555556
+      IADD  R132, R147, R148 ?W5;                            // IADD ctaCol, colBase, linear
+      IMAD.U32 R132, R151, -3, R132 ?W1;                     // IMAD.U32 ctaCol, swizRow, -3, ctaCol
+(!P4) MOV R131, R151 ?W2;                                    // @!P4 MOV ctaRow, swizRow
+(P4)  IADD.X R131, ~R151, c[0x0][0x00c], !PT ?W2;            // @P4 IADD.X ctaRow, ~swizRow, GridDimX, !PT
+      BRA volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_epilog_cta_swizzle_done ?W5; // BRA volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_epilog_cta_swizzle_done
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_epilog_cta_swizzle_group_col_pow2:
+      SHR.U32 R131, R148, R140 ?W2;                          // SHR.U32 ctaRow, linear, log2GroupCols
+      LOP3.LUT  R132, R147, R148, R144, 0xf8 ?W2;            // LOP3.LUT ctaCol, colBase, linear, mask, B_AND_C__OR_A ?WiT
+(P4)  IADD.X R131, ~R131, c[0x0][0x00c], !PT ?W4;            // @P4 IADD.X ctaRow, ~ctaRow, GridDimX, !PT
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_epilog_cta_swizzle_done:
+      SHR R140, R130, 5 ?W2;                                 // SHR intraWarpRow, tid, 5
+      SHR R141, R130, 7 &req=4 ?W2;                          // SHR intraWarpCol, tid, 7
+      LOP.AND R140, R140, 0x3 ?W2;                           // LOP.AND intraWarpRow, intraWarpRow, 0x3
+      MOV  R145, RZ ?W2;                                     // MOV row_HI, RZ
+      LOP.AND R147, R130, 0x1f ?W5;                          // LOP.AND laneid, tid, 0x1f
+      IMAD.LO.U32  R144, R147, 8, RZ ?W5;                    // IMAD.LO.U32 row, laneid, 8, RZ
+      IMAD.LO.U32  R144, R131, 8192, R144 ?W5;               // IMAD.LO.U32 row, ctaRow, 8192, row
+      IMAD.LO.U32  R144, R140, 2048, R144 ?W5;               // IMAD.LO.U32 row, intraWarpRow, 2048, row
+      IMAD.LO.U32  R146, R132, 4, RZ ?W5;                    // IMAD.LO.U32 col, ctaCol, 4, RZ
+      IMAD.LO.U32  R146, R141, 2, R146 ?W5;                  // IMAD.LO.U32 col, intraWarpCol, 2, col
+      IMAD.WIDE.U32 R148, R146, c[0][0x1b8], R144 ?W5;       // IMAD.WIDE.U32 readPtrMul, col, StrideC, row
+      LOP.AND P6, R152, R138, 3 ?W12EG;                      // LOP.AND P6, scratch1, mode, 3
+(!P6) BRA.U   volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALC1_EPILOG ?W5; // @!P6 BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALC1_EPILOG
+      ISETP.EQ P3,    R152, 2 ?W12EG;                        // ISETP.EQ P3, scratch1, 2
+(P3)  LEA.LO   R136, P4, R133.reuse, c[0][0x170], 3 &req=4 ?W4; // @P3 LEA.LO writePtr, P4, batchIdx.reuse, BaseC, 3
+(P3)  LEA.HI.X R137, R133, c[0][0x174], RZ, 3, P4 ?W8;       // @P3 LEA.HI.X writePtr_HI, batchIdx, BaseC_HI, RZ, 3, P4
+(P3)  LDG.E.EN.64.CONSTANT.GPU R150, [R136 + 0x00] &wr=2 ?W2; // @P3 LDG.E.EN.64.CONSTANT.GPU batchPtrMul, [writePtr + 0x00]
+(P3)  LEA.LO   R136, P4, R148.reuse, R150, 0 &req=2 ?W4;     // @P3 LEA.LO writePtr, P4, readPtrMul.reuse, batchPtrMul, 0
+(P3)  LEA.HI.X R137, R148, R151, R149, 0, P4 ?W2;            // @P3 LEA.HI.X writePtr_HI, readPtrMul, batchPtrMul_HI, readPtrMul_HI, 0, P4
+(!P3) LEA.LO   R136, P4, R148.reuse, c[0][0x170], 0 ?W4;     // @!P3 LEA.LO writePtr, P4, readPtrMul.reuse, BaseC, 0
+(!P3) LEA.HI.X R137, R148, c[0][0x174], R149, 0, P4 ?W2;     // @!P3 LEA.HI.X writePtr_HI, readPtrMul, BaseC_HI, readPtrMul_HI, 0, P4
+(!P3) IMAD.WIDE.U32 R150,    R133, c[0][0x1a8],    RZ &req=4 ?W4; // @!P3 IMAD.WIDE.U32 batchPtrMul, batchIdx, MatrixStrideC, RZ
+(!P3) IMAD.LO.U32   R151, R133, c[0][0x1ac], R151 ?W2;       // @!P3 IMAD.LO.U32 batchPtrMul_HI, batchIdx, MatrixStrideC_HI, batchPtrMul_HI
+(!P3) LEA.LO   R136, P4, R150.reuse, R136, 0 ?W4;            // @!P3 LEA.LO writePtr, P4, batchPtrMul.reuse, writePtr, 0
+(!P3) LEA.HI.X R137, R150, R137, R149, 0, P4 ?W2;            // @!P3 LEA.HI.X writePtr_HI, batchPtrMul, writePtr_HI, readPtrMul_HI, 0, P4
+      BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_SYNC1_EPILOG ?W5; // BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_SYNC1_EPILOG
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALC1_EPILOG:
+      LEA.LO   R136, P4, R148.reuse, c[0][0x170], 0 ?W4;     // LEA.LO writePtr, P4, readPtrMul.reuse, BaseC, 0
+      LEA.HI.X R137, R148, c[0][0x174], R149, 0, P4 ?W8;     // LEA.HI.X writePtr_HI, readPtrMul, BaseC_HI, readPtrMul_HI, 0, P4
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_SYNC1_EPILOG:
+      MOV  R134,    c[0][0x170] ?W2;                         // MOV readPtr, BaseC
+      MOV  R135, c[0][0x174] ?W2;                            // MOV readPtr_HI, BaseC_HI
+      ISETP.EQ      P4, R134, c[0][0x208] ?W12EG;            // ISETP.EQ P4, readPtr, BaseD
+      ISETP.EQ.AND  P4, PT, R135, c[0][0x20c], P4 ?W12EG;    // ISETP.EQ.AND P4, PT, readPtr_HI, BaseD_HI, P4
+(!P4) BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_BASED_NEQ_BASEC_CALC_EPILOG ?W5; // @!P4 BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_BASED_NEQ_BASEC_CALC_EPILOG
+      MOV       R134, R136 &req=3 ?W2;                       // MOV readPtr, writePtr
+      MOV       R135, R137 ?W2;                              // MOV readPtr_HI, writePtr_HI
+      BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BASEC_CALC_EPILOG ?W5; // BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BASEC_CALC_EPILOG
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_BASED_NEQ_BASEC_CALC_EPILOG:
+      LOP.AND P6, R152, R138, 3 ?W12EG;                      // LOP.AND P6, scratch1, mode, 3
+(!P6) BRA.U   volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALC0_EPILOG ?W5; // @!P6 BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALC0_EPILOG
+      ISETP.EQ P3,    R152, 2 ?W12EG;                        // ISETP.EQ P3, scratch1, 2
+(P3)  LEA.LO   R134, P4, R133.reuse, c[0][0x208], 3 &req=4 ?W4; // @P3 LEA.LO readPtr, P4, batchIdx.reuse, BaseD, 3
+(P3)  LEA.HI.X R135, R133, c[0][0x20c], RZ, 3, P4 ?W8;       // @P3 LEA.HI.X readPtr_HI, batchIdx, BaseD_HI, RZ, 3, P4
+(P3)  LDG.E.EN.64.CONSTANT.GPU R150, [R134 + 0x00] &wr=2 ?W2; // @P3 LDG.E.EN.64.CONSTANT.GPU batchPtrMul, [readPtr + 0x00]
+(P3)  LEA.LO   R134, P4, R148.reuse, R150, 0 &req=2 ?W4;     // @P3 LEA.LO readPtr, P4, readPtrMul.reuse, batchPtrMul, 0
+(P3)  LEA.HI.X R135, R148, R151, R149, 0, P4 ?W2;            // @P3 LEA.HI.X readPtr_HI, readPtrMul, batchPtrMul_HI, readPtrMul_HI, 0, P4
+(!P3) LEA.LO   R134, P4, R148.reuse, c[0][0x208], 0 ?W4;     // @!P3 LEA.LO readPtr, P4, readPtrMul.reuse, BaseD, 0
+(!P3) LEA.HI.X R135, R148, c[0][0x20c], R149, 0, P4 ?W2;     // @!P3 LEA.HI.X readPtr_HI, readPtrMul, BaseD_HI, readPtrMul_HI, 0, P4
+(!P3) IMAD.WIDE.U32 R150,    R133, c[0][0x1a8],    RZ &req=4 ?W4; // @!P3 IMAD.WIDE.U32 batchPtrMul, batchIdx, MatrixStrideC, RZ
+(!P3) IMAD.LO.U32   R151, R133, c[0][0x1ac], R151 ?W2;       // @!P3 IMAD.LO.U32 batchPtrMul_HI, batchIdx, MatrixStrideC_HI, batchPtrMul_HI
+(!P3) LEA.LO   R134, P4, R150.reuse, R134, 0 ?W4;            // @!P3 LEA.LO readPtr, P4, batchPtrMul.reuse, readPtr, 0
+(!P3) LEA.HI.X R135, R150, R135, R149, 0, P4 ?W2;            // @!P3 LEA.HI.X readPtr_HI, batchPtrMul, readPtr_HI, readPtrMul_HI, 0, P4
+      BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_SYNC0_EPILOG ?W5; // BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_SYNC0_EPILOG
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_CALC0_EPILOG:
+      LEA.LO   R134, P4, R148.reuse, c[0][0x208], 0 ?W4;     // LEA.LO readPtr, P4, readPtrMul.reuse, BaseD, 0
+      LEA.HI.X R135, R148, c[0][0x20c], R149, 0, P4 ?W8;     // LEA.HI.X readPtr_HI, readPtrMul, BaseD_HI, readPtrMul_HI, 0, P4
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BATCH_PTR_SYNC0_EPILOG:
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END_BASEC_CALC_EPILOG:
+      LOP.AND R133, R130, 0x1f ?W4;                          // LOP.AND laneid, tid, 0x1f
+      SHR R144, R133, 2 ?W5;                                 // SHR row, laneid, 2
+      IMAD.LO.U32  R144, R140, 64, R144 ?W5;                 // IMAD.LO.U32 row, intraWarpRow, 64, row
+      IMAD.LO.U32  R144, R131, 256, R144 ?W5;                // IMAD.LO.U32 row, ctaRow, 256, row
+      IADD R144,R144,-c[0][0x1bc] ?W2;                       // IADD row,row,-CountM
+      IMAD.LO.U32  R225, R132, 128, RZ ?W5;                  // IMAD.LO.U32 col, ctaCol, 128, RZ
+      IMAD.LO.U32  R225, R141, 64, R225 ?W5;                 // IMAD.LO.U32 col, intraWarpCol, 64, col
+      ISETP.LT P2, R225, c[0][0x1c0] ?W4;                    // ISETP.LT P2, col, CountN
+      ISETP.LT.AND P3, PT, R144, 0, P2 ?W2;                  // ISETP.LT.AND P3, PT, row, 0, P2
+      ISETP.LT.AND P4, PT, R144, -8, P2 ?W2;                 // ISETP.LT.AND P4, PT, row, -8, P2
+      ISETP.LT.AND P5, PT, R144, -16, P2 ?W2;                // ISETP.LT.AND P5, PT, row, -16, P2
+      ISETP.LT.AND P6, PT, R144, -24, P2 ?W4;                // ISETP.LT.AND P6, PT, row, -24, P2
+      P2R.B0 R139, PR, RZ, 0x78 ?W2;                         // P2R.B0 readPreds, PR, RZ, 0x78
+      ISETP.LT.AND P3, PT, R144, -32, P2 ?W2;                // ISETP.LT.AND P3, PT, row, -32, P2
+      ISETP.LT.AND P4, PT, R144, -40, P2 ?W2;                // ISETP.LT.AND P4, PT, row, -40, P2
+      ISETP.LT.AND P5, PT, R144, -48, P2 ?W2;                // ISETP.LT.AND P5, PT, row, -48, P2
+      ISETP.LT.AND P6, PT, R144, -56, P2 ?W4;                // ISETP.LT.AND P6, PT, row, -56, P2
+      P2R.B1 R139, PR, R139, 0x78 ?W2;                       // P2R.B1 readPreds, PR, readPreds, 0x78
+      ISETP.NE P0, RZ, c[0][0x1f0] ?W4;                      // ISETP.NE P0, RZ, AbByRef
+      FSETP.NE.AND P0, PT, RZ, c[0][0x1ec], P0 ?W2;          // FSETP.NE.AND P0, PT, RZ, BetaVal, P0
+      MOV R226, c[0][0x1ec] ?W2;                             // MOV beta0, BetaVal
+      MOV R227, c[0][0x1ec] ?W2;                             // MOV beta1, BetaVal
+      MOV R228, c[0][0x1ec] ?W2;                             // MOV beta2, BetaVal
+      MOV R229, c[0][0x1ec] ?W2;                             // MOV beta3, BetaVal
+      MOV R230, c[0][0x1ec] ?W2;                             // MOV beta4, BetaVal
+      MOV R231, c[0][0x1ec] ?W2;                             // MOV beta5, BetaVal
+      MOV R232, c[0][0x1ec] ?W2;                             // MOV beta6, BetaVal
+      MOV R233, c[0][0x1ec] ?W2;                             // MOV beta7, BetaVal
+(!P0) BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_LOAD_BETA_END ?W5; // @!P0 BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_LOAD_BETA_END
+      SHR R236, R133, 0x2 ?W6;                               // SHR tmp0, laneid, 0x2
+      IMAD R236, R140, 64, R236 ?W6;                         // IMAD tmp0, intraWarpRow, 64, tmp0
+      LEA R236, R131, R236, 8 ?W4;                           // LEA tmp0, ctaRow, tmp0, 8
+      LEA.LO   R234, P2, R236.reuse, c[0][0x1e0], 2 ?W4;     // LEA.LO betaPtr, predCarry, tmp0.reuse, BetaRef, 2
+      LEA.HI.X R235, R236, c[0][0x1e4], RZ, 2, P2 ?W8;       // LEA.HI.X betaPtr_HI, tmp0, BetaRef_HI, RZ, 2, predCarry
+      R2P PR, R139.B0, 0x78 ?W12EG;                          // R2P PR, readPreds.B0, 0x78
+(P3)  LDG.E.EN.32.CONSTANT.GPU R226, [R234 + 0] &req=3  &wr=2 ?W2; // @P3 LDG.E.EN.32.CONSTANT.GPU beta0, [betaPtr + 0]
+(P4)  LDG.E.EN.32.CONSTANT.GPU R227, [R234 + 32] &wr=2 ?W2;  // @P4 LDG.E.EN.32.CONSTANT.GPU beta1, [betaPtr + 32]
+(P5)  LDG.E.EN.32.CONSTANT.GPU R228, [R234 + 64] &wr=2 ?W2;  // @P5 LDG.E.EN.32.CONSTANT.GPU beta2, [betaPtr + 64]
+(P6)  LDG.E.EN.32.CONSTANT.GPU R229, [R234 + 96] &wr=2 ?W2;  // @P6 LDG.E.EN.32.CONSTANT.GPU beta3, [betaPtr + 96]
+      R2P PR, R139.B1, 0x78 ?W12EG;                          // R2P PR, readPreds.B1, 0x78
+(P3)  LDG.E.EN.32.CONSTANT.GPU R230, [R234 + 128] &wr=2 ?W2; // @P3 LDG.E.EN.32.CONSTANT.GPU beta4, [betaPtr + 128]
+(P4)  LDG.E.EN.32.CONSTANT.GPU R231, [R234 + 160] &wr=2 ?W2; // @P4 LDG.E.EN.32.CONSTANT.GPU beta5, [betaPtr + 160]
+(P5)  LDG.E.EN.32.CONSTANT.GPU R232, [R234 + 192] &wr=2 ?W2; // @P5 LDG.E.EN.32.CONSTANT.GPU beta6, [betaPtr + 192]
+(P6)  LDG.E.EN.32.CONSTANT.GPU R233, [R234 + 224] &rd=3 &wr=2 ?W2; // @P6 LDG.E.EN.32.CONSTANT.GPU beta7, [betaPtr + 224]
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_LOAD_BETA_END:
+      FSETP.NE P1, RZ, c[0][0x1ec] ?W12EG;                   // FSETP.NE P1, RZ, BetaVal
+(!P1) BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_STORE_COL_LOOP_START ?W5; // @!P1 BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_STORE_COL_LOOP_START
+      R2P PR, R139.B0, 0x78 ?W12EG;                          // R2P PR, readPreds.B0, 0x78
+(P3)  LDG.E.EN.64.STRONG.GPU R146, [R134 + 0] &rd=3 &wr=2 ?W2; // @P3 LDG.E.EN.64.STRONG.GPU fetchRegC0, [readPtr + 0]
+(!P3) CS2R R146, SRZ ?W2;                                    // @!P3 CS2R fetchRegC0, SRZ
+(P4)  LDG.E.EN.64.STRONG.GPU R148, [R134 + 256] &rd=3 &wr=2 ?W2; // @P4 LDG.E.EN.64.STRONG.GPU fetchRegC2, [readPtr + 256]
+(!P4) CS2R R148, SRZ ?W2;                                    // @!P4 CS2R fetchRegC2, SRZ
+(P5)  LDG.E.EN.64.STRONG.GPU R150, [R134 + 512] &rd=3 &wr=2 ?W2; // @P5 LDG.E.EN.64.STRONG.GPU fetchRegC4, [readPtr + 512]
+(!P5) CS2R R150, SRZ ?W2;                                    // @!P5 CS2R fetchRegC4, SRZ
+(P6)  LDG.E.EN.64.STRONG.GPU R152, [R134 + 768] &rd=3 &wr=2 ?W2; // @P6 LDG.E.EN.64.STRONG.GPU fetchRegC6, [readPtr + 768]
+(!P6) CS2R R152, SRZ ?W2;                                    // @!P6 CS2R fetchRegC6, SRZ
+      R2P PR, R139.B1, 0x78 ?W12EG;                          // R2P PR, readPreds.B1, 0x78
+(P3)  LDG.E.EN.64.STRONG.GPU R154, [R134 + 1024] &rd=3 &wr=2 ?W2; // @P3 LDG.E.EN.64.STRONG.GPU fetchRegC8, [readPtr + 1024]
+(!P3) CS2R R154, SRZ ?W2;                                    // @!P3 CS2R fetchRegC8, SRZ
+(P4)  LDG.E.EN.64.STRONG.GPU R156, [R134 + 1280] &rd=3 &wr=2 ?W2; // @P4 LDG.E.EN.64.STRONG.GPU fetchRegC10, [readPtr + 1280]
+(!P4) CS2R R156, SRZ ?W2;                                    // @!P4 CS2R fetchRegC10, SRZ
+(P5)  LDG.E.EN.64.STRONG.GPU R158, [R134 + 1536] &rd=3 &wr=2 ?W2; // @P5 LDG.E.EN.64.STRONG.GPU fetchRegC12, [readPtr + 1536]
+(!P5) CS2R R158, SRZ ?W2;                                    // @!P5 CS2R fetchRegC12, SRZ
+(P6)  LDG.E.EN.64.STRONG.GPU R160, [R134 + 1792] &rd=3 &wr=2 ?W2; // @P6 LDG.E.EN.64.STRONG.GPU fetchRegC14, [readPtr + 1792]
+(!P6) CS2R R160, SRZ ?W2;                                    // @!P6 CS2R fetchRegC14, SRZ
+      MOV R234, c[0][0x1bc] &req=3 ?W6;                      // MOV M, CountM
+      IMAD.WIDE.U32 R134, R234, 32, R134 ?W5;                // IMAD.WIDE.U32 readPtr, M, 32, readPtr
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_STORE_COL_LOOP_START:
+      ISETP.NE P0, RZ, c[0][0x1f0] &req=3 ?W2;               // ISETP.NE P0, RZ, AbByRef
+      MOV R142, c[0][0x1e8] ?W2;                             // MOV alpha0, AlphaVal
+      MOV R143, c[0][0x1e8] ?W2;                             // MOV alpha1, AlphaVal
+      MOV R234, c[0][0x1e8] ?W2;                             // MOV alpha2, AlphaVal
+      MOV R235, c[0][0x1e8] ?W2;                             // MOV alpha3, AlphaVal
+      MOV R236, c[0][0x1e8] ?W2;                             // MOV alpha4, AlphaVal
+      MOV R237, c[0][0x1e8] ?W2;                             // MOV alpha5, AlphaVal
+      MOV R238, c[0][0x1e8] ?W2;                             // MOV alpha6, AlphaVal
+      MOV R239, c[0][0x1e8] ?W2;                             // MOV alpha7, AlphaVal
+(!P0) BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_LOAD_ALPHA_END ?W5; // @!P0 BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_LOAD_ALPHA_END
+      SHR R242, R133, 0x2 ?W6;                               // SHR tmp0, laneid, 0x2
+      IMAD R242, R140, 64, R242 ?W6;                         // IMAD tmp0, intraWarpRow, 64, tmp0
+      LEA R242, R131, R242, 8 ?W4;                           // LEA tmp0, ctaRow, tmp0, 8
+      LEA.LO   R240, P2, R242.reuse, c[0][0x1d8], 2 ?W4;     // LEA.LO alphaPtr, predCarry, tmp0.reuse, AlphaRef, 2
+      LEA.HI.X R241, R242, c[0][0x1dc], RZ, 2, P2 ?W8;       // LEA.HI.X alphaPtr_HI, tmp0, AlphaRef_HI, RZ, 2, predCarry
+      R2P PR, R139.B0, 0x78 ?W12EG;                          // R2P PR, readPreds.B0, 0x78
+(P3)  LDG.E.EN.32.CONSTANT.GPU R142, [R240 + 0] &req=3  &wr=2 ?W2; // @P3 LDG.E.EN.32.CONSTANT.GPU alpha0, [alphaPtr + 0]
+(P4)  LDG.E.EN.32.CONSTANT.GPU R143, [R240 + 32] &wr=2 ?W2;  // @P4 LDG.E.EN.32.CONSTANT.GPU alpha1, [alphaPtr + 32]
+(P5)  LDG.E.EN.32.CONSTANT.GPU R234, [R240 + 64] &wr=2 ?W2;  // @P5 LDG.E.EN.32.CONSTANT.GPU alpha2, [alphaPtr + 64]
+(P6)  LDG.E.EN.32.CONSTANT.GPU R235, [R240 + 96] &wr=2 ?W2;  // @P6 LDG.E.EN.32.CONSTANT.GPU alpha3, [alphaPtr + 96]
+      R2P PR, R139.B1, 0x78 ?W12EG;                          // R2P PR, readPreds.B1, 0x78
+(P3)  LDG.E.EN.32.CONSTANT.GPU R236, [R240 + 128] &wr=2 ?W2; // @P3 LDG.E.EN.32.CONSTANT.GPU alpha4, [alphaPtr + 128]
+(P4)  LDG.E.EN.32.CONSTANT.GPU R237, [R240 + 160] &wr=2 ?W2; // @P4 LDG.E.EN.32.CONSTANT.GPU alpha5, [alphaPtr + 160]
+(P5)  LDG.E.EN.32.CONSTANT.GPU R238, [R240 + 192] &wr=2 ?W2; // @P5 LDG.E.EN.32.CONSTANT.GPU alpha6, [alphaPtr + 192]
+(P6)  LDG.E.EN.32.CONSTANT.GPU R239, [R240 + 224] &rd=3 &wr=2 ?W2; // @P6 LDG.E.EN.32.CONSTANT.GPU alpha7, [alphaPtr + 224]
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_LOAD_ALPHA_END:
+      ISETP.NE P0, RZ, c[0][0x1f8] &req=3 ?W4;               // ISETP.NE P0, RZ, WithBias
+      CS2R.64 R240, SRZ ?W2;                                 // CS2R.64 bias0, SRZ
+      CS2R.64 R242, SRZ ?W2;                                 // CS2R.64 bias2, SRZ
+      CS2R.64 R244, SRZ ?W2;                                 // CS2R.64 bias4, SRZ
+      CS2R.64 R246, SRZ ?W2;                                 // CS2R.64 bias6, SRZ
+(!P0) BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_LOAD_BIAS_END ?W5; // @!P0 BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_LOAD_BIAS_END
+      SHR R250, R133, 0x2 ?W6;                               // SHR tmp0, laneid, 0x2
+      IMAD R250, R140, 64, R250 ?W6;                         // IMAD tmp0, intraWarpRow, 64, tmp0
+      LEA R250, R131, R250, 8 ?W4;                           // LEA tmp0, ctaRow, tmp0, 8
+      LEA.LO   R248, P2, R250.reuse, c[0][0x200], 2 ?W4;     // LEA.LO biasPtr, predCarry, tmp0.reuse, BiasPtr, 2
+      LEA.HI.X R249, R250, c[0][0x204], RZ, 2, P2 ?W8;       // LEA.HI.X biasPtr_HI, tmp0, BiasPtr_HI, RZ, 2, predCarry
+      R2P PR, R139.B0, 0x78 ?W12EG;                          // R2P PR, readPreds.B0, 0x78
+(P3)  LDG.E.EN.32.CONSTANT.GPU R240, [R248 + 0] &req=3  &wr=2 ?W2; // @P3 LDG.E.EN.32.CONSTANT.GPU bias0, [biasPtr + 0]
+(P4)  LDG.E.EN.32.CONSTANT.GPU R241, [R248 + 32] &wr=2 ?W2;  // @P4 LDG.E.EN.32.CONSTANT.GPU bias1, [biasPtr + 32]
+(P5)  LDG.E.EN.32.CONSTANT.GPU R242, [R248 + 64] &wr=2 ?W2;  // @P5 LDG.E.EN.32.CONSTANT.GPU bias2, [biasPtr + 64]
+(P6)  LDG.E.EN.32.CONSTANT.GPU R243, [R248 + 96] &wr=2 ?W2;  // @P6 LDG.E.EN.32.CONSTANT.GPU bias3, [biasPtr + 96]
+      R2P PR, R139.B1, 0x78 ?W12EG;                          // R2P PR, readPreds.B1, 0x78
+(P3)  LDG.E.EN.32.CONSTANT.GPU R244, [R248 + 128] &wr=2 ?W2; // @P3 LDG.E.EN.32.CONSTANT.GPU bias4, [biasPtr + 128]
+(P4)  LDG.E.EN.32.CONSTANT.GPU R245, [R248 + 160] &wr=2 ?W2; // @P4 LDG.E.EN.32.CONSTANT.GPU bias5, [biasPtr + 160]
+(P5)  LDG.E.EN.32.CONSTANT.GPU R246, [R248 + 192] &wr=2 ?W2; // @P5 LDG.E.EN.32.CONSTANT.GPU bias6, [biasPtr + 192]
+(P6)  LDG.E.EN.32.CONSTANT.GPU R247, [R248 + 224] &rd=3 &wr=2 ?W2; // @P6 LDG.E.EN.32.CONSTANT.GPU bias7, [biasPtr + 224]
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_LOAD_BIAS_END:
+      PSETP.AND  P0, P1, P1 ?W1;                             // PSETP.AND P0, P1, P1
+      I2F.F32.S32 R0, R0 &req=3 ?W2;                         // I2F.F32.S32 C_r0_c0, C_r0_c0
+      I2F.F32.S32 R1, R1 ?W1;                                // I2F.F32.S32 C_r0_c1, C_r0_c1
+      I2F.F32.S32 R2, R2 ?W1;                                // I2F.F32.S32 C_r0_c2, C_r0_c2
+      I2F.F32.S32 R3, R3 &wr=0 ?W1;                          // I2F.F32.S32 C_r0_c3, C_r0_c3
+      I2F.F32.S32 R4, R4 ?W1;                                // I2F.F32.S32 C_r0_c4, C_r0_c4
+      I2F.F32.S32 R5, R5 ?W1;                                // I2F.F32.S32 C_r0_c5, C_r0_c5
+      I2F.F32.S32 R6, R6 ?W1;                                // I2F.F32.S32 C_r0_c6, C_r0_c6
+      I2F.F32.S32 R7, R7 &wr=0 ?W1;                          // I2F.F32.S32 C_r0_c7, C_r0_c7
+      I2F.F32.S32 R16, R16 ?W1;                              // I2F.F32.S32 C_r1_c0, C_r1_c0
+      FFMA R0, R0, R142, R240 &req={0,2} ?W1;                // FFMA storeReg0, C_r0_c0, alpha0, bias0
+      I2F.F32.S32 R17, R17 ?W1;                              // I2F.F32.S32 C_r1_c1, C_r1_c1
+      FFMA R1, R1, R142, R240 ?W1;                           // FFMA storeReg1, C_r0_c1, alpha0, bias0
+      I2F.F32.S32 R18, R18 ?W1;                              // I2F.F32.S32 C_r1_c2, C_r1_c2
+      FFMA R2, R2, R142, R240 ?W1;                           // FFMA storeReg2, C_r0_c2, alpha0, bias0
+      I2F.F32.S32 R19, R19 &wr=0 ?W1;                        // I2F.F32.S32 C_r1_c3, C_r1_c3
+      FFMA R3, R3, R142, R240 ?W1;                           // FFMA storeReg3, C_r0_c3, alpha0, bias0
+      I2F.F32.S32 R20, R20 ?W1;                              // I2F.F32.S32 C_r1_c4, C_r1_c4
+      FFMA R4, R4, R142, R240 ?W1;                           // FFMA storeReg4, C_r0_c4, alpha0, bias0
+      I2F.F32.S32 R21, R21 ?W1;                              // I2F.F32.S32 C_r1_c5, C_r1_c5
+      FFMA R5, R5, R142, R240 ?W1;                           // FFMA storeReg5, C_r0_c5, alpha0, bias0
+      I2F.F32.S32 R22, R22 ?W1;                              // I2F.F32.S32 C_r1_c6, C_r1_c6
+      FFMA R6, R6, R142, R240 ?W1;                           // FFMA storeReg6, C_r0_c6, alpha0, bias0
+      I2F.F32.S32 R23, R23 &wr=0 ?W1;                        // I2F.F32.S32 C_r1_c7, C_r1_c7
+      FFMA R7, R7, R142, R240 ?W1;                           // FFMA storeReg7, C_r0_c7, alpha0, bias0
+      I2F.F32.S32 R32, R32 ?W1;                              // I2F.F32.S32 C_r2_c0, C_r2_c0
+      FFMA R16, R16, R143, R241 &req={0} ?W1;                // FFMA storeReg8, C_r1_c0, alpha1, bias1
+      I2F.F32.S32 R33, R33 ?W1;                              // I2F.F32.S32 C_r2_c1, C_r2_c1
+      FFMA R17, R17, R143, R241 ?W1;                         // FFMA storeReg9, C_r1_c1, alpha1, bias1
+      I2F.F32.S32 R34, R34 ?W1;                              // I2F.F32.S32 C_r2_c2, C_r2_c2
+      FFMA R18, R18, R143, R241 ?W1;                         // FFMA storeReg10, C_r1_c2, alpha1, bias1
+      I2F.F32.S32 R35, R35 &wr=0 ?W1;                        // I2F.F32.S32 C_r2_c3, C_r2_c3
+      FFMA R19, R19, R143, R241 ?W1;                         // FFMA storeReg11, C_r1_c3, alpha1, bias1
+      I2F.F32.S32 R36, R36 ?W1;                              // I2F.F32.S32 C_r2_c4, C_r2_c4
+      FFMA R20, R20, R143, R241 ?W1;                         // FFMA storeReg12, C_r1_c4, alpha1, bias1
+      I2F.F32.S32 R37, R37 ?W1;                              // I2F.F32.S32 C_r2_c5, C_r2_c5
+      FFMA R21, R21, R143, R241 ?W1;                         // FFMA storeReg13, C_r1_c5, alpha1, bias1
+      I2F.F32.S32 R38, R38 ?W1;                              // I2F.F32.S32 C_r2_c6, C_r2_c6
+      FFMA R22, R22, R143, R241 ?W1;                         // FFMA storeReg14, C_r1_c6, alpha1, bias1
+      I2F.F32.S32 R39, R39 &wr=0 ?W1;                        // I2F.F32.S32 C_r2_c7, C_r2_c7
+      FFMA R23, R23, R143, R241 ?W1;                         // FFMA storeReg15, C_r1_c7, alpha1, bias1
+      I2F.F32.S32 R48, R48 ?W1;                              // I2F.F32.S32 C_r3_c0, C_r3_c0
+      FFMA R32, R32, R234, R242 &req={0} ?W1;                // FFMA storeReg16, C_r2_c0, alpha2, bias2
+      I2F.F32.S32 R49, R49 ?W1;                              // I2F.F32.S32 C_r3_c1, C_r3_c1
+      FFMA R33, R33, R234, R242 ?W1;                         // FFMA storeReg17, C_r2_c1, alpha2, bias2
+      I2F.F32.S32 R50, R50 ?W1;                              // I2F.F32.S32 C_r3_c2, C_r3_c2
+      FFMA R34, R34, R234, R242 ?W1;                         // FFMA storeReg18, C_r2_c2, alpha2, bias2
+      I2F.F32.S32 R51, R51 &wr=0 ?W1;                        // I2F.F32.S32 C_r3_c3, C_r3_c3
+      FFMA R35, R35, R234, R242 ?W1;                         // FFMA storeReg19, C_r2_c3, alpha2, bias2
+      I2F.F32.S32 R52, R52 ?W1;                              // I2F.F32.S32 C_r3_c4, C_r3_c4
+      FFMA R36, R36, R234, R242 ?W1;                         // FFMA storeReg20, C_r2_c4, alpha2, bias2
+      I2F.F32.S32 R53, R53 ?W1;                              // I2F.F32.S32 C_r3_c5, C_r3_c5
+      FFMA R37, R37, R234, R242 ?W1;                         // FFMA storeReg21, C_r2_c5, alpha2, bias2
+      I2F.F32.S32 R54, R54 ?W1;                              // I2F.F32.S32 C_r3_c6, C_r3_c6
+      FFMA R38, R38, R234, R242 ?W1;                         // FFMA storeReg22, C_r2_c6, alpha2, bias2
+      I2F.F32.S32 R55, R55 &wr=0 ?W1;                        // I2F.F32.S32 C_r3_c7, C_r3_c7
+      FFMA R39, R39, R234, R242 ?W1;                         // FFMA storeReg23, C_r2_c7, alpha2, bias2
+      I2F.F32.S32 R64, R64 ?W1;                              // I2F.F32.S32 C_r4_c0, C_r4_c0
+      FFMA R48, R48, R235, R243 &req={0} ?W1;                // FFMA storeReg24, C_r3_c0, alpha3, bias3
+      I2F.F32.S32 R65, R65 ?W1;                              // I2F.F32.S32 C_r4_c1, C_r4_c1
+      FFMA R49, R49, R235, R243 ?W1;                         // FFMA storeReg25, C_r3_c1, alpha3, bias3
+      I2F.F32.S32 R66, R66 ?W1;                              // I2F.F32.S32 C_r4_c2, C_r4_c2
+      FFMA R50, R50, R235, R243 ?W1;                         // FFMA storeReg26, C_r3_c2, alpha3, bias3
+      I2F.F32.S32 R67, R67 &wr=0 ?W1;                        // I2F.F32.S32 C_r4_c3, C_r4_c3
+      FFMA R51, R51, R235, R243 ?W1;                         // FFMA storeReg27, C_r3_c3, alpha3, bias3
+      I2F.F32.S32 R68, R68 ?W1;                              // I2F.F32.S32 C_r4_c4, C_r4_c4
+      FFMA R52, R52, R235, R243 ?W1;                         // FFMA storeReg28, C_r3_c4, alpha3, bias3
+      I2F.F32.S32 R69, R69 ?W1;                              // I2F.F32.S32 C_r4_c5, C_r4_c5
+      FFMA R53, R53, R235, R243 ?W1;                         // FFMA storeReg29, C_r3_c5, alpha3, bias3
+      I2F.F32.S32 R70, R70 ?W1;                              // I2F.F32.S32 C_r4_c6, C_r4_c6
+      FFMA R54, R54, R235, R243 ?W1;                         // FFMA storeReg30, C_r3_c6, alpha3, bias3
+      I2F.F32.S32 R71, R71 &wr=0 ?W1;                        // I2F.F32.S32 C_r4_c7, C_r4_c7
+      FFMA R55, R55, R235, R243 ?W1;                         // FFMA storeReg31, C_r3_c7, alpha3, bias3
+      I2F.F32.S32 R80, R80 ?W1;                              // I2F.F32.S32 C_r5_c0, C_r5_c0
+      FFMA R64, R64, R236, R244 &req={0} ?W1;                // FFMA storeReg32, C_r4_c0, alpha4, bias4
+      I2F.F32.S32 R81, R81 ?W1;                              // I2F.F32.S32 C_r5_c1, C_r5_c1
+      FFMA R65, R65, R236, R244 ?W1;                         // FFMA storeReg33, C_r4_c1, alpha4, bias4
+      I2F.F32.S32 R82, R82 ?W1;                              // I2F.F32.S32 C_r5_c2, C_r5_c2
+      FFMA R66, R66, R236, R244 ?W1;                         // FFMA storeReg34, C_r4_c2, alpha4, bias4
+      I2F.F32.S32 R83, R83 &wr=0 ?W1;                        // I2F.F32.S32 C_r5_c3, C_r5_c3
+      FFMA R67, R67, R236, R244 ?W1;                         // FFMA storeReg35, C_r4_c3, alpha4, bias4
+      I2F.F32.S32 R84, R84 ?W1;                              // I2F.F32.S32 C_r5_c4, C_r5_c4
+      FFMA R68, R68, R236, R244 ?W1;                         // FFMA storeReg36, C_r4_c4, alpha4, bias4
+      I2F.F32.S32 R85, R85 ?W1;                              // I2F.F32.S32 C_r5_c5, C_r5_c5
+      FFMA R69, R69, R236, R244 ?W1;                         // FFMA storeReg37, C_r4_c5, alpha4, bias4
+      I2F.F32.S32 R86, R86 ?W1;                              // I2F.F32.S32 C_r5_c6, C_r5_c6
+      FFMA R70, R70, R236, R244 ?W1;                         // FFMA storeReg38, C_r4_c6, alpha4, bias4
+      I2F.F32.S32 R87, R87 &wr=0 ?W1;                        // I2F.F32.S32 C_r5_c7, C_r5_c7
+      FFMA R71, R71, R236, R244 ?W1;                         // FFMA storeReg39, C_r4_c7, alpha4, bias4
+      I2F.F32.S32 R96, R96 ?W1;                              // I2F.F32.S32 C_r6_c0, C_r6_c0
+      FFMA R80, R80, R237, R245 &req={0} ?W1;                // FFMA storeReg40, C_r5_c0, alpha5, bias5
+      I2F.F32.S32 R97, R97 ?W1;                              // I2F.F32.S32 C_r6_c1, C_r6_c1
+      FFMA R81, R81, R237, R245 ?W1;                         // FFMA storeReg41, C_r5_c1, alpha5, bias5
+      I2F.F32.S32 R98, R98 ?W1;                              // I2F.F32.S32 C_r6_c2, C_r6_c2
+      FFMA R82, R82, R237, R245 ?W1;                         // FFMA storeReg42, C_r5_c2, alpha5, bias5
+      I2F.F32.S32 R99, R99 &wr=0 ?W1;                        // I2F.F32.S32 C_r6_c3, C_r6_c3
+      FFMA R83, R83, R237, R245 ?W1;                         // FFMA storeReg43, C_r5_c3, alpha5, bias5
+      I2F.F32.S32 R100, R100 ?W1;                            // I2F.F32.S32 C_r6_c4, C_r6_c4
+      FFMA R84, R84, R237, R245 ?W1;                         // FFMA storeReg44, C_r5_c4, alpha5, bias5
+      I2F.F32.S32 R101, R101 ?W1;                            // I2F.F32.S32 C_r6_c5, C_r6_c5
+      FFMA R85, R85, R237, R245 ?W1;                         // FFMA storeReg45, C_r5_c5, alpha5, bias5
+      I2F.F32.S32 R102, R102 ?W1;                            // I2F.F32.S32 C_r6_c6, C_r6_c6
+      FFMA R86, R86, R237, R245 ?W1;                         // FFMA storeReg46, C_r5_c6, alpha5, bias5
+      I2F.F32.S32 R103, R103 &wr=0 ?W1;                      // I2F.F32.S32 C_r6_c7, C_r6_c7
+      FFMA R87, R87, R237, R245 ?W1;                         // FFMA storeReg47, C_r5_c7, alpha5, bias5
+      I2F.F32.S32 R112, R112 ?W1;                            // I2F.F32.S32 C_r7_c0, C_r7_c0
+      FFMA R96, R96, R238, R246 &req={0} ?W1;                // FFMA storeReg48, C_r6_c0, alpha6, bias6
+      I2F.F32.S32 R113, R113 ?W1;                            // I2F.F32.S32 C_r7_c1, C_r7_c1
+      FFMA R97, R97, R238, R246 ?W1;                         // FFMA storeReg49, C_r6_c1, alpha6, bias6
+      I2F.F32.S32 R114, R114 ?W1;                            // I2F.F32.S32 C_r7_c2, C_r7_c2
+      FFMA R98, R98, R238, R246 ?W1;                         // FFMA storeReg50, C_r6_c2, alpha6, bias6
+      I2F.F32.S32 R115, R115 &wr=0 ?W1;                      // I2F.F32.S32 C_r7_c3, C_r7_c3
+      FFMA R99, R99, R238, R246 ?W1;                         // FFMA storeReg51, C_r6_c3, alpha6, bias6
+      I2F.F32.S32 R116, R116 ?W1;                            // I2F.F32.S32 C_r7_c4, C_r7_c4
+      FFMA R100, R100, R238, R246 ?W1;                       // FFMA storeReg52, C_r6_c4, alpha6, bias6
+      I2F.F32.S32 R117, R117 ?W1;                            // I2F.F32.S32 C_r7_c5, C_r7_c5
+      FFMA R101, R101, R238, R246 ?W1;                       // FFMA storeReg53, C_r6_c5, alpha6, bias6
+      I2F.F32.S32 R118, R118 ?W1;                            // I2F.F32.S32 C_r7_c6, C_r7_c6
+      FFMA R102, R102, R238, R246 ?W1;                       // FFMA storeReg54, C_r6_c6, alpha6, bias6
+      I2F.F32.S32 R119, R119 &wr=0 ?W1;                      // I2F.F32.S32 C_r7_c7, C_r7_c7
+      FFMA R103, R103, R238, R246 ?W1;                       // FFMA storeReg55, C_r6_c7, alpha6, bias6
+      FFMA R112, R112, R239, R247 &req={0} ?W1;              // FFMA storeReg56, C_r7_c0, alpha7, bias7
+      FFMA R113, R113, R239, R247 ?W1;                       // FFMA storeReg57, C_r7_c1, alpha7, bias7
+      FFMA R114, R114, R239, R247 ?W1;                       // FFMA storeReg58, C_r7_c2, alpha7, bias7
+      FFMA R115, R115, R239, R247 ?W1;                       // FFMA storeReg59, C_r7_c3, alpha7, bias7
+      FFMA R116, R116, R239, R247 ?W1;                       // FFMA storeReg60, C_r7_c4, alpha7, bias7
+      FFMA R117, R117, R239, R247 ?W1;                       // FFMA storeReg61, C_r7_c5, alpha7, bias7
+      FFMA R118, R118, R239, R247 ?W1;                       // FFMA storeReg62, C_r7_c6, alpha7, bias7
+      FFMA R119, R119, R239, R247 ?W1;                       // FFMA storeReg63, C_r7_c7, alpha7, bias7
+      LEPC R128 &req=3 ?W2;                                  // LEPC pc
+      CALL.REL  volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_STORE_COL ?W5; // CALL.REL volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_STORE_COL
+      MOV R248, c[0][0x1bc] ?W6;                             // MOV M, CountM
+      IMAD.WIDE.U32 R136, R248, 32, R136 &req=3 ?W5;         // IMAD.WIDE.U32 writePtr, M, 32, writePtr
+      PSETP.AND P0, PT, !PT ?W1;                             // PSETP.AND P0, PT, !PT
+      I2F.F32.S32 R8, R8 &req=3 ?W2;                         // I2F.F32.S32 C_r0_c8, C_r0_c8
+      I2F.F32.S32 R9, R9 ?W1;                                // I2F.F32.S32 C_r0_c9, C_r0_c9
+      I2F.F32.S32 R10, R10 ?W1;                              // I2F.F32.S32 C_r0_c10, C_r0_c10
+      I2F.F32.S32 R11, R11 &wr=0 ?W1;                        // I2F.F32.S32 C_r0_c11, C_r0_c11
+      I2F.F32.S32 R12, R12 ?W1;                              // I2F.F32.S32 C_r0_c12, C_r0_c12
+      I2F.F32.S32 R13, R13 ?W1;                              // I2F.F32.S32 C_r0_c13, C_r0_c13
+      I2F.F32.S32 R14, R14 ?W1;                              // I2F.F32.S32 C_r0_c14, C_r0_c14
+      I2F.F32.S32 R15, R15 &wr=0 ?W1;                        // I2F.F32.S32 C_r0_c15, C_r0_c15
+      I2F.F32.S32 R24, R24 ?W1;                              // I2F.F32.S32 C_r1_c8, C_r1_c8
+      FFMA R0, R8, R142, R240 &req={0,2} ?W1;                // FFMA storeReg0, C_r0_c8, alpha0, bias0
+      I2F.F32.S32 R25, R25 ?W1;                              // I2F.F32.S32 C_r1_c9, C_r1_c9
+      FFMA R1, R9, R142, R240 ?W1;                           // FFMA storeReg1, C_r0_c9, alpha0, bias0
+      I2F.F32.S32 R26, R26 ?W1;                              // I2F.F32.S32 C_r1_c10, C_r1_c10
+      FFMA R2, R10, R142, R240 ?W1;                          // FFMA storeReg2, C_r0_c10, alpha0, bias0
+      I2F.F32.S32 R27, R27 &wr=0 ?W1;                        // I2F.F32.S32 C_r1_c11, C_r1_c11
+      FFMA R3, R11, R142, R240 ?W1;                          // FFMA storeReg3, C_r0_c11, alpha0, bias0
+      I2F.F32.S32 R28, R28 ?W1;                              // I2F.F32.S32 C_r1_c12, C_r1_c12
+      FFMA R4, R12, R142, R240 ?W1;                          // FFMA storeReg4, C_r0_c12, alpha0, bias0
+      I2F.F32.S32 R29, R29 ?W1;                              // I2F.F32.S32 C_r1_c13, C_r1_c13
+      FFMA R5, R13, R142, R240 ?W1;                          // FFMA storeReg5, C_r0_c13, alpha0, bias0
+      I2F.F32.S32 R30, R30 ?W1;                              // I2F.F32.S32 C_r1_c14, C_r1_c14
+      FFMA R6, R14, R142, R240 ?W1;                          // FFMA storeReg6, C_r0_c14, alpha0, bias0
+      I2F.F32.S32 R31, R31 &wr=0 ?W1;                        // I2F.F32.S32 C_r1_c15, C_r1_c15
+      FFMA R7, R15, R142, R240 ?W1;                          // FFMA storeReg7, C_r0_c15, alpha0, bias0
+      I2F.F32.S32 R40, R40 ?W1;                              // I2F.F32.S32 C_r2_c8, C_r2_c8
+      FFMA R16, R24, R143, R241 &req={0} ?W1;                // FFMA storeReg8, C_r1_c8, alpha1, bias1
+      I2F.F32.S32 R41, R41 ?W1;                              // I2F.F32.S32 C_r2_c9, C_r2_c9
+      FFMA R17, R25, R143, R241 ?W1;                         // FFMA storeReg9, C_r1_c9, alpha1, bias1
+      I2F.F32.S32 R42, R42 ?W1;                              // I2F.F32.S32 C_r2_c10, C_r2_c10
+      FFMA R18, R26, R143, R241 ?W1;                         // FFMA storeReg10, C_r1_c10, alpha1, bias1
+      I2F.F32.S32 R43, R43 &wr=0 ?W1;                        // I2F.F32.S32 C_r2_c11, C_r2_c11
+      FFMA R19, R27, R143, R241 ?W1;                         // FFMA storeReg11, C_r1_c11, alpha1, bias1
+      I2F.F32.S32 R44, R44 ?W1;                              // I2F.F32.S32 C_r2_c12, C_r2_c12
+      FFMA R20, R28, R143, R241 ?W1;                         // FFMA storeReg12, C_r1_c12, alpha1, bias1
+      I2F.F32.S32 R45, R45 ?W1;                              // I2F.F32.S32 C_r2_c13, C_r2_c13
+      FFMA R21, R29, R143, R241 ?W1;                         // FFMA storeReg13, C_r1_c13, alpha1, bias1
+      I2F.F32.S32 R46, R46 ?W1;                              // I2F.F32.S32 C_r2_c14, C_r2_c14
+      FFMA R22, R30, R143, R241 ?W1;                         // FFMA storeReg14, C_r1_c14, alpha1, bias1
+      I2F.F32.S32 R47, R47 &wr=0 ?W1;                        // I2F.F32.S32 C_r2_c15, C_r2_c15
+      FFMA R23, R31, R143, R241 ?W1;                         // FFMA storeReg15, C_r1_c15, alpha1, bias1
+      I2F.F32.S32 R56, R56 ?W1;                              // I2F.F32.S32 C_r3_c8, C_r3_c8
+      FFMA R32, R40, R234, R242 &req={0} ?W1;                // FFMA storeReg16, C_r2_c8, alpha2, bias2
+      I2F.F32.S32 R57, R57 ?W1;                              // I2F.F32.S32 C_r3_c9, C_r3_c9
+      FFMA R33, R41, R234, R242 ?W1;                         // FFMA storeReg17, C_r2_c9, alpha2, bias2
+      I2F.F32.S32 R58, R58 ?W1;                              // I2F.F32.S32 C_r3_c10, C_r3_c10
+      FFMA R34, R42, R234, R242 ?W1;                         // FFMA storeReg18, C_r2_c10, alpha2, bias2
+      I2F.F32.S32 R59, R59 &wr=0 ?W1;                        // I2F.F32.S32 C_r3_c11, C_r3_c11
+      FFMA R35, R43, R234, R242 ?W1;                         // FFMA storeReg19, C_r2_c11, alpha2, bias2
+      I2F.F32.S32 R60, R60 ?W1;                              // I2F.F32.S32 C_r3_c12, C_r3_c12
+      FFMA R36, R44, R234, R242 ?W1;                         // FFMA storeReg20, C_r2_c12, alpha2, bias2
+      I2F.F32.S32 R61, R61 ?W1;                              // I2F.F32.S32 C_r3_c13, C_r3_c13
+      FFMA R37, R45, R234, R242 ?W1;                         // FFMA storeReg21, C_r2_c13, alpha2, bias2
+      I2F.F32.S32 R62, R62 ?W1;                              // I2F.F32.S32 C_r3_c14, C_r3_c14
+      FFMA R38, R46, R234, R242 ?W1;                         // FFMA storeReg22, C_r2_c14, alpha2, bias2
+      I2F.F32.S32 R63, R63 &wr=0 ?W1;                        // I2F.F32.S32 C_r3_c15, C_r3_c15
+      FFMA R39, R47, R234, R242 ?W1;                         // FFMA storeReg23, C_r2_c15, alpha2, bias2
+      I2F.F32.S32 R72, R72 ?W1;                              // I2F.F32.S32 C_r4_c8, C_r4_c8
+      FFMA R48, R56, R235, R243 &req={0} ?W1;                // FFMA storeReg24, C_r3_c8, alpha3, bias3
+      I2F.F32.S32 R73, R73 ?W1;                              // I2F.F32.S32 C_r4_c9, C_r4_c9
+      FFMA R49, R57, R235, R243 ?W1;                         // FFMA storeReg25, C_r3_c9, alpha3, bias3
+      I2F.F32.S32 R74, R74 ?W1;                              // I2F.F32.S32 C_r4_c10, C_r4_c10
+      FFMA R50, R58, R235, R243 ?W1;                         // FFMA storeReg26, C_r3_c10, alpha3, bias3
+      I2F.F32.S32 R75, R75 &wr=0 ?W1;                        // I2F.F32.S32 C_r4_c11, C_r4_c11
+      FFMA R51, R59, R235, R243 ?W1;                         // FFMA storeReg27, C_r3_c11, alpha3, bias3
+      I2F.F32.S32 R76, R76 ?W1;                              // I2F.F32.S32 C_r4_c12, C_r4_c12
+      FFMA R52, R60, R235, R243 ?W1;                         // FFMA storeReg28, C_r3_c12, alpha3, bias3
+      I2F.F32.S32 R77, R77 ?W1;                              // I2F.F32.S32 C_r4_c13, C_r4_c13
+      FFMA R53, R61, R235, R243 ?W1;                         // FFMA storeReg29, C_r3_c13, alpha3, bias3
+      I2F.F32.S32 R78, R78 ?W1;                              // I2F.F32.S32 C_r4_c14, C_r4_c14
+      FFMA R54, R62, R235, R243 ?W1;                         // FFMA storeReg30, C_r3_c14, alpha3, bias3
+      I2F.F32.S32 R79, R79 &wr=0 ?W1;                        // I2F.F32.S32 C_r4_c15, C_r4_c15
+      FFMA R55, R63, R235, R243 ?W1;                         // FFMA storeReg31, C_r3_c15, alpha3, bias3
+      I2F.F32.S32 R88, R88 ?W1;                              // I2F.F32.S32 C_r5_c8, C_r5_c8
+      FFMA R64, R72, R236, R244 &req={0} ?W1;                // FFMA storeReg32, C_r4_c8, alpha4, bias4
+      I2F.F32.S32 R89, R89 ?W1;                              // I2F.F32.S32 C_r5_c9, C_r5_c9
+      FFMA R65, R73, R236, R244 ?W1;                         // FFMA storeReg33, C_r4_c9, alpha4, bias4
+      I2F.F32.S32 R90, R90 ?W1;                              // I2F.F32.S32 C_r5_c10, C_r5_c10
+      FFMA R66, R74, R236, R244 ?W1;                         // FFMA storeReg34, C_r4_c10, alpha4, bias4
+      I2F.F32.S32 R91, R91 &wr=0 ?W1;                        // I2F.F32.S32 C_r5_c11, C_r5_c11
+      FFMA R67, R75, R236, R244 ?W1;                         // FFMA storeReg35, C_r4_c11, alpha4, bias4
+      I2F.F32.S32 R92, R92 ?W1;                              // I2F.F32.S32 C_r5_c12, C_r5_c12
+      FFMA R68, R76, R236, R244 ?W1;                         // FFMA storeReg36, C_r4_c12, alpha4, bias4
+      I2F.F32.S32 R93, R93 ?W1;                              // I2F.F32.S32 C_r5_c13, C_r5_c13
+      FFMA R69, R77, R236, R244 ?W1;                         // FFMA storeReg37, C_r4_c13, alpha4, bias4
+      I2F.F32.S32 R94, R94 ?W1;                              // I2F.F32.S32 C_r5_c14, C_r5_c14
+      FFMA R70, R78, R236, R244 ?W1;                         // FFMA storeReg38, C_r4_c14, alpha4, bias4
+      I2F.F32.S32 R95, R95 &wr=0 ?W1;                        // I2F.F32.S32 C_r5_c15, C_r5_c15
+      FFMA R71, R79, R236, R244 ?W1;                         // FFMA storeReg39, C_r4_c15, alpha4, bias4
+      I2F.F32.S32 R104, R104 ?W1;                            // I2F.F32.S32 C_r6_c8, C_r6_c8
+      FFMA R80, R88, R237, R245 &req={0} ?W1;                // FFMA storeReg40, C_r5_c8, alpha5, bias5
+      I2F.F32.S32 R105, R105 ?W1;                            // I2F.F32.S32 C_r6_c9, C_r6_c9
+      FFMA R81, R89, R237, R245 ?W1;                         // FFMA storeReg41, C_r5_c9, alpha5, bias5
+      I2F.F32.S32 R106, R106 ?W1;                            // I2F.F32.S32 C_r6_c10, C_r6_c10
+      FFMA R82, R90, R237, R245 ?W1;                         // FFMA storeReg42, C_r5_c10, alpha5, bias5
+      I2F.F32.S32 R107, R107 &wr=0 ?W1;                      // I2F.F32.S32 C_r6_c11, C_r6_c11
+      FFMA R83, R91, R237, R245 ?W1;                         // FFMA storeReg43, C_r5_c11, alpha5, bias5
+      I2F.F32.S32 R108, R108 ?W1;                            // I2F.F32.S32 C_r6_c12, C_r6_c12
+      FFMA R84, R92, R237, R245 ?W1;                         // FFMA storeReg44, C_r5_c12, alpha5, bias5
+      I2F.F32.S32 R109, R109 ?W1;                            // I2F.F32.S32 C_r6_c13, C_r6_c13
+      FFMA R85, R93, R237, R245 ?W1;                         // FFMA storeReg45, C_r5_c13, alpha5, bias5
+      I2F.F32.S32 R110, R110 ?W1;                            // I2F.F32.S32 C_r6_c14, C_r6_c14
+      FFMA R86, R94, R237, R245 ?W1;                         // FFMA storeReg46, C_r5_c14, alpha5, bias5
+      I2F.F32.S32 R111, R111 &wr=0 ?W1;                      // I2F.F32.S32 C_r6_c15, C_r6_c15
+      FFMA R87, R95, R237, R245 ?W1;                         // FFMA storeReg47, C_r5_c15, alpha5, bias5
+      I2F.F32.S32 R120, R120 ?W1;                            // I2F.F32.S32 C_r7_c8, C_r7_c8
+      FFMA R96, R104, R238, R246 &req={0} ?W1;               // FFMA storeReg48, C_r6_c8, alpha6, bias6
+      I2F.F32.S32 R121, R121 ?W1;                            // I2F.F32.S32 C_r7_c9, C_r7_c9
+      FFMA R97, R105, R238, R246 ?W1;                        // FFMA storeReg49, C_r6_c9, alpha6, bias6
+      I2F.F32.S32 R122, R122 ?W1;                            // I2F.F32.S32 C_r7_c10, C_r7_c10
+      FFMA R98, R106, R238, R246 ?W1;                        // FFMA storeReg50, C_r6_c10, alpha6, bias6
+      I2F.F32.S32 R123, R123 &wr=0 ?W1;                      // I2F.F32.S32 C_r7_c11, C_r7_c11
+      FFMA R99, R107, R238, R246 ?W1;                        // FFMA storeReg51, C_r6_c11, alpha6, bias6
+      I2F.F32.S32 R124, R124 ?W1;                            // I2F.F32.S32 C_r7_c12, C_r7_c12
+      FFMA R100, R108, R238, R246 ?W1;                       // FFMA storeReg52, C_r6_c12, alpha6, bias6
+      I2F.F32.S32 R125, R125 ?W1;                            // I2F.F32.S32 C_r7_c13, C_r7_c13
+      FFMA R101, R109, R238, R246 ?W1;                       // FFMA storeReg53, C_r6_c13, alpha6, bias6
+      I2F.F32.S32 R126, R126 ?W1;                            // I2F.F32.S32 C_r7_c14, C_r7_c14
+      FFMA R102, R110, R238, R246 ?W1;                       // FFMA storeReg54, C_r6_c14, alpha6, bias6
+      I2F.F32.S32 R127, R127 &wr=0 ?W1;                      // I2F.F32.S32 C_r7_c15, C_r7_c15
+      FFMA R103, R111, R238, R246 ?W1;                       // FFMA storeReg55, C_r6_c15, alpha6, bias6
+      FFMA R112, R120, R239, R247 &req={0} ?W1;              // FFMA storeReg56, C_r7_c8, alpha7, bias7
+      FFMA R113, R121, R239, R247 ?W1;                       // FFMA storeReg57, C_r7_c9, alpha7, bias7
+      FFMA R114, R122, R239, R247 ?W1;                       // FFMA storeReg58, C_r7_c10, alpha7, bias7
+      FFMA R115, R123, R239, R247 ?W1;                       // FFMA storeReg59, C_r7_c11, alpha7, bias7
+      FFMA R116, R124, R239, R247 ?W1;                       // FFMA storeReg60, C_r7_c12, alpha7, bias7
+      FFMA R117, R125, R239, R247 ?W1;                       // FFMA storeReg61, C_r7_c13, alpha7, bias7
+      FFMA R118, R126, R239, R247 ?W1;                       // FFMA storeReg62, C_r7_c14, alpha7, bias7
+      FFMA R119, R127, R239, R247 ?W1;                       // FFMA storeReg63, C_r7_c15, alpha7, bias7
+      LEPC R128 &req=3 ?W2;                                  // LEPC pc
+      CALL.REL  volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_STORE_COL ?W5; // CALL.REL volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_STORE_COL
+      EXIT ?W5;                                              // EXIT
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_STORE_COL:
+      MOV R248, R139 ?W2;                                    // MOV writePreds, readPreds
+      IMAD.LO.U32  R225, R132, 128, RZ ?W5;                  // IMAD.LO.U32 col, ctaCol, 128, RZ
+      IMAD.LO.U32  R225, R141, 64, R225 ?W5;                 // IMAD.LO.U32 col, intraWarpCol, 64, col
+      IADD R225, R225, 32 ?W4;                               // IADD col, col, 32
+      ISETP.LT P2, R225, c[0][0x1c0] ?W4;                    // ISETP.LT P2, col, CountN
+      ISETP.LT.AND P3, PT, R144, 0, P2 ?W2;                  // ISETP.LT.AND P3, PT, row, 0, P2
+      ISETP.LT.AND P4, PT, R144, -8, P2 ?W2;                 // ISETP.LT.AND P4, PT, row, -8, P2
+      ISETP.LT.AND P5, PT, R144, -16, P2 ?W2;                // ISETP.LT.AND P5, PT, row, -16, P2
+      ISETP.LT.AND P6, PT, R144, -24, P2 ?W4;                // ISETP.LT.AND P6, PT, row, -24, P2
+      P2R.B0 R139, PR, RZ, 0x78 ?W2;                         // P2R.B0 readPreds, PR, RZ, 0x78
+      ISETP.LT.AND P3, PT, R144, -32, P2 ?W2;                // ISETP.LT.AND P3, PT, row, -32, P2
+      ISETP.LT.AND P4, PT, R144, -40, P2 ?W2;                // ISETP.LT.AND P4, PT, row, -40, P2
+      ISETP.LT.AND P5, PT, R144, -48, P2 ?W2;                // ISETP.LT.AND P5, PT, row, -48, P2
+      ISETP.LT.AND P6, PT, R144, -56, P2 ?W4;                // ISETP.LT.AND P6, PT, row, -56, P2
+      P2R.B1 R139, PR, R139, 0x78 ?W2;                       // P2R.B1 readPreds, PR, readPreds, 0x78
+(!P1) BRA  volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_STORE_COL_WRITE ?W5; // @!P1 BRA volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_STORE_COL_WRITE
+      PRMT.RC8 R145, R146, 0, R146 &req=2 ?W2;               // PRMT.RC8 tempOldC0, fetchRegC0, 0, fetchRegC0
+      PRMT.RC8 R162, R146, 1, R146 ?W2;                      // PRMT.RC8 tempOldC1, fetchRegC0, 1, fetchRegC0
+      PRMT.RC8 R163, R146, 2, R146 ?W2;                      // PRMT.RC8 tempOldC2, fetchRegC0, 2, fetchRegC0
+      PRMT.RC8 R164, R146, 3, R146 ?W2;                      // PRMT.RC8 tempOldC3, fetchRegC0, 3, fetchRegC0
+      PRMT.RC8 R165, R147, 0, R147 ?W2;                      // PRMT.RC8 tempOldC4, fetchRegC1, 0, fetchRegC1
+      PRMT.RC8 R166, R147, 1, R147 ?W2;                      // PRMT.RC8 tempOldC5, fetchRegC1, 1, fetchRegC1
+      PRMT.RC8 R167, R147, 2, R147 ?W2;                      // PRMT.RC8 tempOldC6, fetchRegC1, 2, fetchRegC1
+      PRMT.RC8 R168, R147, 3, R147 ?W4;                      // PRMT.RC8 tempOldC7, fetchRegC1, 3, fetchRegC1
+      I2F.F32.S8 R145, R145 ?W2;                             // I2F.F32.S8 tempOldC0, tempOldC0
+      I2F.F32.S8 R162, R162 ?W2;                             // I2F.F32.S8 tempOldC1, tempOldC1
+      I2F.F32.S8 R163, R163 ?W2;                             // I2F.F32.S8 tempOldC2, tempOldC2
+      I2F.F32.S8 R164, R164 ?W2;                             // I2F.F32.S8 tempOldC3, tempOldC3
+      I2F.F32.S8 R165, R165 ?W2;                             // I2F.F32.S8 tempOldC4, tempOldC4
+      I2F.F32.S8 R166, R166 ?W2;                             // I2F.F32.S8 tempOldC5, tempOldC5
+      I2F.F32.S8 R167, R167 ?W2;                             // I2F.F32.S8 tempOldC6, tempOldC6
+      I2F.F32.S8 R168, R168 &wr=0 ?W4;                       // I2F.F32.S8 tempOldC7, tempOldC7
+      PRMT.RC8 R169, R148, 0, R148 &req=2 ?W2;               // PRMT.RC8 tempOldC8, fetchRegC2, 0, fetchRegC2
+      PRMT.RC8 R170, R148, 1, R148 ?W2;                      // PRMT.RC8 tempOldC9, fetchRegC2, 1, fetchRegC2
+      PRMT.RC8 R171, R148, 2, R148 ?W2;                      // PRMT.RC8 tempOldC10, fetchRegC2, 2, fetchRegC2
+      PRMT.RC8 R172, R148, 3, R148 ?W2;                      // PRMT.RC8 tempOldC11, fetchRegC2, 3, fetchRegC2
+      PRMT.RC8 R173, R149, 0, R149 ?W2;                      // PRMT.RC8 tempOldC12, fetchRegC3, 0, fetchRegC3
+      PRMT.RC8 R174, R149, 1, R149 ?W2;                      // PRMT.RC8 tempOldC13, fetchRegC3, 1, fetchRegC3
+      PRMT.RC8 R175, R149, 2, R149 ?W2;                      // PRMT.RC8 tempOldC14, fetchRegC3, 2, fetchRegC3
+      PRMT.RC8 R176, R149, 3, R149 ?W4;                      // PRMT.RC8 tempOldC15, fetchRegC3, 3, fetchRegC3
+      I2F.F32.S8 R169, R169 ?W2;                             // I2F.F32.S8 tempOldC8, tempOldC8
+      I2F.F32.S8 R170, R170 ?W2;                             // I2F.F32.S8 tempOldC9, tempOldC9
+      I2F.F32.S8 R171, R171 ?W2;                             // I2F.F32.S8 tempOldC10, tempOldC10
+      I2F.F32.S8 R172, R172 ?W2;                             // I2F.F32.S8 tempOldC11, tempOldC11
+      I2F.F32.S8 R173, R173 ?W2;                             // I2F.F32.S8 tempOldC12, tempOldC12
+      I2F.F32.S8 R174, R174 ?W2;                             // I2F.F32.S8 tempOldC13, tempOldC13
+      I2F.F32.S8 R175, R175 ?W2;                             // I2F.F32.S8 tempOldC14, tempOldC14
+      I2F.F32.S8 R176, R176 &wr=0 ?W4;                       // I2F.F32.S8 tempOldC15, tempOldC15
+      PRMT.RC8 R177, R150, 0, R150 &req=2 ?W2;               // PRMT.RC8 tempOldC16, fetchRegC4, 0, fetchRegC4
+      PRMT.RC8 R178, R150, 1, R150 ?W2;                      // PRMT.RC8 tempOldC17, fetchRegC4, 1, fetchRegC4
+      PRMT.RC8 R179, R150, 2, R150 ?W2;                      // PRMT.RC8 tempOldC18, fetchRegC4, 2, fetchRegC4
+      PRMT.RC8 R180, R150, 3, R150 ?W2;                      // PRMT.RC8 tempOldC19, fetchRegC4, 3, fetchRegC4
+      PRMT.RC8 R181, R151, 0, R151 ?W2;                      // PRMT.RC8 tempOldC20, fetchRegC5, 0, fetchRegC5
+      PRMT.RC8 R182, R151, 1, R151 ?W2;                      // PRMT.RC8 tempOldC21, fetchRegC5, 1, fetchRegC5
+      PRMT.RC8 R183, R151, 2, R151 ?W2;                      // PRMT.RC8 tempOldC22, fetchRegC5, 2, fetchRegC5
+      PRMT.RC8 R184, R151, 3, R151 ?W4;                      // PRMT.RC8 tempOldC23, fetchRegC5, 3, fetchRegC5
+      I2F.F32.S8 R177, R177 ?W2;                             // I2F.F32.S8 tempOldC16, tempOldC16
+      I2F.F32.S8 R178, R178 ?W2;                             // I2F.F32.S8 tempOldC17, tempOldC17
+      I2F.F32.S8 R179, R179 ?W2;                             // I2F.F32.S8 tempOldC18, tempOldC18
+      I2F.F32.S8 R180, R180 ?W2;                             // I2F.F32.S8 tempOldC19, tempOldC19
+      I2F.F32.S8 R181, R181 ?W2;                             // I2F.F32.S8 tempOldC20, tempOldC20
+      I2F.F32.S8 R182, R182 ?W2;                             // I2F.F32.S8 tempOldC21, tempOldC21
+      I2F.F32.S8 R183, R183 ?W2;                             // I2F.F32.S8 tempOldC22, tempOldC22
+      I2F.F32.S8 R184, R184 &wr=0 ?W4;                       // I2F.F32.S8 tempOldC23, tempOldC23
+      PRMT.RC8 R185, R152, 0, R152 &req=2 ?W2;               // PRMT.RC8 tempOldC24, fetchRegC6, 0, fetchRegC6
+      PRMT.RC8 R186, R152, 1, R152 ?W2;                      // PRMT.RC8 tempOldC25, fetchRegC6, 1, fetchRegC6
+      PRMT.RC8 R187, R152, 2, R152 ?W2;                      // PRMT.RC8 tempOldC26, fetchRegC6, 2, fetchRegC6
+      PRMT.RC8 R188, R152, 3, R152 ?W2;                      // PRMT.RC8 tempOldC27, fetchRegC6, 3, fetchRegC6
+      PRMT.RC8 R189, R153, 0, R153 ?W2;                      // PRMT.RC8 tempOldC28, fetchRegC7, 0, fetchRegC7
+      PRMT.RC8 R190, R153, 1, R153 ?W2;                      // PRMT.RC8 tempOldC29, fetchRegC7, 1, fetchRegC7
+      PRMT.RC8 R191, R153, 2, R153 ?W2;                      // PRMT.RC8 tempOldC30, fetchRegC7, 2, fetchRegC7
+      PRMT.RC8 R192, R153, 3, R153 ?W4;                      // PRMT.RC8 tempOldC31, fetchRegC7, 3, fetchRegC7
+      I2F.F32.S8 R185, R185 ?W2;                             // I2F.F32.S8 tempOldC24, tempOldC24
+      I2F.F32.S8 R186, R186 ?W2;                             // I2F.F32.S8 tempOldC25, tempOldC25
+      I2F.F32.S8 R187, R187 ?W2;                             // I2F.F32.S8 tempOldC26, tempOldC26
+      I2F.F32.S8 R188, R188 ?W2;                             // I2F.F32.S8 tempOldC27, tempOldC27
+      I2F.F32.S8 R189, R189 ?W2;                             // I2F.F32.S8 tempOldC28, tempOldC28
+      I2F.F32.S8 R190, R190 ?W2;                             // I2F.F32.S8 tempOldC29, tempOldC29
+      I2F.F32.S8 R191, R191 ?W2;                             // I2F.F32.S8 tempOldC30, tempOldC30
+      I2F.F32.S8 R192, R192 &wr=0 ?W4;                       // I2F.F32.S8 tempOldC31, tempOldC31
+      PRMT.RC8 R193, R154, 0, R154 &req=2 ?W2;               // PRMT.RC8 tempOldC32, fetchRegC8, 0, fetchRegC8
+      PRMT.RC8 R194, R154, 1, R154 ?W2;                      // PRMT.RC8 tempOldC33, fetchRegC8, 1, fetchRegC8
+      PRMT.RC8 R195, R154, 2, R154 ?W2;                      // PRMT.RC8 tempOldC34, fetchRegC8, 2, fetchRegC8
+      PRMT.RC8 R196, R154, 3, R154 ?W2;                      // PRMT.RC8 tempOldC35, fetchRegC8, 3, fetchRegC8
+      PRMT.RC8 R197, R155, 0, R155 ?W2;                      // PRMT.RC8 tempOldC36, fetchRegC9, 0, fetchRegC9
+      PRMT.RC8 R198, R155, 1, R155 ?W2;                      // PRMT.RC8 tempOldC37, fetchRegC9, 1, fetchRegC9
+      PRMT.RC8 R199, R155, 2, R155 ?W2;                      // PRMT.RC8 tempOldC38, fetchRegC9, 2, fetchRegC9
+      PRMT.RC8 R200, R155, 3, R155 ?W4;                      // PRMT.RC8 tempOldC39, fetchRegC9, 3, fetchRegC9
+      I2F.F32.S8 R193, R193 ?W2;                             // I2F.F32.S8 tempOldC32, tempOldC32
+      I2F.F32.S8 R194, R194 ?W2;                             // I2F.F32.S8 tempOldC33, tempOldC33
+      I2F.F32.S8 R195, R195 ?W2;                             // I2F.F32.S8 tempOldC34, tempOldC34
+      I2F.F32.S8 R196, R196 ?W2;                             // I2F.F32.S8 tempOldC35, tempOldC35
+      I2F.F32.S8 R197, R197 ?W2;                             // I2F.F32.S8 tempOldC36, tempOldC36
+      I2F.F32.S8 R198, R198 ?W2;                             // I2F.F32.S8 tempOldC37, tempOldC37
+      I2F.F32.S8 R199, R199 ?W2;                             // I2F.F32.S8 tempOldC38, tempOldC38
+      I2F.F32.S8 R200, R200 &wr=0 ?W4;                       // I2F.F32.S8 tempOldC39, tempOldC39
+      PRMT.RC8 R201, R156, 0, R156 &req=2 ?W2;               // PRMT.RC8 tempOldC40, fetchRegC10, 0, fetchRegC10
+      PRMT.RC8 R202, R156, 1, R156 ?W2;                      // PRMT.RC8 tempOldC41, fetchRegC10, 1, fetchRegC10
+      PRMT.RC8 R203, R156, 2, R156 ?W2;                      // PRMT.RC8 tempOldC42, fetchRegC10, 2, fetchRegC10
+      PRMT.RC8 R204, R156, 3, R156 ?W2;                      // PRMT.RC8 tempOldC43, fetchRegC10, 3, fetchRegC10
+      PRMT.RC8 R205, R157, 0, R157 ?W2;                      // PRMT.RC8 tempOldC44, fetchRegC11, 0, fetchRegC11
+      PRMT.RC8 R206, R157, 1, R157 ?W2;                      // PRMT.RC8 tempOldC45, fetchRegC11, 1, fetchRegC11
+      PRMT.RC8 R207, R157, 2, R157 ?W2;                      // PRMT.RC8 tempOldC46, fetchRegC11, 2, fetchRegC11
+      PRMT.RC8 R208, R157, 3, R157 ?W4;                      // PRMT.RC8 tempOldC47, fetchRegC11, 3, fetchRegC11
+      I2F.F32.S8 R201, R201 ?W2;                             // I2F.F32.S8 tempOldC40, tempOldC40
+      I2F.F32.S8 R202, R202 ?W2;                             // I2F.F32.S8 tempOldC41, tempOldC41
+      I2F.F32.S8 R203, R203 ?W2;                             // I2F.F32.S8 tempOldC42, tempOldC42
+      I2F.F32.S8 R204, R204 ?W2;                             // I2F.F32.S8 tempOldC43, tempOldC43
+      I2F.F32.S8 R205, R205 ?W2;                             // I2F.F32.S8 tempOldC44, tempOldC44
+      I2F.F32.S8 R206, R206 ?W2;                             // I2F.F32.S8 tempOldC45, tempOldC45
+      I2F.F32.S8 R207, R207 ?W2;                             // I2F.F32.S8 tempOldC46, tempOldC46
+      I2F.F32.S8 R208, R208 &wr=0 ?W4;                       // I2F.F32.S8 tempOldC47, tempOldC47
+      PRMT.RC8 R209, R158, 0, R158 &req=2 ?W2;               // PRMT.RC8 tempOldC48, fetchRegC12, 0, fetchRegC12
+      PRMT.RC8 R210, R158, 1, R158 ?W2;                      // PRMT.RC8 tempOldC49, fetchRegC12, 1, fetchRegC12
+      PRMT.RC8 R211, R158, 2, R158 ?W2;                      // PRMT.RC8 tempOldC50, fetchRegC12, 2, fetchRegC12
+      PRMT.RC8 R212, R158, 3, R158 ?W2;                      // PRMT.RC8 tempOldC51, fetchRegC12, 3, fetchRegC12
+      PRMT.RC8 R213, R159, 0, R159 ?W2;                      // PRMT.RC8 tempOldC52, fetchRegC13, 0, fetchRegC13
+      PRMT.RC8 R214, R159, 1, R159 ?W2;                      // PRMT.RC8 tempOldC53, fetchRegC13, 1, fetchRegC13
+      PRMT.RC8 R215, R159, 2, R159 ?W2;                      // PRMT.RC8 tempOldC54, fetchRegC13, 2, fetchRegC13
+      PRMT.RC8 R216, R159, 3, R159 ?W4;                      // PRMT.RC8 tempOldC55, fetchRegC13, 3, fetchRegC13
+      I2F.F32.S8 R209, R209 ?W2;                             // I2F.F32.S8 tempOldC48, tempOldC48
+      I2F.F32.S8 R210, R210 ?W2;                             // I2F.F32.S8 tempOldC49, tempOldC49
+      I2F.F32.S8 R211, R211 ?W2;                             // I2F.F32.S8 tempOldC50, tempOldC50
+      I2F.F32.S8 R212, R212 ?W2;                             // I2F.F32.S8 tempOldC51, tempOldC51
+      I2F.F32.S8 R213, R213 ?W2;                             // I2F.F32.S8 tempOldC52, tempOldC52
+      I2F.F32.S8 R214, R214 ?W2;                             // I2F.F32.S8 tempOldC53, tempOldC53
+      I2F.F32.S8 R215, R215 ?W2;                             // I2F.F32.S8 tempOldC54, tempOldC54
+      I2F.F32.S8 R216, R216 &wr=0 ?W4;                       // I2F.F32.S8 tempOldC55, tempOldC55
+      PRMT.RC8 R217, R160, 0, R160 &req=2 ?W2;               // PRMT.RC8 tempOldC56, fetchRegC14, 0, fetchRegC14
+      PRMT.RC8 R218, R160, 1, R160 ?W2;                      // PRMT.RC8 tempOldC57, fetchRegC14, 1, fetchRegC14
+      PRMT.RC8 R219, R160, 2, R160 ?W2;                      // PRMT.RC8 tempOldC58, fetchRegC14, 2, fetchRegC14
+      PRMT.RC8 R220, R160, 3, R160 ?W2;                      // PRMT.RC8 tempOldC59, fetchRegC14, 3, fetchRegC14
+      PRMT.RC8 R221, R161, 0, R161 ?W2;                      // PRMT.RC8 tempOldC60, fetchRegC15, 0, fetchRegC15
+      PRMT.RC8 R222, R161, 1, R161 ?W2;                      // PRMT.RC8 tempOldC61, fetchRegC15, 1, fetchRegC15
+      PRMT.RC8 R223, R161, 2, R161 ?W2;                      // PRMT.RC8 tempOldC62, fetchRegC15, 2, fetchRegC15
+      PRMT.RC8 R224, R161, 3, R161 ?W4;                      // PRMT.RC8 tempOldC63, fetchRegC15, 3, fetchRegC15
+      I2F.F32.S8 R217, R217 ?W2;                             // I2F.F32.S8 tempOldC56, tempOldC56
+      I2F.F32.S8 R218, R218 ?W2;                             // I2F.F32.S8 tempOldC57, tempOldC57
+      I2F.F32.S8 R219, R219 ?W2;                             // I2F.F32.S8 tempOldC58, tempOldC58
+      I2F.F32.S8 R220, R220 ?W2;                             // I2F.F32.S8 tempOldC59, tempOldC59
+      I2F.F32.S8 R221, R221 ?W2;                             // I2F.F32.S8 tempOldC60, tempOldC60
+      I2F.F32.S8 R222, R222 ?W2;                             // I2F.F32.S8 tempOldC61, tempOldC61
+      I2F.F32.S8 R223, R223 ?W2;                             // I2F.F32.S8 tempOldC62, tempOldC62
+      I2F.F32.S8 R224, R224 &wr=0 ?W4;                       // I2F.F32.S8 tempOldC63, tempOldC63
+(!P0) BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_STORE_COL_AFTER_PREFETCH ?W5; // @!P0 BRA.U volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_STORE_COL_AFTER_PREFETCH
+      R2P PR, R139.B0, 0x78 ?W12EG;                          // R2P PR, readPreds.B0, 0x78
+(P3)  LDG.E.EN.64.STRONG.GPU R146, [R134 + 0] &req=3 &rd=3 &wr=2 ?W2; // @P3 LDG.E.EN.64.STRONG.GPU fetchRegC0, [readPtr + 0]
+(!P3) CS2R R146, SRZ ?W2;                                    // @!P3 CS2R fetchRegC0, SRZ
+(P4)  LDG.E.EN.64.STRONG.GPU R148, [R134 + 256] &req=3 &rd=3 &wr=2 ?W2; // @P4 LDG.E.EN.64.STRONG.GPU fetchRegC2, [readPtr + 256]
+(!P4) CS2R R148, SRZ ?W2;                                    // @!P4 CS2R fetchRegC2, SRZ
+(P5)  LDG.E.EN.64.STRONG.GPU R150, [R134 + 512] &req=3 &rd=3 &wr=2 ?W2; // @P5 LDG.E.EN.64.STRONG.GPU fetchRegC4, [readPtr + 512]
+(!P5) CS2R R150, SRZ ?W2;                                    // @!P5 CS2R fetchRegC4, SRZ
+(P6)  LDG.E.EN.64.STRONG.GPU R152, [R134 + 768] &req=3 &rd=3 &wr=2 ?W2; // @P6 LDG.E.EN.64.STRONG.GPU fetchRegC6, [readPtr + 768]
+(!P6) CS2R R152, SRZ ?W2;                                    // @!P6 CS2R fetchRegC6, SRZ
+      R2P PR, R139.B1, 0x78 ?W12EG;                          // R2P PR, readPreds.B1, 0x78
+(P3)  LDG.E.EN.64.STRONG.GPU R154, [R134 + 1024] &req=3 &rd=3 &wr=2 ?W2; // @P3 LDG.E.EN.64.STRONG.GPU fetchRegC8, [readPtr + 1024]
+(!P3) CS2R R154, SRZ ?W2;                                    // @!P3 CS2R fetchRegC8, SRZ
+(P4)  LDG.E.EN.64.STRONG.GPU R156, [R134 + 1280] &req=3 &rd=3 &wr=2 ?W2; // @P4 LDG.E.EN.64.STRONG.GPU fetchRegC10, [readPtr + 1280]
+(!P4) CS2R R156, SRZ ?W2;                                    // @!P4 CS2R fetchRegC10, SRZ
+(P5)  LDG.E.EN.64.STRONG.GPU R158, [R134 + 1536] &req=3 &rd=3 &wr=2 ?W2; // @P5 LDG.E.EN.64.STRONG.GPU fetchRegC12, [readPtr + 1536]
+(!P5) CS2R R158, SRZ ?W2;                                    // @!P5 CS2R fetchRegC12, SRZ
+(P6)  LDG.E.EN.64.STRONG.GPU R160, [R134 + 1792] &req=3 &rd=3 &wr=2 ?W2; // @P6 LDG.E.EN.64.STRONG.GPU fetchRegC14, [readPtr + 1792]
+(!P6) CS2R R160, SRZ ?W2;                                    // @!P6 CS2R fetchRegC14, SRZ
+      MOV R249, c[0][0x1bc] &req=3 ?W6;                      // MOV M, CountM
+      IMAD.WIDE.U32 R134, R249, 32, R134 ?W5;                // IMAD.WIDE.U32 readPtr, M, 32, readPtr
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_STORE_COL_AFTER_PREFETCH:
+      FFMA R0, R145, R226, R0 &req={0,2} ?W2;                // FFMA storeReg0, tempOldC0, beta0, storeReg0
+      FFMA R1, R162, R226, R1 ?W2;                           // FFMA storeReg1, tempOldC1, beta0, storeReg1
+      FFMA R2, R163, R226, R2 ?W2;                           // FFMA storeReg2, tempOldC2, beta0, storeReg2
+      FFMA R3, R164, R226, R3 ?W2;                           // FFMA storeReg3, tempOldC3, beta0, storeReg3
+      FFMA R4, R165, R226, R4 ?W2;                           // FFMA storeReg4, tempOldC4, beta0, storeReg4
+      FFMA R5, R166, R226, R5 ?W2;                           // FFMA storeReg5, tempOldC5, beta0, storeReg5
+      FFMA R6, R167, R226, R6 ?W2;                           // FFMA storeReg6, tempOldC6, beta0, storeReg6
+      FFMA R7, R168, R226, R7 ?W2;                           // FFMA storeReg7, tempOldC7, beta0, storeReg7
+      FFMA R16, R169, R227, R16 ?W2;                         // FFMA storeReg8, tempOldC8, beta1, storeReg8
+      FFMA R17, R170, R227, R17 ?W2;                         // FFMA storeReg9, tempOldC9, beta1, storeReg9
+      FFMA R18, R171, R227, R18 ?W2;                         // FFMA storeReg10, tempOldC10, beta1, storeReg10
+      FFMA R19, R172, R227, R19 ?W2;                         // FFMA storeReg11, tempOldC11, beta1, storeReg11
+      FFMA R20, R173, R227, R20 ?W2;                         // FFMA storeReg12, tempOldC12, beta1, storeReg12
+      FFMA R21, R174, R227, R21 ?W2;                         // FFMA storeReg13, tempOldC13, beta1, storeReg13
+      FFMA R22, R175, R227, R22 ?W2;                         // FFMA storeReg14, tempOldC14, beta1, storeReg14
+      FFMA R23, R176, R227, R23 ?W2;                         // FFMA storeReg15, tempOldC15, beta1, storeReg15
+      FFMA R32, R177, R228, R32 ?W2;                         // FFMA storeReg16, tempOldC16, beta2, storeReg16
+      FFMA R33, R178, R228, R33 ?W2;                         // FFMA storeReg17, tempOldC17, beta2, storeReg17
+      FFMA R34, R179, R228, R34 ?W2;                         // FFMA storeReg18, tempOldC18, beta2, storeReg18
+      FFMA R35, R180, R228, R35 ?W2;                         // FFMA storeReg19, tempOldC19, beta2, storeReg19
+      FFMA R36, R181, R228, R36 ?W2;                         // FFMA storeReg20, tempOldC20, beta2, storeReg20
+      FFMA R37, R182, R228, R37 ?W2;                         // FFMA storeReg21, tempOldC21, beta2, storeReg21
+      FFMA R38, R183, R228, R38 ?W2;                         // FFMA storeReg22, tempOldC22, beta2, storeReg22
+      FFMA R39, R184, R228, R39 ?W2;                         // FFMA storeReg23, tempOldC23, beta2, storeReg23
+      FFMA R48, R185, R229, R48 ?W2;                         // FFMA storeReg24, tempOldC24, beta3, storeReg24
+      FFMA R49, R186, R229, R49 ?W2;                         // FFMA storeReg25, tempOldC25, beta3, storeReg25
+      FFMA R50, R187, R229, R50 ?W2;                         // FFMA storeReg26, tempOldC26, beta3, storeReg26
+      FFMA R51, R188, R229, R51 ?W2;                         // FFMA storeReg27, tempOldC27, beta3, storeReg27
+      FFMA R52, R189, R229, R52 ?W2;                         // FFMA storeReg28, tempOldC28, beta3, storeReg28
+      FFMA R53, R190, R229, R53 ?W2;                         // FFMA storeReg29, tempOldC29, beta3, storeReg29
+      FFMA R54, R191, R229, R54 ?W2;                         // FFMA storeReg30, tempOldC30, beta3, storeReg30
+      FFMA R55, R192, R229, R55 ?W2;                         // FFMA storeReg31, tempOldC31, beta3, storeReg31
+      FFMA R64, R193, R230, R64 ?W2;                         // FFMA storeReg32, tempOldC32, beta4, storeReg32
+      FFMA R65, R194, R230, R65 ?W2;                         // FFMA storeReg33, tempOldC33, beta4, storeReg33
+      FFMA R66, R195, R230, R66 ?W2;                         // FFMA storeReg34, tempOldC34, beta4, storeReg34
+      FFMA R67, R196, R230, R67 ?W2;                         // FFMA storeReg35, tempOldC35, beta4, storeReg35
+      FFMA R68, R197, R230, R68 ?W2;                         // FFMA storeReg36, tempOldC36, beta4, storeReg36
+      FFMA R69, R198, R230, R69 ?W2;                         // FFMA storeReg37, tempOldC37, beta4, storeReg37
+      FFMA R70, R199, R230, R70 ?W2;                         // FFMA storeReg38, tempOldC38, beta4, storeReg38
+      FFMA R71, R200, R230, R71 ?W2;                         // FFMA storeReg39, tempOldC39, beta4, storeReg39
+      FFMA R80, R201, R231, R80 ?W2;                         // FFMA storeReg40, tempOldC40, beta5, storeReg40
+      FFMA R81, R202, R231, R81 ?W2;                         // FFMA storeReg41, tempOldC41, beta5, storeReg41
+      FFMA R82, R203, R231, R82 ?W2;                         // FFMA storeReg42, tempOldC42, beta5, storeReg42
+      FFMA R83, R204, R231, R83 ?W2;                         // FFMA storeReg43, tempOldC43, beta5, storeReg43
+      FFMA R84, R205, R231, R84 ?W2;                         // FFMA storeReg44, tempOldC44, beta5, storeReg44
+      FFMA R85, R206, R231, R85 ?W2;                         // FFMA storeReg45, tempOldC45, beta5, storeReg45
+      FFMA R86, R207, R231, R86 ?W2;                         // FFMA storeReg46, tempOldC46, beta5, storeReg46
+      FFMA R87, R208, R231, R87 ?W2;                         // FFMA storeReg47, tempOldC47, beta5, storeReg47
+      FFMA R96, R209, R232, R96 ?W2;                         // FFMA storeReg48, tempOldC48, beta6, storeReg48
+      FFMA R97, R210, R232, R97 ?W2;                         // FFMA storeReg49, tempOldC49, beta6, storeReg49
+      FFMA R98, R211, R232, R98 ?W2;                         // FFMA storeReg50, tempOldC50, beta6, storeReg50
+      FFMA R99, R212, R232, R99 ?W2;                         // FFMA storeReg51, tempOldC51, beta6, storeReg51
+      FFMA R100, R213, R232, R100 ?W2;                       // FFMA storeReg52, tempOldC52, beta6, storeReg52
+      FFMA R101, R214, R232, R101 ?W2;                       // FFMA storeReg53, tempOldC53, beta6, storeReg53
+      FFMA R102, R215, R232, R102 ?W2;                       // FFMA storeReg54, tempOldC54, beta6, storeReg54
+      FFMA R103, R216, R232, R103 ?W2;                       // FFMA storeReg55, tempOldC55, beta6, storeReg55
+      FFMA R112, R217, R233, R112 ?W2;                       // FFMA storeReg56, tempOldC56, beta7, storeReg56
+      FFMA R113, R218, R233, R113 ?W2;                       // FFMA storeReg57, tempOldC57, beta7, storeReg57
+      FFMA R114, R219, R233, R114 ?W2;                       // FFMA storeReg58, tempOldC58, beta7, storeReg58
+      FFMA R115, R220, R233, R115 ?W2;                       // FFMA storeReg59, tempOldC59, beta7, storeReg59
+      FFMA R116, R221, R233, R116 ?W2;                       // FFMA storeReg60, tempOldC60, beta7, storeReg60
+      FFMA R117, R222, R233, R117 ?W2;                       // FFMA storeReg61, tempOldC61, beta7, storeReg61
+      FFMA R118, R223, R233, R118 ?W2;                       // FFMA storeReg62, tempOldC62, beta7, storeReg62
+      FFMA R119, R224, R233, R119 ?W2;                       // FFMA storeReg63, tempOldC63, beta7, storeReg63
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_STORE_COL_WRITE:
+      R2P PR, R248.B0, 0x78 ?W12EG;                          // R2P PR, writePreds.B0, 0x78
+      FMNMX R0, R0, c[0][0x1f4], !PT ?W1;                    // FMNMX storeReg0, storeReg0, ReLu, !PT
+      FMNMX R1, R1, c[0][0x1f4], !PT ?W1;                    // FMNMX storeReg1, storeReg1, ReLu, !PT
+      FMNMX R2, R2, c[0][0x1f4], !PT ?W1;                    // FMNMX storeReg2, storeReg2, ReLu, !PT
+      FMNMX R3, R3, c[0][0x1f4], !PT ?W1;                    // FMNMX storeReg3, storeReg3, ReLu, !PT
+      FMNMX R4, R4, c[0][0x1f4], !PT ?W1;                    // FMNMX storeReg4, storeReg4, ReLu, !PT
+      FMNMX R5, R5, c[0][0x1f4], !PT ?W1;                    // FMNMX storeReg5, storeReg5, ReLu, !PT
+      FMNMX R6, R6, c[0][0x1f4], !PT ?W1;                    // FMNMX storeReg6, storeReg6, ReLu, !PT
+      FMNMX R7, R7, c[0][0x1f4], !PT ?W1;                    // FMNMX storeReg7, storeReg7, ReLu, !PT
+      F2I.S32.F32 R0, R0 ?W1;                                // F2I.S32.F32 storeReg0, storeReg0 ?WeT
+      FMNMX R16, R16, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg8, storeReg8, ReLu, !PT
+      F2I.S32.F32 R1, R1 ?W1;                                // F2I.S32.F32 storeReg1, storeReg1 ?WeT
+      FMNMX R17, R17, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg9, storeReg9, ReLu, !PT
+      F2I.S32.F32 R2, R2 ?W1;                                // F2I.S32.F32 storeReg2, storeReg2 ?WeT
+      FMNMX R18, R18, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg10, storeReg10, ReLu, !PT
+      F2I.S32.F32 R3, R3 ?W1;                                // F2I.S32.F32 storeReg3, storeReg3 ?WeT
+      FMNMX R19, R19, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg11, storeReg11, ReLu, !PT
+      F2I.S32.F32 R4, R4 ?W1;                                // F2I.S32.F32 storeReg4, storeReg4 ?WeT
+      FMNMX R20, R20, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg12, storeReg12, ReLu, !PT
+      F2I.S32.F32 R5, R5 ?W1;                                // F2I.S32.F32 storeReg5, storeReg5 ?WeT
+      FMNMX R21, R21, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg13, storeReg13, ReLu, !PT
+      F2I.S32.F32 R6, R6 ?W1;                                // F2I.S32.F32 storeReg6, storeReg6 ?WeT
+      FMNMX R22, R22, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg14, storeReg14, ReLu, !PT
+      F2I.S32.F32 R7, R7 &wr=4 ?W1;                          // F2I.S32.F32 storeReg7, storeReg7 &wr=SB_R_WR ?WeT
+      FMNMX R23, R23, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg15, storeReg15, ReLu, !PT
+      I2IP.S8.S32.SAT R2,R3,R2,RZ &req=4 ?W2;                // I2IP.S8.S32.SAT storeReg2,storeReg3,storeReg2,RZ
+      I2IP.S8.S32.SAT R6,R7,R6,RZ ?W2;                       // I2IP.S8.S32.SAT storeReg6,storeReg7,storeReg6,RZ
+      I2IP.S8.S32.SAT R0,R1,R0,R2.H0 ?W2;                    // I2IP.S8.S32.SAT storeReg0,storeReg1,storeReg0,storeReg2.H0
+      I2IP.S8.S32.SAT R1,R5,R4,R6.H0 ?W8;                    // I2IP.S8.S32.SAT storeReg1,storeReg5,storeReg4,storeReg6.H0
+(P3)  STG.E.EN.64.WEAK [R136 + 0], R0 &req={4} &rd=3 ?W2;    // @P3 STG.E.EN.64.WEAK [writePtr + 0], storeReg0
+      F2I.S32.F32 R16, R16 ?W1;                              // F2I.S32.F32 storeReg8, storeReg8 ?WeT
+      FMNMX R32, R32, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg16, storeReg16, ReLu, !PT
+      F2I.S32.F32 R17, R17 ?W1;                              // F2I.S32.F32 storeReg9, storeReg9 ?WeT
+      FMNMX R33, R33, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg17, storeReg17, ReLu, !PT
+      F2I.S32.F32 R18, R18 ?W1;                              // F2I.S32.F32 storeReg10, storeReg10 ?WeT
+      FMNMX R34, R34, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg18, storeReg18, ReLu, !PT
+      F2I.S32.F32 R19, R19 ?W1;                              // F2I.S32.F32 storeReg11, storeReg11 ?WeT
+      FMNMX R35, R35, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg19, storeReg19, ReLu, !PT
+      F2I.S32.F32 R20, R20 ?W1;                              // F2I.S32.F32 storeReg12, storeReg12 ?WeT
+      FMNMX R36, R36, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg20, storeReg20, ReLu, !PT
+      F2I.S32.F32 R21, R21 ?W1;                              // F2I.S32.F32 storeReg13, storeReg13 ?WeT
+      FMNMX R37, R37, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg21, storeReg21, ReLu, !PT
+      F2I.S32.F32 R22, R22 ?W1;                              // F2I.S32.F32 storeReg14, storeReg14 ?WeT
+      FMNMX R38, R38, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg22, storeReg22, ReLu, !PT
+      F2I.S32.F32 R23, R23 &wr=4 ?W1;                        // F2I.S32.F32 storeReg15, storeReg15 &wr=SB_R_WR ?WeT
+      FMNMX R39, R39, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg23, storeReg23, ReLu, !PT
+      I2IP.S8.S32.SAT R18,R19,R18,RZ &req=4 ?W2;             // I2IP.S8.S32.SAT storeReg10,storeReg11,storeReg10,RZ
+      I2IP.S8.S32.SAT R22,R23,R22,RZ ?W2;                    // I2IP.S8.S32.SAT storeReg14,storeReg15,storeReg14,RZ
+      I2IP.S8.S32.SAT R16,R17,R16,R18.H0 ?W2;                // I2IP.S8.S32.SAT storeReg8,storeReg9,storeReg8,storeReg10.H0
+      I2IP.S8.S32.SAT R17,R21,R20,R22.H0 ?W8;                // I2IP.S8.S32.SAT storeReg9,storeReg13,storeReg12,storeReg14.H0
+(P4)  STG.E.EN.64.WEAK [R136 + 256], R16 &req={4} &rd=3 ?W2; // @P4 STG.E.EN.64.WEAK [writePtr + 256], storeReg8
+      F2I.S32.F32 R32, R32 ?W1;                              // F2I.S32.F32 storeReg16, storeReg16 ?WeT
+      FMNMX R48, R48, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg24, storeReg24, ReLu, !PT
+      F2I.S32.F32 R33, R33 ?W1;                              // F2I.S32.F32 storeReg17, storeReg17 ?WeT
+      FMNMX R49, R49, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg25, storeReg25, ReLu, !PT
+      F2I.S32.F32 R34, R34 ?W1;                              // F2I.S32.F32 storeReg18, storeReg18 ?WeT
+      FMNMX R50, R50, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg26, storeReg26, ReLu, !PT
+      F2I.S32.F32 R35, R35 ?W1;                              // F2I.S32.F32 storeReg19, storeReg19 ?WeT
+      FMNMX R51, R51, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg27, storeReg27, ReLu, !PT
+      F2I.S32.F32 R36, R36 ?W1;                              // F2I.S32.F32 storeReg20, storeReg20 ?WeT
+      FMNMX R52, R52, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg28, storeReg28, ReLu, !PT
+      F2I.S32.F32 R37, R37 ?W1;                              // F2I.S32.F32 storeReg21, storeReg21 ?WeT
+      FMNMX R53, R53, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg29, storeReg29, ReLu, !PT
+      F2I.S32.F32 R38, R38 ?W1;                              // F2I.S32.F32 storeReg22, storeReg22 ?WeT
+      FMNMX R54, R54, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg30, storeReg30, ReLu, !PT
+      F2I.S32.F32 R39, R39 &wr=4 ?W1;                        // F2I.S32.F32 storeReg23, storeReg23 &wr=SB_R_WR ?WeT
+      FMNMX R55, R55, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg31, storeReg31, ReLu, !PT
+      I2IP.S8.S32.SAT R34,R35,R34,RZ &req=4 ?W2;             // I2IP.S8.S32.SAT storeReg18,storeReg19,storeReg18,RZ
+      I2IP.S8.S32.SAT R38,R39,R38,RZ ?W2;                    // I2IP.S8.S32.SAT storeReg22,storeReg23,storeReg22,RZ
+      I2IP.S8.S32.SAT R32,R33,R32,R34.H0 ?W2;                // I2IP.S8.S32.SAT storeReg16,storeReg17,storeReg16,storeReg18.H0
+      I2IP.S8.S32.SAT R33,R37,R36,R38.H0 ?W8;                // I2IP.S8.S32.SAT storeReg17,storeReg21,storeReg20,storeReg22.H0
+(P5)  STG.E.EN.64.WEAK [R136 + 512], R32 &req={4} &rd=3 ?W2; // @P5 STG.E.EN.64.WEAK [writePtr + 512], storeReg16
+      F2I.S32.F32 R48, R48 ?W1;                              // F2I.S32.F32 storeReg24, storeReg24 ?WeT
+      FMNMX R64, R64, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg32, storeReg32, ReLu, !PT
+      F2I.S32.F32 R49, R49 ?W1;                              // F2I.S32.F32 storeReg25, storeReg25 ?WeT
+      FMNMX R65, R65, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg33, storeReg33, ReLu, !PT
+      F2I.S32.F32 R50, R50 ?W1;                              // F2I.S32.F32 storeReg26, storeReg26 ?WeT
+      FMNMX R66, R66, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg34, storeReg34, ReLu, !PT
+      F2I.S32.F32 R51, R51 ?W1;                              // F2I.S32.F32 storeReg27, storeReg27 ?WeT
+      FMNMX R67, R67, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg35, storeReg35, ReLu, !PT
+      F2I.S32.F32 R52, R52 ?W1;                              // F2I.S32.F32 storeReg28, storeReg28 ?WeT
+      FMNMX R68, R68, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg36, storeReg36, ReLu, !PT
+      F2I.S32.F32 R53, R53 ?W1;                              // F2I.S32.F32 storeReg29, storeReg29 ?WeT
+      FMNMX R69, R69, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg37, storeReg37, ReLu, !PT
+      F2I.S32.F32 R54, R54 ?W1;                              // F2I.S32.F32 storeReg30, storeReg30 ?WeT
+      FMNMX R70, R70, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg38, storeReg38, ReLu, !PT
+      F2I.S32.F32 R55, R55 &wr=4 ?W1;                        // F2I.S32.F32 storeReg31, storeReg31 &wr=SB_R_WR ?WeT
+      FMNMX R71, R71, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg39, storeReg39, ReLu, !PT
+      I2IP.S8.S32.SAT R50,R51,R50,RZ &req=4 ?W2;             // I2IP.S8.S32.SAT storeReg26,storeReg27,storeReg26,RZ
+      I2IP.S8.S32.SAT R54,R55,R54,RZ ?W2;                    // I2IP.S8.S32.SAT storeReg30,storeReg31,storeReg30,RZ
+      I2IP.S8.S32.SAT R48,R49,R48,R50.H0 ?W2;                // I2IP.S8.S32.SAT storeReg24,storeReg25,storeReg24,storeReg26.H0
+      I2IP.S8.S32.SAT R49,R53,R52,R54.H0 ?W8;                // I2IP.S8.S32.SAT storeReg25,storeReg29,storeReg28,storeReg30.H0
+(P6)  STG.E.EN.64.WEAK [R136 + 768], R48 &req={4} &rd=3 ?W2; // @P6 STG.E.EN.64.WEAK [writePtr + 768], storeReg24
+      R2P PR, R248.B1, 0x78 ?W12EG;                          // R2P PR, writePreds.B1, 0x78
+      F2I.S32.F32 R64, R64 ?W1;                              // F2I.S32.F32 storeReg32, storeReg32 ?WeT
+      FMNMX R80, R80, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg40, storeReg40, ReLu, !PT
+      F2I.S32.F32 R65, R65 ?W1;                              // F2I.S32.F32 storeReg33, storeReg33 ?WeT
+      FMNMX R81, R81, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg41, storeReg41, ReLu, !PT
+      F2I.S32.F32 R66, R66 ?W1;                              // F2I.S32.F32 storeReg34, storeReg34 ?WeT
+      FMNMX R82, R82, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg42, storeReg42, ReLu, !PT
+      F2I.S32.F32 R67, R67 ?W1;                              // F2I.S32.F32 storeReg35, storeReg35 ?WeT
+      FMNMX R83, R83, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg43, storeReg43, ReLu, !PT
+      F2I.S32.F32 R68, R68 ?W1;                              // F2I.S32.F32 storeReg36, storeReg36 ?WeT
+      FMNMX R84, R84, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg44, storeReg44, ReLu, !PT
+      F2I.S32.F32 R69, R69 ?W1;                              // F2I.S32.F32 storeReg37, storeReg37 ?WeT
+      FMNMX R85, R85, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg45, storeReg45, ReLu, !PT
+      F2I.S32.F32 R70, R70 ?W1;                              // F2I.S32.F32 storeReg38, storeReg38 ?WeT
+      FMNMX R86, R86, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg46, storeReg46, ReLu, !PT
+      F2I.S32.F32 R71, R71 &wr=4 ?W1;                        // F2I.S32.F32 storeReg39, storeReg39 &wr=SB_R_WR ?WeT
+      FMNMX R87, R87, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg47, storeReg47, ReLu, !PT
+      I2IP.S8.S32.SAT R66,R67,R66,RZ &req=4 ?W2;             // I2IP.S8.S32.SAT storeReg34,storeReg35,storeReg34,RZ
+      I2IP.S8.S32.SAT R70,R71,R70,RZ ?W2;                    // I2IP.S8.S32.SAT storeReg38,storeReg39,storeReg38,RZ
+      I2IP.S8.S32.SAT R64,R65,R64,R66.H0 ?W2;                // I2IP.S8.S32.SAT storeReg32,storeReg33,storeReg32,storeReg34.H0
+      I2IP.S8.S32.SAT R65,R69,R68,R70.H0 ?W8;                // I2IP.S8.S32.SAT storeReg33,storeReg37,storeReg36,storeReg38.H0
+(P3)  STG.E.EN.64.WEAK [R136 + 1024], R64 &req={4} &rd=3 ?W2; // @P3 STG.E.EN.64.WEAK [writePtr + 1024], storeReg32
+      F2I.S32.F32 R80, R80 ?W1;                              // F2I.S32.F32 storeReg40, storeReg40 ?WeT
+      FMNMX R96, R96, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg48, storeReg48, ReLu, !PT
+      F2I.S32.F32 R81, R81 ?W1;                              // F2I.S32.F32 storeReg41, storeReg41 ?WeT
+      FMNMX R97, R97, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg49, storeReg49, ReLu, !PT
+      F2I.S32.F32 R82, R82 ?W1;                              // F2I.S32.F32 storeReg42, storeReg42 ?WeT
+      FMNMX R98, R98, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg50, storeReg50, ReLu, !PT
+      F2I.S32.F32 R83, R83 ?W1;                              // F2I.S32.F32 storeReg43, storeReg43 ?WeT
+      FMNMX R99, R99, c[0][0x1f4], !PT ?W1;                  // FMNMX storeReg51, storeReg51, ReLu, !PT
+      F2I.S32.F32 R84, R84 ?W1;                              // F2I.S32.F32 storeReg44, storeReg44 ?WeT
+      FMNMX R100, R100, c[0][0x1f4], !PT ?W1;                // FMNMX storeReg52, storeReg52, ReLu, !PT
+      F2I.S32.F32 R85, R85 ?W1;                              // F2I.S32.F32 storeReg45, storeReg45 ?WeT
+      FMNMX R101, R101, c[0][0x1f4], !PT ?W1;                // FMNMX storeReg53, storeReg53, ReLu, !PT
+      F2I.S32.F32 R86, R86 ?W1;                              // F2I.S32.F32 storeReg46, storeReg46 ?WeT
+      FMNMX R102, R102, c[0][0x1f4], !PT ?W1;                // FMNMX storeReg54, storeReg54, ReLu, !PT
+      F2I.S32.F32 R87, R87 &wr=4 ?W1;                        // F2I.S32.F32 storeReg47, storeReg47 &wr=SB_R_WR ?WeT
+      FMNMX R103, R103, c[0][0x1f4], !PT ?W1;                // FMNMX storeReg55, storeReg55, ReLu, !PT
+      I2IP.S8.S32.SAT R82,R83,R82,RZ &req=4 ?W2;             // I2IP.S8.S32.SAT storeReg42,storeReg43,storeReg42,RZ
+      I2IP.S8.S32.SAT R86,R87,R86,RZ ?W2;                    // I2IP.S8.S32.SAT storeReg46,storeReg47,storeReg46,RZ
+      I2IP.S8.S32.SAT R80,R81,R80,R82.H0 ?W2;                // I2IP.S8.S32.SAT storeReg40,storeReg41,storeReg40,storeReg42.H0
+      I2IP.S8.S32.SAT R81,R85,R84,R86.H0 ?W8;                // I2IP.S8.S32.SAT storeReg41,storeReg45,storeReg44,storeReg46.H0
+(P4)  STG.E.EN.64.WEAK [R136 + 1280], R80 &req={4} &rd=3 ?W2; // @P4 STG.E.EN.64.WEAK [writePtr + 1280], storeReg40
+      F2I.S32.F32 R96, R96 ?W1;                              // F2I.S32.F32 storeReg48, storeReg48 ?WeT
+      FMNMX R112, R112, c[0][0x1f4], !PT ?W1;                // FMNMX storeReg56, storeReg56, ReLu, !PT
+      F2I.S32.F32 R97, R97 ?W1;                              // F2I.S32.F32 storeReg49, storeReg49 ?WeT
+      FMNMX R113, R113, c[0][0x1f4], !PT ?W1;                // FMNMX storeReg57, storeReg57, ReLu, !PT
+      F2I.S32.F32 R98, R98 ?W1;                              // F2I.S32.F32 storeReg50, storeReg50 ?WeT
+      FMNMX R114, R114, c[0][0x1f4], !PT ?W1;                // FMNMX storeReg58, storeReg58, ReLu, !PT
+      F2I.S32.F32 R99, R99 ?W1;                              // F2I.S32.F32 storeReg51, storeReg51 ?WeT
+      FMNMX R115, R115, c[0][0x1f4], !PT ?W1;                // FMNMX storeReg59, storeReg59, ReLu, !PT
+      F2I.S32.F32 R100, R100 ?W1;                            // F2I.S32.F32 storeReg52, storeReg52 ?WeT
+      FMNMX R116, R116, c[0][0x1f4], !PT ?W1;                // FMNMX storeReg60, storeReg60, ReLu, !PT
+      F2I.S32.F32 R101, R101 ?W1;                            // F2I.S32.F32 storeReg53, storeReg53 ?WeT
+      FMNMX R117, R117, c[0][0x1f4], !PT ?W1;                // FMNMX storeReg61, storeReg61, ReLu, !PT
+      F2I.S32.F32 R102, R102 ?W1;                            // F2I.S32.F32 storeReg54, storeReg54 ?WeT
+      FMNMX R118, R118, c[0][0x1f4], !PT ?W1;                // FMNMX storeReg62, storeReg62, ReLu, !PT
+      F2I.S32.F32 R103, R103 &wr=4 ?W1;                      // F2I.S32.F32 storeReg55, storeReg55 &wr=SB_R_WR ?WeT
+      FMNMX R119, R119, c[0][0x1f4], !PT ?W1;                // FMNMX storeReg63, storeReg63, ReLu, !PT
+      I2IP.S8.S32.SAT R98,R99,R98,RZ &req=4 ?W2;             // I2IP.S8.S32.SAT storeReg50,storeReg51,storeReg50,RZ
+      I2IP.S8.S32.SAT R102,R103,R102,RZ ?W2;                 // I2IP.S8.S32.SAT storeReg54,storeReg55,storeReg54,RZ
+      I2IP.S8.S32.SAT R96,R97,R96,R98.H0 ?W2;                // I2IP.S8.S32.SAT storeReg48,storeReg49,storeReg48,storeReg50.H0
+      I2IP.S8.S32.SAT R97,R101,R100,R102.H0 ?W8;             // I2IP.S8.S32.SAT storeReg49,storeReg53,storeReg52,storeReg54.H0
+(P5)  STG.E.EN.64.WEAK [R136 + 1536], R96 &req={4} &rd=3 ?W2; // @P5 STG.E.EN.64.WEAK [writePtr + 1536], storeReg48
+      F2I.S32.F32 R112, R112 ?W2;                            // F2I.S32.F32 storeReg56, storeReg56 ?WiT
+      F2I.S32.F32 R113, R113 ?W2;                            // F2I.S32.F32 storeReg57, storeReg57 ?WiT
+      F2I.S32.F32 R114, R114 ?W2;                            // F2I.S32.F32 storeReg58, storeReg58 ?WiT
+      F2I.S32.F32 R115, R115 ?W2;                            // F2I.S32.F32 storeReg59, storeReg59 ?WiT
+      F2I.S32.F32 R116, R116 ?W2;                            // F2I.S32.F32 storeReg60, storeReg60 ?WiT
+      F2I.S32.F32 R117, R117 ?W2;                            // F2I.S32.F32 storeReg61, storeReg61 ?WiT
+      F2I.S32.F32 R118, R118 ?W2;                            // F2I.S32.F32 storeReg62, storeReg62 ?WiT
+      F2I.S32.F32 R119, R119 &wr=4 ?W2;                      // F2I.S32.F32 storeReg63, storeReg63 &wr=SB_R_WR ?WiT
+      I2IP.S8.S32.SAT R114,R115,R114,RZ &req=4 ?W2;          // I2IP.S8.S32.SAT storeReg58,storeReg59,storeReg58,RZ
+      I2IP.S8.S32.SAT R118,R119,R118,RZ ?W2;                 // I2IP.S8.S32.SAT storeReg62,storeReg63,storeReg62,RZ
+      I2IP.S8.S32.SAT R112,R113,R112,R114.H0 ?W2;            // I2IP.S8.S32.SAT storeReg56,storeReg57,storeReg56,storeReg58.H0
+      I2IP.S8.S32.SAT R113,R117,R116,R118.H0 ?W8;            // I2IP.S8.S32.SAT storeReg57,storeReg61,storeReg60,storeReg62.H0
+(P6)  STG.E.EN.64.WEAK [R136 + 1792], R112 &req={4} &rd=3 ?W2; // @P6 STG.E.EN.64.WEAK [writePtr + 1792], storeReg56
+      RET.ABS  R128 + 32 ?W5;                                // RET.ABS pc + 32
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_END:
+	.sectioninfo	@"SHI_REGISTERS=253"
+//--------------------- .lw.info.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt
+
+	.section	.lw.info.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt,"",@SHT_LWDA_INFO
+	// ---- lwinfo : EIATTR_PARAM_CBANK
+	.align 4
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_1:
+	.byte  0x04, 0xa
+	.short  (volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_3 - volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_2)
+	.align 4
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_2:
+	.word	index@(.lw.constant0.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt)
+	.short  0x0160
+	.short  0xb0
+
+	// ---- lwinfo : EIATTR_CBANK_PARAM_SIZE
+	.align 4
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_3:
+	.byte	0x03, 0x19
+	.short  0xb0
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_4:
+	.byte  0x04, 0x17
+	.short (volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_6 - volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_5)
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_5:
+	.word	0x00000000
+	.short  0x0
+	.short  0x0
+	.byte  0x00, 0xf0, 0xc1, 0x02
+
+volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_6:
+//--------------------- .lw.shared.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt
+
+	.section	.lw.shared.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt,"aw",@nobits
+	.align 4
+	.zero 49148
+	.word shmem_reloc_volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt
+//--------------------- .lw.callgraph             --------------------------
+	.section	.lw.callgraph,"",@"SHT_CALLGRAPH"
+	.sectionentsize	8
+	.align 4
+	.byte	0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff
+	.align 4
+	.byte	0x00, 0x00, 0x00, 0x00, 0xfe, 0xff, 0xff, 0xff
+	.byte	0x00, 0x00, 0x00, 0x00, 0xfd, 0xff, 0xff, 0xff
+
+// ------------------- lwinfo        --------
+	.section	.lw.info,"",@SHT_LWDA_INFO
+
+	// ---- lwinfo : EIATTR_MIN_STACK_SIZE
+	.align 4
+.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_L1:
+	.byte  0x04, 0x12
+	.short  (.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_L3 - .volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_L2)
+	.align 4
+.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_L2:
+	.word	index@(volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt)
+	.word  0x0
+
+	// ---- lwinfo : EIATTR_FRAME_SIZE
+	.align 4
+.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_L3:
+	.byte  0x04, 0x11
+	.short  (.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_L5 - .volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_L4)
+	.align 4
+.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_L4:
+	.word	index@(volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt)
+	.word  0x0
+
+.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_L5:
+
+//--------------------- .lw.constant0.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt
+	.section	.lw.constant0.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt,"a",@progbits
+	.align 4
+.volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_L6:
+	.zero     528
+
+// ------------------- Symbol --------
+
+// const ShaderParams volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt_params = {
+//     /* version             */ 1,
+//     /* name                */ "volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt",
+//     /* kernel              */ (void*)volta_int8_i8816gemm_int8_256x128_ldg16_relu_mods_nt,
+//     /* chipFamily          */ GEMM_CHIP_VOLTA,
+//     /* gemmType            */ I8816GEMM,
+//     /* typeA               */ R_8I,
+//     /* typeAm              */ R_32I,
+//     /* packCountA             1, */
+//     /* typeB               */ R_8I,
+//     /* packCountB             1, */
+//     /* typeC               */ R_8I,
+//     /* packCountC             1, */
+//     /* typeEpilog          */ R_32F,
+//     /* packCountEpilog        1, */
+//     /* shapeC              */ RECT,
+//     /* layoutA             */ N,
+//     /* layoutB             */ T,
+//     /* log2ElementsPerLdgA */ 4,
+//     /* log2ElementsPerLdgB */ 4,
+//     /* reLuAndBias         */ 1,
+//     /* isReleaseKernel     */ 1,
+//     /* numRegisters        */ 251,
+//     /* usedRegisters          251, */
+//     /* sharedMemSize       */ 49152,  /* 48.000 KB */
+//     /* elementRowsPerCta   */ 256,
+//     /* elementRowsPerWarp     64, */
+//     /* elementColsperCta   */ 128,
+//     /* elementColsPerWarp     64, */
+//     /* threadsPerCta       */ 256,
+//     /* raggedMn            */ true,
+//     /* warpStrideK         */ 8,
+//     /* shiftFastA          */ 0,
+//     /* multiplierSlowA     */ 1,
+//     /* offsetSlowA         */ 0,
+//     /* shiftFastB          */ 0,
+//     /* multiplierSlowB     */ 1,
+//     /* offsetSlowB         */ 0,
+//     /* shiftFastAm         */ 0,
+//     /* multiplierSlowAm    */ 1,
+//     /* offsetSlowAm        */ 0,
+//     /* kBlock              */ 64,
+//     /* lwDnnEdges          */ LWDNN_NONE,
+//     /* lwDnnLayout         */ NCHW,
+//     /* lwDnnStridedB       */ false,
+//     /* lwDnnSplitK         */ false,
+//     /* lwDnnDgrad          */ false,
+//     /* lwDnnWgrad          */ false,
+//     /* sliceRows           */ 1,
+//     /* sliceCols           */ 1,
+//     /* abiVersion          */ ABI_PREAMPERE_G
+// };

@@ -1,0 +1,66 @@
+# -*- mode: perl; -*-
+
+# SequencerHal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $seqHal = [
+
+    DEFAULTS => [
+
+        FLAGS       => ":DIRECT_HAL_CALLS",
+
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        WAIT_SIGNAL => [
+            DESCRIPTION   => "Wait for certain events to happen (signals to be asserted or deasserted)",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "LwU32 signal, LwU32 delayNs",
+            STUB_RETURNS  => FLCN_ERR_NOT_SUPPORTED,
+
+            _GM10X        => [ pre_VOLTA, ],
+            _GV10X        => [ VOLTA, ],
+            _STUB         => [ TURING_and_later, ],
+
+        ],
+
+        WAIT_FOR_OK2_SWITCH => [
+            DESCRIPTION   => "Wait for ihub ok2switch to be asserted or deasserted",
+            RETURN_TYPE   => LwBool,
+            ARGUMENTS     => "LwU32 *pArgs, LwU32 delayNs",
+            STUB_RETURNS  => LW_TRUE,
+
+            _GM10X        => [ MAXWELL_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _STUB         => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        UPDATE_LTCS_REGS => [
+            DESCRIPTION   => "Update the ltcs registers",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "LwU8 opcode, LwU32 value",
+            STUB_RETURNS  => void,
+
+            _GP100        => [ GP100, VOLTA, TURING, ],
+            _STUB         => [ ALL, -GP100, -VOLTA, -TURING, ],
+        ],
+
+        UPDATE_FBPA_CONFIG0_TRP => [
+            DESCRIPTION   => "Update the TRP field in FBPA CONFIG0 register",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "LwU32 value",
+            STUB_RETURNS  => void,
+
+            _GV10X        => [ GV100, ],
+            _STUB         => [ ALL, -GV100, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $seqHal;
+

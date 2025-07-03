@@ -1,0 +1,189 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Modules.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    # These paths are relative to uproc/libs/i2c/src/
+    I2C_SRC => [
+
+        ONLY_IF => I2C,
+
+        # include these files only if they show up in a SRCFILES list
+        # FLAGS => ':MUST_BE_REQUIRED',
+
+        LW => [
+
+            FLAGS => ':CORE',                     # following are all part of core (non-hal)
+
+            'i2c/lw/i2c_obji2c.c',
+            'i2c/lw/i2c_swi2c.c',
+            'i2c/lw/i2c_hwi2c.c',
+        ],  # LW
+
+        CHIPS_SUPPORTED => [ GM20X_and_later, ],
+            'i2c/maxwell/i2c_i2cgm20x.c',
+            'i2c/maxwell/i2c_i2cmtxgm20x.c',
+
+        CHIPS_SUPPORTED => [ GP10X_and_later, ],
+            'i2c/pascal/i2c_i2cmtxgp10x.c',
+
+        CHIPS_SUPPORTED => [ T234D_and_later, ],
+  	        'tegra_i2c/i2c-core.c',
+            'tegra_i2c/i2c-cheetah.c',
+    	    'tegra_i2c/i2c-cheetah-ids.c',
+   	        'tegra_i2c/i2c-port.c',
+	        'tegra_i2c/i2c_tegrai2c.c',
+    ],
+
+    # These paths are relative to uproc/libs/dpaux/src/
+    DPAUX_SRC => [
+
+        ONLY_IF => DPAUX,
+
+        # include these files only if they show up in a SRCFILES list
+        # FLAGS => ':MUST_BE_REQUIRED',
+
+        LW => [
+
+            FLAGS => ':CORE',                     # following are all part of core (non-hal)
+
+            CHIPS_SUPPORTED => [ GM20X_and_later, T234D_and_later, ],
+            'dpaux/lw/dpaux_objdpaux.c',
+        ],  # LW
+
+        CHIPS_SUPPORTED => [ GM20X_and_later ],
+            'dpaux/v02/dpaux_dpaux0205.c',
+
+        CHIPS_SUPPORTED => [ T234D_and_later ],
+            'dpaux/v04/dpaux_dpaux0402.c',
+    ],
+
+    # These paths are relative to uproc/libs/hdcp/hdcp1x/src/
+    HDCP_SRC => [
+
+        ONLY_IF => HDCP,
+
+        # include these files only if they show up in a SRCFILES list
+        # FLAGS => ':MUST_BE_REQUIRED',
+
+        LW => [
+
+            FLAGS => ':CORE',                     # following are all part of core (non-hal)
+
+            CHIPS_SUPPORTED => [ GM20X_and_later, T234D_and_later, ],
+            'hdcp/lw/hdcp_objhdcp.c',
+            'hdcp/lw/hdcp_cmds.c',
+        ],  # LW
+
+        CHIPS_SUPPORTED => [ GM20X_thru_dPASCAL ],
+            'hdcp/v02/hdcp_pvtbus0205.c'    ,
+        CHIPS_SUPPORTED => [ GV10X_and_later ],
+            'hdcp/v02/hdcp_secbus0300.c'    ,
+        CHIPS_SUPPORTED => [ T234D_and_later ],
+            'hdcp/v04/hdcp_pvtbus0402.c',
+    ],
+
+    # These paths are relative to uproc/libs/hdcp/hdcp22wired/src/
+    HDCP22WIRED_SRC => [
+
+        ONLY_IF => HDCP22WIRED,
+
+        # include these files only if they show up in a SRCFILES list
+        # FLAGS => ':MUST_BE_REQUIRED',
+
+        LW => [
+
+            FLAGS => ':CORE',                     # following are all part of core (non-hal)
+
+            CHIPS_SUPPORTED => [ GM20X_and_later, T234D_and_later, ],
+            'hdcp22wired/lw/hdcp22wired_objhdcp22wired.c',
+            'hdcp22wired/lw/hdcp22wired_aes.c',
+            'hdcp22wired/lw/hdcp22wired_ake.c',
+            'hdcp22wired/lw/hdcp22wired_akeh.c',
+            'hdcp22wired/lw/hdcp22wired_cmds.c',
+            'hdcp22wired/lw/hdcp22wired_lc.c',
+            'hdcp22wired/lw/hdcp22wired_repeater.c',
+            'hdcp22wired/lw/hdcp22wired_ske.c',
+            'hdcp22wired/lw/hdcp22wired_srm.c',
+            'hdcp22wired/lw/hdcp22wired_timer.c',
+            'hdcp22wired/lw/hdcp22wired_selwrity.c',
+            'hdcp22wired/lw/hdcp22wired_platform_wrapper.c',
+            'hdcp22wired/lw/hdcp22wired_selwreactions.c',
+            'hdcp22wired/lw/hdcp22wired_start_session.c',
+            'hdcp22wired/lw/hdcp22wired_verify_certificate.c',
+            'hdcp22wired/lw/hdcp22wired_kmkd_gen.c',
+            'hdcp22wired/lw/hdcp22wired_hprime_validation.c',
+            'hdcp22wired/lw/hdcp22wired_lprime_validation.c',
+            'hdcp22wired/lw/hdcp22wired_sessionkey_gen.c',
+            'hdcp22wired/lw/hdcp22wired_control_encryption.c',
+            'hdcp22wired/lw/hdcp22wired_vprime_validation.c',
+            'hdcp22wired/lw/hdcp22wired_mprime_validation.c',
+            'hdcp22wired/lw/hdcp22wired_write_dp_ecf.c',
+            'hdcp22wired/lw/hdcp22wired_srm_revocation.c',
+            'hdcp22wired/lw/hdcp22wired_end_session.c',
+        ],  # LW
+
+        CHIPS_SUPPORTED => [ GM20X_and_later, T234D_and_later, ],
+            'hdcp22wired/v02/hdcp22wired_hdcp22wired0205.c' ,
+
+        CHIPS_SUPPORTED => [ GP10X_and_later, ],
+            'hdcp22wired/v02/hdcp22wired_hdcp22wired0207.c' ,
+
+        CHIPS_SUPPORTED => [ GV10X_and_later, ],
+            'hdcp22wired/v03/hdcp22wired_hdcp22wired0300.c' ,
+
+        CHIPS_SUPPORTED => [ TU10X_and_later, ],
+            'hdcp22wired/v04/hdcp22wired_hdcp22wired0400.c' ,
+
+        CHIPS_SUPPORTED => [ GA10X_and_later, ],
+            'hdcp22wired/v04/hdcp22wired_hdcp22wired0401.c' ,
+
+        CHIPS_SUPPORTED => [ T234D_and_later, ],
+            'hdcp22wired/v04/hdcp22wired_hdcp22wired0402.c' ,
+    ],
+
+    # These paths are relative to uproc/libs/crypto/shahw/src/
+    SHAHW_SRC => [
+
+        ONLY_IF => SHAHW,
+
+        # include these files only if they show up in a SRCFILES list
+        # FLAGS => ':MUST_BE_REQUIRED',
+
+        LW => [
+
+            FLAGS => ':CORE',                     # following are all part of core (non-hal)
+
+            'shahw/lw/shahw.c',
+            'shahw/lw/shahw_wrappers.c',
+            'shahw/lw/shahw_hs.c',
+            'shahw/lw/shahw_hs_wrappers.c',
+        ],  # LW
+
+        CHIPS_SUPPORTED => [ TU10X_and_later, ],
+            'shahw/turing/shahw_tu10x.c',
+            'shahw/turing/shahw_hs_tu10x.c',
+    ],
+
+];   # filesRef
+
+my $platformsRef = [
+
+    # the FLCNLIB platform
+    PLATFORM_DEFAULT => [
+        FLCNLIB_ALL => [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

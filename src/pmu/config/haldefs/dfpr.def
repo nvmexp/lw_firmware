@@ -1,0 +1,79 @@
+# -*- mode: perl; -*-
+
+# dfpr Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $dfprHal = [
+
+    DEFAULTS => [
+        FLAGS          => ':DIRECT_HAL_CALLS',
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        IDLE_MASK_INIT => [
+            DESCRIPTION    => "initializes the idle mask for dfpr Prefetch Layer",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE, -GA100, ],
+            _AD10X         => [ AD10X_and_later, -GH100, -GB100, -G00X, -GH20X, ],
+            _STUB          => [ All, -dAMPERE_and_later, GA100, GH100, GB100, G00X, GH20X, ],
+        ],
+
+        ENTRY_CONDITION_CONFIG => [
+            DESCRIPTION    => "Configure the Non Idle Entry Condition for dfpr Prefetch Layer",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, -GH20X, ],
+            _STUB          => [ All, -dAMPERE_and_later, GA100, GH100, GB100, G00X, GH20X, ],
+        ],
+
+        LTC_INIT => [
+            DESCRIPTION    => "Init the SW with various LTC parameters",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, -GH20X, ],
+            _STUB          => [ All, -dAMPERE_and_later, GA100, GH100, GB100, G00X, GH20X, ],
+        ],
+
+        L2_CACHE_DEMOTE => [
+            DESCRIPTION    => "Interface to Demote the L2 Cache",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU16 *pAbortReason",
+            STUB_RETURNS   => FLCN_OK,
+
+            _AD10X         => [ dADA_and_later,  -GH100, -GB100, -G00X, -GH20X, ],
+            _STUB          => [ All, -dADA_and_later, GA100, GH100, GB100, G00X, GH20X, ],
+        ],
+
+        LTC_ENTRY_SEQ => [
+            DESCRIPTION    => "LTC Entry Sequence",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 ctrlId",
+            STUB_RETURNS   => FLCN_OK,
+
+            LIKE_INTERFACE => IDLE_MASK_INIT,
+        ],
+
+        LTC_EXIT_SEQ => [
+            DESCRIPTION    => "LTC Exit Sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 ctrlId",
+
+            LIKE_INTERFACE => IDLE_MASK_INIT,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $dfprHal;

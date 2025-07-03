@@ -1,0 +1,190 @@
+******************************************************************
+*  WARNING                                              WARNING  *
+*                                                                *
+*                 ADVANCED NOTES ON BUILDING MODS                *
+*             "You had better know what you're doing"            *
+*                                                                *
+*  WARNING                                              WARNING  *
+******************************************************************
+
+$Id: //sw/integ/gpu_drv/stage_rel/diag/mods/docs/advbuild.txt#5 $
+
+WARNING - The sections that follow contain tweaks to the standard MODS build
+flow as described in build.txt.  If you follow any of the suggestions listed
+here you should *understand* what it is that you are doing and how it affects
+the rest of the MODS build.  The MODS team already supports MANY build 
+configurations, so we cannot support anyone that deviates from build.txt.
+Period.
+
+//------------------------------------------------------------------------------
+// Notes on //sw/tools/linux/lw-rh72/...
+//------------------------------------------------------------------------------
+
+See //sw/tools/linux/lw-rh72/README.txt for instructions on how to restore files
+that were p4 deleted to save client-side disk space.
+
+//------------------------------------------------------------------------------
+// Notes on building modules independently
+//------------------------------------------------------------------------------
+
+If you want more control over the build or you know that you only touched one module, you
+can also build individual modules of MODS by themselves (rather than using make build_all)
+
+To build librm: (required for macsim, sim, and winsim)
+
+   cd <root>/sw/<tree>/drivers/resman/arch/lwalloc/mods
+   make clean    (if needed)
+   make build_install
+
+To build libmodsgl: (only needed if INCLUDE_OGL is true)
+
+   cd <root>/sw/<tree>/drivers/OpenGL/mods
+   make clean    (if needed)
+   make build_install
+
+To build liblwogtest: (only needed if INCLUDE_LWOGTEST is true)
+
+   cd <root>/sw/main/tests/OpenGL/lwogtest/mods
+   make clean    (if needed)
+   make build_install
+
+To build libmdiag: (only needed if INCLUDE_MDIAG is true)
+
+   cd <root>/sw/<tree>/diag/mods/mdiag
+   make clean    (if needed)
+   make build_install
+
+To build libgoforce: (only needed if INCLUDE_WMP is true)
+
+   cd <root>/sw/Handheld/<chip>/GFSDK/dev/Platforms/mods
+   make clean    (if nedded)
+   make build_install
+   
+To build libogles: (only needed if INCLUDE_OGL_ES is true)
+
+   cd <root>/sw/embedded/drivers/mods
+   make clean    (if nedded)
+   make build_install
+
+To build libdrvexport: (only needed if base_os=linux)
+
+   cd <root>/sw/main/diag/mods/core/drvexport
+   make clean    (if needed)
+   make build_install
+   
+To build MODS:
+
+   cd <root>/sw/<tree>/diag/mods
+   make clean    (if needed)
+   make build_install
+
+Each component can be built independently as either release or debug via the BUILD_CFG
+environment variable.
+
+On macosx, you must always rebuild MODS after any change to any of the libraries,
+because these libraries are statically linked into MODS.  On Linux and Windows platforms
+dynamically linked libraries are used, so the rebuild is not necessary (with the exception
+of libmdiag which is *always* a static library).
+
+The build steps above can generally be overlapped quite a bit.  On all platforms, you can
+overlap building and installing RM, OGL, lwogtest, and mdiag.  Also, on all platforms,
+you can launch the MODS build in advance with "make compile", which will do everything
+except for the final link step.  Once all the libraries have been installed you can do the
+final "make" and "make install" steps for MODS.
+
+On Windows, you can also build and install MODS fully in parallel with the other components,
+thanks to the dynamically linked libraries.  On Linux, you can do this, but only after your
+first full build, since MODS needs some version of the .so's available to link against them.
+(Again, libmdiag is an exception to this rule.  libmdiag must be built before 
+MODS so that MODS can link against it.)
+
+Or, if this is all too complicated for your tastes, you can stick with "make build_all",
+which may be slower but will always do everything in the right order.
+
+The "clobber" target for each makefile will delete not just the build products, but also all
+files installed by "make install" or "make build_install".  The "clobber_all" target in the
+core MODS makefile will delete all installed files from all components of MODS.  Using these
+shouldn't generally be necessary unless you are highly paranoid.
+
+//------------------------------------------------------------------------------
+// Building End-User Mods
+//------------------------------------------------------------------------------
+
+Setting the environment variable BOUND_JS to "true" will cause the build 
+to bind into the mods exelwtable a slightly encrypted script file.  It 
+also disables command-line options so that the mods exelwtable can not be 
+made to run any other script.
+
+a) Decide what script you want to bind in.  For a simple GPU test, there 
+is a script called "enduser.js".  Other scripts are possible, for example 
+we have produced a single-purpose mods for dlcell tuning by binding in the 
+"bnd_dlc.js" script.  The script may take command-line options.
+
+b) Using an existing version of mods, run these commands at the prompt:
+
+ >MakeBoundScript("enduser.js");
+ Wrote 361840 bytes to boundjs.h
+ >Exit();
+
+This produces a file called "boundjs.h", containing C code that defines a
+large array of static UINT32 data, containing a preprocessed, 
+run-length-compressed, and slightly encrypted version of the script you 
+chose.
+
+c) Copy this boundjs.h file over to your build machine, in your 
+.../diag/mods/include directory and do a clean build mods with these 
+environment variables:
+
+BOUND_JS=true
+BUILD_CFG=release
+COMPRESS_REL=true
+VERSION=whatever is appropriate
+CHANGELIST=whatever is appropriate
+
+c) The final mods exelwtable should be able to run with no external .js  
+files.  Test it on your target system in an empty subdirectory, with no 
+command-line options, and make sure it does what you intended it to!
+
+//------------------------------------------------------------------------------
+// TODO - Iron out details on building LWCA
+//------------------------------------------------------------------------------
+
+Adding excerpt from email thread before it gets auto-deleted.
+
+_____________________________________________ 
+From: 	Ian Buck  
+Sent:	Tuesday, April 18, 2006 6:20 PM
+To:	Bill Martinusen
+Subject:	RE: Building MODS
+
+You could also drop //sw/cg/main, if you *just* want to build the compiler.
+
+Ian.
+
+_____________________________________________ 
+From: 	Bill Martinusen  
+Sent:	Tuesday, April 18, 2006 6:19 PM
+To:	Ian Buck
+Subject:	RE: Building MODS
+
+Thanks, I'll look this over.
+
+_____________________________________________ 
+From: 	Ian Buck  
+Sent:	Tuesday, April 18, 2006 6:18 PM
+To:	Bill Martinusen; Nicholas Wilt
+Cc:	Christian Green
+Subject:	RE: Building MODS
+
+https://lwcompute/index.php/GPGPU/RunningLwda
+
+... has the P4 client for building the dirver for both Linux and windows.
+
+For a minimal client, you could add:
+-//sw/gpgpu/lwca/trace/... //ibuck-lwca-linux/sw/gpgpu/lwca/trace/...
+-//sw/gpgpu/open64/... //ibuck-lwca-linux/sw/gpgpu/open64/...
+-//sw/gpgpu/lwda_raytracer/... //ibuck-lwca-linux/sw/gpgpu/lwda_raytracer/...
+-//sw/gpgpu/intelipp/... //ibuck-lwca-linux/sw/gpgpu/intelipp/...
+-//sw/gpgpu/tools/... //ibuck-lwca-linux/sw/gpgpu/tools/...
+
+

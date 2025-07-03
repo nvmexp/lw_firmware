@@ -1,0 +1,180 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2019 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "l1tag.h"
+#include "../tools/newrandom.h"
+#include "../tools/lwda_atomic.h"
+
+__device__ void ReportError
+(
+    const L1TagParams& params,
+    const L1TagError& error
+)
+{
+    // Increment the error counter
+    UINT64 errorIdx = IncrementErrCount(params.errorCountPtr);
+
+    // Dump the failure if there is room in the error buffer
+    if (errorIdx < params.errorLogLen)
+    {
+        L1TagError* pErrorLog = GetPtr<L1TagError*>(params.errorLogPtr);
+        pErrorLog[errorIdx] = error;
+    }
+}
+
+// Given a 16bit offset and 16bit pseudorandom number, encode a 32 bit value
+// from which we can easily extract the offset. This is done by storing the random value
+// in the upper bits, then XOR-ing this value with the offset for the lower bits.
+//
+// This is superior to only storing the offset since the random data increases the likelihood
+// of catching noise-dependent failures.
+__device__ __forceinline__ UINT32 EncodeOffset(UINT16 offset, UINT16 rnd)
+{
+    return static_cast<UINT32>(rnd << 16) | static_cast<UINT32>(rnd ^ offset);
+}
+
+// In order to extract the offset from an encoded value, simply XOR the lower 16 bits with
+// the upper 16 bits.
+__device__ __forceinline__ UINT16 DecodeOffset(UINT32 value)
+{
+    return static_cast<UINT16>(value >> 16) ^ static_cast<UINT16>(value);
+}
+
+extern "C" __global__ void InitL1Data(const L1TagParams params)
+{
+    // Get resident SM ID 
+    UINT32 smid;
+    asm volatile ("mov.u32 %0, %%smid;" : "=r"(smid));
+
+    // Each SM has its own data region
+    const UINT32 smidDataBytes = params.sizeBytes / gridDim.x;
+    UINT32* buf = GetPtr<UINT32*>(params.data + smid * smidDataBytes);
+
+    // Init RNG (each SM data region will have the same data)
+    UINT64 s[2];
+    InitRand<2>(s, params.randSeed + threadIdx.x);
+
+    for (UINT32 i = threadIdx.x; i < smidDataBytes / sizeof(*buf); i += blockDim.x)
+    {
+        const UINT16 rnd = static_cast<UINT16>(FastRand(s) >> 48);
+        buf[i] = EncodeOffset(i, rnd);
+    }
+}
+
+extern "C" __global__ void L1TagTest(const L1TagParams params)
+{
+    // Get SMID and thread info
+    UINT32 smid;
+    UINT32 warpid;
+    UINT32 laneid;
+    asm volatile ("mov.u32 %0, %%smid;"   : "=r"(smid));
+    asm volatile ("mov.u32 %0, %%warpid;" : "=r"(warpid));
+    asm volatile ("mov.u32 %0, %%laneid;" : "=r"(laneid));
+
+    // Each SM has its own data region
+    const UINT32 smidDataBytes = params.sizeBytes / gridDim.x;
+    UINT32* buf = GetPtr<UINT32*>(params.data + smid * smidDataBytes);
+
+    // Init RNG (each SM will use the same seed, for equivalent data accesses)
+    UINT64 s[2];
+    InitRand<2>(s, params.randSeed + threadIdx.x);
+    UINT32 rnd = static_cast<UINT32>(FastRand(s));
+
+    // Run the test for the specified iterations
+    for (UINT64 iter = 0; iter < params.iterations; iter++)
+    {
+        // We run the inner loop once for each offset into a cache line
+        constexpr UINT32 lineNumElem = L1_LINE_SIZE_BYTES / sizeof(*buf);
+        for (UINT32 lineOff = 0; lineOff < lineNumElem; lineOff++)
+        {
+            const UINT16 preLoadOff = lineOff + (threadIdx.x * lineNumElem);
+            const UINT16 randOff = rnd % (smidDataBytes / sizeof(*buf));
+            UINT32 preLoadVal = 0;
+            UINT32 randVal    = 0;
+
+            // Hit each cache line of the L1 cache once (PreLoad)
+            //
+            // Enclose within __syncthreads() to ensure that this
+            // is ordered before the random read.
+            //
+            // This step is intended to activate the L1 scrubber (garbage collector).
+            // LwdaL1Tag was orignally designed to catch a test escape where a hardware defect
+            // in an ECC-enabled GV100 resulted in L1 tag corruption while the scrubber was running.
+            // See: https://lwtask5.apps.lwpu.com/task/viewtask?UTID=2460646
+            //
+            __syncthreads();
+            asm volatile("ld.global.ca.u32 %0, [%1];":"=r"(preLoadVal):"l"(buf + preLoadOff));
+#if (SM_VER == 80 || SM_VER == 90)
+            // GA100/GH100 requires two reads in order to pre-load all 192KB of L1 cache
+            const bool doSecondRead = (threadIdx.x + blockDim.x) < (smidDataBytes / L1_LINE_SIZE_BYTES);
+            const UINT16 altPreLoadOff = preLoadOff + (blockDim.x * lineNumElem);
+            UINT32 altPreLoadVal = 0;
+            if (doSecondRead)
+            {
+                asm volatile("ld.global.ca.u32 %0, [%1];":"=r"(altPreLoadVal):"l"(buf + altPreLoadOff));
+            }
+#endif
+            __syncthreads();
+
+            // With the L1 cache fully loaded, randomly read data (RandomLoad)
+            // It is important that this oclwrs right after the PreLoad without delay,
+            // otherwise we may not catch issues caused by the L1 scrubber.
+            asm volatile("ld.global.ca.u32 %0, [%1];":"=r"(randVal):"l"(buf + randOff));
+
+            // Check the values after all reads are complete. Since latency matters in this test
+            // we don't want to waste any cycles that could instead be used on random L1 data loads.
+            //
+            // Of course, the compiler will still reorder non-memory instructions,
+            // but this is better than nothing.
+            __syncthreads();
+            const UINT16 decodedPreLoad = DecodeOffset(preLoadVal);
+            if (decodedPreLoad != preLoadOff)
+            {
+                const L1TagError err =
+                {
+                    TestStage::PreLoad, decodedPreLoad, preLoadOff,
+                    iter, lineOff, smid, warpid, laneid
+                };
+                ReportError(params, err);
+            }
+#if (SM_VER == 80 || SM_VER == 90)
+            if (doSecondRead)
+            {
+                const UINT16 altDecodedPreLoad = DecodeOffset(altPreLoadVal);
+                if (altDecodedPreLoad != altPreLoadOff)
+                {
+                    const L1TagError err =
+                    {
+                        TestStage::PreLoad, altDecodedPreLoad, altPreLoadOff,
+                        iter, lineOff, smid, warpid, laneid
+                    };
+                    ReportError(params, err);
+                }
+            }
+#endif
+            const UINT16 decodedRand = DecodeOffset(randVal);
+            if (decodedRand != randOff)
+            {
+                const L1TagError err =
+                {
+                    TestStage::RandomLoad, decodedRand, randOff,
+                    iter, lineOff, smid, warpid, laneid
+
+                };
+                ReportError(params, err);
+            }
+
+            // Always use a new random offset
+            // This reduces test throughput, but improves the repro-rate of certain failures
+            rnd = static_cast<UINT32>(FastRand(s));
+        }
+    }
+}

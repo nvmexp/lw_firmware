@@ -1,0 +1,517 @@
+#-*- mode: perl; -*-
+
+# Deep Idle (DI) Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $diHal = [
+
+    DEFAULTS => [
+        FLAGS       => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        SNAPSHOT_SCI_PTIMER => [
+            DESCRIPTION    => "Read the ptimer from SCI",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 *pTimeLowNs, LwU32 *pTimeHiNs",
+
+            _GM10X         => [ pre_VOLTA, ],
+            _STUB          => [ dVOLTA_and_later, ],
+        ],
+
+        SEQ_LIST_CLK_ROUTED_TO_XTAL_GET => [
+            DESCRIPTION     => "Get list of clocks running from XTAL when SPPLLs are shut down",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "DI_REG_CACHE **pPclkRoutedToXtalList, LwU8 *pListSize",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM10X          => [ pre_VOLTA, ],
+            _STUB           => [ dVOLTA_and_later, ],
+        ],
+
+        PG_ENG_IDLE_FLIPPED => [
+            DESCRIPTION   => "Checks the idle flip bit from PG_ENG HW state machine",
+            RETURN_TYPE   => LwBool,
+            STUB_RETURNS  => LW_FALSE,
+            ARGUMENTS     => "void",
+
+            _GP10X         => [ dPASCAL_and_later, ],
+            _STUB          => [ MAXWELL, ],
+        ],
+
+        PG_ENG_PEX_SLEEP_STATE_GET => [
+            DESCRIPTION    => "PEX sleep state engaged in current use-case",
+            RETURN_TYPE    => LwU32,
+            STUB_RETURNS   => ZERO,
+            ARGUMENTS      => "void",
+
+            _GP10X         => [ PASCAL, ],
+            _TU10X         => [ dTURING_and_later, ],
+            _STUB          => [ MAXWELL, VOLTA, ],
+        ],
+
+        XTAL4X_FUSE_IS_BLOWN => [
+            DESCRIPTION    => "Returns wheather the fuse related to FSM control of XTAL4XPLL is blown or not",
+            RETURN_TYPE    => LwBool,
+            STUB_RETURNS   => LW_TRUE,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GP10X         => [ PASCAL, -GP100, ],
+            _TU10X         => [ dTURING_and_later, ],
+            _STUB          => [ ALL, -PASCAL, GP100, -dTURING_and_later, ],
+        ],
+
+        SEQ_ENTER => [
+            DESCRIPTION    => "Put GPU into Deep Idle state",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERROR,
+            ARGUMENTS      => "LwU8 stepId",
+
+            _GM10X         => [ MAXWELL_thru_VOLTA, ],
+            _STUB          => [ dTURING_and_later, ],
+        ],
+
+        SEQ_EXIT => [
+            DESCRIPTION    => "Take out GPU from Deep Idle state",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 stepId",
+
+            LIKE_INTERFACE => SEQ_ENTER,
+        ],
+
+        SEQ_IS_INTR_PENDING_GPU => [
+            DESCRIPTION    => "Check GPU pending Interrupts",
+            RETURN_TYPE    => LwBool,
+            STUB_RETURNS   => LW_FALSE,
+            ARGUMENTS      => "DI_SEQ_CACHE *pCache",
+
+            LIKE_INTERFACE => SEQ_ENTER,
+        ],
+
+        SEQ_IS_INTR_PENDING_SCI => [
+            DESCRIPTION    => "Check SCI pending Interrupts",
+            RETURN_TYPE    => LwBool,
+            STUB_RETURNS   => LW_FALSE,
+            ARGUMENTS      => "DI_SEQ_CACHE *pCache",
+
+            LIKE_INTERFACE => SEQ_ENTER,
+        ],
+
+        SEQ_IS_AZALIA_INACTIVE => [
+            DESCRIPTION   => "Checks if the azalia engine is inactive",
+            RETURN_TYPE   => LwBool,
+            STUB_RETURNS  => LW_FALSE,
+            ARGUMENTS     => "void",
+
+            LIKE_INTERFACE => SEQ_ENTER,
+        ],
+
+        SEQ_IS_HOST_IDLE => [
+            DESCRIPTION   => "Checks idleness of Host engine",
+            RETURN_TYPE   => LwBool,
+            STUB_RETURNS  => LW_FALSE,
+            ARGUMENTS     => "void",
+
+            LIKE_INTERFACE => SEQ_ENTER,
+        ],
+
+        SEQ_ARE_HEADS_INACTIVE => [
+            DESCRIPTION   => "Checks if all heads are inactive",
+            RETURN_TYPE   => LwBool,
+            STUB_RETURNS  => LW_FALSE,
+            ARGUMENTS     => "void",
+
+            LIKE_INTERFACE => SEQ_ENTER,
+        ],
+
+        SEQ_ISLAND_HANDOVER => [
+            DESCRIPTION   => "Handoff control to Island and halt PMU",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "void",
+
+            LIKE_INTERFACE => SEQ_ENTER,
+        ],
+
+        SEQ_IS_DISPCLK_ON_ALT_PATH => [
+            DESCRIPTION   => "Checks if dispclk driven from alternate path",
+            RETURN_TYPE   => LwBool,
+            STUB_RETURNS  => LW_TRUE,
+            ARGUMENTS     => "void",
+
+            _GM20X        => [ GM20X_and_later, ],
+            _STUB         => [ GM10X, ],
+        ],
+
+        SEQ_COPY_CLEAR_SCI_PENDING_INTRS => [
+            DESCRIPTION    => "Check SCI pending Interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => SEQ_ENTER,
+        ],
+
+        SEQ_BSI_SEQUENCE_STATUS_CLEAR => [
+            DESCRIPTION    => "Clear the BSI sequence status registers",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => SEQ_ENTER,
+        ],
+
+       SEQ_THERM_SENSOR_POWER_ON => [
+            DESCRIPTION   => "Power ON the therm sensor",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "DI_SEQ_CACHE *pCache",
+
+            _GMXXX        => [ MAXWELL, ],
+            _STUB         => [ dPASCAL_and_later, ],
+       ],
+
+       SEQ_THERM_SENSOR_POWER_OFF_ => [
+            DESCRIPTION   => "Power OFF the therm sensor",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "DI_SEQ_CACHE *pCache",
+
+            LIKE_INTERFACE => SEQ_THERM_SENSOR_POWER_ON,
+       ],
+
+        SEQ_MEM_PLL_ACTION => [
+            DESCRIPTION   => "Power ON or OFF memory PLLs",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "DI_SEQ_CACHE *pCache, LwBool bEntering",
+
+            _GMXXX        => [ MAXWELL, ],
+            _STUB         => [ ALL, -MAXWELL, ],
+        ],
+
+        SEQ_SPPLL_POWER_DOWN => [
+            DESCRIPTION   => "Powerdown SPPLLs",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "DI_SEQ_CACHE *pCache",
+
+            _GMXXX        => [ MAXWELL, ],
+            _GP10X        => [ PASCAL, VOLTA, ],
+            _STUB         => [ dTURING_and_later, ],
+        ],
+
+        SEQ_SPPLL_POWER_UP => [
+            DESCRIPTION   => "Powerup SPPLLs",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "DI_SEQ_CACHE *pCache",
+
+            LIKE_INTERFACE => SEQ_SPPLL_POWER_DOWN,
+        ],
+
+        SEQ_VID_SWITCH => [
+            DESCRIPTION   => "Change the THERM VID settings",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "DI_SEQ_CACHE *pCache, LwBool bExit",
+
+            LIKE_INTERFACE => SEQ_SPPLL_POWER_DOWN,
+        ],
+
+        SEQ_DFE_VALUES_SAVE => [
+            DESCRIPTION   => "Saves DFE values during DI entry",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "DI_SEQ_CACHE *pCache",
+
+            _GMXXX        => [ MAXWELL, ],
+            _STUB         => [ ALL, -MAXWELL, ],
+        ],
+
+        SEQ_DFE_VALUES_RESTORE => [
+            DESCRIPTION   => "Restores DFE values after GC5 exit",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "DI_SEQ_CACHE *pCache",
+
+            LIKE_INTERFACE => SEQ_DFE_VALUES_SAVE,
+        ],
+
+        SEQ_AUX_RX_IDLE_SET => [
+            DESCRIPTION   => "Force aux idle detect logic on the lowest active lane during the entirety of GC5. WARs bug 1367027",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "DI_SEQ_CACHE *pCache, LwU32 lowestPexActiveLaneBit",
+
+            LIKE_INTERFACE => SEQ_DFE_VALUES_SAVE,
+        ],
+
+        SEQ_AUX_RX_IDLE_RESTORE => [
+            DESCRIPTION   => "Restore lane mask and aux rx idle override that we forced on during the entirety of GC5. WARs bug 1367027",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "DI_SEQ_CACHE *pCache",
+
+            LIKE_INTERFACE => SEQ_DFE_VALUES_SAVE,
+        ],
+
+        SEQ_PLL_LIST_INIT_CORE_PLL => [
+            DESCRIPTION    => "Init PLLs to be powered off / on during DI sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL **ppPllList, LwU8 *pllCount",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM10X         => [ GM10X, ],
+            _GM20X         => [ GM20X, ],
+            _STUB          => [ ALL, -MAXWELL, ],
+        ],
+
+        SEQ_PLL_LIST_INIT_CORE_NAFLL => [
+            DESCRIPTION    => "Init Core NAFLLs to be powered off / on during DI sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL **ppPllList, LwU8 *pllCount, LwU32 **nafllCtrlReg",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GP10X         => [ PASCAL, ],
+            _STUB          => [ ALL, -PASCAL, ],
+        ],
+
+        SEQ_PLL_LIST_INIT_XTAL4X => [
+            DESCRIPTION    => "Init PLLs to be powered off / on during DI sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL **ppPllList, LwU8 *pllCount",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GMXXX         => [ MAXWELL, ],
+            _GP10X         => [ PASCAL, ],
+            _STUB          => [ ALL, -MAXWELL, -PASCAL, ],
+        ],
+
+        SEQ_PLL_LIST_INIT_DRAMPLL => [
+            DESCRIPTION    => "Init DRAM PLL to be powered off / on during DI sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL **ppPllList, LwU8 *pllCount",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM10X         => [ pre_VOLTA, ],
+            _STUB          => [ ALL, -MAXWELL, -PASCAL, ],
+        ],
+
+        SEQ_PLL_LIST_INIT_REFMPLL => [
+            DESCRIPTION    => "Init REFM PLL to be powered off / on during DI sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL **ppPllList, LwU8 *pllCount",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            LIKE_INTERFACE => SEQ_PLL_LIST_INIT_DRAMPLL,
+        ],
+
+        SEQ_PLL_LIST_INIT_SPPLLS => [
+            DESCRIPTION    => "Init SPLLs to be powered off / on during DI sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL **ppPllList, LwU8 *pllCount",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GMXXX         => [ MAXWELL, ],
+            _GP10X         => [ PASCAL, ],
+            _STUB          => [ ALL, -MAXWELL, -PASCAL, ],
+        ],
+
+        SEQ_PLL_POWERDOWN => [
+            DESCRIPTION    => "PLL Powerdown Handler Function",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPllList, LwU8 pllCount",
+
+            _GMXXX         => [ MAXWELL, ],
+            _GP10X         => [ PASCAL, VOLTA, ],
+            _STUB          => [ dTURING_and_later, ],
+        ],
+
+        SEQ_PLL_POWERUP => [
+            DESCRIPTION    => "PLL Powerdown Handler Function",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPllList, LwU8 pllCount",
+
+            LIKE_INTERFACE => SEQ_PLL_POWERDOWN,
+        ],
+
+        SEQ_PLL_POWERDOWN_LEGACY_CORE => [
+            DESCRIPTION    => "Core PowerDown Sequence for Legacy Core PLLs",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask",
+
+            _GMXXX         => [ MAXWELL, ],
+            _GP10X         => [ PASCAL, VOLTA, ],
+            _STUB          => [ dTURING_and_later, ],
+        ],
+
+        SEQ_PLL_POWERUP_LEGACY_CORE => [
+            DESCRIPTION    => "Core PowerUp Sequence for Legacy Core PLLs",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask",
+
+            LIKE_INTERFACE => SEQ_PLL_POWERDOWN_LEGACY_CORE,
+        ],
+
+        SEQ_PLL_POWERDOWN_MEMORY => [
+            DESCRIPTION    => "Core PowerDown Sequence for Memory PLLs",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask",
+
+            _GM10X         => [ pre_VOLTA, ],
+            _STUB          => [ ALL, -MAXWELL, -PASCAL, ],
+        ],
+
+        SEQ_PLL_POWERUP_MEMORY => [
+            DESCRIPTION    => "Core PowerUp Sequence for Memory PLLs",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask",
+
+            LIKE_INTERFACE => SEQ_PLL_POWERDOWN_MEMORY,
+        ],
+
+        SEQ_PLL_POWERDOWN_LEGACY_SPPLL => [
+            DESCRIPTION    => "Legacy Sppll PowerDown Sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask",
+
+            _GMXXX         => [ MAXWELL, ],
+            _STUB          => [ ALL, -MAXWELL, ],
+        ],
+
+        SEQ_PLL_POWERUP_LEGACY_SPPLL => [
+            DESCRIPTION    => "Legacy Sppll PowerUp Sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask",
+
+            LIKE_INTERFACE => SEQ_PLL_POWERDOWN_LEGACY_SPPLL,
+        ],
+
+        SEQ_PLL_POWERDOWN_LEGACY_XTAL4X => [
+            DESCRIPTION    => "Legacy Xtal4X Pll PowerDown Sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask",
+
+            _GMXXX         => [ MAXWELL, ],
+            _STUB          => [ ALL, -MAXWELL, ],
+        ],
+
+        SEQ_PLL_POWERUP_LEGACY_XTAL4X => [
+            DESCRIPTION    => "Legacy Xtal4X Pll PowerUp Sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask",
+
+            LIKE_INTERFACE => SEQ_PLL_POWERDOWN_LEGACY_XTAL4X,
+        ],
+
+        SEQ_PLL_POWERDOWN_NAPLL => [
+            DESCRIPTION    => "Core PowerUp Sequence for NAPLLs",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *, LwU16",
+
+            _GMXXX         => [ MAXWELL, ],
+            _STUB          => [ ALL, -MAXWELL, ],
+        ],
+
+        SEQ_PLL_POWERUP_NAPLL => [
+            DESCRIPTION    => "Core PowerUp Sequence for NAPLLs",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask",
+
+            LIKE_INTERFACE => SEQ_PLL_POWERDOWN_NAPLL,
+        ],
+
+        SEQ_PLL_POWERDOWN_NAFLL => [
+            DESCRIPTION    => "Core PowerDown Sequence for NAFLLs",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask",
+
+            _GP10X         => [ PASCAL, VOLTA, ],
+            _STUB          => [ MAXWELL, dTURING_and_later, ],
+        ],
+
+        SEQ_PLL_POWERUP_NAFLL => [
+            DESCRIPTION    => "Core PowerUp Sequence for NAFLLs",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask, LwU32 ctrlReg",
+
+            LIKE_INTERFACE => SEQ_PLL_POWERDOWN_NAFLL,
+        ],
+
+        SEQ_PLL_POWERDOWN_HPLL => [
+            DESCRIPTION    => "Core PowerDown Sequence for HPLLs",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask",
+
+            _GP10X         => [ PASCAL, VOLTA, ],
+            _STUB          => [ MAXWELL, dTURING_and_later, ],
+        ],
+
+        SEQ_PLL_POWERUP_HPLL => [
+            DESCRIPTION    => "Core PowerUp Sequence for HPLLs",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask",
+
+            LIKE_INTERFACE => SEQ_PLL_POWERDOWN_HPLL,
+        ],
+
+        SEQ_PLL_POWERDOWN_PLL16G => [
+            DESCRIPTION    => "Core PowerDown Sequence for PLL16G",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask",
+
+            _GP10X         => [ PASCAL, VOLTA, ],
+            _STUB          => [ MAXWELL, dTURING_and_later, ],
+        ],
+
+        SEQ_PLL_POWERUP_PLL16G => [
+            DESCRIPTION    => "Core PowerUp Sequence for PLL16G",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "DI_PLL *pPll, LwU16 stepMask",
+
+            LIKE_INTERFACE => SEQ_PLL_POWERDOWN_PLL16G,
+        ],
+
+        SEQ_ADC_POWER_ACTION => [
+            DESCRIPTION    => "Powerup / down ADCs",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool bPowerDown",
+
+            _GP10X         => [ PASCAL, VOLTA, ],
+            _STUB          => [ MAXWELL, dTURING_and_later, ],
+        ],
+
+        SEQ_DRAM_PLL_CLAMP_SET => [
+            DESCRIPTION   => "Controls the clamping of DRAMPLL and CDB clock out for DRAMPLL power down",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "LwBool bClamp",
+
+            _GM20X        => [ GM20X, ],
+            _STUB         => [ ALL, -GM20X, ],
+        ],
+
+        SEQ_XTAL_CLK_SRC_SET => [
+            DESCRIPTION   => "Clocks to be sourced from XTAL & XTAL4X on deepidle enter",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "void",
+
+            _GM10X         => [ pre_AMPERE, ],
+            _STUB          => [ dAMPERE_and_later, ],
+        ],
+
+        SEQ_SWITCH_SYS_CLK_TO_ALT_PATH => [
+            DESCRIPTION   => "Switch SYSCLK to Alternative Path",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "DI_SEQ_CACHE *pCache",
+
+            _GM10X         => [ pre_AMPERE, ],
+            _STUB          => [ dAMPERE_and_later, ],
+        ],
+
+        SEQ_RESTORE_SYS_CLK_TO_SYSPLL => [
+            DESCRIPTION   => "Restore SYSCLK to Syspll",
+            RETURN_TYPE   => void,
+            ARGUMENTS     => "DI_SEQ_CACHE *pCache",
+
+            _GM10X         => [ pre_AMPERE, ],
+            _STUB          => [ dAMPERE_and_later, ],
+        ],
+
+    ],  # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $diHal;

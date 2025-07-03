@@ -1,0 +1,141 @@
+#
+# Copyright 2018 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+
+#
+# The primary usage of this makefile is as a sub-makefile for a larger falcon
+# build (such as the PMU/DPU/SEC2/GSP builds). It relies on the user (or top-level
+# makefile) to establish the following make-vars before it is ilwoked:
+#     * FALCON_ARCH
+#     * LW_PROJ
+#     * MANUAL_PATHS
+#
+
+override LW_TARGET_OS := falcon
+
+# if not specified, assume we're building for falcon4
+FALCON_ARCH          ?= falcon5
+LW_PROJ              ?= gm20x
+HS_OVERLAYS_ENABLED  ?= false
+SSP_ENABLED          ?= false
+BOOT_FROM_HS         ?= false
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+include $(LW_SOURCE)/uproc/build/common/lwRtosVersion.lwmk
+
+build: all
+
+##############################################################################
+# Additional configuration flags for compiler
+##############################################################################
+
+ifdef GSPLITE_RTOS
+  CFLAGS += -DGSPLITE_RTOS
+  HS_OVERLAYS_ENABLED = true
+endif
+
+ifdef SEC2_RTOS
+  CFLAGS += -DSEC2_RTOS
+  HS_OVERLAYS_ENABLED = true
+endif
+
+ifdef SOE_RTOS
+  CFLAGS += -DSOE_RTOS
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+  CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+  CFLAGS += -DUPROC_RISCV
+endif
+
+# Enabling secure stack protection
+ifeq ("$(SSP_ENABLED)","true")
+  CFLAGS += -DIS_SSP_ENABLED
+  CFLAGS += -fstack-protector-all
+  # It replaces __stack_chk_fail with halt.
+  # If SSP needs to be enabled in LS as well as HS enable this flag.
+  SSP_REPLACE_STACK_CHK_FAIL = TRUE
+endif
+
+ifeq ($(BOOT_FROM_HS),true)
+CFLAGS += -DBOOT_FROM_HS
+endif
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += ./inc
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/scp/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/se/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/hdcp/hdcp22wired/inc/
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/hdcp/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/i2c/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/dpaux/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/crypto/bigint/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/lwos/$(LWOS_VERSION)/inc
+LW_INCLUDES += $(LW_RTOS_INCLUDES)
+
+ifdef GSPLITE_RTOS
+LW_INCLUDES += $(LW_SOURCE)/uproc/disp/dpu/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/disp/dpu/src/_out/$(LW_PROJ)
+endif
+
+###############################################################################
+# The falcon which is building the UprocCmn library with it will set a variable
+# (SEC2_RTOS/PMU_RTOS, etc.), based on which the register access bus is be decided.
+###############################################################################
+
+ifdef SEC2_RTOS
+  CFLAGS += -DSEC2_RTOS
+else ifdef SOE_RTOS
+  CFLAGS += -DSOE_RTOS
+else ifdef DPU_RTOS
+  CFLAGS += -DDPU_RTOS
+else ifdef PMU_RTOS
+  CFLAGS += -DPMU_RTOS
+else ifdef GSPLITE_RTOS
+  CFLAGS += -DGSPLITE_RTOS
+  CFLAGS += -DGSPLITE_CSB_ACCESS
+else ifdef FBFLCN_BUILD
+  CFLAGS += -DFBFLCN_BUILD
+endif
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+
+ifeq ($(HS_OVERLAYS_ENABLED),true)
+SOURCES  += src/test_hs_switch.c
+endif
+
+ifeq ("$(RTTIMER_TEST_LIB)","true")
+SOURCES  += src/test_rttimer.c
+endif
+
+TGT       = $(OUTPUTDIR)/libTEST.a
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[uproc-test-$(LW_PROJ)-$(FALCON_ARCH)]"
+
+all: $(TGT)
+$(TGT): $(OBJECTS)
+	$(MKDIR) ${dir $@}
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(AR) -r -c $(TGT) $(OBJECTS)
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+

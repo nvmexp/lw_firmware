@@ -1,0 +1,49 @@
+# -*- mode: perl; -*-
+
+# LWLINK SOE Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $lwlinkHal = [
+
+    # defaults for Lwlink for all interfaces below
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PRE_INIT => [
+            DESCRIPTION    => "Initialization",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+
+        ],
+
+        SERVICE => [
+            DESCRIPTION    => "Service",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+
+        IS_LINK_IN_RESET => [
+            DESCRIPTION    => "Checks if Link are in Reset",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => LwU32,
+            FLAGS          => ":NO_STUB",
+
+            _LS10         => [ ALL, ],
+        ],
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $lwlinkHal;

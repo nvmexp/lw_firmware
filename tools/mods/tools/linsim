@@ -1,0 +1,1016 @@
+#! /bin/bash
+
+usage()
+{
+    echo "Usage: `basename $0` [pretend] <command> [<args>]"
+    echo
+    echo "Commands:"
+    echo "    mkclient      - Create P4 HW client for linsim and GPU."
+    echo "    build         - Kick off a build on the LSF. Arguments are one or more of:"
+    echo "        linsim    - Build linsim in HW tree. Uses CHIP elw var."
+    echo "        mods      - Build MODS in SW tree. Uses MODS_RUNSPACE elw var."
+    echo "        fmodel    - Build GK20A Fmodel in HW tree (not needed for linsim)."
+    echo "        jobs=N    - Number of jobs to use when building. Defaults to 4."
+    echo "        clean     - Clean before building."
+    echo "    mods          - Run MODS on an interactive job."
+    echo "        gdb       - Run MODS with in gdb an interactive job."
+    echo "        hdmi      - Run MODS with HDMI on an interactive job."
+    echo "        sockchip  - Run MODS with sockchip on an interactive job."
+    echo "    sockserv      - Run linsim with sockserv."
+    echo "    gputest       - Run MODS with txxxsim.spc, run tests in parallel."
+    echo "                    Optional arguments specify tests to run (default is all)."
+    echo "    tgen          - Run testgen on T124 linsim. First arg is level."
+    echo "    asim          - ASIM-specific command, one of:"
+    echo "        fetch     - Fetch ASIM and linsim for the selected chip."
+    echo "        boot N M  - Boots ASIM on the Farm with N=NFS share and M=MODS_RUNSPACE."
+    echo
+    echo "Environment variables:"
+    echo "    MODS_RUNSPACE - Directory where MODS build resides."
+    echo "    OUTPUTDIR     - Directory where MODS is run, will contain all log files."
+    echo "    P4ROOT_SW     - Software P4 client path. Defaults to \$P4ROOT."
+    echo "    P4ROOT_HW     - Hardware P4 client path. Defaults to \$P4ROOT."
+    echo "    CHIP          - Chip to build (for linsim command). Defaults to t124."
+    echo "    DEBUGLINSIM   - Forces use of debug linsim when set to 1. Defaults to 0."
+    echo
+    echo "Use cases:"
+    echo "    - Create new P4 HW client suitable for building T124 linsim:"
+    echo "      $ `basename $0` mkclient"
+    echo "    - Build T124 linsim and MODS from scratch"
+    echo "      $ `basename $0` build linsim mods"
+    echo "    - Rebuild T124 linsim from scratch, e.g. after syncing tree:"
+    echo "      $ `basename $0` build linsim clean"
+    echo "    - Build T114 linsim:"
+    echo "      $ CHIP=t114 `basename $0` build linsim"
+    echo "    - Run a MODS test:"
+    echo "      $ `basename $0` mods gputest.js -readspec tegrasim.spc -test I2MTest"
+    echo "    - Generate golden values for Random2dFb:"
+    echo "      $ `basename $0` mods gpugen.js -readspec tegrasim.spc -test Random2dFb"
+    echo "    - Run all known good tests in parallel (background jobs):"
+    echo "      $ `basename $0` gputest"
+    echo "    - Run selected tests in parallel (background jobs):"
+    echo "      $ `basename $0` gputest Random2dFb I2MTest"
+    echo "    - Run MODS with gdb:"
+    echo "      $ `basename $0` gdb gputest.js -readspec tegrasim.spc -test I2MTest"
+    echo "    - Run sockserv on an interactive job so MODS can be launched elsewhere."
+    echo "      This is useful when launching arm sim MODS on T30."
+    echo "      $ `basename $0` sockserv"
+    echo "    - Run MODS with remote linsim (over sockets):"
+    echo "      $ `basename $0` mods_sockchip gputest.js -readspec tegrasim.spc -test I2MTest"
+    echo "    - Run comp_one_tri with tgen:"
+    echo "      $ `basename $0` tgen bringup_basic -only comp_one_tri"
+    echo "    - Download ASIM and linsim for T114:"
+    echo "      $ CHIP=t114 OUTPUTDIR=~/scratch `basename $0` asim fetch"
+    echo "    - Launch ASIM with linsim:"
+    echo "      $ CHIP=t114 OUTPUTDIR=~/scratch `basename $0` asim boot kdragan-dt.lwpu.com:/home.local/runspace ."
+    echo
+    exit 1
+}
+
+case "$CHIP" in
+t186)
+    CHIP="t186"
+    CPU="arm64"
+    CHIPDIR="ap"
+    LINSIMCHIPLIB="libt186_chiplib2.so"
+    LINSIMTEGRAMEM="libtegra_mem_t186.so"
+    LINSIMVBIOS="-gpubios 0 t186_sim_sddr3.rom"
+    GPUTESTS=(
+        "CpyEngTest"
+        "Random2dFb"
+        "I2MTest"
+        "LineTest"
+        "MMERandomTest"
+        "NewWfMatsCEOnly"
+        "FastMatsTest"
+        )
+    ;;
+t210)
+    CHIP="t210"
+    CPU="arm64"
+    CHIPDIR="ap"
+    LINSIMCHIPLIB="libt210_chiplib2.so"
+    LINSIMTEGRAMEM="libtegra_mem_t210.so"
+    LINSIMVBIOS="-gpubios 0 t210_sim_sddr3.rom"
+    GPUTESTS=(
+        "CpyEngTest"
+        "Random2dFb"
+        "I2MTest"
+        "LineTest"
+        "MMERandomTest"
+        "NewWfMatsCEOnly"
+        "FastMatsTest"
+        )
+    ;;
+t132)
+    CHIP="t132"
+    CPU="arm64"
+    CHIPDIR="ap_tlit1"
+    LINSIMCHIPLIB="libt132_chiplib2.so"
+    LINSIMTEGRAMEM="libtegra_mem_t132.so"
+    LINSIMVBIOS="-gpubios 0 t132_sim_sddr3.rom"
+    GPUTESTS=
+    ;;
+""|t124)
+    CHIP="t124"
+    CHIPDIR="ap_tlit1"
+    LINSIMCHIPLIB="libt124_chiplib2.so"
+    LINSIMTEGRAMEM="libtegra_mem_t124.so"
+    #LINSIMVBIOS="-gpubios 0 t124_sim_sddr3_coproc_disp.rom"
+    LINSIMVBIOS="-gpubios 0 t124_sim_sddr3.rom"
+    GPUTESTS=(
+        "CpyEngTest"
+        "Random2dFb"
+        "I2MTest"
+        "LineTest"
+        "MMERandomTest"
+        "NewWfMatsCEOnly"
+        "FastMatsTest"
+        )
+    ;;
+t114|t35)
+    CHIP="t35"
+    CHIPDIR="t35"
+    LINSIMCHIPLIB="libt35_chiplib2.so"
+    LINSIMTEGRAMEM="libtegra_mem_t35.so"
+    GPUTESTS=(
+        "Tegra2D"
+        "TegraVde"
+        "GLStress"
+        )
+    ;;
+t148)
+    CHIP="t148"
+    CHIPDIR="t148"
+    LINSIMCHIPLIB="libt148_chiplib2.so"
+    LINSIMTEGRAMEM="libtegra_mem_t148.so"
+    GPUTESTS=(
+        "Tegra2D"
+        "TegraVde"
+        "GLStress"
+        )
+    ;;
+*)
+    echo "Unrecognized chip - $CHIP"
+    exit 1
+    ;;
+esac
+
+[[ "$DEBUGLINSIM" ]] || DEBUGLINSIM="0"
+[[ "$DEBUGLINSIM" = "1" ]] && LINSIMCHIPLIB="${LINSIMCHIPLIB/_/_debug_}"
+
+QSUB="qsub -m rel5"
+SESSIONFILE="linsim.socket"
+SESSIONARGS="-sessionfile $SESSIONFILE 124"
+GPUTREE="lwgpu_gplit1"
+
+P4HWCLIENT=`cat <<EOF
+Client: P4CLIENT
+Owner: $USER
+Root: P4ROOT
+Options: locked
+LineEnd: share
+View:
+	//hw/$CHIPDIR/... //P4CLIENT/hw/$CHIPDIR/...
+	-//hw/$CHIPDIR/doc/... //P4CLIENT/$CHIPDIR/doc/...
+	-//hw/$CHIPDIR/net/... //P4CLIENT/$CHIPDIR/net/...
+	-//hw/$CHIPDIR/timing/... //P4CLIENT/$CHIPDIR/timing/...
+	-//hw/$CHIPDIR/syn/... //P4CLIENT/$CHIPDIR/syn/...
+	-//hw/$CHIPDIR/fv/... //P4CLIENT/$CHIPDIR/fv/...
+	-//hw/$CHIPDIR/lwtools/docs/... //P4CLIENT/hw/$CHIPDIR/lwtools/docs/...
+	-//hw/$CHIPDIR/lwtools/atpg/... //P4CLIENT/hw/$CHIPDIR/lwtools/atpg/...
+	//hw/tools/boost/boost-1.33.0/boost/... //P4CLIENT/hw/tools/boost/boost-1.33.0/boost/...
+	//hw/tools/boost/boost-1.33.0/libs/... //P4CLIENT/hw/tools/boost/boost-1.33.0/libs/...
+	//hw/tools/boost/boost-1.33.0/linuxlib/*.a //P4CLIENT/hw/tools/boost/boost-1.33.0/linuxlib/*.a
+	//hw/tools/boost/boost-1.33.0/linuxlib/gcc-4.1.1... //P4CLIENT/hw/tools/boost/boost-1.33.0/linuxlib/gcc-4.1.1...
+	//hw/tools/boost/boost-1.33.0/linuxlib/gcc-4.2.2... //P4CLIENT/hw/tools/boost/boost-1.33.0/linuxlib/gcc-4.2.2...
+	//hw/tools/boost/boost-1.33.0/win32.net/*vc80... //P4CLIENT/hw/tools/boost/boost-1.33.0/win32.net/*vc80...
+	//hw/tools/boost/pre-release/... //P4CLIENT/hw/tools/boost/pre-release/...
+	//hw/tools/cem/... //P4CLIENT/hw/tools/cem/...
+	//hw/tools/expat-1.95.8/... //P4CLIENT/hw/tools/expat-1.95.8/...
+	//hw/tools/imgtools/bin/... //P4CLIENT/hw/tools/imgtools/bin/...
+	//hw/tools/mods/ifspec/... //P4CLIENT/hw/tools/mods/ifspec/...
+	//hw/tools/mods/trace_3d/... //P4CLIENT/hw/tools/mods/trace_3d/...
+	//hw/tools/shimlib/... //P4CLIENT/hw/tools/shimlib/...
+	//hw/tools/vcp2make/... //P4CLIENT/hw/tools/vcp2make/...
+	//hw/tools/vmware-tools/... //P4CLIENT/hw/tools/vmware-tools/...
+	//hw/tools/xerces-c-src2_1_0/... //P4CLIENT/hw/tools/xerces-c-src2_1_0/...
+	//hw/tools/XMLDump/... //P4CLIENT/hw/tools/XMLDump/...
+	//hw/tools/zlib-1.1.4/... //P4CLIENT/hw/tools/zlib-1.1.4/...
+	//hw/tools/zlib-1.2.3/... //P4CLIENT/hw/tools/zlib-1.2.3/...
+	//hw/tools/.is_lwscope_root //P4CLIENT/hw/tools/.is_lwscope_root
+EOF
+`
+
+die()
+{
+    echo "$@"
+    exit 1
+}
+
+escapearg()
+{
+    if echo "$1" | grep -q " \|\\\\"; then
+        echo -n "'${1//\'/\"}'"
+    elif [[ "${1#-}" != "$1" ]]; then
+        echo -n "" "$1"
+    else
+        echo -n "$1"
+    fi
+}
+
+escapeargs()
+{
+    while [[ $# -gt 0 ]]; do
+        escapearg "$1"
+        [[ $# -gt 1 ]] && echo -n " "
+        shift
+    done
+}
+
+runcmd()
+{
+    if [[ "$1" = "cd" ]] && [[ ! -d "$2" ]]; then
+        echo "Directory $2 does not exist!"
+        exit 1
+    fi
+    if [[ "$1" = "cd_opt" ]]; then
+        shift
+        if [[ "$PRETEND" = "1" ]]; then
+            echo "$PRETENDPROMPT cd "`escapeargs "$@"`
+            return
+        else
+            cd "$@" || exit $?
+            return
+        fi
+    fi
+    if [[ "$PRETEND" = "1" ]]; then
+        echo "$PRETENDPROMPT "`escapeargs "$@"`
+        case "$1" in
+            cd) "$@" || exit $?;;
+        esac
+    else
+        "$@"
+        local RETVAL=$?
+        if [[ $RETVAL -ne 0 ]]; then
+            echo
+            echo "Failing command:"
+            echo "% $@"
+            exit $RETVAL
+        fi
+    fi
+}
+
+relaunch()
+{
+    local NUMJOBS=$1
+    shift
+    local JOBNAME=$1
+    shift
+
+    export LINSIM_RELAUNCH="relaunch"
+
+    export PARENT_ID=$$
+
+    local CPUCMD=""
+    [ "$MULTICPU" -a $MULTICPU -gt 1 ] && CPUCMD="-n $MULTICPU -R span[hosts=1]"
+
+    local LAUNCHCMD
+    local LOGFILE
+    if [[ $NUMJOBS -gt 1 ]]; then
+        LOGFILE="$JOBNAME.$PARENT_ID.%I.log"
+        LAUNCHCMD="$QSUB -N -J $JOBNAME.$PARENT_ID.[1-$NUMJOBS] -oo $LOGFILE -q $RUNQUEUE"
+    elif [[ $NUMJOBS -eq 1 ]]; then
+        LOGFILE="$JOBNAME.$PARENT_ID.log"
+        LAUNCHCMD="$QSUB -N -J $JOBNAME.$PARENT_ID -oo $LOGFILE -q $RUNQUEUE" $CPUCMD
+    else
+        LAUNCHCMD="$QSUB -Is -J $JOBNAME.$PARENT_ID -q $RUNQUEUE $CPUCMD"
+    fi
+
+    runcmd cd "$OUTPUTDIR"
+    if [[ "$PRETEND" = "1" ]]; then
+        echo "$PRETENDPROMPT $LAUNCHCMD $LINSIM "`escapeargs "$@"`
+        export LSB_JOBINDEX
+        if [[ $NUMJOBS -eq 0 ]]; then
+            LSB_JOBINDEX=0
+            echo ">>> JOB 0 <<<"
+            "$LINSIM" "$@"
+        else
+            for LSB_JOBINDEX in `seq $NUMJOBS`; do
+                echo ">>> JOB $LSB_JOBINDEX <<<"
+                "$LINSIM" "$@"
+            done
+        fi
+    else
+        $LAUNCHCMD "$LINSIM" "$@"
+
+        # Kill interactive job if it crashed
+        #local RETCODE=$?
+        #[[ $NUMJOBS -ge 1 ]] || [[ $RETCODE -ne 139 ]] || bkill -J "$JOBNAME.$PARENT_ID" > /dev/null
+    fi
+    [[ -z "$LOGFILE" ]] || echo "Logs from the job will be available in $OUTPUTDIR/$LOGFILE"
+}
+
+echoto()
+{
+    local FILE=$1
+    shift
+    if [[ "$PRETEND" = "1" ]]; then
+        echo "$PRETENDPROMPT echo -e "`escapeargs "$@"`" > $FILE"
+    else
+        echo -e "$@" > "$FILE"
+    fi
+}
+
+launch_build()
+{
+    if [[ $# -eq 0 ]]; then
+        echo "No builds specified!"
+        exit 1
+    fi
+
+    local NUMBUILDS=0
+    local BUILDS
+    BUILDS=( )
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            fmodel) BUILDS[$NUMBUILDS]=build_gp10b_fmodel
+                    NUMBUILDS=$(($NUMBUILDS+1))
+                    ;;
+            linsim) BUILDS[$NUMBUILDS]=build_linsim
+                    NUMBUILDS=$(($NUMBUILDS+1))
+                    ;;
+            mods)   BUILDS[$NUMBUILDS]=build_mods
+                    NUMBUILDS=$(($NUMBUILDS+1))
+                    ;;
+            jobs=*) export JOBS="${1#jobs=}" ;;
+            clean)  export CLEAN=1 ;;
+        esac
+        shift
+    done
+    RUNQUEUE="$MKQUEUE"
+    relaunch $NUMBUILDS BuildLinSim build_job ${BUILDS[*]}
+}
+
+build_job()
+{
+    local IDX="$LSB_JOBINDEX"
+    while [[ $IDX -gt 1 ]]; do
+        shift
+        IDX=$(($IDX-1))
+    done
+    "$1"
+}
+
+build_gp10b_fmodel()
+{
+    runcmd export P4ROOT="$P4ROOT_HW"
+    runcmd cd "$P4ROOT_HW/hw/$GPUTREE"
+    if [[ ! -f tree.make ]] || [[ "$PRETEND" = "1" ]]; then
+        echoto tree.make "export PROJECTS := gp10b\nPROJECT_TEAM := sw_mods\nSKIP_ELW_CHECK := 1\nLW_FETCHMANUALS := 1\nLW_GENERATE_MODS := skip"
+    fi
+    if [[ "$CLEAN" = "1" ]]; then
+        runcmd echo "=== Cleaning GPU Fmodel ==="
+        runcmd bin/t_make -clean_only
+    fi
+    runcmd echo "=== Making GPU Fmodel ==="
+    runcmd bin/t_make -build ip_fmod64 -build ip_chiplib64
+}
+
+build_linsim()
+{
+    runcmd export P4ROOT="$P4ROOT_HW"
+    runcmd unset MODS_RUNSPACE
+    runcmd cd `chip_ap_dir`
+    if [[ "$PRETEND" != "1" ]]; then
+        if p4 client -o | grep -q -i "^Host:"; then
+            echo "Unable to build linsim"
+            echo "Please remove the \"Host:\" line from your P4 client"
+            exit 1
+        fi
+    fi
+    if [[ ! -f tree.make ]] || [[ "$PRETEND" = "1" ]]; then
+        local CHIPS
+        CHIPS="$CHIP"
+        [[ "$DEBUGLINSIM" = "1" ]] && CHIPS="$CHIPS ${CHIP}_debug"
+        echoto tree.make "export PROJECTS := $CHIPS\nDEPTH ?= \$(shell depth)\n-include \$(DEPTH)/tree.make.default"
+    fi
+    if [[ "$CLEAN" = "1" ]]; then
+        runcmd echo "=== Cleaning linsim ==="
+        runcmd bin/t_make -clean
+    fi
+    runcmd echo "=== Making linsim ==="
+    runcmd tcsh -c "bin/t_make"
+}
+
+build_mods()
+{
+    runcmd export P4ROOT="$P4ROOT_SW"
+    runcmd cd "$P4ROOT_SW/sw/dev/gpu_drv/chips_a/diag/mods"
+    local MODSBUILDARGS="BUILD_OS=sim BUILD_CFG=debug BUILD_ARCH=x86 INCLUDE_GPU=true INCLUDE_MDIAG=true INCLUDE_OGL=true INCLUDE_LWDA=true"
+    if [[ "$CLEAN" = "1" ]]; then
+        runcmd echo "=== Cleaning MODS ==="
+        runcmd make -s -k $MODSBUILDARGS clean_all
+    fi
+    if [[ "$PRETEND" = "1" ]]; then
+        echo "$PRETENDPROMPT rm -rf $MODS_RUNSPACE/*"
+    else
+        runcmd rm -rf "$MODS_RUNSPACE"/*
+    fi
+    runcmd echo "=== Making MODS ==="
+    runcmd $QSUB -Is -n "$JOBS" -R "span[hosts=1]" -q "$MKQUEUE" make -s -k -j "$JOBS" $MODSBUILDARGS VERSION=chips_a build_all
+}
+
+is_xterm()
+{
+    [[ "${HOSTNAME/#*-xterm-[0-9]*/l-xterm}" = "l-xterm" ]]
+}
+
+is_tegra()
+{
+    [[ `uname -m` = armv7l || `uname -m` = aarch64 ]]
+}
+
+is_gdb_broken()
+{
+    is_tegra || return 1
+    local VERSION=`uname -r`
+    [[ "${VERSION/-*/}" = "2.3.36" ]]
+}
+
+check_paths()
+{
+    while [[ $# -gt 0 ]]; do
+        [[ -d "$1" ]] || die "Directory $1 does not exist!"
+        shift
+    done
+}
+
+concatenate_paths()
+{
+    local SUM="$1"
+    shift
+    while [[ $# -gt 0 ]]; do
+        SUM="$SUM:$1"
+        shift
+    done
+    echo $SUM
+}
+
+chip_ap_dir()
+{
+    if [ -d "$P4ROOT_HW/IP" ]; then
+        # Use this when reusing linsim fetched with ASIM
+        echo "$P4ROOT_HW"
+    else
+        # Use this if you have your own built tree/linsim
+        echo "$P4ROOT_HW/hw/$CHIPDIR"
+    fi
+}
+
+find_weld_file()
+{
+    local WELD="`chip_ap_dir`/$1"
+    [[ -f "$WELD" ]] || WELD="$OUTPUTDIR/$1"
+    [[ -f "$WELD" ]] || return 1
+    echo "$WELD"
+}
+
+read_weld_file()
+{
+    find_weld_file "$1" > /dev/null || die "$1 not found!"
+    local WELD=`find_weld_file "$1"`
+    tr '\t' ' ' < "$WELD" | \
+        grep -v "^ *#" | \
+        grep "^ *define" | \
+        sed "s/^ *define *// ; s/[=\";]//g" | \
+        tr -s ' '
+}
+
+read_weld_dir()
+{
+    eval "${1}="`read_weld_file "$2" | grep "^$1" | head -n 1 | cut -f 2 -d ' '`
+    [[ "$1" = "KEPLER1_RELEASE" ]] && \
+        [[ -f "`chip_ap_dir`/override.weld" ]] && \
+        KEPLER1_RELEASE="$P4ROOT_HW/hw/$GPUTREE"
+}
+
+get_weld_dir()
+{
+    read_weld_dir "$1" "top.weld"
+}
+
+get_lwdec_weld_dir()
+{
+    read_weld_dir "$1" "ip/video/lwdec/2.0/lwdec.weld"
+}
+
+get_tsec_weld_dir()
+{
+    read_weld_dir "$1" "ip/security/tsec/2.0/tsec.weld"
+}
+
+get_lwjpg_weld_dir()
+{
+    read_weld_dir "$1" "ip/video/lwjpg/1.0/lwjpg.weld"
+}
+
+export_linsim_vars()
+{
+    local LD_PATHS
+    case "$CHIP" in
+    t35)
+        get_weld_dir T35_MSENC20_ROOT
+        get_weld_dir T35_TSEC10_ROOT
+        LD_PATHS=(
+            "$T35_MSENC20_ROOT/fmod/lib/Linux"
+            "$T35_TSEC10_ROOT/fmod/lib/Linux"
+            "`chip_ap_dir`/clib/Linux"
+            "`chip_ap_dir`/cmod/lib/Linux"
+            "/usr/lib"
+            "/home/eagle/release/sw/components/libelf/delwer1/0.8.10/lib/i686"
+            "/home/eagle/release/sw/components/libmelf/delwer1/1.0/lib/i686"
+            "/home/eagle/release/sw/components/utils/delwer1/3.x/debug/lib/i686"
+            )
+        ;;
+    t148)
+        get_weld_dir T148_MSENC20_ROOT
+        get_weld_dir T148_TSEC10_ROOT
+        LD_PATHS=(
+            "$T148_MSENC20_ROOT/fmod/lib/Linux"
+            "$T148_TSEC10_ROOT/fmod/lib/Linux"
+            "`chip_ap_dir`/clib/Linux"
+            "`chip_ap_dir`/cmod/lib/Linux"
+            "/usr/lib"
+            "/home/eagle/release/sw/components/libelf/delwer1/0.8.10/lib/i686"
+            "/home/eagle/release/sw/components/libmelf/delwer1/1.0/lib/i686"
+            "/home/eagle/release/sw/components/utils/delwer1/3.x/debug/lib/i686"
+            )
+        ;;
+    t124)
+        get_weld_dir KEPLER1_RELEASE
+        get_weld_dir LWSIM21_ROOT
+        get_weld_dir T124_MSENC20_ROOT
+        get_weld_dir TLIT1_VIC30_ROOT
+        get_weld_dir T124_TSEC10_ROOT
+        LD_PATHS=(
+            "$KEPLER1_RELEASE/fmod/lib/Linux"
+            "$KEPLER1_RELEASE/clib/Linux"
+            "$LWSIM21_ROOT/clib/lwsim/Linux"
+            "$LWSIM21_ROOT/clib/lwmath/Linux"
+            "$LWSIM21_ROOT/clib/event_cover/Linux"
+            "$LWSIM21_ROOT/clib/event_cover_shared/Linux"
+            "$LWSIM21_ROOT/clib/csl/Linux"
+            "$LWSIM21_ROOT/clib/Linux"
+            "$T124_MSENC20_ROOT/fmod/lib/Linux"
+            "$TLIT1_VIC30_ROOT/fmod/lib/Linux"
+            "$T124_TSEC10_ROOT/fmod/lib/Linux"
+            "`chip_ap_dir`/clib/Linux"
+            "`chip_ap_dir`/cmod/lib/Linux"
+            "/usr/lib"
+            )
+        ;;
+    t210)
+        get_weld_dir MAXWELL1_ROOT
+        get_weld_dir LWSIM21_ROOT
+        get_weld_dir T124_LWENC20_ROOT
+        get_weld_dir TLIT2_VIC40_ROOT
+        get_lwjpg_weld_dir TLIT1_LWJPG10_ROOT
+        get_tsec_weld_dir T177_TSEC10_ROOT
+        get_lwdec_weld_dir T210_LWDEC20_ROOT
+        LD_PATHS=(
+            "$MAXWELL1_ROOT/fmod/lib/Linux"
+            "$MAXWELL1_ROOT/clib/Linux"
+            "$LWSIM21_ROOT/clib/lwsim/Linux"
+            "$LWSIM21_ROOT/clib/lwmath/Linux"
+            "$LWSIM21_ROOT/clib/event_cover/Linux"
+            "$LWSIM21_ROOT/clib/event_cover_shared/Linux"
+            "$LWSIM21_ROOT/clib/csl/Linux"
+            "$LWSIM21_ROOT/clib/Linux"
+            "$T124_LWENC20_ROOT/fmod/lib/Linux"
+            "$TLIT2_VIC40_ROOT/fmod/lib/Linux"
+            "$T177_TSEC10_ROOT/fmod/lib/Linux"
+            "$T210_LWDEC20_ROOT/fmod/lib/Linux"
+            "$TLIT1_LWJPG10_ROOT/fmod/lib/Linux"
+            "`chip_ap_dir`/clib/Linux"
+            "`chip_ap_dir`/cmod/lib/Linux"
+            "/usr/lib"
+            )
+        ;;
+    esac
+
+    runcmd export LW_PROJECT_TREE="`chip_ap_dir`"
+    runcmd export TREE_ROOT="`chip_ap_dir`/"
+    runcmd export LW_NO_BUILDUTIL=1
+    runcmd export WELD_ALREADY_RUN=1
+
+    check_paths "${LD_PATHS[@]}"
+    LD_PATHS=`concatenate_paths "${LD_PATHS[@]}"`
+    runcmd export LD_LIBRARY_PATH="${1}${LD_PATHS}"
+}
+
+get_linsim_args()
+{
+    local HDMI_CHIP_ARGS=""
+    local SYS_TYPE="Linux_x86_64"
+    if [[ "$2" = "hdmi" ]]; then
+        HDMI_CHIP_ARGS="+v hdmi +a +nodump +a +display-enable-pad-capture +a +rereset_bfm +a -assert +a nopostproc +a +strap_ram_code=3 +a +hdmi_fake_spdif=1 +a +hdmi_key_sel=0x0 +a +hdmi_Cs_m=0x0 +a +hdmi_enable_bfms=1 +a +hdmi_M0_m=0x0 +a +hdmi_enable_status_override_test=0x0 +a +hdmi_Bksv_l=0x0 +a +hdmi_An_l=0x0 +a +hdmi_Status=0x0 +a +hdmi_enable_CandD_values_force=0x0 +a +hdmi_enable_connection_state_force=0x0 +a +hdmi_M0_l=0x0 +a +hdmi_Cs_l=0x0 +a +hdmi_An_m=0x0 +a +hdmi_Bksv_m=0x0"
+        SYS_TYPE="Linux"
+    fi
+    case "$CHIP" in
+    t35)
+        echo "-l -f -no_gpu -linsim_memstore 1 -linsim_mem_lib $LINSIMTEGRAMEM -c sockfsim.cfg -libarm cmod -- $HDMI_CHIP_ARGS --systype $SYS_TYPE -oc 0 disable_gpu_sim=1 ltc_mem_hooks=0 channel_mask=0x640 -- "
+        ;;
+    t148)
+        echo "-l -f -no_gpu -linsim_memstore 1 -linsim_mem_lib $LINSIMTEGRAMEM -c sockfsim.cfg -libarm cmod -- $HDMI_CHIP_ARGS --systype $SYS_TYPE -oc 0 disable_gpu_sim=1 ltc_mem_hooks=0 channel_mask=0x640 -- "
+        ;;
+    t124)
+        get_weld_dir KEPLER1_RELEASE
+        get_weld_dir LWSIM21_ROOT
+        local GPU_LD_PATHS
+        GPU_LD_PATHS=(
+            "/home/utils/gcc-4.2.2/lib"
+            "$KEPLER1_RELEASE/clib/Linux"
+            "$KEPLER1_RELEASE/fmod/lib/Linux"
+            "$LWSIM21_ROOT/clib/lwsim/Linux"
+            "$LWSIM21_ROOT/clib/lwmath/Linux"
+            "$LWSIM21_ROOT/clib/csl/Linux"
+            "$LWSIM21_ROOT/clib/event_cover_shared/Linux"
+            "$LWSIM21_ROOT/clib/event_cover/Linux"
+            "`chip_ap_dir`/clib/Linux"
+            )
+
+        [[ "$1" = "no_check_paths" ]] || check_paths "${GPU_LD_PATHS[@]}"
+        GPU_LD_PATHS=`concatenate_paths "${GPU_LD_PATHS[@]}"`
+        echo "-simtxt 'idle_timeout 50000' -l -f -chipPOR=gk20a -chip_gk20a -boot0_fb 64 -linsim_memstore 1 -linsim_mem_lib $LINSIMTEGRAMEM -c sockfsim.cfg -libarm cmod  -- $HDMI_CHIP_ARGS --systype Linux disable_gpu_sim=0 ltc_mem_hooks=1 gpu_ld_lib_path=$GPU_LD_PATHS  -- "
+        ;;
+    t210)
+        get_weld_dir MAXWELL1_ROOT
+        get_weld_dir LWSIM21_ROOT
+        local GPU_LD_PATHS
+        GPU_LD_PATHS=(
+            "/home/utils/gcc-4.2.2/lib"
+            "$MAXWELL1_ROOT/clib/Linux"
+            "$MAXWELL1_ROOT/fmod/lib/Linux"
+            "$LWSIM21_ROOT/clib/lwsim/Linux"
+            "$LWSIM21_ROOT/clib/lwmath/Linux"
+            "$LWSIM21_ROOT/clib/csl/Linux"
+            "$LWSIM21_ROOT/clib/event_cover_shared/Linux"
+            "$LWSIM21_ROOT/clib/event_cover/Linux"
+            "`chip_ap_dir`/clib/Linux"
+            )
+
+        [[ "$1" = "no_check_paths" ]] || check_paths "${GPU_LD_PATHS[@]}"
+        GPU_LD_PATHS=`concatenate_paths "${GPU_LD_PATHS[@]}"`
+        echo "-simtxt 'idle_timeout 50000' -l -f -chipPOR=gm20b -chip_gm20b -boot0_fb 64 -linsim_memstore 1 -linsim_mem_lib $LINSIMTEGRAMEM -c sockfsim.cfg -libarm cmod  -- $HDMI_CHIP_ARGS --systype Linux disable_gpu_sim=0 ltc_mem_hooks=1 gpu_ld_lib_path=$GPU_LD_PATHS  -- "
+        ;;
+    esac
+}
+
+# Parameter format for this command is :
+#  $1  = "run" or "gdb" to run either in or out of gdb
+#  $2  = "linsim" or "sockchip" 
+#  $3  = "hdmi" or "no_hdmi" 
+#  $4+ = mods arguments 
+run_mods()
+{
+    if [[ "$2" = "linsim" ]]; then
+        export_linsim_vars "$MODS_RUNSPACE:"
+    else
+        runcmd export LD_LIBRARY_PATH="$MODS_RUNSPACE"
+    fi
+    if [[ -z "$GDB" ]]; then
+        local GDB=""
+        if [[ "$1" = "gdb" ]]; then
+            if is_gdb_broken; then
+                GDB="taskset 1 gdb --args"
+            else
+                GDB="/home/lw/utils/lwgdb/lwgdb-6.6.1/bin/gdb --args"
+            fi
+        fi
+    fi
+    if [[ "$PRETEND" = "1" ]]; then
+        echo "$PRETENDPROMPT rm -rf core.*"
+    else
+        runcmd rm -rf core.*
+    fi
+
+    if [[ "$2" = "linsim" ]]; then
+        local CHIPLIB="$LINSIMCHIPLIB"
+        local CHIPARGS="`get_linsim_args check_paths $3`"
+    else
+        local CHIPLIB="sockchip.so"
+        local CHIPARGS="$SESSIONARGS `get_linsim_args no_check_paths $3`"
+    fi
+    local JSFILE="$4"
+    if [[ -z "$4" ]]; then
+        echo "Missing script argument"
+        exit 1
+    fi
+    DEBUGFLAG=""
+    [[ "$MODS_DEBUG" = "1" ]] && DEBUGFLAG="-d"
+    INTERACTIVEFLAG=""
+    [[ "$MODS_INTERACTIVE" = "1" ]] && INTERACTIVEFLAG="-s"
+    NOINITFLAG=""
+    [[ "$MODS_NOINIT" = "1" ]] && NOINITFLAG="-o"
+    shift
+    shift
+    shift
+    shift
+    runcmd $GDB "$MODS_RUNSPACE"/mods $LINSIMVBIOS $DEBUGFLAG $INTERACTIVEFLAG $NOINITFLAG -chip "$CHIPLIB" "$JSFILE" -pmu_bootstrap_mode 1 -chipargs "$CHIPARGS" $MODSCMD "$@"
+}
+
+launch_mods()
+{    
+    local RUN_TYPE="run"
+    local LAUNCH_TYPE="linsim"
+    local HDMI_SUPPORT="no_hdmi"
+    local EXIT_LOOP="false"
+
+    until [[ "$EXIT_LOOP" = "true" ]]
+    do
+        if [[ "$1" = "sockchip" ]]; then
+            LAUNCH_TYPE="sockchip"
+            shift
+        elif [[ "$1" = "hdmi" ]]; then
+            HDMI_SUPPORT="hdmi"
+            shift
+        elif [[ "$1" = "gdb" ]]; then
+            RUN_TYPE="gdb"
+            shift
+        else
+            EXIT_LOOP="true"
+        fi
+    done
+
+    if is_xterm; then
+        MULTICPU="2" # linsim runs two processes (linsim and GPU Fmodel)
+        relaunch 0 RunMods run_mods $RUN_TYPE $LAUNCH_TYPE $HDMI_SUPPORT "$@"
+    else
+        runcmd cd "$OUTPUTDIR"
+        run_mods $RUN_TYPE $LAUNCH_TYPE $HDMI_SUPPORT "$@"
+    fi
+}
+
+run_sockserv()
+{
+    export_linsim_vars
+    [[ -f "$SESSIONFILE" ]] && rm -f "$SESSIONFILE"
+    local SOCKSERV="sockserv32"
+    is_tegra && SOCKSERV="sockserv_arm"
+    runcmd cp -f "`chip_ap_dir`/top.weld" .
+    runcmd "$MODS_RUNSPACE/$SOCKSERV" -chip "$LINSIMCHIPLIB" $SESSIONARGS
+    runcmd rm -f top.weld
+}
+
+launch_gputest()
+{
+    [[ $# -ne 0 ]] && GPUTESTS=( "$@" )
+    MULTICPU="2" # linsim runs two processes (linsim and GPU Fmodel)
+    relaunch "${#GPUTESTS[*]}" RunGpuTest run_gputest "${GPUTESTS[@]}"
+}
+
+run_gputest()
+{
+    local IDX="$LSB_JOBINDEX"
+    while [[ $IDX -gt 1 ]]; do
+        shift
+        IDX=$(($IDX-1))
+    done
+    local TESTNAME="$1"
+    runcmd mkdir -p "$PARENT_ID/$TESTNAME"
+    runcmd cd_opt "$PARENT_ID/$TESTNAME"
+    local CHIPSPC="missing.spc"
+    if [ "$CHIP" = "t35" -o "$CHIP" = "t148"]; then
+        CHIPSPC="t114sim.spc"
+    else
+        CHIPSPC="tegrasim.spc"
+        if [[ "$CHIP" = "t186" ]]; then
+            runcmd ln -s ../../gldGP10B.bin .
+        elif [[ "$CHIP" = "t210" ]]; then
+            runcmd ln -s ../../gldGM20B.bin .
+        else
+            runcmd ln -s ../../gldGK20A.bin .
+        fi
+    fi
+    run_mods run linsim no_hdmi gputest.js -readspec "$CHIPSPC" -test "$TESTNAME"
+}
+
+mkclient()
+{
+    export P4CLIENT="$USER-$CHIP"
+    echo "Creating client $P4CLIENT"
+    local PARENTDIR=`dirname "$P4ROOT_HW"`
+    local APPENDSUBDIR="1"
+    [[ "$PARENTDIR" = "/home" ]] && PARENTDIR="$P4ROOT_HW" && APPENDSUBDIR="0"
+    [[ -d "$PARENTDIR" ]] || die "Directory $PARENTDIR does not exist!"
+    PARENTDIR=`cd -P "$PARENTDIR" ; pwd`
+    echo "$PARENTDIR" | grep -q "^\/home\/scratch.${USER}_\(kepler\|gk\)" || die "Directory $P4ROOT_HW is not in Kepler scratch space!"
+    if [[ "$APPENDSUBDIR" = "1" ]]; then
+        export P4ROOT_HW="$PARENTDIR/"`basename "$P4ROOT_HW"`
+    else
+        export P4ROOT_HW="$PARENTDIR"
+    fi
+    [[ -d "$P4ROOT_HW" ]] || runcmd mkdir "$P4ROOT_HW"
+    runcmd cd_opt "$P4ROOT_HW"
+    runcmd rm -rf hw
+    runcmd mkdir hw
+    runcmd cd_opt hw
+    echoto .p4config "P4PORT=p4hw-ro:4001\nP4CLIENT=$P4CLIENT"
+    if [[ "$PRETEND" = "1" ]]; then
+        echo "$PRETENDPROMPT cat <<EOF | p4 client -i"
+        echo "$P4HWCLIENT" | sed -e "s/P4CLIENT/$P4CLIENT/ ; s/P4ROOT/${P4ROOT_HW//\//\\/}/"
+        echo "EOF"
+    else
+        echo "$P4HWCLIENT" | sed -e "s/P4CLIENT/$P4CLIENT/ ; s/P4ROOT/${P4ROOT_HW//\//\\/}/" | runcmd p4 client -i
+    fi
+    runcmd p4 sync -f
+}
+
+run_tgen()
+{
+    local LEVEL="$1"
+    shift
+    [[ "$1" ]] || die "Level not specified"
+    runcmd export P4ROOT="$P4ROOT_HW"
+    runcmd cd "`chip_ap_dir`/diag/testgen"
+    runcmd ./tgen_t124.pl -release -queue o_cpu_2G -noUseTraceCache -noSandbox -modsRunspace "$MODS_RUNSPACE" -maxFileSize 20000000 -target FMODEL -level "$LEVEL" -clobber -outDir "batch_t124_linsim_${LEVEL//\//_}" "$@"
+}
+
+run_asim_fetch()
+{
+    [[ "$CHIP" = "t35" ]] && export CHIP="t114"
+    local SIMMGRPATH
+    local SIMMGRARGS
+    if is_xterm; then
+        SIMMGRPATH="/home/scratch.mobile_sw/cosim_archive/scripts"
+    else
+        [[ -n $TEGRA_TOP ]] || die "TEGRA_TOP is not set!"
+        [[ -d $TEGRA_TOP ]] || die "\$TEGRA_TOP directory not found! ($TEGRA_TOP)"
+        SIMMGRPATH="$TEGRA_TOP/simtools"
+    fi
+    [[ -d $SIMMGRPATH ]] || die "simmgr directory not found! ($SIMMGRPATH)"
+    [[ -d $OUTPUTDIR ]] || runcmd mkdir -p "$OUTPUTDIR"
+    runcmd cd "$OUTPUTDIR"
+    runcmd $SIMMGRPATH/simmgr.pl -setup -cosim_run_root "$OUTPUTDIR" -chip "$CHIP" -host o-xterm $SIMMGRARGS "$@"
+    if [[ "$CPU" = "arm64" ]]; then
+        runcmd cp /home/scratch.kdragan_sw/asim/linux-system-ramdisk-$CHIP.axf "$OUTPUTDIR"/linux-system-ramdisk.axf
+    else
+        runcmd cp /home/scratch.kdragan_sw/asim/{zImage-$CHIP,initrd-$CHIP} "$OUTPUTDIR"/
+    fi
+}
+
+run_asim_boot()
+{
+    [[ "$CHIP" = "t35" ]] && export CHIP="t114"
+    if is_xterm; then
+        RUNQUEUE="$ASIMQUEUE"
+        MULTICPU="3"
+        relaunch 0 RunAsim run_asim_boot_real "$@"
+    else
+        run_asim_boot_real "$@"
+    fi
+}
+
+run_asim_boot_real()
+{
+    local KERNELARGS=""
+    if [[ "$CPU" != "arm64" ]]; then
+        KERNELARGS="root=/dev/ram0"
+    fi
+    if [ "$1" ]; then
+        if [[ "$KERNELARGS" ]]; then
+            KERNELARGS="$KERNELARGS mods=$1"
+        else
+            KERNELARGS="mods=$1"
+        fi
+        shift
+    fi
+    if [ "$1" ]; then
+        KERNELARGS="$KERNELARGS runspace=$1"
+        shift
+    fi
+
+    # This is to make GK20A behave like RTL so we can run OpenGL
+    # otherwise OpenGL relies on some behavior which makes GK20A Fmodel crash.
+    CHIPLIBARGS="-texHandleErrorsLikeRTL"
+    
+    # Uncomment to enable 3D RTL with waves on T114/T148
+    #CHIPLIBARGS="-c sockfsim_gr3d.cfg -waves"
+    #LINSIMARGS="+v gr3d +a -assert +a nopostproc +a +strap_ram_code=3 +a +vcs+flush+all +a +fuse_ramrepair_ignore=1"
+
+    [[ "$CHIP" = "t35" ]] && export CHIP="t114"
+    runcmd export PATH="/home/utils/Python-2.6.2/bin:$PATH"
+    [[ "$CPU" = "arm64" ]] && runcmd export OUT="$OUTPUTDIR"
+    runcmd cd "$OUTPUTDIR"
+    local KERNELSPEC="--kernel=zImage-$CHIP --ramdisk_file=initrd-$CHIP"
+    if [[ "$CPU" = "arm64" ]]; then
+        # WAR for lsim.py bug
+        touch "zImage-$CHIP"
+        touch "initrd-$CHIP"
+    fi
+    local MEMARG=""
+    if [[ "$CPU" = "arm64" ]]; then
+        local COUNT
+        KERNELARGS="$KERNELARGS "
+        while true; do
+            local COUNT=`echo -n "$KERNELARGS" | wc -c`
+            [[ $COUNT -lt 105 ]] || break
+            KERNELARGS="${KERNELARGS}x"
+        done
+        runcmd sed -i "s/mods=.*xxxxx\+/${KERNELARGS//\//\/}/" linux-system-ramdisk.axf
+        KERNELARGS=""
+    else
+        MEMARG="--mem=960"
+    fi
+    runcmd scripts/lsim.py --chip="$CHIP" $KERNELSPEC $MEMARG --kargs="$KERNELARGS" --chiplib_args="$CHIPLIBARGS" --linsim_args="$LINSIMARGS" --nocheck
+}
+
+run_asim()
+{
+    local COMMAND="$1"
+    shift
+    case "$COMMAND" in
+    fetch) run_asim_fetch "$@";;
+    boot)  run_asim_boot "$@" ;;
+    *)     echo "Unrecognized argument. Try `basename $0` help." ; exit 1 ;;
+    esac
+}
+
+# Fully qualified path to the script
+[ -x "$0" ] || die "$0 is not exelwtable or does not exist" 
+LINSIM=`dirname "$0"`
+LINSIM=`cd -P "$LINSIM"; pwd`
+LINSIM="$LINSIM/"`basename "$0"`
+
+# P4 clients
+[[ "$P4ROOT_SW" ]] || P4ROOT_SW="$P4ROOT"
+[[ "$P4ROOT_HW" ]] || P4ROOT_HW="$P4ROOT"
+unset P4ROOT
+[[ -d "$P4ROOT_SW" ]] && P4ROOT_SW=`cd -P "$P4ROOT_SW" ; pwd`
+[[ -d "$P4ROOT_HW" ]] && P4ROOT_HW=`cd -P "$P4ROOT_HW" ; pwd`
+export P4ROOT_SW
+export P4ROOT_HW
+
+# Check required elw variables
+( [[ "$P4ROOT_SW" ]] && [[ "$P4ROOT_HW" ]] ) || die "Required \$P4ROOT elw var is not set (alternatively \$P4ROOT_SW and \$P4ROOT_HW)"
+[[ "$MODS_RUNSPACE" ]] || die "Required \$MODS_RUNSPACE elw var is not set"
+[[ "$OUTPUTDIR" ]] || die "Required \$OUTPUTDIR elw var is not set"
+[[ -d "$MODS_RUNSPACE" ]] && MODS_RUNSPACE=`cd -P "$MODS_RUNSPACE" ; pwd`
+[[ -d "$OUTPUTDIR" ]] && OUTPUTDIR=`cd -P "$OUTPUTDIR" ; pwd`
+export MODS_RUNSPACE
+export OUTPUTDIR
+[[ "$MODS_DEBUG" = "1" ]] && export MODS_DEBUG
+
+# Export chip variable
+export CHIP
+
+# Number of jobs
+[ "$JOBS" ] || JOBS="4"
+export JOBS
+
+# Number of CPUs on the target system
+[ "$MULTICPU" ] || MULTICPU="0"
+export MULTICPU
+
+# Set proper pretend prompt
+PRETENDPROMPT="%"
+[[ "$LINSIM_RELAUNCH" = "relaunch" ]] && PRETENDPROMPT="    %"
+
+# LSF queues
+MKQUEUE="o_cpu_4G_4H"
+ASIMQUEUE="o_pri_interactive_cpu_8G"
+RUNQUEUE="o_pri_cpu_4G"
+export LSB_DEFAULTPROJECT="mobile_${CHIP}_sw"
+
+# Execute job if we've been relaunched on the Farm
+if [[ "$LINSIM_RELAUNCH" = "relaunch" ]] && [[ "$LSB_JOBINDEX" ]]; then
+    COMMAND="$1"
+    shift
+    "$COMMAND" "$@"
+    exit $?
+fi
+
+# Handle pretend argument
+if [[ "$1" = "pretend" ]]; then
+    PRETEND="1"
+    shift
+else
+    PRETEND="0"
+fi
+export PRETEND
+
+# Handle command
+[[ $# -eq 0 ]] && usage
+COMMAND="$1"
+shift
+case "$COMMAND" in
+    help|-h|--help)     usage ;;
+    mkclient)           mkclient "$@" ;;
+    build)              launch_build "$@" ;;
+    mods)               launch_mods "$@" ;;
+    sockserv)           relaunch 0 RunSockServ run_sockserv ;;
+    gputest)            launch_gputest "$@" ;;
+    tgen)               run_tgen "$@" ;;
+    asim)               run_asim "$@" ;;
+    *)                  echo "Unrecognized argument. Try `basename $0` help." ; exit 1 ;;
+esac

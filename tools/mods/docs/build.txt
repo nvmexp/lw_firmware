@@ -1,0 +1,250 @@
+$Id: //sw/integ/gpu_drv/stage_rel/diag/mods/docs/build.txt#29 $
+
+
+Instructions for building MODS
+------------------------------
+
+MODS supports several different build configurations, specified by the
+BUILD_OS environment variable.
+
+BUILD_OS     What is it?            OS used to build it   Built-in resman?
+--------------------------------------------------------------------------
+linda        Direct Amodel MODS     Linux                 No
+linux        Linux MODS             Linux                 No
+linuxmfg     Linux Mfg MODS         Linux                 Yes
+macosx       Mac MODS               MacOSX                No
+macosxmfg    Mac MODS               MacOSX                Yes
+sim          Sim MODS (Linux)       Linux                 Yes
+cheetah        CheetAh MODS             Linux                 No
+win32        WinMODS                Windows               No
+winda        Direct Amodel MODS     Windows               No
+winsim       Sim MODS (Windows)     Windows               Yes
+winmfg       WinMfgMODS             Windows               Yes
+
+In addition, each build configuration can potentially be built for several
+different CPUs using the BUILD_ARCH environment variable. If no CPU is
+specified, the most likely one will be picked automatically.
+
+BUILD_OS     Default BUILD_ARCH    Supported BUILD_ARCH settings
+----------------------------------------------------------------
+linda        amd64                 amd64
+linux        amd64                 amd64, ppc64le
+linuxmfg     amd64                 amd64, aarch64, ppc64le
+macosx       x86                   x86, amd64, fat
+macosxmfg    x86                   x86, amd64, fat
+sim          amd64                 amd64, ppc64le
+cheetah        aarch64               aarch64
+win32        x86                   x86, amd64
+winda        amd64                 amd64
+winsim       x86                   x86, amd64
+winmfg       x86                   x86, amd64
+
+If you are cross-compiling MODS (i.e. building for a different CPU than you are
+lwrrently running on), you can also set HOST_ARCH appropriately.  See below.
+
+Note that Windows versions of MODS *cannot* be built from a Visual Studio
+project file. You can only build MODS from the command line.
+
+Terminology:
+   <root> is the P4 client root you are using, e.g. c:\p4 or ~/p4.
+   <tree> is the driver release tree you are using, e.g. dev/gpu_drv/chips_a.
+
+1. Perforce Client
+--------------------------------------------------------------------------------
+In general, some aspects of the MODS build assume that your P4 client's
+directory structure exactly mirrors the directory structure in the P4 depot. If
+you have both a hardware and a software tree, you should put them under the
+same root directory (so that, for example, a relative path "../hw" will take
+you from the //sw/ directory to the //hw/ directory).
+
+To find out which branches are required for you P4 client, run make
+in //sw/<tree>/diag/mods with "client" target, e.g.:
+
+    make client
+
+You can configure it as if you were building, i.e. specify BUILD_OS and any
+other variables you want, but instead of "build_all" use "client" target.
+This will show all P4 paths that need to be in your client.
+
+If your system does not have the latest Visual C++ runtime components
+installed, you may encounter one of the following errors when building:
+
+    Permission denied.
+    The system cannot execute the specified program.
+
+This can be fixed by installing the Visual C++ Redistributable Package from the
+following location:
+
+    //sw/tools/win32/msvc<VERSION>/VC/redist/<PLATFORM>
+
+You don't actually need MSVC installed on your system to build and run MODS on
+Windows, but you will definitely need it if you are doing any debugging. MSVC
+installations will have to be requested from IT.
+
+BUILD_OS=linuxmfg requirement:
+
+This MODS configuration uses a special kernel driver which provides a thin
+layer between MODS and operating system (Linux kernel version at least 2.6.16).
+If MODS recognizes that this special module is not loaded, it will try to
+run the install script with root privileges. If you decide to install the
+module on your own make sure it is loaded before you run MODS.
+
+BUILD_OS=[linux,linuxmfg,sim] requirement:
+
+You need to have make and perl on your system, along with a handful of
+standard GNU programs, such as sed or grep.
+
+
+2. Mandatory environment variables
+--------------------------------------------------------------------------------
+P4ROOT must be set to point to the root directory of your P4 client.
+
+MODS_RUNSPACE should be set to point to where you want MODS to be installed,
+e.g., "c:\mods" or "c:\simmods" or "/home/scratch.mcraighead_sgpu/runspace".
+The default value for MODS_RUNSPACE is <tree>/diag/mods/runspace
+
+   NOTE: It is lwrrently a requirement of *debug* versions of *DOS* MODS that
+   MODS_RUNSPACE be set to //sw/<branch>/diag/mods/debug in order to do
+   source-level debugging. (5:10 PM 9/13/2004)
+
+BUILD_OS controls which version of MODS you're building; see above.
+The Makefile can sometimes guess what BUILD_OS should be set to, based
+on the OS you are compiling on.  That mechanism works fine on an OS
+like MacOSX, which is generally only used to build one flavor of mods,
+but it doesn't work well on an OS like Windows which is used to build
+win, winsim, and winmfg.  You're better off setting BUILD_OS explicitly.
+
+By default, win32, winsim, and winmfg require that you have the mingw-make and
+MiscBuildTools in your path.  The following will accomplish that, assuming
+BUILD_TOOLS_DIR points to //sw/tools:
+
+   path=%BUILD_TOOLS_DIR%\win32\MiscBuildTools;%BUILD_TOOLS_DIR%\win32\gnumake\mingw32-4.3;%path%
+
+The above make works with "-j" argument, e.g. "mingw32-make.exe -j8 build_all".
+
+For macosx and macsim, you should have //sw/<branch>/diag/mods/macosx in your
+path.  (This is only to get "make".  You can skip this step if you've installed
+xcode -- available from //hqhmmac01/mac_qa/DevKit/XCode -- or if you prefer to
+type "macosx/make" when you compile.)
+
+
+3. Optional environment variables
+--------------------------------------------------------------------------------
+In general, you should leave all optional environment variables unset unless
+you know what you are doing and know that you need to override a particular
+setting.
+
+BUILD_ARCH controls which CPU you are building MODS for; see above.  The
+default depends on the value of BUILD_OS.
+
+HOST_ARCH specifies which CPU you are building MODS on.  The settings for
+HOST_ARCH are the same as those for BUILD_ARCH, and the default is to use the
+same value as BUILD_ARCH.  However, this default is incorrect when
+cross-compiling MODS (e.g. when you are building a 64-bit MODS on a 32-bit
+computer). This is irrelevant for most modules, but some modules may require
+that certain generated code be built using exelwtables run on the local
+computer. In order to cross-compile such modules, you must set HOST_ARCH
+correctly.
+
+When building 64-bit Linux MODS, HOST_ARCH is automatically detected. On 64-bit
+machines both 32-bit and 64-bit MODS can be built.
+
+BUILD_CFG can be set to "debug" or "release" to build a debug or release MODS.
+The default is "debug".
+
+MODS_OUTPUT_DIR defaults to "diag/mods/artifacts".  It specifies the directory
+where all the build artifacts are stored during the build.  On Windows, this
+directory must be on the same drive as the source tree.
+
+BOUND_JS defaults to "false".  Setting it to "true" causes mods to build
+with a bound-in javascript for an "end-user"/"single-purpose" mods
+exelwtable.  See the section below, "Building End-User Mods".
+
+BUILD_TOOLS_DIR should be set to point at your //sw/tools tree.  By default,
+the path $(P4ROOT)/sw/tools will be selected; you only need to override this if
+you are sharing a single //sw/tools tree between multiple P4 clients.
+
+DEPENDENCIES controls whether the build generates and uses automatic header
+file dependencies. The default is "true", but you can turn this off at your own
+risk; with this disabled, incremental builds may fail or crash for bizarre
+reasons. Turning off dependencies does, however, speed up builds somewhat
+(partilwlarly for Windows builds), so there are times when disabling them is
+useful.
+
+Be warned that while dependencies are mostly reliable, due to misuse of
+#include <> (as opposed to #include "") in some code they may occassionally
+fail to rebuild certain files. These problems have been substantially cleaned
+up but it is possible that there are still incorrect #include <>'s out there.
+If you see strange, unexplainable behavior, do a clean build.
+
+If you don't want to build in GPU support, set INCLUDE_GPU to "false".  The
+default is "true".
+
+If you don't want to build in MCP support, set INCLUDE_MCP to "false".  The
+default is "true".
+
+If you want to build in LWCA support, set INCLUDE_LWDA to "true".  The
+default is "false".
+
+If you don't want to build in the OpenGL driver, set INCLUDE_OGL to "false".
+The default is "true".
+
+If you want to build in the OpenGL ES driver, set INCLUDE_OGL_ES to "true".
+The default is "false".
+
+If you want to build in lwogtest, set INCLUDE_LWOGTEST to "true". The default
+is "false".
+
+If you want to build in mdiag support, set INCLUDE_MDIAG to "true". The default
+is "false".
+
+If you want to build to run RmTest's , set INCLUDE_RMTEST to "true".
+The default is "false".
+
+If you want to build lwwatch for simulation under Linux, set INCLUDE_LWWATCH to
+"true".  The default is "false". lwwatch shared library is installed to where
+MODS_RUNSPACE points to. Then it can be loaded during runtime in order to use
+lwwatch commands.
+
+If you want to build the OGL ES fixed point library, set MATH_TYPE to "fixed".
+The default is "float".
+
+
+4. Building and Installing MODS
+--------------------------------------------------------------------------------
+The simplest way to build MODS is to use the top-level makefile targets
+"build_all" and "clean_all":
+
+   cd <root>/sw/<tree>/diag/mods
+   make clean_all (if needed)
+   make build_all
+
+   (Windows users need backslashes, of course, for cd.)
+
+This will build all modules of MODS and install them into your MODS_RUNSPACE.
+
+Using "make -j4" will provide a nice speedup. Typically the number to use is
+equal to count of logical CPU cores.
+
+If you want more control over the build or you know that you only touched one
+module, you can also build individual modules of MODS by themselves.
+See advbuild.txt for information on how to do this.
+
+
+5. Miscellaneous
+--------------------------------------------------------------------------------
+Make sure to set up exclusion paths in the virus scanner to massively increase
+your build performance. Go to OfficeScan Main, Options/Real-time Scan. Check
+Enable Exclusion List, then click Edit and add both your P4 tree and your MODS
+runspace as excluded directories.  For DOS builds you will also want to add
+your temporary directory (probably c:\temp).  Watch the virus scanner during
+a build to see whether your exclusion paths are working.  Note that IT
+periodically clobbers your exclusion list so keep an eye on your virus scanner
+to make sure it hasn't reverted to checking those directories.
+
+You may also be able to get your virus scanner to shut off while building by
+running the commands below (at your own risk, of course).
+   net stop "OfficeScanNT RealTime Scan"
+   {{disconnect from network, for safety}}
+   make build_all
+   net start "OfficeScanNT RealTime Scan"

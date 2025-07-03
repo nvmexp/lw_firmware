@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+message PerLinkInfo {
+    bool b_valid          = 1;
+    bool b_active         = 2;
+    bool b_lane_reversed  = 3;
+    uint32 version        = 4;
+    uint32 line_rate_mbps = 5;
+    uint32 ref_clk_mbps   = 6;
+}
+
+message MessageHeader
+{
+    enum AppType {
+        unknown  = 0;
+        gdm      = 1;
+        onediag  = 2;
+        mods     = 3;
+    }
+    uint32       node_id     = 1;
+    uint32       app_type    = 2;
+}
+
+message PerEndPointInfo {
+    enum Type {
+        unknown              = 0;
+        type_lwidia_gpu      = 1;
+        type_lwidia_lwswitch = 2;
+        type_lwidia_trex     = 3;
+    }
+    message PciBdf {
+        message DevDetails{
+            uint32 vendor_id     = 1;
+            uint32 device_id     = 2;
+            repeated uint32 bars = 3;
+        }
+
+        uint32 domain         = 1;
+        uint32 bus            = 2;
+        uint32 device         = 3;
+        uint32 function       = 4;
+        DevDetails devdetails = 5;
+    }
+
+    uint32 dev_type           = 1;
+    PciBdf bdf                = 2;
+    repeated PciBdf otherBdfs = 3;
+    repeated uint32 link_ids  = 4;
+}
+
+message ExampleMessage {
+    // mods_keyword handler;
+    repeated MessageHeader headers      = 1;
+    uint32          major_version       = 2;
+    uint32          minor_version       = 3;
+    PerLinkInfo     link_info           = 4;
+    repeated PerEndPointInfo end_points = 5;
+}
+
+message Messages
+{
+    // mods_keyword container;
+    ExampleMessage example_msg = 1;
+}

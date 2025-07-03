@@ -1,0 +1,64 @@
+# Core Bus
+
+Provides asynchronous message delivery between cores and partitions.
+
+Definitions:
+   LIBOS Partition - This is a virtual machine selwred by the Separation Kernel and LIBOS Root partition (ADA SPARK)
+                     Each partition corresponds to a separate copy of a the LIBOS kernel, tasks, etc.
+                     The operating system is paravirtualized.
+
+   Seperation Kernel - Firmware running in machine mode reponsible for spatial isolation between partitions.
+                       Each core runs a seperate instance.  Instances do not communicate or share memory
+	               except to handle secure message page allocation and transfer.
+
+   Task Group        - A collection of tasks visibile as a single scheduling entity to the distribution global scheduling algorithm.
+                       A single task group will be running on a given core at a given time.
+		       Each task group belongs to a specific partition, so multiple partitions might be active on different cores at 
+		       the same time.
+
+
+## Secure Partition Messaging
+
+The SK mantains a collection of up to 64 4kb pages for secure messaging.
+A partition may allocate one or more of these pages, fill them out, and then 
+selwrely transfer ownership of them to another partition.
+
+A single page may be mapped into a given partition at a time.
+
+### Algorithm
+
+openPages = []
+def PartitionSendMessage(targetPartiton, message)
+    if targetPartition in openPages:
+        append message to existing page
+        return
+    if no free pages from SK
+        find partitition with most pages assigned to it
+	switch to partition to handle messages and switch back
+    allocate page 
+    add page to openPages
+    append message to page		
+
+def LeaveLwrrentPartition():
+    Transfer all open pages to target partitions
+
+
+## SMP SK Model
+
+Each core runs a seperate SK instance initialized from the same manifest
+ - PMP setting are core local
+ - Partition switching is core local
+
+The only co-operation between SK instances on cores in the core bus.
+ - Secure pages for messaging cannot be core local
+   \-> SK instances must have some shared TCM to negotiate ownership
+       of these shared pages.  To do otherwise completely breaks our 
+       messaging model.
+
+## Intra-Partition Inter-Core Messaging
+
+Messages between Processor cores running the same partition belong to the same LIBOS instance.
+The kernel keeps a collection of pages for this purpose.
+
+Interrupts are used to wake up the cores.
+ 

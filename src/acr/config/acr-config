@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# acr-config
+# just run rmconfig using our config file
+
+# bail on any error
+set -e
+
+[ -f acr-config.cfg ]  ||  cd ../config
+[ -f acr-config.cfg ]  ||  { echo Cannot find acr-config.cfg >&2; exit 1; }
+
+cd ../src
+
+# NOTE: '--mode acr-config' must be the first argument to rmconfig
+exec ${PERL:-perl} ../../../drivers/common/chip-config/chip-config.pl \
+                   --mode acr-config \
+                   --config ../config/acr-config.cfg \
+                   --source-root ../src \
+                   "$@"

@@ -1,0 +1,18 @@
+@startuml{PerfStaticDesign.png} "Perf Static Design"
+  node "PMU microcode" {
+    node "Application Layer" {
+      node "Module Pstates" {
+        rectangle  "Unit ChangeSeq Client"    as changeseq_client
+        node "Sub-Module Perf" {
+          rectangle "Unit Perf Core"           as perfcore_unit
+          rectangle "Unit Perf Tasks"          as perftasks_unit
+          rectangle "Unit Perf Pstate"         as perfpstate_unit
+        }
+        ..> perftasks_unit: <<{perf, clk, volt} rpc cmds>>
+        perftasks_unit   -->  perfcore_unit:   <<perf rpc cmds>>
+        perfcore_unit    -->  perfpstate_unit: <<perf boardobjs cmds>>
+        changeseq_client -->  perfpstate_unit: <<pstate freq tuples>>
+      }
+    }
+  }
+@enduml

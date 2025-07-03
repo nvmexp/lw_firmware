@@ -1,0 +1,400 @@
+# -*- mode: perl; -*-
+
+# ACR Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $acrHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        INIT => [
+            DESCRIPTION    => "ACR initialization routine",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _T210          => [ tMAXWELL_and_later, ],
+        ],
+
+        INIT_SCP_RNG => [
+            DESCRIPTION    => "initialization routine for RNG in SCP",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _T210          => [ tMAXWELL_and_later, ],
+        ],
+
+        GET_RAND_NUM => [
+            DESCRIPTION    => "Calls into getting random number from RNG(SCP)",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 *pRandInOut',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _T210          => [ tMAXWELL_and_later, ],
+        ],
+
+        FIND_WPR_REGIONS   => [
+            DESCRIPTION    => "Calls into finding Locked WPR and VPR regions respectively",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 *pWprIndex',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => INIT,
+ 
+            _T210          => [ tMAXWELL_and_later, -T234, ],
+            _T234          => [ T234, ],
+        ],
+
+        FIND_CTX_DMA => [
+            DESCRIPTION    => "Finds CTX dma with TRANCFG setting mapping to physical FB access",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 *pCtxDma',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GM200         => [ GM20X_and_later, tMAXWELL_and_later, ],
+        ],
+
+        POLL_FOR_RESET_COMPLETION => [
+            DESCRIPTION    => "Polls for Falcon resets to complete",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 validIndexMap',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_CTX_DMA,
+        ],
+
+
+        RESET_ENGINE_FALCON => [
+            DESCRIPTION    => "Resets engine and falcon if applicable",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 validIndexMap',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_CTX_DMA,
+        ],
+
+
+        SETUP_LS_FALCON => [
+            DESCRIPTION    => "Setup Falcon in LS mode",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PLSF_LSB_HEADER pLsbHeaders, LwU32 validIndexMap',
+            INTERFACE_TAG  => "acrSetupLSFalcon",                       # "LS" instead of "Ls"
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_CTX_DMA,
+        ],
+
+        SETUP_FALCON_CODE_AND_DATA_SUB_WPRS => [
+            DESCRIPTION    => "Setup Sub WPR for code and data part of falcon ucode in FB-WPR",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 falconId, PLSF_LSB_HEADER pLsbHeaders',
+            INTERFACE_TAG  => "acrSetupFalconCodeAndDataSubWprs",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+            _T234          => [ T234, ],
+            _STUB          => [ ALL, -T234, ],
+        ],
+        PROGRAM_FALCON_SUB_WPR => [
+            DESCRIPTION    => "Program particular falcon SubWPR in PRI MMU register pair .",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 falconId, LwU8 flcnSubWprId, LwU32 startAddr, LwU32 endAddr, LwU8 readMask, LwU8 writeMask',
+            INTERFACE_TAG  => "acrProgramFalconSubWpr",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+            _T234          => [ T234, ],
+            _STUB          => [ALL, -T234, ],
+        ],
+
+        POPULATE_DMA_PARAMETERS => [
+            DESCRIPTION    => "Populates the DMA properties including ctxDma and RegionID",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 wprRegIndex',
+            INTERFACE_TAG  => "acrPopulateDMAParameters",               # "DMA" instead of "Dma"
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GM200         => [ GM20X_and_later, tMAXWELL_and_later, -T234, ],
+            _T234          => [ T234, ],
+        ],
+
+
+        READ_WPR_HEADER => [
+            DESCRIPTION    => "Reads WPR header into global buffer",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_CTX_DMA,
+        ],
+
+
+        WRITE_WPR_HEADER => [
+            DESCRIPTION    => "Writes back WPR header",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_CTX_DMA,
+        ],
+
+
+        READ_LSB_HEADER => [
+            DESCRIPTION    => "Reads LSB header into a global buffer which is then copied to local buffer
+                               pointed out by pLsbHeader",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PLSF_WPR_HEADER pWprHeader, PLSF_LSB_HEADER pLsbHeader',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_CTX_DMA,
+        ],
+
+        SCRUB_UNUSED_WPR_WITH_ZEROES => [
+            DESCRIPTION    => "Scrub FB with zeroes",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 nextKnownOffset, LwU32 size',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_CTX_DMA,
+        ],
+
+        SANITY_CHECK_BL_DATA => [
+            DESCRIPTION    => "Do sanity check on the bootloader arguments provided",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 falconId, LwU32 blDataOffset, LwU32 blDataSize',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_CTX_DMA,
+        ],
+
+        BOOTSTRAP_FALCONS => [
+            DESCRIPTION    => "Function which will take care of bootstrapping the falcons",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_CTX_DMA,
+        ],
+
+        ISSUE_DMA => [
+            DESCRIPTION    => "ACR routine to do falcon FB DMA to and from IMEM/DMEM",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'LwU32 memOff, LwBool bIsImem, LwU32 fbOff, LwU32 sizeInBytes, ACR_DMA_DIRECTION dmaDirection, ACR_DMA_SYNC_TYPE dmaSync, PACR_DMA_PROP pDmaProp',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_CTX_DMA,
+        ],
+
+        CHECK_FUSE_REVOCATION => [
+            DESCRIPTION    => "Check if fuse matches for rollback protection",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            _T210          => [ T21X_and_later, GV11B, -T194, -T186, -T234 ],
+            _GV11B         => [ T194, T234, ],
+            _STUB          => [ T186, ],
+        ],
+
+        GET_FUSE_VERSION_HW => [
+            DESCRIPTION    => "Get the HW fuse version",
+            RETURN_TYPE    => void,
+            INTERFACE_TAG  => "acrGetFuseVersionHW",
+            ARGUMENTS      => 'LwU32 *fuseVersion',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GV11B         => [ T194, GV11B, T234, ],
+            _STUB          => [ T21X_and_later, CHEETAH, -T194, -T234, ],
+        ],
+
+        GET_FUSE_VERSION_SW => [
+            DESCRIPTION    => "Get the SW fuse version",
+            RETURN_TYPE    => void,
+            INTERFACE_TAG  => "acrGetFuseVersionSW",
+            ARGUMENTS      => 'LwU32 *fuseVersion',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GV11B         => [ T194, GV11B, ],
+            _T234          => [ T234, ],
+            _STUB          => [ T21X_and_later, -T194, -T234, ],
+        ],
+
+        CALLWLATE_DMHASH => [
+            DESCRIPTION    => "Callwlate DMhash with the given buffer",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwU8 *pHash, LwU8 *pData, LwU32 size',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_CTX_DMA,
+        ],
+
+        VERIFY_SIGNATURE => [
+            DESCRIPTION    => "Verify LS ucode signature",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU8 *pSignature, LwU32 falconId, LwU32 binarysize, LwU32 binOffset, PLSF_LSB_HEADER pLsfHeader, LwBool bIsUcode',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_CTX_DMA,
+        ],
+
+        IS_DEBUG_MODE_ENABLED => [
+            DESCRIPTION    => "ACR routine to check if falcon is in DEBUG mode or not",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_CTX_DMA,
+        ],
+
+        PROGRAM_DMA_BASE => [
+            DESCRIPTION    => "ACR routine to program DMA base",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwBool bIsImem, PACR_DMA_PROP pDmaProp',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GM200         => [ GM20X, T21X, CHEETAH, GV11B, ],
+        ],
+
+        COPY_UCODES_TO_WPR => [
+            DESCRIPTION    => "Copies ucodes from non-WPR region to WPR region using non-WPR location passed from host",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _T210          => [ tMAXWELL_and_later, ],
+            _STUB          => [ ALL, '-tMAXWELL_and_later', ],
+        ],
+
+        FETCH_REGION       => [
+            DESCRIPTION    => "Fetch Region info",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _STUB          => [ ALL, -GV11B, ],
+        ],
+
+        CHECK_IF_BUILD_IS_SUPPORTED => [
+            DESCRIPTION    => "Verify is this build should be allowed to run on particular chip",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_ILWALID_CHIP_ID,
+
+            _GM200         => [ GM20X, ],
+            _T210          => [ tMAXWELL, ],
+            _T186          => [ tPASCAL, ],
+            _GV11B         => [ GV11B, T194, ],
+            _T234          => [ T234, ],
+        ],
+
+	SETUP_FBHUB_DECODE_TRAP => [
+            DESCRIPTION    => "Setup decode trap to grant permssion for CPU to access specific PRI_FBHUB registers",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => void,
+            _STUB          => [ ALL, -T234, ],
+            _T234          => [ T234, ],
+        ],
+
+	SETUP_SCTL_DECODE_TRAP => [
+            DESCRIPTION    => "Setup decode trap to grant permssion for LS falcon",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => void,
+            _STUB          => [ ALL, -T234, ],
+            _T234          => [ T234, ],
+        ],
+
+        MITIGATE_NS_RESTART_FROM_HS => [
+            DESCRIPTION    => "Make sure different master cannot restart ACR in case it halts in HS mode",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => void,
+
+            _T210          => [ T210, T186, T194, T234, ],
+        ],
+
+        WRITE_ACR_VERSION_TO_BSI_SELWRE_SCRATCH => [
+            DESCRIPTION    => "Write the version of ACR to BSI secure scratch bits reserved for ACR version",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 arg1',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _GP10X         => [ GP102_and_later, -GV11B, ],
+            _STUB          => [ pre_GP102, CHEETAH, GV11B, ],
+        ],
+
+        PROGRAM_HUB_ENCRYPTION => [
+            DESCRIPTION    => "Sets up keys/nonces and regions for Hub Encryption support",
+            RETURN_TYPE    => ACR_STATUS,
+            STUB_RETURNS   => ACR_ERROR_HUB_ENCRYPTION_NOT_SUPPORTED,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _STUB          => [ ALL, '-GP10X_and_later', 'GP100', CHEETAH, ],
+        ],
+
+        DISABLE_LOCKDOWN => [
+            DESCRIPTION    => "Disable the lockdowns in SCP_CTL_CFG register of the falcon we are running on",
+            RETURN_TYPE    => void,
+            STUB_RETURNS   => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _STUB          => [ CHEETAH, GV11B, ],
+        ],
+
+        LOCK_FALCON_RESET => [
+            DESCRIPTION    => "Lock or unlock falcon reset when binary is running",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwBool bLock',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _GV11B         => [ GV11B, T194, ],
+            _STUB          => [ ALL, '-GP10X_and_later', 'GP100', CHEETAH, -T194, ],
+        ],
+
+        LOCK_FALCON_REG_SPACE_VIA_DECODE_TRAP_COMMON => [
+            DESCRIPTION    => "Configure common settings for decode traps locking falcon reg space",
+            RETURN_TYPE    => ACR_STATUS,
+            STUB_RETURNS   => ACR_OK,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")', 
+
+            _STUB          => [ tMAXWELL_and_later, ],
+        ],
+
+        COPY_LS_GRP_SIG_TO_REGS_FOR_SEC2=> [
+            DESCRIPTION    => "Copy LS group signature to secure register that will be consumed by SEC2",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32 *pArg1, LwU32 arg2',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _GP10X         => [ GP10X_and_later, -GP100, -CHEETAH, -GV11B, ],
+            _STUB          => [ ALL, '-GP10X_and_later', 'GP100', CHEETAH, GV11B, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $acrHal;
+

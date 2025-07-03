@@ -1,0 +1,403 @@
+# -*- mode: perl; -*-
+
+# LPWR Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $lpwrHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwr", "__FUNC__")',
+        FLAGS          => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        # LPWR Clock Gating HALs
+
+        CG_FRAMEWORK_POST_INIT => [
+            DESCRIPTION      => "Initialize LPWR Clock Gating Structure",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "void",
+            STUB_RETURNS     => FLCN_OK,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GM10X           => [ dMAXWELL_thru_AD10X, ],
+            _GH10X           => [ dHOPPER_and_later, ],
+        ],
+
+        CG_POWERDOWN => [
+            DESCRIPTION      => "API to handle powerdown sequence for LPWR Clock Gating",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 clkMask, LwU8 targetMode",
+            STUB_RETURNS     => void,
+
+            _GMXXX           => [ MAXWELL, ],
+            _GP10X           => [ PASCAL_thru_TURING, -GV11B, ],
+            _STUB            => [ GV11B, dAMPERE_and_later, ],
+        ],
+
+        CG_POWERUP => [
+            DESCRIPTION      => "API to handle powerup sequence for LPWR Clock Gating",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 clkMask, LwU8 targetMode",
+            STUB_RETURNS     => void,
+
+            LIKE_INTERFACE => CG_POWERDOWN,
+        ],
+
+        CG_IST_POST_INIT => [
+                DESCRIPTION      => "Gate IST Clock",
+                RETURN_TYPE      => FLCN_STATUS,
+                ARGUMENTS        => "LwBool bIstCgSupport",
+                STUB_RETURNS     => FLCN_OK,
+                GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+                _TU10X           => [ dTURING_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+                _STUB            => [ pre_TURING, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        CG_FBPA_SLCG_DISABLE => [
+            DESCRIPTION      => "Function to disable the FBPA SLCG on Turing",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "void",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _TU10X           => [ TURING, ],
+            _STUB            => [ ALL, -TURING, ],
+        ],
+
+        CG_ELPG_SEQUENCER_ENABLE => [
+            DESCRIPTION      => "Function to enable the LPWR Clock gating",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "void",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GA10B           => [ TEGRA_DGPU_AMPERE, ],
+            _STUB            => [ ALL, -TEGRA_DGPU_AMPERE, ],
+        ],
+
+        # ELCG HALs
+        CG_ELCG_PRE_INIT => [
+            DESCRIPTION      => "ELCG pre-initialization",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "void",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM20X           => [ GM20X, GP100, ],
+            _GP10X           => [ dPASCAL_thru_ADA, -GP100, -TEGRA_DGPU_ADA, -GV11B, ],
+            _AD10B           => [ TEGRA_DGPU_ADA, IG000, ],
+            _GH100           => [ GH100, ],
+            _GB10X           => [ BLACKWELL_and_later, GH202, -IG000],
+            _STUB            => [ GM10X, GV11B, ],
+        ],
+
+        CG_ELCG_POST_INIT => [
+            DESCRIPTION      => "Post initialization of ELCG",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "void",
+            STUB_RETURNS     => FLCN_OK,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GM10X           => [ GM10X, ],
+            _GM20X           => [ GM20X, GP100, ],
+            _GP10X           => [ dPASCAL_thru_ADA, -GP100, -TEGRA_DGPU_ADA, GH100, -GV11B, ],
+            _AD10B           => [ TEGRA_DGPU_ADA, IG000, ],
+            _GB10X           => [ BLACKWELL_and_later, GH202, -IG000],
+            _STUB            => [ GV11B, ],
+        ],
+
+        CG_ELCG_CTRL_ENABLE => [
+            DESCRIPTION      => "Enable the ELCG Ctrl",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 engHwId, LwU32 reasonId",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE   => CG_ELCG_POST_INIT,
+        ],
+
+        CG_ELCG_CTRL_DISABLE => [
+            DESCRIPTION      => "Disable the ELCG Ctrl",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 engHwId, LwU32 reasonId",
+            STUB_RETURNS     => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE   => CG_ELCG_POST_INIT,
+        ],
+
+        # WAR is applied by .libMs overlay
+        CG_GR_ELCG_WAR => [
+            DESCRIPTION     => "Activates and de-activates GR-ELCG <-> OSM CG WAR",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwBool bActivate",
+
+            _GMXXX          => [ MAXWELL, GP100, ],
+            _GP10X          => [ dPASCAL_and_later, -GP100, -GV11B, ],
+            _STUB           => [ GV11B, ],
+        ],
+
+        SEQ_PLM_CONFIG => [
+            DESCRIPTION      => "Function to update the PLM values of PG Sequencer",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "void",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _TU10X           => [ TURING, ],
+            _STUB            => [ ALL, -TURING, ],
+        ],
+
+        SEQ_SRAM_INIT => [
+            DESCRIPTION      => "Function to initailze the SRAM Sequencer",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "void",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GP10X           => [ PASCAL, -GP100, ],
+            _TU10X           => [ TURING, ],
+            _GA10X           => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB            => [ ALL, -PASCAL, -dTURING_and_later, GP100, GA100, GH100, GB100, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+         ],
+
+        SEQ_SRAM_FG_RPPG_INIT => [
+            DESCRIPTION      => "Init the FG-RPPG Sequencer Settings",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "void",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _AD10X           => [ dADA_and_later,  -GH100, -GH202, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB            => [ ALL, -dADA_and_later, GH100, GH202, GB100, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+         ],
+
+         SEQ_SRAM_FG_RPPG_DISABLE => [
+             DESCRIPTION      => "Disable the FG-RPPG SRAM Sequencer",
+             RETURN_TYPE      => LwBool,
+             ARGUMENTS        => "void",
+             STUB_RETURNS     => FLCN_OK,
+
+             LIKE_INTERFACE   => SEQ_SRAM_FG_RPPG_INIT,
+         ],
+
+         SEQ_SRAM_FG_RPPG_ENABLE => [
+             DESCRIPTION      => "Enable the FG-RPPG SRAM Sequencer",
+             RETURN_TYPE      => void,
+             ARGUMENTS        => "void",
+
+             LIKE_INTERFACE   => SEQ_SRAM_FG_RPPG_INIT,
+         ],
+
+        GPU_IDLE_MASK_GET => [
+            DESCRIPTION      => "Function to get GPU Idle Mask",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 *pIdleMask",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _TU10X           => [ TURING, ],
+            _GA10X           => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB            => [ pre_TURING, GA100, GH100, GB100, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        PRIV_PATH_FLUSH => [
+            DESCRIPTION      => "Flush the GPU Priv Path",
+            RETURN_TYPE      => LwBool,
+            ARGUMENTS        => "LwBool bXveFlush, LwBool bSec2Flush, LwBool bGspFlush, LwU32 flushTimeOutUs",
+            STUB_RETURNS     => LW_TRUE,
+
+            _GA10X           => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B           => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _STUB            => [ pre_dAMPERE, GA100, GH100, GB100, G00X, ],
+        ],
+
+        PRIV_BLOCKER_INTR_INIT => [
+            DESCRIPTION      => "Initialize and enable the Priv Blocker interrupts",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => void,
+            STUB_RETURNS     => FLCN_OK,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            # MMINTS-TODO: we might want to enable this on TEGRA_DGPU_ADA, but right now the priv blocker hwref manuals seem a bit broken
+            _TU10X           => [ dTURING_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B           => [ TEGRA_DGPU_AMPERE, ],
+            _STUB            => [ pre_TURING, GA100, GH100, GB100, G00X, TEGRA_DGPU_ADA, ],
+        ],
+
+        PRIV_BLOCKER_INTR_PROCESS => [
+            DESCRIPTION      => "Process the Priv Blocker interrupts",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "DISPATCH_LPWR *pLpwrEvt",
+            STUB_RETURNS     => FLCN_OK,
+
+            # MMINTS-TODO: we might want to enable this on TEGRA_DGPU_ADA, but right now the priv blocker hwref manuals seem a bit broken
+            _TU10X           => [ dTURING_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B           => [ TEGRA_DGPU_AMPERE, ],
+            _STUB            => [ pre_TURING, GA100, GH100, GB100, G00X, TEGRA_DGPU_ADA, ],
+        ],
+
+        PRIV_BLOCKER_XVE_INTR_INIT => [
+            DESCRIPTION      => "Initialize and enable the XVE Priv Blocker interrupts",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => void,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _TU10X           => [ TURING, ],
+            _GA10X           => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB            => [ pre_TURING, GA100, GH100, GB100, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        PRIV_BLOCKER_XVE_TIMEOUT_INIT => [
+            DESCRIPTION      => "Initialize and enable the XVE Priv Blocker Timeout",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => void,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            LIKE_INTERFACE   => PRIV_BLOCKER_XVE_INTR_INIT,
+        ],
+
+        PRIV_BLOCKER_XVE_INTR_PROCESS => [
+            DESCRIPTION      => "Process the XVE Blocker interrupts",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 intrStat",
+            STUB_RETURNS     => void,
+
+            LIKE_INTERFACE   => PRIV_BLOCKER_XVE_INTR_INIT,
+        ],
+
+        PRIV_BLOCKER_MODE_SET => [
+            DESCRIPTION      => "Update the Priv Blocker Mode in HW",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 blockerId, LwU32 targetBlockerMode, LwU32 targetProfileMask",
+
+            # MMINTS-TODO: we might want to enable this on TEGRA_DGPU_ADA, but right now the priv blocker hwref manuals seem a bit broken
+            _TU10X           => [ dTURING_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B           => [ TEGRA_DGPU_AMPERE, ],
+            _STUB            => [ pre_TURING, GA100, GH100, GB100, G00X, TEGRA_DGPU_ADA, ],
+        ],
+
+        PRIV_BLOCKER_WAIT_FOR_MODE_CHANGE_COMPLETION => [
+            DESCRIPTION      => "Poll the blocker mode to get updated in HW",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 blockerId, LwU32 timeOutNs",
+            STUB_RETURNS     => FLCN_OK,
+
+            # MMINTS-TODO: we might want to enable this on TEGRA_DGPU_ADA, but right now the priv blocker hwref manuals seem a bit broken
+            _TU10X           => [ dTURING_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B           => [ TEGRA_DGPU_AMPERE, ],
+            _STUB            => [ pre_TURING, GA100, GH100, GB100, G00X, TEGRA_DGPU_ADA, ],
+        ],
+
+        PRIV_BLOCKER_XVE_MODE_SET => [
+            DESCRIPTION      => "Set the XVE Blocker Mode",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 targetBlockerMode, LwU32 targetProfileMask",
+
+            LIKE_INTERFACE   => PRIV_BLOCKER_XVE_INTR_INIT,
+        ],
+
+        PRIV_BLOCKER_XVE_MS_PROFILE_DISALLOW_RANGES_INIT => [
+            DESCRIPTION      => "Initialize and enable the disallow ranges for XVE Blocker MS Profile",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "void",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _TU10X           => [ dTURING_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB            => [ pre_TURING, GA100, GH100, GB100, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        PRIV_BLOCKER_XVE_MS_PROFILE_ALLOW_RANGES_INIT => [
+            DESCRIPTION      => "Initialize and enable the Allow ranges for XVE Blocker MS Profile",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "void",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            LIKE_INTERFACE   => PRIV_BLOCKER_XVE_INTR_INIT,
+        ],
+
+        PRIV_BLOCKER_XVE_GR_PROFILE_DISALLOW_RANGES_INIT => [
+            DESCRIPTION      => "Initialize and enable the disallow ranges for XVE Blocker GR Profile",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "void",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X           => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB            => [ pre_dAMPERE, GA100, GH100, GB100, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        PRIV_BLOCKER_XVE_GR_PROFILE_ALLOW_RANGES_INIT => [
+            DESCRIPTION      => "Initialize the Allow ranges for XVE Blocker GR Profile",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "void",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X           => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB            => [ pre_dAMPERE, GA100, GH100, GB100, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        PRIV_BLOCKER_XVE_GR_PROFILE_ALLOW_RANGES_ENABLE => [
+            DESCRIPTION      => "Enable the Allow ranges for XVE Blocker GR Profile",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwBool bEnable",
+
+            LIKE_INTERFACE   => PRIV_BLOCKER_XVE_GR_PROFILE_ALLOW_RANGES_INIT,
+        ],
+
+        PRIV_BLOCKER_ALLOW_DISALLOW_RANGES_INIT => [
+            DESCRIPTION      => "Initialize and enable the disallow and allow ranges for all the priv blockers",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "void",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            LIKE_INTERFACE   => PRIV_BLOCKER_MODE_SET,
+
+        ],
+
+        HOLDOFF_MASK_SET => [
+            DESCRIPTION      => "Set the holdoff mask",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU32 clientId, LwU32 clientHoldoffMask",
+            STUB_RETURNS     => FLCN_ERROR,
+
+            _GMXXX           => [ dMAXWELL_and_later, ],
+        ],
+
+        ENGINE_TO_ESCHED_IDLE_MASK => [
+            DESCRIPTION      => "Engine to Esched Idle Mask Mapping",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU8 pmuEngId, LwU32 *pIdleMask",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X           => [ dAMPERE, -GA100, -TEGRA_DGPU_AMPERE, ],
+            _GA10B           => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _AD10X           => [ dADA_and_later, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, -GH202, ],
+            _STUB            => [ ALL, -dAMPERE_and_later, GA100, GH100, GB100, G00X, GH202, ],
+        ],
+
+        SEQ_SRAM_STATE_SET_HAL => [
+            DESCRIPTION      => "Set the SRAM Sequencer State",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 ctrlId, LwU8 state, LwBool bBlocking",
+            STUB_RETURNS     => FLCN_OK,
+
+            _GP10X           => [ PASCAL, -GP100, ],
+            _TU10X           => [ TURING, ],
+            _GA10X           => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB            => [ MAXWELL, VOLTA, GP100, GA100, GH100, GB100, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        FSM_DEPENDENCY_INIT => [
+            DESCRIPTION      => "Configure the dependencies between two LPWR_ENG FSM",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU8 parentHwCtrlId, LwU8 childHwCtrlId",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GM10X           => [ dMAXWELL_thru_dPASCAL, -GP100, ],
+            _TU10X           => [ dTURING_thru_dAMPERE, -GA100, ],
+            _AD10X           => [ dADA_and_later,  -GH100, -GB100, -GH20X, -G00X, ],
+            _STUB            => [ GP100, VOLTA, GA100, GH100, GB100, GH20X, G00X, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $lpwrHal;

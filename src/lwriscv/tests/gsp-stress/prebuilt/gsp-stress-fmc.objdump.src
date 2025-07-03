@@ -1,0 +1,387 @@
+
+/home/scratch.gdhanuskodi_mods/Workspaces/gdhanuskodi_lin_sw_t1/sw/dev/gpu_drv/chips_a/uproc/lwriscv/tests/gsp-stress/build-ga10x-gsp.bin/gsp-stress-fmc:     file format elf64-littleriscv
+
+
+Disassembly of section .fmc:
+
+0000000000100000 <fmc_entry>:
+#include <dev_riscv_csr_64.h>
+
+/* This code runs in M mode unlike other files */
+.balign 16
+FUNC fmc_entry
+    li    x1, 0
+  100000:	4081                	li	ra,0
+    li    x2, 0
+  100002:	4101                	li	sp,0
+    li    x3, 0
+  100004:	4181                	li	gp,0
+    li    x4, 0
+  100006:	4201                	li	tp,0
+    li    x5, 0
+  100008:	4281                	li	t0,0
+    li    x6, 0
+  10000a:	4301                	li	t1,0
+    li    x7, 0
+  10000c:	4381                	li	t2,0
+    li    x8, 0
+  10000e:	4401                	li	s0,0
+    li    x9, 0
+  100010:	4481                	li	s1,0
+    li    x10, 0
+  100012:	4501                	li	a0,0
+    li    x11, 0
+  100014:	4581                	li	a1,0
+    li    x12, 0
+  100016:	4601                	li	a2,0
+    li    x13, 0
+  100018:	4681                	li	a3,0
+    li    x14, 0
+  10001a:	4701                	li	a4,0
+    li    x15, 0
+  10001c:	4781                	li	a5,0
+    li    x16, 0
+  10001e:	4801                	li	a6,0
+    li    x17, 0
+  100020:	4881                	li	a7,0
+    li    x18, 0
+  100022:	4901                	li	s2,0
+    li    x19, 0
+  100024:	4981                	li	s3,0
+    li    x20, 0
+  100026:	4a01                	li	s4,0
+    li    x21, 0
+  100028:	4a81                	li	s5,0
+    li    x22, 0
+  10002a:	4b01                	li	s6,0
+    li    x23, 0
+  10002c:	4b81                	li	s7,0
+    li    x24, 0
+  10002e:	4c01                	li	s8,0
+    li    x25, 0
+  100030:	4c81                	li	s9,0
+    li    x26, 0
+  100032:	4d01                	li	s10,0
+    li    x27, 0
+  100034:	4d81                	li	s11,0
+    li    x28, 0
+  100036:	4e01                	li	t3,0
+    li    x29, 0
+  100038:	4e81                	li	t4,0
+    li    x30, 0
+  10003a:	4f01                	li	t5,0
+    li    x31, 0
+  10003c:	4f81                	li	t6,0
+
+    // write mtvec
+    la    t0, fmc_halt
+  10003e:	00000297          	auipc	t0,0x0
+  100042:	04228293          	addi	t0,t0,66 # 100080 <fmc_halt>
+    csrw  mtvec, t0
+  100046:	30529073          	csrw	mtvec,t0
+
+    // We need stack for init only, just take first 4k of dmem
+    la    sp, 0x0000000000181000
+  10004a:	00181137          	lui	sp,0x181
+    sd    zero, 0(sp)
+  10004e:	e002                	sd	zero,0(sp)
+    sd    zero, 8(sp)
+  100050:	e402                	sd	zero,8(sp)
+
+    jal  fmc_main
+  100052:	12a000ef          	jal	ra,10017c <fmc_main>
+
+1:
+    jal fmc_icd
+  100056:	00a000ef          	jal	ra,100060 <fmc_icd>
+    j 1b
+  10005a:	bff5                	j	100056 <fmc_entry+0x56>
+  10005c:	00000013          	nop
+
+0000000000100060 <fmc_icd>:
+EFUNC fmc_entry
+
+.balign 16
+FUNC fmc_icd
+    /* ICD stop */
+    li t0, 0x1
+  100060:	4285                	li	t0,1
+    slli t0, t0, 61
+  100062:	12f6                	slli	t0,t0,0x3d
+    lui t1, 0x111       /* 0x111... -> which RISCV */
+  100064:	00111337          	lui	t1,0x111
+    addi t1, t1, 0x3d0 /* 0x...3d0 -> GA10x GSP ICD */
+  100068:	3d030313          	addi	t1,t1,976 # 1113d0 <fmc_main+0x11254>
+    add t0, t0, t1
+  10006c:	929a                	add	t0,t0,t1
+    sw zero, 0(t0)
+  10006e:	0002a023          	sw	zero,0(t0)
+    fence
+  100072:	0ff0000f          	fence
+    j fmc_panic
+  100076:	a869                	j	100110 <fmc_panic>
+  100078:	00000013          	nop
+  10007c:	00000013          	nop
+
+0000000000100080 <fmc_halt>:
+EFUNC fmc_icd
+
+.balign 16
+FUNC fmc_halt
+/* If we are effed we should loop in panic. */
+    la t0, fmc_panic
+  100080:	00000297          	auipc	t0,0x0
+  100084:	09028293          	addi	t0,t0,144 # 100110 <fmc_panic>
+    csrw  mtvec, t0
+  100088:	30529073          	csrw	mtvec,t0
+
+/* store crash CSRs in DMEM */
+    lui t1, 0x00180
+  10008c:	00180337          	lui	t1,0x180
+    addi t1, t1, 0x10
+  100090:	0341                	addi	t1,t1,16
+    csrr t0, mcause
+  100092:	342022f3          	csrr	t0,mcause
+    sd t0, 0(t1)
+  100096:	00533023          	sd	t0,0(t1) # 180000 <fmc_main+0x7fe84>
+    csrr t0, 0x7d4 /*mcause2 on GA10x*/
+  10009a:	7d4022f3          	csrr	t0,0x7d4
+    sd t0, 8(t1)
+  10009e:	00533423          	sd	t0,8(t1)
+    csrr t0, mepc
+  1000a2:	341022f3          	csrr	t0,mepc
+    sd t0, 16(t1)
+  1000a6:	00533823          	sd	t0,16(t1)
+    csrr t0, mtval
+  1000aa:	343022f3          	csrr	t0,mtval
+    sd t0, 24(t1)
+  1000ae:	00533c23          	sd	t0,24(t1)
+  1000b2:	0001                	nop
+  1000b4:	00000013          	nop
+  1000b8:	00000013          	nop
+  1000bc:	00000013          	nop
+
+00000000001000c0 <fmc_trap_handler>:
+EFUNC fmc_halt
+
+  .balign 16
+FUNC fmc_trap_handler
+trap_entry:
+  csrw LW_RISCV_CSR_MSCRATCH, t0
+  1000c0:	34029073          	csrw	mscratch,t0
+  csrw LW_RISCV_CSR_MSCRATCH2, t1
+  1000c4:	7c031073          	csrw	0x7c0,t1
+// check if it's ECALL - if it is, just resume, it's uToM or sToM
+  csrr t0, mcause
+  1000c8:	342022f3          	csrr	t0,mcause
+  bltz t0, fmc_halt // interrupt
+  1000cc:	fa02cae3          	bltz	t0,100080 <fmc_halt>
+  addi  t0, t0, -8 // ECALL from U
+  1000d0:	12e1                	addi	t0,t0,-8
+  beqz t0, skip_trap
+  1000d2:	00028963          	beqz	t0,1000e4 <skip_trap>
+  addi t0, t0, -1 // ECALL from S
+  1000d6:	12fd                	addi	t0,t0,-1
+  beqz t0, skip_trap
+  1000d8:	00028663          	beqz	t0,1000e4 <skip_trap>
+  addi t0, t0, -2 // ECALL from M
+  1000dc:	12f9                	addi	t0,t0,-2
+  beqz t0, skip_trap
+  1000de:	00028363          	beqz	t0,1000e4 <skip_trap>
+  j fmc_halt // must be other trap if not ecall, DIE
+  1000e2:	bf79                	j	100080 <fmc_halt>
+
+00000000001000e4 <skip_trap>:
+skip_trap:
+  csrr t0, mepc
+  1000e4:	341022f3          	csrr	t0,mepc
+  addi t0, t0, 4
+  1000e8:	0291                	addi	t0,t0,4
+  csrw mepc, t0
+  1000ea:	34129073          	csrw	mepc,t0
+  csrr t0, mstatus
+  1000ee:	300022f3          	csrr	t0,mstatus
+  addi t1, zero, 3
+  1000f2:	00300313          	li	t1,3
+  slli t1, t1, 11
+  1000f6:	032e                	slli	t1,t1,0xb
+  or   t0, t0, t1
+  1000f8:	0062e2b3          	or	t0,t0,t1
+  csrw mstatus, t0
+  1000fc:	30029073          	csrw	mstatus,t0
+  csrr t0, LW_RISCV_CSR_MSCRATCH
+  100100:	340022f3          	csrr	t0,mscratch
+  csrr t1, LW_RISCV_CSR_MSCRATCH2
+  100104:	7c002373          	csrr	t1,0x7c0
+  mret
+  100108:	30200073          	mret
+  10010c:	00000013          	nop
+
+0000000000100110 <fmc_panic>:
+
+// Panic
+.balign 16
+FUNC fmc_panic
+1:
+    j 1b
+  100110:	a001                	j	100110 <fmc_panic>
+  100112:	0000                	unimp
+  100114:	0000                	unimp
+	...
+
+0000000000100118 <_partitionGetEntryPoint>:
+#include <liblwriscv/io.h>
+
+#include "fmc.h"
+
+static void _partitionGetEntryPoint(LwU64 *partitionStart)
+{
+  100118:	1101                	addi	sp,sp,-32
+  10011a:	ec06                	sd	ra,24(sp)
+  10011c:	e822                	sd	s0,16(sp)
+  10011e:	e426                	sd	s1,8(sp)
+  100120:	84aa                	mv	s1,a0
+
+static inline uint32_t localRead(uint32_t addr)
+{
+    volatile uint32_t *pReg = (volatile uint32_t*)((uintptr_t)addr);
+
+    return *pReg;
+  100122:	012816b7          	lui	a3,0x1281
+  100126:	66c6a703          	lw	a4,1644(a3) # 128166c <fmc_main+0x11814f0>
+  10012a:	8b0d                	andi	a4,a4,3
+  10012c:	6786a783          	lw	a5,1656(a3)
+  100130:	67c6a403          	lw	s0,1660(a3)
+    LwU32 fmcLo      = 0;
+    LwU32 fmcHi      = 0;
+
+    fmcLo   = localRead(LW_PRGNLCL_RISCV_BCR_DMAADDR_FMCCODE_LO);
+    fmcHi   = localRead(LW_PRGNLCL_RISCV_BCR_DMAADDR_FMCCODE_HI);
+    LwU64 partitionOffset = ((LwU64)fmcHi) << 32 | fmcLo;
+  100134:	1402                	slli	s0,s0,0x20
+  100136:	1782                	slli	a5,a5,0x20
+  100138:	9381                	srli	a5,a5,0x20
+  10013a:	8c5d                	or	s0,s0,a5
+    partitionOffset      <<= 8;
+  10013c:	00841793          	slli	a5,s0,0x8
+    partitionOffset      += (LwU64)(&__fmc_size);
+  100140:	20000413          	li	s0,512
+  100144:	943e                	add	s0,s0,a5
+
+    // Align up to 4K
+    partitionOffset = LW_ALIGN_UP64(partitionOffset, 0x1000);
+  100146:	6785                	lui	a5,0x1
+  100148:	17fd                	addi	a5,a5,-1
+  10014a:	943e                	add	s0,s0,a5
+  10014c:	77fd                	lui	a5,0xfffff
+  10014e:	8c7d                	and	s0,s0,a5
+    switch (fmcSource)
+  100150:	cb09                	beqz	a4,100162 <_partitionGetEntryPoint+0x4a>
+  100152:	4789                	li	a5,2
+  100154:	02e7e163          	bltu	a5,a4,100176 <_partitionGetEntryPoint+0x5e>
+            break;
+#ifdef LW_RISCV_AMAP_SYSGPA_START
+        case LW_PRGNLCL_RISCV_BCR_DMACFG_TARGET_COHERENT_SYSMEM:
+            // fall-thru
+        case LW_PRGNLCL_RISCV_BCR_DMACFG_TARGET_NONCOHERENT_SYSMEM:
+            partitionOffset += LW_RISCV_AMAP_SYSGPA_START;
+  100158:	c0300793          	li	a5,-1021
+  10015c:	17d6                	slli	a5,a5,0x35
+  10015e:	943e                	add	s0,s0,a5
+            break;
+  100160:	a029                	j	10016a <_partitionGetEntryPoint+0x52>
+            partitionOffset += LW_RISCV_AMAP_FBGPA_START;
+  100162:	30300793          	li	a5,771
+  100166:	17d6                	slli	a5,a5,0x35
+  100168:	943e                	add	s0,s0,a5
+        fmc_icd();
+            break;
+    }
+
+    // Remap (some of - likely too much) code
+    *partitionStart = partitionOffset;
+  10016a:	e080                	sd	s0,0(s1)
+}
+  10016c:	60e2                	ld	ra,24(sp)
+  10016e:	6442                	ld	s0,16(sp)
+  100170:	64a2                	ld	s1,8(sp)
+  100172:	6105                	addi	sp,sp,32
+  100174:	8082                	ret
+        fmc_icd();
+  100176:	eebff0ef          	jal	ra,100060 <fmc_icd>
+            break;
+  10017a:	bfc5                	j	10016a <_partitionGetEntryPoint+0x52>
+
+000000000010017c <fmc_main>:
+
+// This code runs in *M* mode
+void fmc_main(void)
+{
+  10017c:	1101                	addi	sp,sp,-32
+  10017e:	ec06                	sd	ra,24(sp)
+    LwU64 partitionStart;
+
+    csr_write(LW_RISCV_CSR_MEDELEG, 0xb0FF);
+  100180:	67ad                	lui	a5,0xb
+  100182:	0ff7879b          	addiw	a5,a5,255
+  100186:	30279073          	csrw	medeleg,a5
+    csr_write(LW_RISCV_CSR_MIDELEG, 0x222);
+  10018a:	22200793          	li	a5,546
+  10018e:	30379073          	csrw	mideleg,a5
+    csr_write(LW_RISCV_CSR_MCOUNTEREN, 0x7ff); //enable perf counters
+  100192:	7ff00793          	li	a5,2047
+  100196:	30679073          	csrw	mcounteren,a5
+    csr_write(LW_RISCV_CSR_SCOUNTEREN, 0x7ff); //enable perf counters
+  10019a:	10679073          	csrw	scounteren,a5
+
+    // Set bare-mode access attributes (cacheable = 1, wpr + coherent inherited)
+    csr_write(LW_RISCV_CSR_MFETCHATTR, DRF_NUM64(_RISCV_CSR, _MFETCHATTR, _CACHEABLE, 1) |
+  10019e:	000c07b7          	lui	a5,0xc0
+  1001a2:	7df79073          	csrw	0x7df,a5
+                                       DRF_NUM64(_RISCV_CSR, _MFETCHATTR, _COHERENT, 1) |
+                                       0);
+    csr_write(LW_RISCV_CSR_MLDSTATTR, DRF_NUM64(_RISCV_CSR, _MLDSTATTR, _CACHEABLE, 1) |
+  1001a6:	7c879073          	csrw	0x7c8,a5
+                                      DRF_NUM64(_RISCV_CSR, _MLDSTATTR, _COHERENT, 1) |
+                                      0);
+
+    _partitionGetEntryPoint(&partitionStart);
+  1001aa:	0028                	addi	a0,sp,8
+  1001ac:	f6dff0ef          	jal	ra,100118 <_partitionGetEntryPoint>
+    csr_write(LW_RISCV_CSR_MEPC, partitionStart);
+  1001b0:	66a2                	ld	a3,8(sp)
+  1001b2:	34169073          	csrw	mepc,a3
+    csr_write(LW_RISCV_CSR_MTVEC, (LwUPtr)fmc_trap_handler);
+  1001b6:	00000797          	auipc	a5,0x0
+  1001ba:	f0a78793          	addi	a5,a5,-246 # 1000c0 <fmc_trap_handler>
+  1001be:	30579073          	csrw	mtvec,a5
+
+    csr_write(LW_RISCV_CSR_MSTATUS, FLD_SET_DRF64(_RISCV, _CSR_MSTATUS, _MPP, _SUPERVISOR, csr_read(LW_RISCV_CSR_MSTATUS)));
+  1001c2:	300027f3          	csrr	a5,mstatus
+  1001c6:	7779                	lui	a4,0xffffe
+  1001c8:	7ff70713          	addi	a4,a4,2047 # ffffffffffffe7ff <fmc_main+0xffffffffffefe683>
+  1001cc:	8ff9                	and	a5,a5,a4
+  1001ce:	6705                	lui	a4,0x1
+  1001d0:	80070713          	addi	a4,a4,-2048 # 800 <__fmc_carveout_size+0x400>
+  1001d4:	8fd9                	or	a5,a5,a4
+  1001d6:	30079073          	csrw	mstatus,a5
+    __asm__ volatile ("csrrw zero, %0, zero" : : "i"(LW_RISCV_CSR_LWFENCEMEM));
+}
+
+static inline void riscvLwfenceRWIO(void)
+{
+    __asm__ volatile ("csrrw zero, %0, zero" : : "i"(LW_RISCV_CSR_LWFENCEALL));
+  1001da:	80201073          	csrw	0x802,zero
+    riscvLwfenceRWIO();
+
+    __asm__ volatile ("mv a0, %0\n"
+  1001de:	8536                	mv	a0,a3
+  1001e0:	30200073          	mret
+                      "mret" :: "r"(partitionStart) : "a0", "a1", "a2");
+
+    // should not be reached ever
+    fmc_icd();
+  1001e4:	e7dff0ef          	jal	ra,100060 <fmc_icd>
+    while (1);
+  1001e8:	a001                	j	1001e8 <fmc_main+0x6c>
+	...

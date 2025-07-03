@@ -1,0 +1,31 @@
+# -*- mode: perl; -*-
+
+# Monitor Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $monitorHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+                           # ":NO_HAL",       # required when HAL_INTERFACES is empty
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+        TEST_FUNCTION => [
+            DESCRIPTION     => "test.........",
+            RETURN_TYPE     => LW_STATUS,
+            ARGUMENTS       => "POBJGPU, PSYSLIB",
+            STUB_RETURNS    => ERROR,
+
+            _TU104         => [ dTURING_and_later, ],
+            _STUB          => [ pre_TURING, CHEETAH, ],
+        ]
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $monitorHal;

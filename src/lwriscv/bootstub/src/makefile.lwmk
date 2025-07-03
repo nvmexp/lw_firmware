@@ -1,0 +1,72 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2021 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+#
+# Top-level BS makefile. This makefile is responsible for building the BS
+# binary including projects it depends on across all BS config-profiles.
+#
+
+all: build
+
+###############################################################################
+# Serialize per-profile builds (this does not prevent parallel building within
+# each profile). It should be possible to remove this line but doing so may not
+# translate to any appreciable speedup and it also makes a mess of the output.
+# It is also known to crash intermittently.
+###############################################################################
+
+.NOTPARALLEL:
+
+###############################################################################
+# Ensure that the caller has specified a list of profiles to build via either
+# BSCFG_PROFILE or BSCFG_PROFILES. If both are specified, the former will be
+# used over the latter.
+###############################################################################
+
+BSCFG_PROFILE  ?=
+BSCFG_PROFILES ?=
+
+ifeq ("$(strip $(BSCFG_PROFILE))", "")
+  ifeq ("$(strip $(BSCFG_PROFILES))", "")
+    $(error You must specify a profile in order to build this bootstub)
+  endif
+else
+  override BSCFG_PROFILES = $(BSCFG_PROFILE)
+endif
+
+###############################################################################
+# Create submake build/clean/clobber targets for profiles being built.
+###############################################################################
+
+PROFILES.build   = $(BSCFG_PROFILES:=.build)
+PROFILES.clean   = $(BSCFG_PROFILES:=.clean)
+PROFILES.clobber = $(BSCFG_PROFILES:=.clobber)
+
+###############################################################################
+# Targets/Rules
+###############################################################################
+
+.PHONY: PROFILES.build   build
+.PHONY: PROFILES.clean   clean
+.PHONY: PROFILES.clobber clobber
+
+build::   $(PROFILES.build)
+clean::   $(PROFILES.clean)
+clobber:: $(PROFILES.clobber)
+
+$(PROFILES.build):
+	$(MAKE) -f make-profile.lwmk BSCFG_PROFILE=$(basename $@) build
+
+$(PROFILES.clean):
+	$(MAKE) -f make-profile.lwmk BSCFG_PROFILE=$(basename $@) clean
+
+$(PROFILES.clobber):
+	$(MAKE) -f make-profile.lwmk BSCFG_PROFILE=$(basename $@) clobber

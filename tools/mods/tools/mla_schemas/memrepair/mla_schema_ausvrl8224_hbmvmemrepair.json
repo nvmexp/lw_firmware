@@ -1,0 +1,129 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+
+    "definitions": {
+        "BoardInfo_ChipInfo_Schema": {
+            "__comment__": "ChipInfo schema",
+            "type": "array",
+            "items": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "__comment__": "Schema is specific to GPU",
+                        "Gpu":      { "enum": [0] },
+                        "Chip":     { "enum": ["GV100"] },
+                        "Ecid":     { "enum": ["TSMC-P8C405-21_x0_y6"] },
+                        "RawEcid":  { "enum": ["0x00c0054000000020c1001591"] },
+                        "FbVendor": { "enum": ["Samsung"] },
+                        "HbmRev":   { "enum": ["F_4HI"] },
+                        "Foundry":  { "enum": ["TSMC"] }
+                    },
+                    "required" : ["Gpu", "Chip", "Ecid", "RawEcid", "FbVendor", "HbmRev", "Foundry"]
+                }
+            ]
+        },
+
+        "ModsRuns_ModsHeader_Schema": {
+            "__comment__": "ModsRuns::ModsHeader schema. Should only have one GPU with a specific amount of memory running the HBM2 protocol. If the memory changes, then something went bad during the repairs that modified the amount of memory available.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Gpu":          { "enum": [0] },
+                    "MemorySizeMB": { "enum": [16384] },
+                    "RamProtocol":  { "enum": ["HBM2"] }
+                },
+                "required": ["Gpu", "MemorySizeMB", "RamProtocol"]
+            },
+            "length": 1
+        },
+
+        "ModsRuns_Tests_Schema": {
+            "__comment__": "ModsRuns::Tests schema",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Info": {
+                        "type": "object",
+                        "properties": {
+                            "__comment__": "There is a bug where MemRepair runs are not associated with GPUs. It can return -1 for GPU ID",
+                            "Gpu": { "enum": [-1, 0] }
+                        },
+                        "required": ["Gpu"]
+                    },
+                    "Results": {
+                        "__comment__": "Must pass the test",
+                        "type": "object",
+                        "properties": {
+                            "Rc": { "enum": [0] }
+                        },
+                        "required": ["Rc"]
+                    }
+                },
+                "required": ["Info", "Results"]
+            },
+            "length": 1
+        },
+
+        "ModsRuns_GpuSummary_Schema": {
+            "__comment__": "ModsRuns::GpuSummary schema",
+            "type": "array",
+            "items": {
+                "__comment__": "Ensure that the RepairAttempts field is not present to check against accidentally doing repairs.",
+                "type": "object",
+                "properties": {
+                    "__comment__": "Must pass the run within a reasonable time",
+                    "Gpu": { "enum": [0] },
+                    "StartTime": { "type": "string" },
+                    "EndTime": { "type": "string" },
+                    "DurationMs": {
+                        "type": "number",
+                        "minimum": 20000,
+                        "maximum": 60000
+                    },
+                    "FinalRc": { "enum": [0] },
+                    "FinalRcText": { "type": "string" }
+                },
+                "required": ["Gpu", "StartTime", "EndTime", "DurationMs", "FinalRc", "FinalRcText"],
+                "additionalProperties": false
+            },
+            "length": 1
+        }
+    },
+
+    "__comment__": "Start of JSON report format",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "BoardInfo": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "ChipInfo": { "$ref": "#/definitions/BoardInfo_ChipInfo_Schema" }
+                    },
+                    "required": ["ChipInfo"]
+                },
+                "length": 1
+            },
+
+            "ModsRuns": {
+                "type" : "array",
+                "items" : {
+                    "type": "object",
+                    "properties": {
+                        "ModsHeader": { "$ref": "#/definitions/ModsRuns_ModsHeader_Schema" },
+                        "Tests":      { "$ref": "#/definitions/ModsRuns_Tests_Schema" },
+                        "GpuSummary": { "$ref": "#/definitions/ModsRuns_GpuSummary_Schema" }
+                    },
+                    "required": ["ModsHeader", "Tests", "GpuSummary"]
+                },
+                "length": 1
+            }
+        },
+        "required": ["BoardInfo", "ModsRuns"]
+    },
+    "length": 1
+}

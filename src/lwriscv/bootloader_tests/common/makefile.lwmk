@@ -1,0 +1,100 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2011-2018 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+#
+# Top-level makefile. This makefile is responsible for building the test
+# binary including projects it depends on (bootloader, etc ...) across
+# all config-profiles.
+#
+
+LWUPROC        = $(LW_SOURCE)/uproc
+LWRISCV        = $(LWUPROC)/lwriscv
+APP_COMMON_SW  = $(LWRISCV)/bootloader_tests/common
+APP_SW         = $(LWRISCV)/bootloader_tests/$(TEST_NAME)
+
+all: build
+
+###############################################################################
+# Serialize per-profile builds (this does not prevent parallel building within
+# each profile). It should be possible to remove this line but doing so may not
+# translate to any appreciable speedup and it also makes a mess of the output.
+# It is also known to crash intermittently.
+###############################################################################
+
+.NOTPARALLEL:
+
+###############################################################################
+# By default, this makefile will attempt to build all CFG profiles. If this
+# behavior is undesired, the user may override it using the following make-var.
+# By setting the value to "true" only the default CFG profile will be built
+# when this makefile is ilwoked.
+###############################################################################
+
+CFG_PROFILE_DEFAULT_ONLY ?= "false"
+
+###############################################################################
+# Set CFG_PROFILES to the list of CFG profiles to build. The value is set
+# in one of three ways depending on defaults and user-overrides (if any).
+#
+# 1. Sourcing profiles.mk to get the full list of profiles (default)
+# 2. If CFG_PROFILE_DEFAULT_ONLY is defined and set to "true", build only
+#    the default CFG profile. See above for more information.
+# 3. If CFG_PROFILE is set on the command-line or as an elwvar, build that
+#    profile only.
+#
+# Setting CFG_PROFILES in the shell or on the command-line will override the
+# profile(s) returned by the first two options above. CFG_PROFILE trumps 
+# everything.
+###############################################################################
+
+CFG_PROFILES ?=
+
+ifndef CFG_PROFILE
+  ifeq ("$(strip $(CFG_PROFILES))", "")
+    ifneq ("$(CFG_PROFILE_DEFAULT_ONLY)","true")
+      include $(APP_SW)/config/profiles.mk
+      override CFG_PROFILES = $(CFG_PROFILES_ALL)
+    else
+      override CFG_PROFILES = gsp_riscv_tu10x
+    endif
+  endif
+else
+  CFG_PROFILES = $(CFG_PROFILE)
+endif
+
+###############################################################################
+# Create submake build/clean/clobber targets for profiles being built.
+###############################################################################
+
+PROFILES.build   = $(CFG_PROFILES:=.build)
+PROFILES.clean   = $(CFG_PROFILES:=.clean)
+PROFILES.clobber = $(CFG_PROFILES:=.clobber)
+
+###############################################################################
+# Targets/Rules
+###############################################################################
+
+.PHONY: PROFILES.build   build
+.PHONY: PROFILES.clean   clean
+.PHONY: PROFILES.clobber clobber
+
+build::   $(PROFILES.build)
+clean::   $(PROFILES.clean)
+clobber:: $(PROFILES.clobber)
+
+$(PROFILES.build):
+	$(MAKE) -f $(APP_SW)/make-profile.lwmk CFG_PROFILE=$(basename $@) build
+
+$(PROFILES.clean):
+	$(MAKE) -f $(APP_SW)/make-profile.lwmk CFG_PROFILE=$(basename $@) clean
+
+$(PROFILES.clobber):
+	$(MAKE) -f $(APP_SW)/make-profile.lwmk CFG_PROFILE=$(basename $@) clobber

@@ -1,0 +1,286 @@
+# -*- mode: perl; -*-
+
+# PMGR Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $pmgrHal = [
+
+    DEFAULTS => [
+
+        FLAGS       => ":DIRECT_HAL_CALLS",
+
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PWM_SOURCE_DESCRIPTOR_CONSTRUCT => [
+            DESCRIPTION     => "Constructs the PWM source descriptor for given PWM source in specified DMEM overlay",
+            RETURN_TYPE     => "PWM_SOURCE_DESCRIPTOR *",
+            ARGUMENTS       => "RM_PMU_PMGR_PWM_SOURCE pwmSource, LwU8 ovlIdxDmem",
+            STUB_RETURNS    => NULL,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libPwmConstruct", "__FUNC__")',
+
+            _GM10X          => [ pre_AMPERE, GA100, ],
+            _GA10X          => [ GA10X_and_later, -GA100, ],
+            _STUB           => [ tMAXWELL_and_later, -T194, ],
+        ],
+
+        SCI_PWM_PARAMS_ACT_GET  => [
+            DESCRIPTION     => "Get the actual/detected PWM settings for SCI PWM sources",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "RM_PMU_PMGR_PWM_SOURCE pwmSource, LwU32 *pPwmDutyCycle, LwU32 *pPwmPeriod",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibFanCommon", "__FUNC__")',
+
+            _GM10X          => [ pre_AMPERE, GA100, ],
+            _GA10X          => [ GA10X_and_later, -GA100, ],
+            _STUB           => [ CHEETAH, -T194, ],
+        ],
+
+        GPIO_PATCH_BUG_3153224 => [
+            DESCRIPTION     => "Initialize GPIO control registers state if not correctly set to _INIT for bug 3153224.",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GA10X          => [ GA10X, -GA100, AD10X, ],
+            _STUB           => [ ALL, -GA10X, -AD10X, GA100, ],
+        ],
+
+        GPIO_GET_STATE => [
+            DESCRIPTION     => "Obtains the current GPIO state i.e. whether GPIO is ON/OFF.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 gpioPin, LwBool *pBState",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libGpio", "__FUNC__")',
+
+            _GMXXX          => [ GM10X_thru_TURING, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _GA10X          => [ GA10X_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB           => [ CHEETAH, ],
+        ],
+
+        GPIO_SET_STATE_LIST => [
+            DESCRIPTION     => "Set GPIO state of each GPIO in the list to ON/OFF.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 count, GPIO_LIST_ITEM *pList, LwBool bTrigger",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libGpio", "__FUNC__")',
+
+            LIKE_INTERFACE  => GPIO_GET_STATE,
+        ],
+
+        HW_MAX_FAN_INIT => [
+            DESCRIPTION      => "HW MAXFAN specific initialization.",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "RM_PMU_PMGR_PWM_SOURCE pwmSource, LwU32 maxFanDutyCycle",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_thermLibFanCommon", "__FUNC__")',
+
+            _GM10X           => [ pre_AMPERE, GA100, ],
+            _GA10X           => [ GA10X_and_later, -GA100, ],
+            _STUB            => [ CHEETAH, -T194, ],
+        ],
+
+        HW_MAX_FAN_TEMP_ALERT_FORCE_SET => [
+            DESCRIPTION      => "Set HW MAXFAN forced temp alert state.",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "RM_PMU_PMGR_PWM_SOURCE pwmSource, LwBool bForce",
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_thermLibFanCommon", "__FUNC__")',
+
+            LIKE_INTERFACE   => HW_MAX_FAN_INIT,
+        ],
+
+        HW_MAX_FAN_TEMP_ALERT_FORCE_GET => [
+            DESCRIPTION      => "Get HW MAXFAN forced temp alert state.",
+            RETURN_TYPE      => LwBool,
+            ARGUMENTS        => "RM_PMU_PMGR_PWM_SOURCE pwmSource",
+            STUB_RETURNS     => LW_FALSE,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_thermLibFanCommon", "__FUNC__")',
+
+            LIKE_INTERFACE   => HW_MAX_FAN_INIT,
+        ],
+
+        PWR_DEVICE_BA_PATCH_BUG_1969099 => [
+            DESCRIPTION     => "Patch BA weights for bug 1969099",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_pmgrLibLoad", "__FUNC__")',
+
+            _GP100          => [ GP100, ],
+            _STUB           => [ ALL, -GP100, ],
+        ],
+
+        PWR_DEV_GPUADC10_COARSE_OFFSET_UPDATE => [
+            DESCRIPTION     => "Read VCM Coarse Offset from fuse and write to register",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 *pReg32",
+            INTERFACE_TAG   => "pmgrPwrDevGpuAdc10CoarseOffsetUpdate", # GpuAdc instead of Gpuadc
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_pmgrLibLoad", "__FUNC__")',
+
+            _GA100          => [ GA100, ],
+            _STUB           => [ ALL, -GA100, ],
+        ],
+
+        INTERRUPT_INIT => [
+            DESCRIPTION     => "Initialize the interrupts to be serviced by PMGR",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            _GA10X          => [ GA102_thru_GA102F, ],
+            _AD10X          => [ AD102_and_later, ],
+            _STUB           => [ pre_GA102, ],
+        ],
+
+        PWR_DEV_BEACON_INTERRUPT_SERVICE => [
+            DESCRIPTION     => "Service GPUADC power device beacon interrupt",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            _GA10X          => [ GA102_thru_GA102F, ],
+            _AD10X          => [ AD102_and_later, ],
+            _STUB           => [ pre_GA102, ],
+        ],
+
+        PWR_DEV_BEACON_INTERRUPT_CLEAR_AND_REENABLE => [
+            DESCRIPTION     => "Clear the beacon interrupts and re-enable it",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_pmgrLibPwrMonitor", "__FUNC__")',
+
+            LIKE_INTERFACE => PWR_DEV_BEACON_INTERRUPT_SERVICE,
+        ],
+
+        GET_TACH_FREQ => [
+            DESCRIPTION     => "Gets tachometer frequency as edgecount per sec",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "PMU_PMGR_TACH_SOURCE tachSource, LwU32 *pNumerator, LwU32 *pDenominator",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibFanCommon", "__FUNC__")',
+
+            _GMXXX          => [ GM10X_and_later, ],
+            _STUB           => [ CHEETAH, ],
+        ],
+
+        TACH_LOAD => [
+            DESCRIPTION     => "Loads the tachometer",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "PMU_PMGR_TACH_SOURCE tachSource, LwU8 gpioRequested",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibFanCommon", "__FUNC__")',
+
+            _GMXXX          => [ pre_TURING, ],
+            _TU10X          => [ dTURING_and_later, ],
+            _STUB           => [ CHEETAH, -T194, ],
+        ],
+
+        MAP_TACH_PIN_TO_TACH_SOURCE => [
+            DESCRIPTION     => "Map TACH GPIO pin to TACH source",
+            RETURN_TYPE     => PMU_PMGR_TACH_SOURCE,
+            ARGUMENTS       => "LwU8 tachPin",
+            STUB_RETURNS    => PMU_PMGR_TACH_SOURCE_ILWALID,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_thermLibFanCommonConstruct", "__FUNC__")',
+
+            _GMXXX          => [ pre_TURING, ],
+            _TU10X          => [ dTURING_and_later, ],
+            _STUB           => [ CHEETAH, -T194, ],
+        ],
+
+        # Pmgr tests HAL interfaces, defined in pmgrtest*.c HAL files
+        TEST_ADC_INIT   => [
+            DESCRIPTION    => "Test post init and reset behavior of ADC",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_PMGR_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libPmgrTest", "__FUNC__")',
+
+            _GA100         => [ GA100, ],
+            _AD10X         => [ AD10X_and_later, ],
+            _STUB          => [ pre_GA10X, CHEETAH, GA10X_and_later, -GA100, -AD10X_and_later],
+        ],
+
+        TEST_ADC_CHECK   => [
+            DESCRIPTION    => "Test if various ADC values are computed correctly",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_PMGR_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libPmgrTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_ADC_INIT,
+        ],
+
+        TEST_HI_OFFSET_MAX_CHECK   => [
+            DESCRIPTION    => "Test if HI_OFFSET is taken MAX of all IPC thresholds",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_PMGR_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libPmgrTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_ADC_INIT,
+        ],
+
+        TEST_IPC_PARAMS_CHECK   => [
+            DESCRIPTION    => "Test case to check if IPC functions properly",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_PMGR_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            INTERFACE_TAG  => "pmgrTestIPCParamsCheck", # IPC instead of Ipc
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libPmgrTest", "__FUNC__")',
+
+            _GA100         => [ GA100, ],
+            _STUB          => [ ALL, -GA100],
+        ],
+
+        TEST_BEACON_CHECK   => [
+            DESCRIPTION    => "Test case to check if BEACON functions properly",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_PMGR_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libPmgrTest", "__FUNC__")',
+
+            _AD10X         => [ AD10X_and_later, ],
+            _STUB          => [ pre_AD10X, CHEETAH],
+        ],
+
+        TEST_OFFSET_CHECK   => [
+            DESCRIPTION    => "Test case to check if OFFSET functions properly",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "RM_PMU_RPC_STRUCT_PMGR_TEST_EXELWTE *pParams",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libPmgrTest", "__FUNC__")',
+
+            LIKE_INTERFACE => TEST_BEACON_CHECK,
+        ],
+
+        TEST_IPC_PWM_VID_DOWNSHIFT_SET   => [
+            DESCRIPTION    => "Sets the number of bits for VID_DOWNSHIFT for the PWMVID generator specified by pwmVidIdx",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 pwmVidIdx, LwU8 downShiftVal",
+            STUB_RETURNS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libPmgrTest", "__FUNC__")',
+
+            _AD10X         => [ AD10X, ],
+            _GH100         => [ GH100_and_later, ],
+            _STUB          => [ pre_AD10X, CHEETAH],
+        ],
+
+        ILLUM_DEBUG_INFO_CAPTURE => [
+            DESCRIPTION    => "Interface to capture ILLUM debug info before PMU halt",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "ILLUM_ZONE *pIllumZone, FLCN_STATUS status",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_pmgrLibIllum", "__FUNC__")',
+
+            _TU10X         => [ TURING, ],
+            _STUB          => [ ALL, -TURING, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $pmgrHal;
+

@@ -1,0 +1,71 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Engines.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    SESRC_CORE => [
+
+        FLAGS => ':CORE',             # following are all part of core (non-hal)
+
+        'se/lw/secbus_hs.c'   ,
+        'se/lw/secbus_ls.c'   ,
+
+        CHIPS_SUPPORTED => [ GP10X_thru_GA10X, ],
+            'se/lw/se_objse.c'      ,
+            'se/lw/se_testrsa.c'    ,
+            'se/lw/se_pka.c'        ,
+            'se/lw/se_pka_hs.c'     ,
+            'se/lw/se_ecc.c'        ,
+            'se/lw/se_trng.c'       ,
+            'se/lw/se_helper.c'     ,
+            'se/lw/se_rsa.c'        ,
+
+    ],  # SESRC_CORE
+
+    SESRC_ENGINES => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        SE =>
+        [
+            CHIPS_SUPPORTED => [ GP10X_thru_AD10X, ],
+                'se/pascal/sec_busgp10x.c'      ,
+
+            CHIPS_SUPPORTED => [ GP10X_thru_GA10X, ],
+                'se/pascal/se_segp10x.c'        ,
+                'se/pascal/se_eccryptogp10x.c'  ,
+                'se/pascal/se_mutexgp10x.c'     ,
+                'se/pascal/se_trnggp10x.c'      ,
+
+            CHIPS_SUPPORTED => [ TU10X_thru_GA10X, ],
+                'se/turing/se_mutextu10x.c'        ,
+
+        ],
+
+    ],  # SESRC_ENGINES
+
+];   # filesRef
+
+
+my $platformsRef = [
+
+    # the SE platform
+    PLATFORM_SE  => [
+        SESRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ GP10X_and_later, ],                 # monolithic
+        ],
+    ],
+
+];
+
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

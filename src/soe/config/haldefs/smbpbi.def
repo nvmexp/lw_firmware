@@ -1,0 +1,225 @@
+# -*- mode: perl; -*-
+
+# SMBPBI SOE Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $smbpbiHal = [
+
+    # defaults for Smbpbi for all interfaces below
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_saw", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        _GROUP => [
+            DESCRIPTION     => "All SMBPBI HAL interfaces share same template",
+            _LR10           => [ ALL, ],
+            FLAGS           => ":NO_STUB",
+        ],
+
+        INIT => [
+            DESCRIPTION     => "SMBPBI task initialization",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+        SERVICE => [
+            DESCRIPTION     => "Service SMBPBI interrupt",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+        EXECUTE => [
+            DESCRIPTION     => "Execute SMBPBI action",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 *pCmd, LwU32 *pData, LwU32 *pExtData, LwU8 action",
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+        GET_ECC_V6 => [
+            DESCRIPTION     => "Get ECC v6 related stats",
+            RETURN_TYPE     => "LwU8",
+            ARGUMENTS       => "LwU8 arg1, LwU8 arg2, LwU32 *pData, LwU32 *pExtData",
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+        GET_LWLINK_UNIT_REG_BASE_OFFSET => [
+            DESCRIPTION      => "Get the Lwlink unit register base offset",
+            RETURN_TYPE      => "LwU32",
+            ARGUMENTS        => "LwU32 lwliptNum, LwU32 linkNum, LwU32 unitRegBase",
+            LIKE_INTERFACE   => _GROUP,
+        ],
+
+        GET_LWLINK_NUM_LWLIPT => [
+            DESCRIPTION       => "Get number of Lwlink LWLIPT's",
+            RETURN_TYPE       => "LwU8",
+            ARGUMENTS         => "LwU32 *pData",
+            LIKE_INTERFACE    => _GROUP,
+        ],
+
+        GET_LWLINK_NUM_LINK_PER_LWLIPT => [
+            DESCRIPTION       => "Get number of links per LWLIPT",
+            RETURN_TYPE       => "LwU8",
+            ARGUMENTS         => "LwU32 *pData",
+            LIKE_INTERFACE    => _GROUP,
+        ],
+
+        GET_LWLINK_MAX_SUBLINK_WIDTH => [
+            DESCRIPTION       => "Get the max sublink width",
+            RETURN_TYPE       => "LwU8",
+            ARGUMENTS         => "LwU32 *pData",
+            LIKE_INTERFACE    => _GROUP,
+        ],
+
+        GET_LWLINK_NUM_LINKS => [
+            DESCRIPTION      => "Get number of Lwlinks",
+            RETURN_TYPE      => "LwU8",
+            ARGUMENTS        => "LwU32 *pData",
+            LIKE_INTERFACE   => _GROUP,
+        ],
+
+        GET_LWLINK_STATE_V1 => [
+            DESCRIPTION      => "Get Lwlink state V1",
+            RETURN_TYPE      => "LwU8",
+            ARGUMENTS        => "LwU8 arg1, LwU8 arg2, LwU32 *pData, LwU32 *pExtData",
+            LIKE_INTERFACE   => _GROUP,
+        ],
+
+        GET_LWLINK_BANDWIDTH => [
+            DESCRIPTION      => "Get Lwlink Bandwidth",
+            RETURN_TYPE      => "LwU8",
+            ARGUMENTS        => "LwU8 arg1, LwU8 arg2, LwU32 *pData, LwU32 *pExtData",
+            LIKE_INTERFACE   => _GROUP,
+        ],
+
+        GET_LWLINK_ERROR_COUNT => [
+            DESCRIPTION      => "Get Lwlink error counts",
+            RETURN_TYPE      => "LwU8",
+            ARGUMENTS        => "LwU8 arg1, LwU8 arg2, LwU32 *pData",
+            LIKE_INTERFACE   => _GROUP,
+        ],
+
+        GET_LWLINK_STATE_V2 => [
+            DESCRIPTION      => "Get current Lwlink state",
+            RETURN_TYPE      => "LwU8",
+            ARGUMENTS        => "LwU8 arg1, LwU8 arg2, LwU32 *pData, LwU32 *pExtData",
+            LIKE_INTERFACE   => _GROUP,
+        ],
+
+        GET_LWLINK_SUBLINK_WIDTH => [
+            DESCRIPTION      => "Get current Lwlink sublink width",
+            RETURN_TYPE      => "LwU8",
+            ARGUMENTS        => "LwU8 arg1, LwU8 arg2, LwU32 *pData, LwU32 *pExtData",
+            LIKE_INTERFACE   => _GROUP,
+        ],
+
+        GET_LWLINK_THROUGHPUT => [
+            DESCRIPTION      => "Get Lwlink Throughput",
+            RETURN_TYPE      => "LwU8",
+            ARGUMENTS        => "LwU8 arg1, LwU8 arg2, LwU32 *pCmd, LwU32 *pData, LwU32 *pExtData",
+            LIKE_INTERFACE   => _GROUP,
+        ],
+
+        GET_LWLINK_ERROR_STATE => [
+            DESCRIPTION      => "Get Lwlink training error state",
+            RETURN_TYPE      => "LwU8",
+            ARGUMENTS        => "LwU8 arg1, LwU8 arg2, LwU32 *pCmd, LwU32 *pData, LwU32 *pExtData",
+            LIKE_INTERFACE   => _GROUP,
+        ],
+
+        GET_PCIE_SPEED_WIDTH  => [
+            DESCRIPTION     => "Get PCIe link speed and width",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pSpeed, LwU32 *pWidth",
+
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+        SET_DEVICE_DISABLE_MODE  => [
+            DESCRIPTION     => "Set device disable (degraded) mode",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU16 flags",
+
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+        GET_DEVICE_DISABLE_MODE_STATUS  => [
+            DESCRIPTION     => "Get device disable (degraded) mode status",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU16 *pDriverState, LwU16 *pDeviceState, LwU16 *pDisableReason",
+
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+        INIT_SYS_ID_INFO  => [
+            DESCRIPTION     => "Initialize static system identification data",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+        GET_FIRMWARE_VERSION  => [
+            DESCRIPTION     => "Get Firmware Version",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU8 *pFirmwareVer",
+
+            _LR10           => [ TU102, ],
+            _STUB           => [ ALL, -TU102, ],
+        ],
+
+        GET_UUID  => [
+            DESCRIPTION     => "Get UUID",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU8 *pGuid",
+
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+        GET_DRIVER_SEQ_NUM  => [
+            DESCRIPTION     => "Get the driver state sequence number",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *seqNum",
+
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+        GET_FW_WRITE_PROT_MODE => [
+            DESCRIPTION     => "Get the GFW write-protect mode",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwBool *pMode",
+
+            LIKE_INTERFACE  => _GROUP,
+        ],
+
+
+        GET_LWLINK_ERROR_COUNT_PER_LINK => [
+            DESCRIPTION     => "Get LwLink Error count per link",
+            RETURN_TYPE     => "LwU8",
+            ARGUMENTS       => "LwU32 linkNum, LwU8 errType, LwU32 *pErrorCount",
+
+            _LR10         => [ TU102, ],
+            _LS10         => [ ALL, -TU102, ],
+        ],
+
+        GET_SUBLINK_LANE_WIDTH => [
+            DESCRIPTION     => "Get Sublink lane width",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU8 lwliptIdx, LwU8 linkIdx, LwU8 *pTxWidth, LwU8 *pRxWidth",
+
+            _LR10         => [ TU102, ],
+            _LS10         => [ ALL, -TU102, ],
+        ],
+    ],   # HAL_INTERFACES
+
+];
+
+# return a reference to the Hal definition
+return $smbpbiHal;

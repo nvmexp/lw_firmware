@@ -1,0 +1,990 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2017-2018 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include <stdint.h>
+#include "lwlink.h"
+using namespace LwLinkKernel;
+
+#if 0
+//#define TRACE
+
+//Macro for checking lwca errors following a lwca launch or api call
+#define lwdaCheckError() {                                          \
+        lwdaError_t e=lwdaGetLastError();                                 \
+        if(e!=lwdaSuccess) {                                              \
+            printf("Lwca failure %s:%d: '%s'\n",__FILE__,__LINE__,lwdaGetErrorString(e));           \
+            exit(EXIT_FAILURE);                                           \
+        }                                                                 \
+    }
+
+//typedef double2 uint128;
+
+#endif
+
+class __align__(16) uint128 {
+  public:
+    UINT64 x;
+    UINT64 y;
+    __inline__ __device__ uint128& operator=(const uint128 & a) {
+        x=a.x;
+        y=a.y;
+        return *this;
+    }
+    __inline__ __device__ volatile uint128& operator=(const uint128 & a) volatile {
+        x=a.x;
+        y=a.y;
+        return *this;
+    }
+    __inline__ __device__ uint128& operator=(volatile const uint128 & a) {
+        x=a.x;
+        y=a.y;
+        return *this;
+    }
+    __inline__ __device__ uint128& operator^(uint128 &a) {
+       x^=a.x;
+       y^=a.y;
+      return *this;
+    }
+    __inline__ __device__ uint128& operator^(UINT64 &a) {
+       x^=a;
+       y^=~a;
+      return *this;
+    }
+};
+
+template <typename T> void ld_volatile(T* p, T &val);
+template <typename T> void st_volatile(T* p, const T &val);
+
+template<> __inline__ __device__ void ld_volatile(UINT32 *p, UINT32 &val) {
+  asm ( "ld.volatile.global.u32 %0, [%1];" : "=r"(val) : "l"(p));
+}
+template<> __inline__ __device__ void ld_volatile(UINT64 *p, UINT64 &val) {
+  asm ( "ld.volatile.global.u64 %0, [%1];" : "=l"(val) : "l"(p));
+}
+template<> __inline__ __device__ void ld_volatile(uint128 *p, uint128 &val) {
+  asm ( "ld.volatile.global.v2.u64 {%0,%1}, [%2];" : "=l"(val.x),"=l"(val.y) : "l"(p));
+}
+template<> __inline__ __device__ void st_volatile(UINT32 *p, const UINT32 &val) {
+  asm ( "st.global.volatile.u32 [%0], %1;" : : "l"(p), "r"(val) );
+}
+template<> __inline__ __device__ void st_volatile(UINT64 *p, const UINT64 &val) {
+  asm ( "st.global.volatile.u64 [%0], %1;" : : "l"(p), "l"(val));
+}
+template<> __inline__ __device__ void st_volatile(uint128 *p, const uint128 &val) {
+  asm ( "st.global.volatile.v2.u64 [%0], {%1,%2};" : : "l"(p), "l"(val.x), "l"(val.y));
+}
+
+
+#define MAX_GPUS 32
+#define MAX_RESULTS 16384
+//returns realtime clock in nanoseconds
+__device__ UINT64 mytimer() {
+  UINT64 rv;
+  asm volatile ( "mov.u64 %0, %%globaltimer;" : "=l"(rv) :: "memory");
+  return rv;
+}
+
+template <typename T> __device__ T myrand(T i);
+
+template<>
+__device__
+__forceinline__ UINT64 myrand(UINT64 i)
+{
+  UINT64 result;
+  UINT64 a = i;
+  a = (a + 0x7ed55d16) + (a << 12);
+  a = (a ^ 0xc761c23c) + (a >> 19);
+  a = (a + 0x165667b1) + (a << 5);
+  a = (a ^ 0xd3a2646c) + (a << 9);
+  a = (a + 0xfd7046c5) + (a << 3);
+  a = (a ^ 0xb55a4f09) + (a >> 16);
+  result = (a^0x4a51e590);
+  return result;
+}
+
+__inline__ __device__ uint128 operator+(const uint128 a, const uint128 b) {
+    uint128 ret;
+    ret.x=a.x+b.x;
+    ret.y=a.y+b.y;
+
+    return ret;
+}
+
+#if 0
+//enables P2P for all GPUs
+void enableP2P(int numGPUs)
+{
+    for (int i=0; i<numGPUs; i++)
+    {
+        lwdaSetDevice(i);
+
+        for (int j=0; j<numGPUs; j++)
+        {
+            int access;
+            lwdaDeviceCanAccessPeer(&access,i,j);
+
+            if (access)
+            {
+                lwdaDeviceEnablePeerAccess(j,0);
+                lwdaCheckError();
+            }
+        }
+    }
+}
+
+enum TEST_TYPE { NOP=0, READ=1, WRITE=2, MODIFY=3, ATOMIC=4, NONE};
+enum MEM_INDEX_TYPE { LINEAR, RANDOM };
+#endif
+
+enum GPU_INDEX_TYPE { SELF, ANY, OTHER };
+
+__device__ __inline__ UINT64 get_index(MEM_INDEX_TYPE indexing, UINT64 idx) {
+  if(indexing==LINEAR) {
+    return idx;
+  } else if (indexing==RANDOM) {
+    return myrand(idx);
+  } else {
+    return 0;
+  }
+}
+
+#if 0
+const char* get_string(MEM_INDEX_TYPE t) {
+  switch(t) {
+    case LINEAR:
+      return "LINEAR";
+    case RANDOM:
+      return "RANDOM";
+  };
+  return "ERROR";
+}
+const char* get_string(GPU_INDEX_TYPE t) {
+  switch(t) {
+    case SELF:
+      return "SELF";
+    case ANY:
+      return "ANY";
+    case OTHER:
+      return "OTHER";
+  };
+  return "ERROR";
+}
+const char* get_string(TEST_TYPE t) {
+  switch(t) {
+    case NOP:
+      return "NOP";
+    case READ:
+      return "READ";
+    case WRITE:
+      return "WRITE";
+    case MODIFY:
+      return "MODIFY";
+    case ATOMIC:
+      return "ATOMIC";
+  }
+  return "ERROR";
+}
+
+struct SUMMARY {
+  double in, out, op;
+  SUMMARY() : in(0), out(0), op(0) {
+  }
+  SUMMARY& operator=(const SUMMARY &a) {
+    in=a.in;
+    out=a.out;
+    op=a.op;
+    return *this;
+  }
+};
+
+struct TEST_RESULT {
+  double nanoseconds; 
+  double bytes;
+};
+
+
+//TODO update this
+void print_usage_and_exit(int code) {
+  printf("GUPS benchmark test\n");
+  printf("  This benchmark exelwtes random access bandwidth tests using direct load stores to local and remote memory.\n");
+  printf("  The benchmark launches a number of CTAs and each CTA will update memory as specified as many times as possible in the given time.\n");
+  printf("  Each CTA can touch memory in any other GPU including itself depending on the GPU indexing algorithm\n");
+  printf("  After completion the total aggregate bandwidth produced from each GPU is computed and output\n");
+  printf("\n");
+  printf("Usage:\n");
+  printf("  -h: print this help screen\n");
+  printf("  -b X: buffer size in bytes per GPU\n");
+  printf("  -u X: the unroll size of the kernel (1, 2, 4, or 8)\n");
+  printf("  -w X: the word size for the kernel (4, 8, or 16)\n");
+  printf("  -c X: the cta size\n");
+  printf("  -C X: the number of CTAs per edge\n");
+  printf("  -W X: the warmup time in seconds\n");
+  printf("  -R X: the test runtime in seconds\n");
+  printf("  -d X: the number of devices to allocate the table over\n");
+  printf("  -e X: the umber of GPUs produceing random access requests\n");
+  printf("  -t X: the test type.  Can be R, W, M, A, N. (Read, Write, Modify, Atomic, None).\n");
+  printf("  -m X: the indexing algorithm.  L: Linear indexing, R: Random indexing\n");
+  printf("  -g X: the GPU indexing algorithm.  Can be S, O, A.  (Self, Other, Any).\n");
+  printf("         Self:  Each GPU only writes to its own local memory.\n");
+  printf("         Other: Each GPU only writes to remote memory.\n");
+  printf("         Any:  Each GPU can write to any memory (local or remote).\n");
+
+  exit(code);
+}
+
+class CONFIG {
+
+  public:
+
+    CONFIG() {
+      //defaults
+      numGPUs=2;
+      exelwtingGPUs=9999;  //default to all GPUs
+      cta_size=128;
+      ctas=0;
+      unroll=4;
+      word_size=8;
+      bytes=(UINT64)4*1024*1024*1024;
+      runtime=10;
+      warmup=3;
+      test_type = MODIFY;
+      mem_index_type = RANDOM;
+      gpu_index_type = ANY;
+    }
+
+    void create(int argc, char** argv) {
+
+      int maxGPUs;
+      int c;
+
+      lwdaGetDeviceCount(&maxGPUs);
+
+      char arg;
+
+      //TODO set default CTAs to maximal launch?
+
+      while (( c = getopt (argc, argv, "e:d:n:c:C:b:u:w:t:r:W:R:g:m:h"))!=-1) {
+        switch (c) {
+          case 'h':
+            print_usage_and_exit(0);
+            break;
+          case 'd':
+            if(1!=sscanf(optarg,"%u",&numGPUs)) {
+              printf("Error parsing number of GPUs\n");
+              exit(1);
+            }
+            if(numGPUs>maxGPUs) {
+              printf("Error numGPUs: %u is larger than maxGPUs: %u\n", numGPUs, maxGPUs);
+              exit(1);
+            }
+            if(numGPUs<=0) {
+              printf("Error numGPUs: %u must be greater than 0\n", numGPUs, maxGPUs);
+              exit(1);
+            }
+            break;
+          case 'C':
+            if(1!=sscanf(optarg,"%u",&ctas)) {
+              printf("Error parsing number of ctas\n");
+              exit(1);
+            }
+            break;
+          case 'c':
+            if(1!=sscanf(optarg,"%u",&cta_size)) {
+              printf("Error parsing cta size\n");
+              exit(1);
+            }
+            if(cta_size>1024 || cta_size<32 || cta_size%32!=0 ) {
+              printf("Error max cta_size must be in the range of [32, 1024] and divisible by 32.\n");
+              exit(1);
+            }
+            break;
+          case 'b':
+            if(1!=sscanf(optarg,"%lu",&bytes)) {
+              printf("Error parsing number of bytes\n");
+              exit(1);
+            }
+            break;
+          case 'e':
+            if(1!=sscanf(optarg,"%d",&exelwtingGPUs)) {
+              
+              printf("Error parsing number of exelwting GPUs\n");
+              exit(1);
+            }
+            break;
+          case 'u':
+            if(1!=sscanf(optarg,"%u",&unroll)) {
+              printf("Error parsing unroll size\n");
+              exit(1);
+            }
+            if(unroll!=1 && unroll!=2 && unroll!=4 && unroll!=8) {
+              printf("Error unroll must be 1, 2, 4, or 8.\n");
+              exit(1);
+            }
+            break;
+          case 'w':
+            if(1!=sscanf(optarg,"%u",&word_size)) {
+              printf("Error parsing word size\n");
+              exit(1);
+            }
+            if(word_size!=4 && word_size!=8 && word_size!=16) {
+              printf("Error word_size must be 4, 8, or 16\n");
+              exit(1);
+            }
+            break;
+          case 'R':
+            if(1!=sscanf(optarg,"%u",&runtime)) {
+              printf("Error parsing run time\n");
+              exit(1);
+            }
+            if(runtime==0) {
+              printf("Error run time must be greater than 0\n");
+              exit(1);
+            }
+            break;
+          case 'W':
+            if(1!=sscanf(optarg,"%u",&warmup)) {
+              printf("Error parsing warmup time\n");
+              exit(1);
+            }
+            if(warmup==0) {
+              printf("Error warmup time must be greater than 0\n");
+              exit(1);
+            }
+            break;
+          case 't':
+            if(1!=sscanf(optarg,"%c",&arg)) {
+              printf("Error parsing test type\n");
+              exit(1);
+            }
+            switch(arg) {
+              case 'R':
+                test_type=READ;
+                break;
+              case 'W':
+                test_type=WRITE;
+                break;
+              case 'M':
+                test_type=MODIFY;
+                break;
+              case 'N':
+                test_type=NOP;
+                break;
+              case 'A':
+                test_type=ATOMIC;
+                break;
+              default:
+                printf("Error test type '%c' is invalid.  Must be R, W, M, A, or N.\n",arg);
+                exit(1);
+            }
+            break;
+          case 'm':
+            if(1!=sscanf(optarg,"%c",&arg)) {
+              printf("Error parsing indexing type\n");
+              exit(1);
+            }
+            switch(arg) {
+              case 'L':
+                mem_index_type=LINEAR;
+                break;
+              case 'R':
+                mem_index_type=RANDOM;
+                break;
+              default:
+                printf("Error memory indexing type '%c' is invalid.  Must be 'L' or 'R'.\n",arg);
+                exit(1);
+            };
+            break;
+          case 'g':
+            if(1!=sscanf(optarg,"%c",&arg)) {
+              printf("Error parsing indexing type\n");
+              exit(1);
+            }
+            switch(arg) {
+              case 'A':
+                gpu_index_type=ANY;
+                break;
+              case 'S':
+                gpu_index_type=SELF;
+                break;
+              case 'O':
+                gpu_index_type=OTHER;
+                break;
+              default:
+                printf("Error gpu indexing type '%c' is invalid.  Must be 'A' or 'S'.\n",arg);
+                exit(1);
+            };
+            break;
+          default:
+            printf("Invalid command line parameter -%c\n", c);
+            print_usage_and_exit(1);
+            break;
+        }
+      }
+
+      count = bytes/word_size;
+      bytes=count*word_size;
+        
+
+      lwdaMallocHost(&test_results,sizeof(TEST_RESULT*)*numGPUs);
+
+      for(int d=0;d<numGPUs;d++) {
+        lwdaSetDevice(d);
+        lwdaMallocHost(&test_results[d],sizeof(TEST_RESULT)*MAX_RESULTS);
+        lwdaCheckError();
+      }
+
+    }
+
+    void destroy() {
+
+      for(int d=0;d<numGPUs;d++) {
+        lwdaSetDevice(d);
+        lwdaFreeHost(test_results[d]);
+        lwdaCheckError();
+      }
+      lwdaFreeHost(test_results);
+
+      lwdaCheckError();
+    }
+
+    void print() {
+      printf("Test Type: %s\n", get_string(test_type));
+      printf("Memory Indexing: %s\n", get_string(mem_index_type));
+      printf("GPU Indexing: %s\n", get_string(gpu_index_type));
+      printf("Word Size: %u\n", word_size);
+      printf("Buffer Size: %lu bytes\n", bytes);
+      printf("Buffer Count: %lu elements\n", count);
+      printf("CTA Size: %u threads\n", cta_size);
+      if(ctas==0) printf("CTAs: MAX\n");
+      else printf("CTAs: %u ctas\n", ctas);
+      printf("Unroll: %u\n", unroll);
+      printf("Warmup Seconds: %u\n", warmup);
+      printf("Runtime Seconds: %u\n", runtime);
+      printf("numGPUs: %u\n", numGPUs);
+      //output devices
+      for (int i=0; i<numGPUs; i++)
+      {
+        lwdaDeviceProp prop;
+        lwdaGetDeviceProperties(&prop,i);
+        printf("    Device: %d, %s, pciBusID: %x, pciDeviceID: %x, pciDomainID:%x\n",i,prop.name, prop.pciBusID, prop.pciDeviceID, prop.pciDomainID);
+      }
+    }
+
+    UINT64 count;
+    UINT32 numGPUs;
+    UINT32 exelwtingGPUs;
+    UINT32 ctas;
+    size_t bytes;
+    UINT32 cta_size;
+    UINT32 unroll;
+    UINT32 word_size;
+    UINT32 warmup, runtime;
+    TEST_TYPE test_type;
+    MEM_INDEX_TYPE mem_index_type;
+    GPU_INDEX_TYPE gpu_index_type;
+    TEST_RESULT **test_results;
+  private:
+    ifstream fin;
+};
+#endif
+
+#define atomicAdd_system atomicAdd
+template<typename Type>
+__device__ void myAtomicFunction(Type *buff, Type val) {
+  atomicAdd_system(buff,val);
+}
+template<>
+__device__ void myAtomicFunction(UINT64 *buff, UINT64 val) {
+  atomicAdd_system((UINT64 *)buff,(UINT64)val);
+}
+template<>
+__device__ void myAtomicFunction(uint128 *buff, uint128 val) {
+  atomicAdd_system((UINT64 *)&buff->x,(UINT64)val.x);
+  atomicAdd_system((UINT64 *)&buff->y,(UINT64)val.y);
+}
+
+template<typename Type> __device__ __inline__ Type makeT(UINT64 val) {
+  Type t = (Type) val;
+  return t;
+}
+
+template<> __device__ __inline__ uint128 makeT(UINT64 val) {
+  uint128 t;
+  t.x=val;
+  t.y=~val;
+  return t;
+}
+
+template<typename Type>
+__device__ void randomizeTable(Type *buffer, UINT64 buffer_count) {
+  for(UINT64 i=(UINT64)blockIdx.x*blockDim.x+threadIdx.x;i<buffer_count;i+=blockDim.x*gridDim.x) {
+    buffer[i]=makeT<Type>(get_index(RANDOM,i));
+  }
+}
+
+template<typename Type, int UNROLL>
+__device__ __inline__ void runTest(TEST_TYPE test, MEM_INDEX_TYPE mem_index_type, GPU_INDEX_TYPE gpu_index_type, Type** buffers, UINT64 idx, UINT32 count, UINT64 length, UINT32 my_gpu, UINT32 numGPUs ) {
+  Type val[UNROLL];
+  UINT64 r[UNROLL];
+  for(UINT64 i=threadIdx.x;i<count;i+=blockDim.x*UNROLL) {
+
+    UINT64 o[UNROLL];
+    Type* b[UNROLL];
+    UINT32 d[UNROLL];
+
+#pragma unroll
+    for(int j=0;j<UNROLL;j++) {
+      r[j] = r[j] ^ get_index(mem_index_type,idx + i + blockDim.x*j); //compute random value
+      o[j] = r[j] % length;                                         //compute index based on random value
+    }
+
+#pragma unroll
+    for(int j=0;j<UNROLL;j++) {
+#if 1
+      if(gpu_index_type==SELF) {
+        d[j] = my_gpu; 
+      } else if (gpu_index_type==ANY){
+        d[j] = (~r[j])%numGPUs;
+      } else if (gpu_index_type==OTHER) {
+        d[j] = (~r[j])%(numGPUs-1);
+        if(d[j]>=my_gpu) d[j]++;
+      }
+#else
+    d[j]=my_gpu;
+#endif
+    }
+
+#pragma unroll
+    for(int j=0;j<UNROLL;j++) {
+      b[j] = buffers[d[j]];
+    }
+
+    if( test==READ || test==MODIFY ) {
+#pragma unroll
+      for(int j=0;j<UNROLL;j++) {
+        ld_volatile(b[j]+o[j],val[j]);
+      }
+    }
+
+    if( test==MODIFY )
+#pragma unroll
+    for(int j=0;j<UNROLL;j++) {
+      val[j] =  makeT<Type>(r[j]) ^ val[j];
+    }
+
+    if(test==WRITE || test==MODIFY) {
+#pragma unroll
+      for(int j=0;j<UNROLL;j++) {
+        st_volatile(b[j]+o[j],val[j]);
+      }
+    }
+
+    if(test==ATOMIC) {
+#pragma unroll
+      for(int j=0;j<UNROLL;j++) {
+        myAtomicFunction(b[j]+o[j],val[j]);
+      }
+    }
+
+  }
+}
+
+template<typename Type, int UNROLL>
+__device__ void test_kernel(TEST_TYPE test_type, MEM_INDEX_TYPE mem_index_type, GPU_INDEX_TYPE gpu_index_type, Type** buffers, UINT64 buffer_count, TEST_RESULT *results, volatile CopyTriggers *pCopyTriggers, UINT32 my_gpu, UINT32 numGPUs) {
+
+  //cache buffers into shared memory
+  __shared__ Type *sbuffers[MAX_GPUS];
+  if(threadIdx.x<numGPUs) {
+    sbuffers[threadIdx.x]=buffers[threadIdx.x];
+  }
+  __syncthreads();
+
+  UINT32 count_per_thread=2048; //must be divisible by 8 for unrolling factor
+  
+//  assert(count_per_thread%8==0);
+
+  UINT32 count=blockDim.x*count_per_thread; //total elements processed by each CTA per iteration
+
+  __shared__ bool wait_start, wait_stop;
+  //1 entry per warp
+  __shared__ UINT64 stime;
+  __shared__ UINT64 siters;
+  
+  wait_start=true;
+  wait_stop=true;
+
+  //initialize time and bytes to 0 per warp
+  stime=0;
+  siters=0;
+  
+  UINT64 iters = 0;
+  
+  //compute starting index
+  UINT64 idx = (count * blockIdx.x) % buffer_count;
+
+#ifndef TRACE
+  do {
+    if(wait_start) 
+      wait_start=pCopyTriggers->bWaitStart;
+  } while (wait_start);
+
+  //run for a few iterations to make sure traffic continues while everyone finishes up, this helps ensure we don't time odd head/tail effects
+  for(int i=0;i<10;i++) {
+    runTest<Type, UNROLL>(test_type,mem_index_type,gpu_index_type,sbuffers,idx,count,buffer_count,my_gpu,numGPUs);  
+    idx=(idx+count)%buffer_count; 
+  }
+ 
+  //ensure prior writes have completed
+  __threadfence_system();    //TODO not sure if we need this
+  __syncthreads();
+
+  clock_t start=mytimer();
+  clock_t stop;
+#endif
+
+#ifndef TRACE
+  do {
+#else
+  for(int i=0;i<10;i++) {
+#endif
+      //We don't want this to run a long time, but should run enough times that we don't become PCI-E bound on flags...
+      runTest<Type, UNROLL>(test_type,mem_index_type,gpu_index_type,sbuffers,idx,count,buffer_count,my_gpu,numGPUs);  
+      
+      idx=(idx+count)%buffer_count; 
+      iters++;
+      
+      if(wait_stop) {
+        wait_stop=pCopyTriggers->bWaitStop;
+      }
+  }
+#ifndef TRACE
+  while (wait_stop);
+#endif
+
+
+#ifndef TRACE
+  //ensure prior writes have completed
+  __threadfence_system();    //TODO not sure if we need this
+  __syncthreads();
+  stop = mytimer(); 
+
+  //continue to run for a few iterations to make sure traffic continues while everyone finishes up, this helps ensure we don't time odd tail effects
+  for(int i=0;i<10;i++) {
+    runTest<Type, UNROLL>(test_type,mem_index_type,gpu_index_type,sbuffers,idx,count,buffer_count,my_gpu,numGPUs);  
+    idx=(idx+count)%buffer_count; 
+  }
+//  assert(start<stop); //check that clock didn't wrap
+
+  UINT64 time = stop - start;
+    
+  //write time & iters to shared memory 
+  atomicAdd(&siters,iters);
+  atomicAdd(&stime,time);
+  __syncthreads();  //wait for all times & iters to be written
+
+  //thread 0 averages time and iters then compute bytes
+  if(threadIdx.x==0) {
+    
+    TEST_RESULT result;
+    result.bytes= (double)siters / blockDim.x * sizeof(Type) * count;     //total bytes across block
+    result.nanoseconds = (double)stime/blockDim.x;                        //average time across block
+    //printf("Block: %d, bytes: %lg, iters: %lu, nanoseconds: %lu\n", blockIdx.x, result.bytes, iters, result.nanoseconds);
+    results[blockIdx.x] = result;
+  }
+#endif
+}
+
+#if 0
+template<typename T, int UNROLL> void benchmark(CONFIG &config) {
+  UINT32 threads=config.cta_size;
+  UINT64 buffer_count=config.count;
+  UINT32 runtime_seconds=config.runtime, warmup_seconds=config.warmup;
+  TEST_TYPE test_type = config.test_type;
+  MEM_INDEX_TYPE mem_index_type = config.mem_index_type;
+  GPU_INDEX_TYPE gpu_index_type = config.gpu_index_type;
+  UINT32 numGPUs = config.numGPUs;
+
+  T **buffers;
+  lwdaMallocHost(&buffers, sizeof(T*)*numGPUs); //1 buffer per GPU
+  lwdaCheckError();
+
+  for(int d=0;d<numGPUs;d++) {
+    lwdaSetDevice(d);
+    lwdaMalloc(&buffers[d],sizeof(T)*buffer_count);
+    lwdaCheckError();
+  }
+  
+  volatile bool *flags; //flag[0] = wait to start,  flag[1] = wait to end
+  lwdaMallocHost(&flags,2*sizeof(bool));
+  lwdaCheckError();
+  flags[0]=true;
+  flags[1]=true;
+  
+  //ensure there are no outstanding errors
+  for(int d=0;d<numGPUs;d++) {
+    lwdaSetDevice(d);
+    lwdaDeviceSynchronize();
+    lwdaCheckError();
+  }
+
+  printf("Launching kernels\n");
+
+  for(int d=0;d<numGPUs;d++) {
+    lwdaSetDevice(d);
+    lwdaDeviceProp prop;
+    lwdaGetDeviceProperties(&prop,d);
+    lwdaMemset(config.test_results[d],0,sizeof(TEST_RESULT)*MAX_RESULTS); 
+    int max_cta_per_sm;
+    lwdaOclwpancyMaxActiveBlocksPerMultiprocessor(&max_cta_per_sm, test_kernel<T,UNROLL>, threads, 0);
+    printf("threads: %d, max_cta_per_sm: %d, SMs: %d\n", threads, max_cta_per_sm, prop.multiProcessorCount);
+    
+    UINT32 max_ctas = max_cta_per_sm * prop.multiProcessorCount;
+    UINT32 ctas=config.ctas;
+
+    if(ctas==0)
+      ctas=max_ctas;
+
+    randomizeTable<<<ctas,threads>>>(buffers[d],buffer_count);
+    if(config.ctas>max_ctas) {
+      printf("Error on device %d, number of CTAs is %lu but GPU can only have %d CTAs active at a time\n", d, config.ctas, max_ctas);
+      printf("Reduce the number of ctas or the size of each CTA\n");
+      exit(1);
+    }
+
+    if(d<config.exelwtingGPUs)
+      test_kernel<T,UNROLL><<<ctas,threads>>>(test_type, mem_index_type, gpu_index_type, buffers, buffer_count, config.test_results[d], flags, d, numGPUs);
+
+    lwdaCheckError();
+  }
+
+#ifndef TRACE
+  //ensure all threads are running
+  printf("Waiting %d seconds for warmup\n", warmup_seconds);
+  sleep(warmup_seconds); 
+
+  flags[0]=false; //Start the test
+
+  printf("Running for %d seconds\n", runtime_seconds);
+  sleep(runtime_seconds);
+  flags[1]=false; //Stop the test
+
+  printf("Stopping Kernels\n");
+#endif
+  for(int d=0;d<numGPUs;d++) {
+    lwdaSetDevice(d);
+    lwdaDeviceSynchronize();
+    lwdaCheckError();
+  }
+  vector<SUMMARY> bandwidth_gpu(numGPUs);  //per GPU summary
+
+  for(int d=0;d<numGPUs;d++) {
+
+    for(int i=0;i<MAX_RESULTS;i++) {
+
+      TEST_RESULT result = config.test_results[d][i];
+
+      if(result.nanoseconds==0) continue;
+
+      double GB = result.bytes/(double)1e9;
+      double seconds = result.nanoseconds/1e9;
+      double GBs = GB/seconds;
+      
+      double nGBs=0;    //null GB/s
+      double iGBs=0;    //input GB/s
+      double oGBs=0;    //output GB/s
+      double aGBs=0;    //all GB/s
+
+      nGBs+=GBs;
+
+      if(test_type==MODIFY || test_type==READ || test_type==ATOMIC) {
+        iGBs+=GBs;
+        aGBs+=GBs;
+      }
+      if(test_type==MODIFY || test_type==WRITE || test_type==ATOMIC) {
+        oGBs+=GBs;
+        aGBs+=GBs;
+      }
+
+      //map test to results, increment map
+
+    //  printf("GPU: %d, RGPU: %d, TEST: %d, OP GB/s: %lg IN GBs: %lg, OUT GBs: %lg, AGG GBs: %lg\n", test.LGPU, test.RGPU, test_type, nGBs, iGBs, oGBs, aGBs);
+      
+      bandwidth_gpu[d].in+=iGBs;
+      bandwidth_gpu[d].out+=oGBs;
+      bandwidth_gpu[d].op+=nGBs;
+    }
+  }
+
+  printf("Per-GPU Summary:\n");
+  for(int d=0;d<numGPUs;d++) {
+    char gpu[100], op[100], in[100], out[100], agg[100];
+
+    snprintf(gpu,100,"GPU: %d", d);
+    snprintf(op,100,"OP: %.3lf GB/s",  bandwidth_gpu[d].op);
+    snprintf(in,100,"IN: %.3lf GB/s",  bandwidth_gpu[d].in);
+    snprintf(out,100,"OUT: %.3lf GB/s",  bandwidth_gpu[d].out);
+    snprintf(agg,100,"AGG: %.3lf GB/s",  bandwidth_gpu[d].in+bandwidth_gpu[d].out);
+
+    printf("    %14s, %14s, %14s, %14s, %14s\n",gpu,op,in,out,agg);
+  }
+
+  for(int d=0;d<numGPUs;d++) {
+    lwdaSetDevice(d);
+    lwdaFree(buffers[d]);
+    lwdaCheckError();
+  }
+
+  lwdaFreeHost((void*)flags);
+  lwdaFreeHost(buffers);
+  lwdaCheckError();
+
+}
+
+template <class T> 
+void benchmark_launch_unroll(CONFIG &config) {
+  int unroll=config.unroll;
+
+  if(unroll==1) {
+    benchmark<T,1>(config);
+  } else if (unroll==2) {
+    benchmark<T,2>(config);
+  } else if (unroll==4) {
+    benchmark<T,4>(config);
+  } else if (unroll==8) {
+    benchmark<T,8>(config);
+  } else {
+      printf("Error unroll factor of '%d' is unsupported\n",unroll);
+      exit(1);
+  }
+
+}
+void benchmark_launch_type(CONFIG &config) {
+  int word_size=config.word_size;
+
+  if(word_size==4) {
+     benchmark_launch_unroll<UINT32>(config);
+  } else if (word_size==8) {
+     benchmark_launch_unroll<UINT64>(config);
+
+  } else if (word_size==16) {
+     benchmark_launch_unroll<uint128>(config);
+  } else {
+    printf("Error word size '%d' is not supported\n",word_size);
+    exit(1);
+  }
+}
+
+
+int main(int argc, char** argv) {
+  lwdaFree(0);
+  CONFIG config;
+
+  config.create(argc,argv);
+  config.print();
+
+  enableP2P(config.numGPUs);
+
+  benchmark_launch_type(config);
+
+  config.destroy();
+
+  lwdaDeviceSynchronize();
+  lwdaCheckError();
+
+}
+#endif
+
+// Obtains a pointer to device memory from a host-opaque type
+__device__ void* GetPtr(device_ptr ptr)
+{
+    return reinterpret_cast<void*>(static_cast<size_t>(ptr));
+}
+
+extern "C" __global__ void lwlinkgups(const GupsInput input)
+{
+    TEST_RESULT * pTestResults= static_cast<TEST_RESULT *>(GetPtr(input.copyStats));
+    volatile CopyTriggers * pCopyTriggers= static_cast<volatile CopyTriggers *>(GetPtr(input.copyTriggers));
+
+    switch (input.transferWidth)
+    {
+        case 4:
+        {
+            UINT32 *pBuffer32 = static_cast<UINT32 *>(GetPtr(input.testData));
+            UINT64 numBufferElements = input.testDataSize / sizeof(UINT32);
+            randomizeTable<UINT32>(pBuffer32, numBufferElements);
+            switch (input.unroll)
+            {
+                case 1:
+                    test_kernel<UINT32, 1>(input.testType, input.memIdxType, ANY, &pBuffer32, numBufferElements, pTestResults, pCopyTriggers, 0, 1);
+                    break;
+                case 2:
+                    test_kernel<UINT32, 2>(input.testType, input.memIdxType, ANY, &pBuffer32, numBufferElements, pTestResults, pCopyTriggers, 0, 1);
+                    break;
+                case 4:
+                    test_kernel<UINT32, 4>(input.testType, input.memIdxType, ANY, &pBuffer32, numBufferElements, pTestResults, pCopyTriggers, 0, 1);
+                    break;
+                default:
+                case 8:
+                    test_kernel<UINT32, 8>(input.testType, input.memIdxType, ANY, &pBuffer32, numBufferElements, pTestResults, pCopyTriggers, 0, 1);
+                    break;
+            }
+            break;
+        }
+        case 8:
+        {
+            UINT64 *pBuffer64 = static_cast<UINT64 *>(GetPtr(input.testData));
+            UINT64 numBufferElements = input.testDataSize / sizeof(UINT64);
+            randomizeTable<UINT64>(pBuffer64, numBufferElements);
+            switch (input.unroll)
+            {
+                case 1:
+                    test_kernel<UINT64, 1>(input.testType, input.memIdxType, ANY, &pBuffer64, numBufferElements, pTestResults, pCopyTriggers, 0, 1);
+                    break;
+                case 2:
+                    test_kernel<UINT64, 2>(input.testType, input.memIdxType, ANY, &pBuffer64, numBufferElements, pTestResults, pCopyTriggers, 0, 1);
+                    break;
+                case 4:
+                    test_kernel<UINT64, 4>(input.testType, input.memIdxType, ANY, &pBuffer64, numBufferElements, pTestResults, pCopyTriggers, 0, 1);
+                    break;
+                default:
+                case 8:
+                    test_kernel<UINT64, 8>(input.testType, input.memIdxType, ANY, &pBuffer64, numBufferElements, pTestResults, pCopyTriggers, 0, 1);
+                    break;
+            }
+            break;
+        }
+        default:
+        case 16:
+        {
+            uint128 *pBuffer128 = static_cast<uint128 *>(GetPtr(input.testData));
+            UINT64 numBufferElements = input.testDataSize / 16;
+            randomizeTable<uint128>(pBuffer128, numBufferElements);
+            switch (input.unroll)
+            {
+                case 1:
+                    test_kernel<uint128, 1>(input.testType, input.memIdxType, ANY, &pBuffer128, numBufferElements, pTestResults, pCopyTriggers, 0, 1);
+                    break;
+                case 2:
+                    test_kernel<uint128, 2>(input.testType, input.memIdxType, ANY, &pBuffer128, numBufferElements, pTestResults, pCopyTriggers, 0, 1);
+                    break;
+                case 4:
+                    test_kernel<uint128, 4>(input.testType, input.memIdxType, ANY, &pBuffer128, numBufferElements, pTestResults, pCopyTriggers, 0, 1);
+                    break;
+                default:
+                case 8:
+                    test_kernel<uint128, 8>(input.testType, input.memIdxType, ANY, &pBuffer128, numBufferElements, pTestResults, pCopyTriggers, 0, 1);
+                    break;
+            }
+            break;
+        }
+    }
+}
+

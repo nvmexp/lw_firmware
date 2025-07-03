@@ -1,0 +1,402 @@
+This document describes the internal functioning of the memory management subsystems of LIBOS "Heavy".
+
+None of this functionality is present in the embedded LIBOS "Lite" configurations.
+
+# System Overview
+
+# Refactoring
+
+SparseBuffer - Represents a shared sparse buffer that can be mapped between Tasks
+               Tree tracks PA->offset.
+               Linked lists track mappings of this buffer
+AddressSpaceRegion - 
+               This is a Virtual Address Reservation in an address space.
+
+               THIS NEEDS RENAMED!
+
+VirtualMapping - 
+               This is a binding between an AddressSpaceRegion<->SparseBuffer.
+
+The super-operator:
+Address Space::
+    LibosAddressSpaceHandle   addressSpace, 
+
+Placement in address space::
+    LibosMemoryHandle      *  region,               -> VA reservation to place mapping inside
+    LwU64                  *  offset,               -> offset within VA reservation
+
+Attributes of mapping::
+    LwU64                     size,
+    LwU64                     access,
+    LwU64                     flags,
+
+Source of truth::                                   -> This is the sparse buffer
+    LibosMemoryHandle         donorRegion,       
+    LwU64                     donorRegionOffset)
+
+@note: SparseBuffers can have their own pagers to implement things like IMEM paging.
+
+# NUMA
+
+The kernel tracks all memory available for use by the kernel memory system
+through NUMA nodes.  Each node represents an arbitrary region of memory that
+the kernel may service memory allocations from.
+
+During first boot of the kernel, the initial NUMA node is provided by the 
+root partition in @see lwosRootPartitionInitStub.  The kernel takes ownership
+of this region of memory in @see KernelFirstBoot.
+
+Additional nodes may be allocated from the root partition, and are assumed to be 
+solely owned by a single partition. 
+
+In the future we may support reliable offlining NUMA nodes as LIBOS lwrrently
+forbids any sort of non-temporal pinning operation.  This might be used to support
+dynamically growing the amount of memory available to a VGPU partiton running on GSP.
+
+The kernel allocates and frees memory to the NUMA subsystem using this API.
+
+```
+// Allocates a page of contiguous physical memory
+LibosStatus KernelMemoryPoolAllocatePage(LwU64 pageLog2, LwU64 * physicalAddress)
+```
+
+```
+// Increases the reference count on the physical page
+void KernelMemoryPoolAcquire(LwU64 pageLog2, LwU64 physicalAddress);
+```
+
+```
+// Decrease the reference count and potentially free the page
+void KernelMemoryPoolRelease(LwU64 pageLog2, LwU64 physicalAddress);
+```
+
+## NUMA Page State
+
+Attached to each page within a NUMA region is a page state structure.  This mapping
+is performed using a simple 3 level radix tree index on physical address.
+@see KernelPageStateByAddress
+
+The page state is primarily used to track::
+- Reference Count for shared pages (@see KernelMemoryPoolAcquire, KernelMemoryPoolRelease)
+- Page size (@see PageState::pageLog2) used during memory free
+- Pagetable filled entry count (see filledEntries in pagetable.c)
+
+Generally, subsystems are encouraged to use pagestate to store
+metadata on page-sized allocations that cannot be grown.  This explains
+its use for the numa page allocator as well as pagetable management.
+
+Extreme care must be taken to not increase the size of the PageState structure.
+
+## Buddy Allocator
+
+The NUMA system kernel tracks free physical memory within a given node 
+using a buddy tree.
+
+This allocator supports arbitrary power of 2 allocations in O(lg N) time.
+It supports non-power-of-2 contiguous allocations in O(N) time.
+
+@see KernelBuddyConstruct, KernelBuddyAllocate, KernelBuddyAllocateContiguous, 
+     and KernelBuddyFree
+
+These APIs should not be used outside of numa.c
+
+# Small Object Allocator
+
+The kernel has a small object allocator used for tracking internal objects
+such as Tasks, Timers, Ports, etc.
+
+The allocator handles reference counting the objects. When the reference count hits
+0, it will call a user-provided destructor.
+
+```
+// Allocate an object out of the specified pool
+void *     KernelPoolAllocate(LibosPool poolIndex);
+
+// Locate which pool an object came from
+LibosPool  KernelPoolLocate(void * ptr);
+
+// Return the current reference count
+LwU64      KernelPoolReferenceCount(void *ptr);
+
+// Increase reference count
+void       KernelPoolAddref(void * ptr);
+
+// Decrease reference count and potentially free object
+void       KernelPoolRelease(void * ptr);
+```
+
+## Pattern: BORROWED_PTR vs OWNED_PTR
+
+We mark all pointers to the slab with either of these tags.
+
+BORROWED_PTR means we didn't increase the reference count before
+assigning the variable.  Comments should be included to prove
+that the lifetime of the object exceeds the lifetime of this variable.
+
+OWNED_PTR means we own the reference count to this object.
+All error paths must call KernelPoolRelease before the variable goes out
+of scope
+
+WEAK_POINTER means that the object destructor is able to see
+this pointer and thus it isn't to count against the reference count.
+
+In the future, it would be ideal to transition to Ada or Rust
+where the compiler can verify these statements.  
+
+# Address Space Management
+
+The AddressSpace structure tracks the virtual memory reservations [e.g. regions of
+address space] as well as the corresponding pagetables.
+
+Each task has a corresponding address space in Task::asid.
+The kernel uses a single global address space in kernelAddressSpace.
+
+Free virtual addresses ranges are tracked in an augmented red-black tree.
+All operations complete in O(lg N) time.
+
+```
+// Create a new virtual address space
+LibosStatus KernelAllocateAddressSpace(LwBool userSpace, OWNED_PTR AddressSpace * * allocator);
+
+// Reserve a region of address space 
+AddressSpaceRegion * KernelAddressSpaceAllocate(BORROWED_PTR AddressSpace * allocator, LwU64 probeAddress, LwU64 size);
+
+// Release that region
+void KernelAddressSpaceFree(BORROWED_PTR AddressSpace * asid, OWNED_PTR AddressSpaceRegion * allocation);
+```
+## Mapping physical memory 
+
+The kernel may create mappings to physical buffers such as registers or device memory.
+You may pass KernelAddressSpace to create a kernel mapping.
+
+```
+// Maps a contiguous physical buffer into the specified address space
+LibosStatus KernelAddressSpaceMapContiguous(AddressSpace * space, AddressSpaceRegion * addressSpace, LwU64 offset, LwU64 physicalBase, LwU64 size, LwU64 flags);
+```
+
+## Mapping user memory
+
+The address space subsystem provides provisisions for temporarily mapping
+user-space buffers into the kernel address space.
+
+There are 4 slots of virtual memory designated for this purposes in the kernel address space
+#see LIBOS_CONFIG_PORT_APERTURE_0.
+
+```
+void *       KernelMapUser(LwU64 slotNumber, LwU64 address, LwU64 size);
+const char * KernelMapUserString(LwU64 slotNumber, LwU64 address, LwU64 length);
+```
+
+## MMAP
+
+The kernel provides an mmap-like API for management of the virtual memory space.
+
+@see libos_memory.h for the user-space API and descriptions.
+
+@todo: Discuss ability to pass region handles across task boundaries, and cloning.
+
+# Paging
+
+# Software Page Table 
+
+The peregrine RISC-V processors have a MPU (Memory Protection Unit)
+in place of a traditional MMU. These MPU(s) can only track a limited number of pages.
+
+LIBOS implements a traditional radix page table format on this platforms
+by demand faulting entries into the MPU as they are needed.
+
+## Structure
+
+Task.state.radix
+ |       'Global'
+ |->|----------------|              'Lower'                      
+    |  Global PDE 0  | -------> -------------------                'Leaf'
+    |----------------|          |  Lower PDE 0     |  ------->  -----------------
+    |     . . .      |          |------------------|            |     PTE 0     |
+    ------------------          | Virtual MPU PTE  |            |---------------|
+                                |------------------|            |   . . .       |
+                                |    . . .         |            -----------------
+                                --------------------
+
+There are no null pointers in the Global or Lower PDEs
+For example, An empty Lower PDE 0 entry points to zeroLeaf which
+is a valid pagetable with all pages marked invalid.
+This allows the softmmu.s impementation to skip null checks during
+directory walking.
+
+The Lower Page Directory contains either a pointer to a leaf pagetable
+or a 2mb virtual mpu entry.  
+
+## Virtual MPU Entries on LWRISCV 1.1/2.0 (Classic MPU)
+
+These MPU entries support translation for arbitrary regions
+of memory (va, pa, size, and attributes are all 64-bit).
+It's important to note that an MPU entry is significantly more powerful
+than 4kb/2mb/1g fixed size pages.
+
+Unfortunately, this also means that if you miss the TLB it requires
+a linear scan of the hardware MPU table.
+
+For performance reasons, it is desirable for our page table format
+to support mapping large areas of contiguous memory from a single MPU entry.
+This reduces the number of required MPU entries, and thus the TLB miss cost.
+
+This behavior can be accessed by using Virtual MPU PTEs.
+
+The kernel will direct all pages covered to point to the virtual mpu-entry.
+When any address in that range is allocated, the kernel knows to load that
+specific MPU entry.
+
+During a large map (such as from @see LibosMemoryMap) the kernel will attempt
+to allocate contiguous physical pages and perform the mapping using a single
+virtual MPU entry that matches the exact size of the mapping.
+
+This behavior requires that the virtual address be 2mb aligned.
+Sizes may be arbitrary large and must be a multiple of 4kb.
+
+Please ensure that task linker scripts properly 2mb align each PHDR.
+
+## Virtual MPU Entries on LWRISCV 2.1 (Hashed MPU)
+
+These pagetables also support LWRISCV 2.1 hashed MPU format.  In this operating
+mode the MPU is hashed.
+
+The Hashed MPU supports 3 programmable region sizes.  Pages can still be arbitrarily
+sized. The hardware hashes the virtual address to a bucket describing an MPU entry
+entirely contained within that region.
+
+LIBOS has chosen 4kb and 2mb for the default region sizes.
+It's important to note that the MPU entry need not fill the entire region that was
+used for hashing. 
+
+Internally, the Kernel will break up mappings larger than 2mb into multiple 2mb
+Virtual MPU Entries. 
+
+## Virtual MPU Entries on Blackwell
+
+Blackwell introduces a more traditional hashed pagetable structure.
+Blackwell supports 3 programmable fixed page sizes, with no virtual mpu entries 
+required.
+
+We still require the software-radix table to demand populate our 
+hashed pagetable as the pagetables are stored in on-core memory.
+
+## PTE: 4kb
+
+     63                                  7-9      6    5   4   3   2    
+    ___________________________________________________________________________
+    | 0 | PA                       |  Reserved |  UC | S | X | W | R | 0  | 0  | 
+    ----------------------------------------------------------------------------
+
+    Kernel will print Performance warnings on pre-hopper if it detects
+    4kb page usage.  It can be avoided by by ensuring your linker
+    scripts place your .text and .data sections at 2mb aligned addresses.    
+
+## PTE: 2mb Virtual MPU Entry [pre-blackwell only]
+
+     63                                  7-9      6    5   4   3   2    
+    ___________________________________________________________________________
+    | 0 | PA of Descriptor         | Reserved |  UC | S | X | W | R | 0  | 0  | 
+    ----------------------------------------------------------------------------
+    
+    Descriptor = Offset from start of LIBOS_CONFIG_SOFTTLB_MAPPING_BASE
+
+    @note: This physical address is an offset from the start of FBGPA
+           and is 53 bits in width.  
+
+    The descriptor is a small data structure containg the data to load into MPU
+       virtualAddress
+       size
+       physicalAddress
+       attributes                          
+       desiredMpuIndex
+
+    If the desiredMpuIndex is zero, the page fault handler will pick a random entry.
+
+## PDE: Page directory entry
+
+     63                           0
+    --------------------------------
+    | 1 |  Kernel VA of pagetable  |
+    -------------------------------- 
+
+    The page directory entry is a valid kernel address.
+    The kernel identity mapping for FBGPA was chosen such
+    that the top bit is always 1.
+
+## Address Space Layout
+
+    _________________ VA=0
+    |    Empty      |
+    -----------------
+    |               |
+    |  User Pages   |
+    |               |
+    ----------------- VA=0x8000000000000000
+    |    Kernel     |
+    |  Identity Map |
+    |               |
+    ----------------- VA=0xffffffff93000000
+    |  Kernel .Text |
+    ----------------- VA=0xffffffffa3000000
+    |  Kernel .Data |
+    -----------------
+    |     ...       |
+    -----------------
+
+### Software TLB requirements
+
+- Kernel .text, .data, and identity map MPU entries can never
+  be evicted.  We place them in specific MPU buckets
+  to ensure @see softmmu.s doesn't accidentally evict them.
+  @see LIBOS_CONFIG_MPU_IDENTITY, LIBOS_CONFIG_MPU_TEXT,
+  and LIBOS_CONFIG_MPU_DATA.
+- The kernel .text section must be 2mb or smaller
+- The kernel .data section must be 2mb or smaller
+- All three sections have VA's chosen to hash to specific buckets
+  namely 0, 4, and 8 to simplify the code in softmmu.s that detects
+  these pinned entries.
+  @see KernelPageConstruct for assertions.
+
+### User Space
+
+User addresses are resolved against the pagetables Task::state.radix.
+These pages are never accessible directly by the kernel.
+
+Kernel code requiring access to user-space buffers must use
+@see KernelMapUser or @see KernelMapUserString.
+
+### Kernel: Identity Map
+
+Our software TLB implementation requires access to the area of framebuffer
+where the radix pagetables are stored.  This is achieved by an in kernel
+mapping of the entire FBCOH aperture.
+
+@note: On blackwell we'll only map the individual pages corresponding to NUMA
+       memmory on our node.
+
+Our kernel also uses this identity map to avoid expensive 4kb page mappings
+of small in kernel allocations.  
+
+
+## Kernel RPC
+
+### Map to kernel on operation queue
+
+ - We'd like to map the user-buffer into the kernel address space on 
+   send.  But this breaks our neat property that operations can never
+   fail due to OOM *unless* a shuttle also contains a VMA. Ick.
+
+### Map to operation on start of operation
+
+Properties:
+ - Copy happens under task lock
+ - Copy happens using task local mappings
+
+ - We can't release the lock for the copy unless we have enough VMA.
+   Effectively the copy should be billed against the sending or receiving task
+   so this could be a per task VMA. This would require a per task copy message lock
+
+Handle challenge:
+    - Handles are resolved during copy.
+    

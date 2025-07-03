@@ -1,0 +1,143 @@
+# -*- mode: perl; -*-
+
+# Interrupt Controller Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $icHal = [
+
+    # per-GPU defaults for IC for all interfaces below
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PRE_INIT => [
+            DESCRIPTION    => "Initialization",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _LR10         => [ ALL, ],
+
+        ],
+
+        SERVICE => [
+            DESCRIPTION    => "Service",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        IS_CMD_QUEUE_INTR => [
+            DESCRIPTION    => "Checks whether the interrupt status indicates a cmd queue interrupt",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "LwU32 status",
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+        HALT_INTR_UNMASK => [
+            DESCRIPTION    => "Unmask the halt interrupt to host",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            LIKE_INTERFACE => SERVICE,
+        ],
+
+        HALT_INTR_MASK => [
+            DESCRIPTION    => "Mask the halt interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_cmdmgmt", "__FUNC__")',
+
+            LIKE_INTERFACE => SERVICE,
+        ],
+
+        CMD_QUEUE_INTR_UNMASK => [
+            DESCRIPTION    => "Unmask command queue interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_cmdmgmt", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+        CMD_QUEUE_INTR_MASK => [
+            DESCRIPTION    => "Mask command queue interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+        CMD_QUEUE_INTR_CLEAR => [
+            DESCRIPTION    => "Clear the cmd queue interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_cmdmgmt", "__FUNC__")',
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+        HOST_IF_INTR_UNMASK => [
+            DESCRIPTION    => "Unmask host interface interrupts (ctxsw and mthd interrupts)",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => SERVICE,
+        ],
+
+        OS_TICK_INTR_MASK_GET => [
+            DESCRIPTION    => "Return the IRQSTAT mask for the OS timer",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+        ROUTE_GIN_SAW => [
+            DESCRIPTION    => "Route EXTIRQ8 to SAW/GIN acc to arch",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _LR10         => [ TU102, ],
+            _LS10         => [ ALL, -TU102, ],
+        ],
+
+        ENABLE_GIN_SAW => [
+            DESCRIPTION    => "Enable SAW/GIN on EXTIO acc to arch",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _LR10         => [ TU102, ],
+            _LS10         => [ ALL, -TU102, ],
+        ],
+
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $icHal;

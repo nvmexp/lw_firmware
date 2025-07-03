@@ -1,0 +1,91 @@
+{
+    "config" :
+    {
+        "topology_architecture" : "laguna"
+    },
+    "node0" :
+    {
+        "type" : "node",
+        "ip"   : "ipaddr"
+    },
+    "gpu0" :
+    {
+        "type"             : "gpu",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "target_id"        : 0,
+        "gpa_base"         : 0,
+        "fla_base"         : 1,
+        "requester_base"   : 0,
+        "max_ports"        : 12
+    },
+    "switch0" :
+    {
+        "type"             : "switch",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "max_ports"        : 64,
+        "ports"            :
+            [
+                { "port"        : 0,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 0,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 3 ] }
+                      ]
+                },
+                { "port"        : 1,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 1,
+                  "routing"     :
+                      [
+                      ]
+                },
+                { "port"        : 2,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 2,
+                  "routing"     :
+                      [
+                      ]
+                },
+                { "port"        : 3,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 3,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0 ] }
+                      ]
+                },
+                { "port"        : 32,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 32,
+                  "routing"     :
+                      [
+                      ]
+                },
+                { "port"        : 33,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 33,
+                  "routing"     :
+                      [
+                      ]
+                },
+                { "port"        : 34,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 34,
+                  "routing"     :
+                      [
+                      ]
+                },
+                { "port"        : 35,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 35,
+                  "routing"     :
+                      [
+                      ]
+                }
+            ]
+    }
+}
+

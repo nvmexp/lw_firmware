@@ -1,0 +1,254 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+
+    "definitions": {
+        "BoardInfo_ChipInfo_Schema": {
+            "__comment__": "ChipInfo schema",
+            "type": "array",
+            "items": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "__comment__": "Schema is specific to GPU",
+                        "Gpu":      { "enum": [0] },
+                        "Chip":     { "enum": ["GV100"] },
+                        "Ecid":     { "enum": ["TSMC-P8C404-02_x0_y9"] },
+                        "RawEcid":  { "enum": ["0x0120008000000020c1001191"] },
+                        "FbVendor": { "enum": ["Samsung"] },
+                        "HbmRev":   { "enum": ["F_4HI"] },
+                        "Foundry":  { "enum": ["TSMC"] }
+                    },
+                    "required" : ["Gpu", "Chip", "Ecid", "RawEcid", "FbVendor", "HbmRev", "Foundry"]
+                }
+            ]
+        },
+
+        "ModsRuns_ModsHeader_Schema": {
+            "__comment__": "ModsRuns::ModsHeader schema. Should only have one GPU with a specific amount of memory running the HBM2 protocol. If the memory changes, then something went bad during the repairs that modified the amount of memory available.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Gpu":          { "enum": [0] },
+                    "MemorySizeMB": { "enum": [12288] },
+                    "RamProtocol":  { "enum": ["HBM2"] }
+                },
+                "required": ["Gpu", "MemorySizeMB", "RamProtocol"]
+            },
+            "length": 1
+        },
+
+        "ModsRuns_Tests_Schema": {
+            "__comment__": "ModsRuns::Tests schema",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Info": {
+                        "type": "object",
+                        "properties": {
+                            "__comment__": "There is a bug where MemRepair runs are not associated with GPUs. It can return -1 for GPU ID",
+                            "Gpu": { "enum": [-1, 0] }
+                        },
+                        "required": ["Gpu"]
+                    },
+                    "Results": {
+                        "__comment__": "Must pass the test",
+                        "type": "object",
+                        "properties": {
+                            "Rc": { "enum": [0] }
+                        },
+                        "required": ["Rc"]
+                    }
+                },
+                "required": ["Info", "Results"]
+            },
+            "length": 1
+        },
+
+        "ModsRuns_GpuSummary_Schema": {
+            "__comment__": "ModsRuns::GpuSummary schema",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "__comment__": "Must pass the run within a reasonable time",
+                    "Gpu": { "enum": [0] },
+                    "DurationMs": {
+                        "type": "number",
+                        "minimum": 2000,
+                        "maximum": 12000
+                    },
+                    "FinalRc": { "enum": [0] },
+                    "RepairAttempts": { "$ref": "#/definitions/ModsRuns_GpuSummary_RepairAttempts_Schema" }
+                }
+            },
+            "length": 1
+        },
+
+        "ModsRuns_GpuSummary_RepairAttempts_Schema": {
+            "__comment__": "ModsRuns::GpuSummary::RepairAttempts schema. This is a verbose breakdown of each repair entry attempted",
+            "type": "array",
+            "items": [
+                {
+                    "__comment__": "Hard Row (pseudo): 1-0-0-0-10-3",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmRow"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["1-0-0-0-10-3"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Memory": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Stack": { "enum": [0] },
+                                                "Bank":  { "enum": [10] },
+                                                "Row":   { "enum": [0] }
+                                            },
+                                            "required": ["Stack", "Bank", "Row"],
+                                            "additionalProperties": false
+                                        },
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [0] },
+                                                "Subpart":  { "enum": [0] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [0] },
+                                                "Channel": { "enum": [2] }
+                                            },
+                                            "required": ["Site", "Channel"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm", "Memory"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [true] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [true] }
+                            },
+                            "required": ["StatusRc", "Name", "Location", "Interface",
+                                         "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                },
+
+                {
+                    "__comment__": "Hard Row (pseudo): 1-0-0-0-9-4",
+                    "type": "object",
+                    "properties": {
+                        "Category":    { "enum": ["Memory"] },
+                        "RepairType":  { "enum": ["HbmRow"] },
+                        "Timestamp":   { "type": "string" },
+                        "EpochTimeUs": { "type": "integer" },
+                        "Details": {
+                            "type": "object",
+                            "properties": {
+                                "StatusRc":   { "enum": [0] },
+                                "Name":       { "enum": ["1-0-0-0-9-4"] },
+                                "Location": {
+                                    "type": "object",
+                                    "properties": {
+                                        "Memory": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Stack": { "enum": [0] },
+                                                "Bank":  { "enum": [9] },
+                                                "Row":   { "enum": [4] }
+                                            },
+                                            "required": ["Stack", "Bank", "Row"],
+                                            "additionalProperties": false
+                                        },
+                                        "Gpu": {
+                                            "type": "object",
+                                            "properties": {
+                                                "HwFbpa":   { "enum": [0] },
+                                                "Subpart":  { "enum": [0] }
+                                            },
+                                            "required": ["HwFbpa", "Subpart"],
+                                            "additionalProperties": false
+                                        },
+                                        "Hbm": {
+                                            "type": "object",
+                                            "properties": {
+                                                "Site":    { "enum": [0] },
+                                                "Channel": { "enum": [2] }
+                                            },
+                                            "required": ["Site", "Channel"],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": ["Gpu", "Hbm", "Memory"],
+                                    "additionalProperties": false
+                                },
+                                "Interface": { "enum": ["IEEE1500"] },
+                                "IsHardRepair":   { "enum": [true] },
+                                "SkipVerif":      { "enum": [false] },
+                                "IsPseudoRepair": { "enum": [true] }
+                            },
+                            "required": ["StatusRc", "Name", "Location", "Interface",
+                                         "IsHardRepair", "SkipVerif", "IsPseudoRepair"],
+                            "additionalProperties": false
+                        },
+                        "required": ["Category", "RepairType", "Timestamp", "EpochTimeUs", "Details"],
+                        "additionalProperties": false
+                    }
+                }
+            ],
+            "additionalItems": false
+        }
+    },
+
+    "__comment__": "Start of JSON report format",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "BoardInfo": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "ChipInfo": { "$ref": "#/definitions/BoardInfo_ChipInfo_Schema" }
+                    },
+                    "required": ["ChipInfo"]
+                },
+                "length": 1
+            },
+
+            "ModsRuns": {
+                "type" : "array",
+                "items" : {
+                    "type": "object",
+                    "properties": {
+                        "ModsHeader": { "$ref": "#/definitions/ModsRuns_ModsHeader_Schema" },
+                        "Tests":      { "$ref": "#/definitions/ModsRuns_Tests_Schema" },
+                        "GpuSummary": { "$ref": "#/definitions/ModsRuns_GpuSummary_Schema" }
+                    },
+                    "required": ["ModsHeader", "GpuSummary"]
+                }
+            }
+        },
+        "required": ["BoardInfo", "ModsRuns"]
+    },
+    "length": 1
+}

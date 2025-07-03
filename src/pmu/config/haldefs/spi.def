@@ -1,0 +1,312 @@
+# -*- mode: perl; -*-
+
+# Serial Peripheral Interface Details.
+
+my $spiHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_spi", "__FUNC__")',
+        FLAGS          => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        _ROM_SERIAL_BYPASS_GROUP => [
+            DESCRIPTION    => "group for accessing the ROM device using the direct BAR0 and serial bypass interfaces",
+
+            _GMXXX         => [ ALL, ],
+        ],
+
+        _ROM_SERIAL_BYPASS_ONLY_GROUP => [
+            DESCRIPTION    => "group for accessing the ROM device using serial bypass interfaces supported on pre-pascal",
+
+            _GMXXX         => [ MAXWELL, ],
+            _STUB          => [ GP10X_and_later, ],
+        ],
+
+        _HW_SPI_CONTROLLER_GROUP => [
+            DESCRIPTION    => "group for accessing the ROM device with the HW-SPI controller interface",
+
+            _GP100         => [ GP10X_and_later, ],
+            _STUB          => [ MAXWELL, ],
+        ],
+
+        _HW_SPI_CONFIG_CTRL_GROUP => [
+            DESCRIPTION    => "group for accessing the HW-SPI controller configuration and control interface",
+
+            _GP100         => [ GP100, ],
+            _GP10X         => [ GP102_and_later,],
+            _STUB          => [ MAXWELL, ],
+        ],
+
+        ROM_SERIAL_BYPASS_ENABLE => [
+            DESCRIPTION    => "Toggle ROM serial bypass mode",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "SPI_DEVICE_ROM *pSpiRom, LwBool bEnable, LwBool *pbBypassToggled",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => _ROM_SERIAL_BYPASS_GROUP,
+        ],
+
+        ROM_READ_DIRECT => [
+            DESCRIPTION    => "Read ROM contents directly using SPI HW read-only controller",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "SPI_DEVICE_ROM *pSpiRom, LwU32 address, LwU16 size, LwU8 *pBuf",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            _GMXXX         => [ GM10X_thru_GA100, USED_BY_GA10X, ],
+            _GA10X         => [ GA102_and_later, ],
+        ],
+
+        ROM_ADDR_ADJUST => [
+            DESCRIPTION     => "Adjust address by ROM_ADDR_OFFSET_AMOUNT",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 *address",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _GA100          => [ GA100_and_later, ],
+            _STUB           => [ pre_GA100, ]
+        ],
+
+        SET_FREQUENCY  => [
+            DESCRIPTION    => "Set SPI Controller frequency",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "SPI_DEVICE *pSpiDev",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            _GP100         => [ GP100, ],
+            _GP10X         => [ GP102_thru_GA100, ],
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ MAXWELL, ],
+        ],
+
+        WRITE_CTRL  => [
+            DESCRIPTION    => "Configure HW-SPI Control register",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "SPI_HW_CTRL *pCtrl, LwU32 timeout",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => _HW_SPI_CONFIG_CTRL_GROUP,
+        ],
+
+        READ_DATA  => [
+            DESCRIPTION    => "Read from SPI device into DATA_ARRAY",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 *pData, LwU16 size, LwU8 dataArrayIdx",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => _HW_SPI_CONTROLLER_GROUP,
+        ],
+
+        WRITE_DATA  => [
+            DESCRIPTION    => "Write from DATA_ARRAY to SPI device",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 *pData, LwU16 size",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => _HW_SPI_CONTROLLER_GROUP,
+        ],
+
+        HW_WAIT_FOR_IDLE  => [
+            DESCRIPTION    => "Wait for HW-SPI Controller to Idle",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 timeoutUs",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => _HW_SPI_CONTROLLER_GROUP,
+        ],
+
+        BUS_CONFIGURE => [
+            DESCRIPTION    => "Configure SPI Bus before any transaction",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "SPI_DEVICE *pSpiDev",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            _GMXXX          => [ MAXWELL, ],
+            _GP100          => [ GP10X_and_later, ],
+        ],
+
+        BUS_RESET => [
+            DESCRIPTION    => "Reset SPI Bus",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "SPI_DEVICE *pSpiDev",
+            STUB_RETURNS   => FLCN_OK,
+
+            LIKE_INTERFACE => _ROM_SERIAL_BYPASS_ONLY_GROUP,
+        ],
+
+        BUFFER_TRANSFER => [
+            DESCRIPTION    => "Transfer data between SPI Controller and SPI Device",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "SPI_DEVICE *pSpiDev, SPI_HW_CTRL *pSpiCtrl, LwU8 *pRxBuffer, LwU8 *pTxBuffer",
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+
+            _GMXXX          => [ MAXWELL, ],
+            _GP100          => [ GP10X_and_later, ],
+        ],
+
+        ROM_GET_STATUS => [
+            DESCRIPTION     => "Extract ROM Status register value",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 data, LwU8 *pRomStatus",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _GMXXX          => [ MAXWELL, ],
+            _GP100          => [ GP10X_and_later, ],
+        ],
+
+        ROM_LOOKUP => [
+            DESCRIPTION     => "Lookup SPI EEPROM in supported EEPROM table",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "SPI_DEVICE_ROM *pSpiRom, LwU32 jedecId",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_spiLibRomInit", "__FUNC__")',
+
+            _GMXXX          => [ MAXWELL, ],
+            _GP100          => [ GP10X_thru_GA100, ],
+            _GA10X          => [ GA102_and_later, ],
+        ],
+
+        CHIP_SELECT_ENABLE  => [
+            DESCRIPTION     => "Enable/Disable Chip select",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "SPI_DEVICE *pSpiDev, LwU32 *pReg, LwBool bEnable",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => _ROM_SERIAL_BYPASS_ONLY_GROUP,
+        ],
+
+        MOSI_SET => [
+            DESCRIPTION     => "Sets bit on output line",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "SPI_DEVICE *pSpiDev, LwU32 *pReg, LwU8 val",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => _ROM_SERIAL_BYPASS_ONLY_GROUP,
+        ],
+
+        MISO_GET => [
+            DESCRIPTION     => "Gets bit from input line",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "SPI_DEVICE *pSpiDev, LwU32 *pReg, LwU8 *pVal",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => _ROM_SERIAL_BYPASS_ONLY_GROUP,
+        ],
+
+        SCK_EDGE_SET => [
+            DESCRIPTION     => "Sets clock edge on which data will be sampled",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "SPI_DEVICE *pSpiDev, LwU32 *pReg, LwU8 sckEdgeVal",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => _ROM_SERIAL_BYPASS_ONLY_GROUP,
+        ],
+
+        PRIV_SEC_REGISTERS => [
+
+            DESCRIPTION   => "Raises/reduces priv sec level for selected registers",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "LwBool bRaisePrivSec",
+            STUB_RETURNS  => FLCN_OK,
+
+            _GP100        => [ PASCAL, VOLTA, ],
+            _STUB         => [ ALL, -PASCAL, -VOLTA, ],
+        ],
+
+        ARBITER_XUSB_BLOCK => [
+            DESCRIPTION   => "Block or Unblock XUSB access to SPI",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "SPI_DEVICE *pSpiDev, LwBool bBlock",
+            STUB_RETURNS  => FLCN_OK,
+
+            _TU10X        => [ TU10X, GA100, ],
+            _STUB         => [ ALL, -TU10X, -GA100, ],
+        ],
+
+        ROM_INIT_INFOROM_REGION_FROM_SCRATCH => [
+            DESCRIPTION   => "Initialize accessible InfoROM region from scratch registers",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "SPI_DEVICE_ROM *pSpiRom",
+            STUB_RETURNS  => FLCN_ERR_FEATURE_NOT_ENABLED,
+
+            _GV10X        => [ GV10X_and_later, ],
+            _STUB         => [ pre_GV10X, ],
+        ],
+
+        ROM_INIT_LEDGER_REGION_FROM_SCRATCH => [
+            DESCRIPTION   => "Initialize accessible ledger region from scratch registers",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "SPI_DEVICE_ROM *pSpiRom",
+            STUB_RETURNS  => FLCN_ERR_FEATURE_NOT_ENABLED,
+
+            LIKE_INTERFACE => ROM_INIT_INFOROM_REGION_FROM_SCRATCH,
+        ],
+
+        ROM_INIT_ERASE_LEDGER => [
+            DESCRIPTION   => "Initialize Erase Ledger Structures from EEPROM",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "SPI_DEVICE_ROM *pSpiRom",
+            STUB_RETURNS  => FLCN_ERR_FEATURE_NOT_ENABLED,
+
+            LIKE_INTERFACE => ROM_INIT_INFOROM_REGION_FROM_SCRATCH,
+        ],
+
+        ROM_IS_ERASE_LIMIT_REACHED => [
+            DESCRIPTION   => "Check whether sector erase limit is reached or not",
+            RETURN_TYPE   => LwBool,
+            ARGUMENTS     => "SPI_DEVICE_ROM *pSpiRom, LwU32 eraseAddress",
+            STUB_RETURNS  => LW_FALSE,
+
+            LIKE_INTERFACE => ROM_INIT_INFOROM_REGION_FROM_SCRATCH,
+        ],
+
+        ROM_ERASE_TALLY => [
+            DESCRIPTION   => "Tally erase for tracked data sector",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "SPI_DEVICE_ROM *pSpiRom, LwU32 eraseAddress",
+            STUB_RETURNS  => FLCN_ERR_FEATURE_NOT_ENABLED,
+
+            LIKE_INTERFACE => ROM_INIT_INFOROM_REGION_FROM_SCRATCH,
+        ],
+
+        ROM_IS_VALID_OFFSET => [
+            DESCRIPTION   => "Checks whether offset passed is within accessible region of PROM",
+            RETURN_TYPE   => LwBool,
+            ARGUMENTS     => "LwU32 offset",
+            STUB_RETURNS  => LW_TRUE,
+
+            _GMXXX        => [ MAXWELL, ],
+            _GP100        => [ GP10X_thru_GA100, ],
+            _GA10X        => [ GA102_and_later, ],
+        ],
+
+        ROM_IS_OFFSET_WITHIN_DATA_APERTURE => [
+            DESCRIPTION   => "Checks whether offset passed is within LW_PROM_DATA limit",
+            RETURN_TYPE   => LwBool,
+            ARGUMENTS     => "LwU32 offset",
+            STUB_RETURNS  => LW_TRUE,
+
+            _GA10X        => [ GA102_and_later, ],
+            _STUB         => [ pre_GA102, ],
+        ],
+
+        ROM_WRITE_PROTECT => [
+            DESCRIPTION   => "Enables/disables write protection on SPI ROM device",
+            RETURN_TYPE   => LW_STATUS,
+            ARGUMENTS     => "SPI_DEVICE_ROM *pSpiRom, LwBool bEnable",
+            STUB_RETURNS  => FLCN_OK,
+
+            _GMXXX        => [ pre_GA100, ],
+            _STUB         => [ GA100_and_later, ],
+        ],
+
+    ], # HAL_INTERFACES
+]; #spiHal
+
+# return a reference to the Hal definition
+return $spiHal;
+

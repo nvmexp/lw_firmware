@@ -1,0 +1,17 @@
+@startuml
+title Queue Change
+activate PERF
+    PERF -> ChangeSeq
+    activate ChangeSeq
+        ChangeSeq -> OS : attachOverlays()
+        activate OS
+        deactivate OS
+
+        ChangeSeq -> ChangeSeq : incrementId()
+        ChangeSeq -> ChangeSeq : timestamp()
+
+        ChangeSeq -> OS : detachOverlays()
+        activate OS
+        deactivate OS
+
+@enduml

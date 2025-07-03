@@ -1,0 +1,330 @@
+#
+# Copyright 2021-2022 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+
+#
+# The primary usage of this makefile is as a sub-makefile for a larger Falcon
+# build (such as SEC2). It relies on the user (or top-level makefile) to
+# establish the following make-vars before it is ilwoked:
+#     * FALCON_ARCH
+#     * LW_PROJ
+#     * MANUAL_PATHS
+#
+# If building directly, it is highly recommended that you explicitly state (on
+# the build command-line) which falcon architecture and chip project you're
+# targeting. If unspecified, falcon6 and ga100 is assumed. The target
+# architecture may be specified by setting FALCON_ARCH on the command-line.
+#
+# LW_PROJ is only used to uniquely name the output directory where the built library
+# will be located. This facilitates parallel building of falcon ucode for multiple
+# projects.
+#
+# Example:
+#
+# % make FALCON_ARCH=falcon6 LW_PROJ=ga100
+#
+# Additionally, based on the target arch, you need to also specify where the
+# falcon manuals are for the architecture.  This is specified using
+# MANUAL_PATHS.
+#
+# Example:
+#
+# % make FALCON_ARCH=falcon6 MANUAL_PATHS=$LW_SOURCE/drivers/common/inc/hwref/ampere/ga100
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+# if not specified, assume we're building for falcon6
+FALCON_ARCH                             ?= falcon6
+LW_PROJ                                 ?= ga100
+LWRISCV_DEBUG_PRINT_LEVEL               ?= 0
+LWRISCV_PRINT_RAW_MODE                  ?= false
+LIBSPDM_VENDOR_DEFINED_MESSAGES_SUPPORT ?= false
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+ifndef GSP_CC
+	include $(LW_SOURCE)/uproc/build/common/lwRtosVersion.lwmk
+	MANUAL_PATHS          ?= "$(LW_SOURCE)/drivers/common/inc/swref/ampere/ga100"
+	MANUAL_PATHS          ?= "$(LW_SOURCE)/drivers/common/inc/hwref/ampere/ga100"
+else
+	LW_PROJ               ?= gh100
+	UPROC_ARCH            ?= lwriscv
+	MANUAL_PATHS          ?= "$(LW_SOURCE)/drivers/common/inc/swref/hopper/gh100"
+	MANUAL_PATHS          ?= "$(LW_SOURCE)/drivers/common/inc/hwref/hopper/gh100"
+	LWRISCV_SDK_VERSION   ?= lwriscv-sdk-3.0_dev
+	LWRISCV_SDK_PROFILE   ?= gsp-rm-proxy-gh100
+	LWRISCVX_SDK_ROOT     ?= $(LW_SOURCE)/uproc/lwriscv/sdk/$(LWRISCV_SDK_VERSION)
+	LWRISCVX_SDK_PREBUILT ?= $(LWRISCVX_SDK_ROOT)/prebuilt/$(LWRISCV_SDK_PROFILE)
+	LIBSPDM_VENDOR_DEFINED_MESSAGES_SUPPORT = true
+endif
+
+build: all
+
+###############################################################################
+# Additional configuration flags for compiler and assembler.
+###############################################################################
+
+ifeq ($(LW_TARGET_OS),falcon)
+CONFIG_FLAGS += -DUPROC_FALCON
+else
+CONFIG_FLAGS += -DUPROC_RISCV
+endif
+
+CONFIG_FLAGS += -fno-jump-tables
+
+ifdef SUBMAKE_CFLAGS
+CONFIG_FLAGS += $(SUBMAKE_CFLAGS)
+endif
+
+ifdef SEC2_RTOS
+	CFLAGS += -DSEC2_RTOS
+endif
+ifdef GSP_CC
+	CFLAGS += -DGSP_CC
+endif
+
+#
+# Enable all LW-specific libspdm optional defines.
+# These were created with SEC2 and Falcon usecase in mind.
+# Could be made configurable in future, if desired.
+#
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(LW_SOURCE)/sdk/lwpu/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc/spdm
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/lwos/$(LWOS_VERSION)/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/crypto/shahw/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/scp/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/se/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/crypto/bigint/inc
+LW_INCLUDES += $(LW_RTOS_INCLUDES)
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+
+# Include any LWPU authored headers first
+LW_INCLUDES += lwpu/include
+
+# libspdm authored headers
+LW_INCLUDES += include
+LW_INCLUDES += include/hal
+LW_INCLUDES += include/library
+LW_INCLUDES += library/spdm_responder_lib
+LW_INCLUDES += library/spdm_common_lib
+LW_INCLUDES += library/spdm_selwred_message_lib
+
+# Any platform specific includes
+ifdef SEC2_RTOS
+	LW_INCLUDES += $(LW_SOURCE)/uproc/sec2/inc/signcert
+	LW_INCLUDES += $(LW_SOURCE)/uproc/sec2/inc
+	LW_INCLUDES += lwpu/include/sec2
+endif
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+
+#
+# libspdm authored files
+#
+SOURCES += library/spdm_common_lib/context_data.c
+SOURCES += library/spdm_common_lib/context_data_session.c
+SOURCES += library/spdm_common_lib/crypto_service.c
+SOURCES += library/spdm_common_lib/crypto_service_session.c
+SOURCES += library/spdm_common_lib/opaque_data.c
+SOURCES += library/spdm_common_lib/support.c
+
+SOURCES += library/spdm_responder_lib/algorithms.c
+SOURCES += library/spdm_responder_lib/capabilities.c
+SOURCES += library/spdm_responder_lib/certificate.c
+SOURCES += library/spdm_responder_lib/digests.c
+SOURCES += library/spdm_responder_lib/communication.c
+SOURCES += library/spdm_responder_lib/end_session.c
+SOURCES += library/spdm_responder_lib/finish.c
+SOURCES += library/spdm_responder_lib/handle_response_state.c
+SOURCES += library/spdm_responder_lib/key_exchange.c
+SOURCES += library/spdm_responder_lib/key_update.c
+SOURCES += library/spdm_responder_lib/measurements.c
+SOURCES += library/spdm_responder_lib/receive_send.c
+SOURCES += library/spdm_responder_lib/version.c
+
+# handle_err.c was originally error.c, renamed as DVS interpreted it as build error.
+SOURCES += library/spdm_responder_lib/handle_err.c
+
+SOURCES += library/spdm_selwred_message_lib/context_data.c
+SOURCES += library/spdm_selwred_message_lib/encode_decode.c
+SOURCES += library/spdm_selwred_message_lib/key_exchange.c
+SOURCES += library/spdm_selwred_message_lib/session.c
+
+SOURCES += os_stub/debuglib_null/debuglib.c
+SOURCES += os_stub/memlib/compare_mem.c
+SOURCES += os_stub/memlib/copy_mem.c
+SOURCES += os_stub/memlib/set_mem.c
+SOURCES += os_stub/memlib/zero_mem.c
+
+#
+# LWPU authored files
+#
+
+# Falcon-specific implementations
+ifdef SEC2_RTOS
+	SOURCES += lwpu/app/sec2/lw_app_message.c
+	SOURCES += lwpu/app/sec2/lw_callbacks.c
+	SOURCES += lwpu/app/sec2/lw_sec2_rtos.c
+	SOURCES += lwpu/common/lw_utils.c
+	SOURCES += lwpu/crypt/sec2/lw_aead.c
+	# Replaces crypt.c in spdm_crypt_lib
+	SOURCES += lwpu/crypt/sec2/lw_crypt.c
+	SOURCES += lwpu/crypt/sec2/lw_ecc.c
+	SOURCES += lwpu/crypt/sec2/lw_hkdf.c
+	SOURCES += lwpu/crypt/sec2/lw_rng.c
+	SOURCES += lwpu/crypt/sec2/lw_sha.c
+	SOURCES += lwpu/device_secret/sec2/lw_device_secret.c
+	SOURCES += lwpu/measurements/sec2/lw_apm_rts.c
+	SOURCES += lwpu/transport/sec2/lw_transport_layer.c
+	SOURCES += lwpu/device_secret/sec2/lw_shared_mem.c
+	SOURCES += lwpu/device_secret/sec2/lw_ak_cert.c
+	SOURCES += lwpu/device_secret/sec2/lw_key_ex_cert.c
+
+	# APM-TODO CONFCOMP-397: Determine if we want to link stub files
+	SOURCES += lwpu/crypt/sec2/lw_crypt_stub.c
+	SOURCES += lwpu/device_secret/sec2/lw_device_secret_stub.c
+else
+ifdef GSP_CC
+# GCP_CC specific implementations 
+	SOURCES += lwpu/app/gsp/lw_app_message.c
+	SOURCES += lwpu/transport/gsp/lw_transport_layer.c
+	SOURCES += lwpu/app/gsp/lw_callbacks.c
+	SOURCES += lwpu/app/gsp/lw_vendor_app.c
+	SOURCES += lwpu/common/lw_utils.c
+	SOURCES += lwpu/crypt/gsp/lw_aead.c
+	# Replaces crypt.c in spdm_crypt_lib
+	SOURCES += lwpu/crypt/gsp/lw_crypt.c
+	SOURCES += lwpu/crypt/gsp/lw_ecc.c
+	SOURCES += lwpu/crypt/gsp/lw_hkdf.c
+	SOURCES += lwpu/crypt/gsp/lw_rng.c
+	SOURCES += lwpu/crypt/gsp/lw_sha.c
+	SOURCES += lwpu/measurements/gsp/lw_cc_rts.c
+	SOURCES += lwpu/device_secret/gsp/lw_device_secret.c
+
+	# Similar to APM-TODO CONFCOMP-397: Determine if we want to link stub files
+	# Need to unlink these files even for GSP_CC
+	SOURCES += lwpu/crypt/gsp/lw_crypt_stub.c
+	SOURCES += lwpu/device_secret/gsp/lw_device_secret_stub.c
+
+	LW_INCLUDES += lwpu/include/gsp
+    LW_INCLUDES += $(LWRISCVX_SDK_PREBUILT)/inc
+endif
+endif
+#
+# Lwrrently unused libspdm-authored files
+#
+
+# Replaced by lw_crypt.c
+#SOURCES += library/spdm_crypt_lib/crypt.c
+
+#SOURCES += library/spdm_responder_lib/challenge_auth.c
+#SOURCES += library/spdm_responder_lib/encap_challenge.c
+#SOURCES += library/spdm_responder_lib/encap_get_certificate.c
+#SOURCES += library/spdm_responder_lib/encap_get_digests.c
+#SOURCES += library/spdm_responder_lib/encap_key_update.c
+#SOURCES += library/spdm_responder_lib/encap_response.c
+#SOURCES += library/spdm_responder_lib/heartbeat.c
+#SOURCES += library/spdm_responder_lib/psk_exchange.c
+#SOURCES += library/spdm_responder_lib/psk_finish.c
+#SOURCES += library/spdm_responder_lib/respond_if_ready.c
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+#
+# Required to ensure debug macros do not get included. Otherwise, debug strings
+# will not be assigned overlay, and be placed in resident memory.
+#
+CFLAGS += -DMDEPKG_NDEBUG
+
+# By default GSP build enables all warnings.
+# There are instances in libspdm code which voilates listed warnings
+# Hence disabled them
+ifdef GSP_CC
+CFLAGS += -Wno-unused-but-set-variable
+CFLAGS += -DLWRISCV_DEBUG_PRINT_LEVEL=$(LWRISCV_DEBUG_PRINT_LEVEL)
+endif
+
+ifeq ($(LIBSPDM_VENDOR_DEFINED_MESSAGES_SUPPORT), true)
+	CFLAGS += -DLIBSPDM_VENDOR_DEFINED_MESSAGES_SUPPORT
+endif
+
+#
+# We include some of the RTOS headers. To ensure expected behavior, here the
+# exported make flags are colwerted to C preprocessor flags.
+#
+# Exported SEC2 flags start
+#
+ifdef SEC2_RTOS
+	CFLAGS  += -DSEC2_CSB_ACCESS=$(SEC2_RTOS)
+	CFLAGS  += -DHS_OVERLAYS_ENABLED
+
+	ifeq ($(DMA_SUSPENSION),true)
+		CFLAGS += -DDMA_SUSPENSION
+	endif
+
+	ifeq ($(DMEM_VA_SUPPORTED),true)
+		CFLAGS += -DDMEM_VA_SUPPORTED
+	endif
+
+	ifeq ($(MRU_OVERLAYS),true)
+		CFLAGS += -DMRU_OVERLAYS
+	endif
+
+	ifeq ($(FREEABLE_HEAP),true)
+		CFLAGS += -DFREEABLE_HEAP
+	endif
+
+	ifeq ($(ON_DEMAND_PAGING_OVL_IMEM),true)
+		CFLAGS += -DON_DEMAND_PAGING_OVL_IMEM
+	endif
+
+	ifeq ($(TASK_RESTART), true)
+		CFLAGS += -DTASK_RESTART
+	endif
+
+#
+# Exported SEC2 flags end
+#
+endif
+
+CFLAGS   += $(CONFIG_FLAGS)
+ASMFLAGS += $(CONFIG_FLAGS)
+
+TGT = $(OUTPUTDIR)/libSPDM.a
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[libspdm-$(LW_PROJ)-$(FALCON_ARCH)]"
+
+all: $(TGT)
+
+$(TGT):  $(OBJECTS)
+	$(MKDIR) ${dir $@}
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(AR) -r -c $(TGT) $(OBJECTS)
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+

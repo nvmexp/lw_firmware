@@ -1,0 +1,99 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+#
+# Top-level SEC2 makefile. This makefile is responsible for building the SEC2
+# binary including projects it depends on (RTOS, bootloader, etc ...) across
+# all SEC2 config-profiles.
+#
+
+all: build
+
+###############################################################################
+# Use the flag to serialize per-profile builds (this does not prevent parallel
+# building within each profile). The flag decreases the speed a bit but avoid
+# the mess output of inter-profiles building. When an error is found, it makes
+# the build stop immediately.
+###############################################################################
+
+SERIALIZE_PROFILES ?= "true"
+
+ifneq ("$(SERIALIZE_PROFILES)","false")
+  .NOTPARALLEL:
+endif
+
+###############################################################################
+# Set SEC2CFG_PROFILES to the list of SEC2CFG profiles to build. The value is set
+# in one of three ways depending on defaults and user-overrides (if any).
+#
+# 1. Sourcing sec2-profiles.mk to get the full list of profiles (default)
+# 2. If SEC2CFG_PROFILE is set on the command-line or as an elwvar, build that
+#    profile only.
+#
+# Setting SEC2CFG_PROFILES in the shell or on the command-line will override the
+# profile(s) returned by the first two options above. SEC2CFG_PROFILE trumps
+# everything.
+###############################################################################
+
+SEC2CFG_PROFILES ?=
+
+ifndef SEC2CFG_PROFILE
+  ifeq ("$(strip $(SEC2CFG_PROFILES))", "")
+    include $(LW_SOURCE)/uproc/sec2_riscv/config/sec2-profiles.mk
+    override SEC2CFG_PROFILES = $(SEC2CFG_PROFILES_ALL)
+  endif
+else
+  SEC2CFG_PROFILES = $(SEC2CFG_PROFILE)
+endif
+
+MAKEPROFILE := makeriscv.lwmk
+
+###############################################################################
+# Create submake build/clean/clobber targets for profiles being built.
+###############################################################################
+
+PROFILES.build   = $(SEC2CFG_PROFILES:=.build)
+PROFILES.clean   = $(SEC2CFG_PROFILES:=.clean)
+PROFILES.clobber = $(SEC2CFG_PROFILES:=.clobber)
+PROFILES.ls_sign = $(SEC2CFG_PROFILES:=.ls_sign)
+PROFILES.check_guardword = $(SEC2CFG_PROFILES:=.check_guardword)
+
+###############################################################################
+# Targets/Rules
+###############################################################################
+
+.PHONY: PROFILES.build   build
+.PHONY: PROFILES.clean   clean
+.PHONY: PROFILES.clobber clobber
+.PHONY: PROFILES.ls_sign ls_sign
+.PHONY: PROFILES.check_guardword check_guardword
+
+build::   $(PROFILES.build)
+clean::   $(PROFILES.clean)
+clobber:: $(PROFILES.clobber)
+ls_sign:: $(PROFILES.ls_sign)
+check_guardword:: $(PROFILES.check_guardword)
+
+$(PROFILES.build):
+	$(MAKE) -f $(MAKEPROFILE) SEC2CFG_PROFILE=$(basename $@) build
+
+$(PROFILES.ls_sign):
+	$(MAKE) -f $(MAKEPROFILE) SEC2CFG_PROFILE=$(basename $@) ls_sign
+
+$(PROFILES.check_guardword):
+	$(MAKE) -f $(MAKEPROFILE) SEC2CFG_PROFILE=$(basename $@) check_guardword
+
+$(PROFILES.clean):
+	$(MAKE) -f $(MAKEPROFILE) SEC2CFG_PROFILE=$(basename $@) clean
+
+$(PROFILES.clobber):
+	$(MAKE) -f $(MAKEPROFILE) SEC2CFG_PROFILE=$(basename $@) clobber
+

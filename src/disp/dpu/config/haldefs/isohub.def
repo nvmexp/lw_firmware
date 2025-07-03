@@ -1,0 +1,35 @@
+# -*- mode: perl; -*-
+
+# ISOHUB Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $isohubHal = [
+
+    # per-GPU defaults for ISOHUB for all interfaces below
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_isohub", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+
+    ],
+
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        SET_CWM_STATE => [
+            DESCRIPTION    => "Set Critical Watermark State",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 headIndex, LwBool bIgnore",
+            STUB_RETURNS   => ERROR,
+
+            _v02_05        => [ GM20X_and_later, -DISPLAYLESS, ],
+            _STUB          => [ pre_GM20X, DISPLAYLESS, ],
+        ],
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $isohubHal;
+

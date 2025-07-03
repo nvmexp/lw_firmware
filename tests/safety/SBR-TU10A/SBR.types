@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Generator: reqtify -->
+
+<Types>
+<DolwmentType name="SBR Req" image="JAMA/jama" kind="xml" isFileBased="false" colwertTool="JamaRest">
+<ElementType name="Component" elementClass="Section" analysisTree="&lt;Item id='$u' name='$i' itemType='Component' description='$t'&gt;&lt;/Item&gt;">
+</ElementType>
+<ElementType name="Set" elementClass="Section" analysisTree="&lt;Item id='$u' name='$i' itemType='Set' description='$t'&gt;&lt;/Item&gt;">
+<ParentType name="Component" />
+<ParentType name="SBR Req" />
+</ElementType>
+<ElementType name="Folder" elementClass="Section" analysisTree="&lt;Item id='$u' name='$i' itemType='Folder' description='$t' parent='$p'&gt;&lt;/Item&gt;">
+<ParentType name="Set" />
+</ElementType>
+<ElementType name="Text" elementClass="Section" analysisTree="&lt;Item id='$u' name='$i' itemType='Text' description='$t'&gt;&lt;/Item&gt;">
+<ParentType name="Set" />
+<ParentType name="Folder" />
+<ParentType name="Component" />
+</ElementType>
+<ElementType name="Requirement" elementClass="Requirement" analysisTree="&lt;Item id='$i' name='$l' description='$t' itemType='UJAM-Requirement.*?'&gt;&lt;/Item&gt;">
+<ParentType name="SBR Req" />
+</ElementType>
+<ElementType name="Relationship" elementClass="CoverLink" analysisTree="&lt;Upstreamrelationship fromItemId='$i' relationshipType='$l'&gt;&lt;/Upstreamrelationship&gt;">
+</ElementType>
+<ElementType name="Status" printExpression="$t: $i" elementClass="Attribute" analysisTree="&lt;Field label='Status' value='$i'&gt;&lt;/Field&gt;">
+</ElementType>
+<ElementType name="TypeName" isVisible="false" elementClass="Attribute" analysisTree="&lt;Item itemType='$!Component|Set|Folder' itemType='$i'&gt;&lt;/Item&gt;">
+</ElementType>
+<ElementType name="icon" elementClass="Value" identFormat="Jama/\1" analysisTree="&lt;Item icon='$i'&gt;&lt;/Item&gt;">
+<ParentType name="Component" />
+<ParentType name="Set" />
+<ParentType name="Folder" />
+<ParentType name="Requirement" />
+</ElementType>
+</DolwmentType>
+<DolwmentType name="SBR SWAD PDF" image="pdf" description="Open the PDF Demo example to see what is the default standard consider by this PDF type." colwertTool="PdfCvTxt" editTool="pdf" intermediateFileEncoding="UTF8">
+<FileExtension value="pdf" />
+<ElementType name="Heading 1" elementClass="Section" regularExpression="^(\d+\.?) (.+)">
+</ElementType>
+<ElementType name="Heading 2" elementClass="Section" regularExpression="^(\d+\.\d+\.?) (.+)">
+<ParentType name="Heading 1" />
+</ElementType>
+<ElementType name="Heading 3" elementClass="Section" regularExpression="^(\d+\.\d+\.\d+\.?) (.+)">
+<ParentType name="Heading 2" />
+</ElementType>
+<ElementType name="Heading 4" elementClass="Section" regularExpression="^(\d+\.\d+\.\d+\.\d+\.?) (.+)">
+<ParentType name="Heading 3" />
+</ElementType>
+<ElementType name="Macro-requirement" elementClass="MacroRequirement" regularExpression="\[MacroReq_([^\]]+)" endExpression="\[End_of_MacroReq\]">
+</ElementType>
+<ElementType name="Reference" printExpression="[Covers: $i]" elementClass="CoverLink" regularExpression="(?s)(?:SBR-SWAD-FRAGMENT-START-[\d]+)(.*?)(?:SBR-SWAD-FRAGMENT-END-[\d]+)" subExpression=".*?\[ELE-REQ-(\d+)\]">
+</ElementType>
+<ElementType name="Allocation" printExpression="Owner : $i" elementClass="Attribute" regularExpression="^[ \t]*\-*[ \t]*Allocated to[ \t]*\:[ \t]*(.+)$">
+</ElementType>
+<ElementType name="Priority" printExpression="Priority = $i" elementClass="Attribute" regularExpression="^[ \t]*\-*[ \t]*Priority[ \t]*\:[ \t]*(\S+)">
+<EnumValue value="High" />
+<EnumValue value="Medium" />
+<EnumValue value="Low" />
+</ElementType>
+<TerminalType name="Text" elementClass="Text" regularExpression="\&lt;\&lt;([\s\S]+?)\&gt;\&gt;">
+</TerminalType>
+<TerminalType name="Cell" elementClass="Text" regularExpression="\|(\d+) ([^|\n]+)" columnIndex="1">
+</TerminalType>
+<TerminalType name="Picture" elementClass="Picture" regularExpression="&lt;Picture&lt;([^&gt;]+)">
+</TerminalType>
+<TerminalType name="Table" elementClass="Table" regularExpression="^#TABLE$">
+</TerminalType>
+</DolwmentType>
+<DolwmentType name="SBR SWAD PDF (2)" image="pdf" description="Open the PDF Demo example to see what is the default standard consider by this PDF type." colwertTool="PdfCvTxt" editTool="pdf" intermediateFileEncoding="UTF8">
+<FileExtension value="pdf" />
+<ElementType name="Heading 1" elementClass="Section" regularExpression="^(\d+\.?) (.+)">
+</ElementType>
+<ElementType name="Heading 2" elementClass="Section" regularExpression="^(\d+\.\d+\.?) (.+)">
+<ParentType name="Heading 1" />
+</ElementType>
+<ElementType name="Heading 3" elementClass="Section" regularExpression="^(\d+\.\d+\.\d+\.?) (.+)">
+<ParentType name="Heading 2" />
+</ElementType>
+<ElementType name="Heading 4" elementClass="Section" regularExpression="^(\d+\.\d+\.\d+\.\d+\.?) (.+)">
+<ParentType name="Heading 3" />
+</ElementType>
+<ElementType name="Macro-requirement" elementClass="MacroRequirement" regularExpression="\[MacroReq_([^\]]+)" endExpression="\[End_of_MacroReq\]">
+</ElementType>
+<ElementType name="Requirement" elementClass="Requirement" regularExpression="^(?:[^\t]+\t|)(REQ\d+) *(?:\:(.+)|)$">
+</ElementType>
+<ElementType name="Requirement Annot" elementClass="Requirement" regularExpression="^Annot[^/]+/(REQ\d+)(?: *:([^/]+)|)\/([\h\H]+?)/End_Annot">
+<Property name="taggerNumber" value="001" />
+<Property name="taggerPrefix" value="REQ" />
+</ElementType>
+<ElementType name="Reference" printExpression="[Covers: $i]" elementClass="CoverLink" regularExpression="(?s)(?:SBR-SWAD-FRAGMENT-START-[\d]+)(.*?)(?:SBR-SWAD-FRAGMENT-END-[\d]+)" subExpression=".*?\[ELE-REQ-(\d+)\]">
+</ElementType>
+<ElementType name="Allocation" printExpression="Owner : $i" elementClass="Attribute" regularExpression="^[ \t]*\-*[ \t]*Allocated to[ \t]*\:[ \t]*(.+)$">
+</ElementType>
+<ElementType name="Priority" printExpression="Priority = $i" elementClass="Attribute" regularExpression="^[ \t]*\-*[ \t]*Priority[ \t]*\:[ \t]*(\S+)">
+<EnumValue value="High" />
+<EnumValue value="Medium" />
+<EnumValue value="Low" />
+</ElementType>
+<TerminalType name="Text" elementClass="Text" regularExpression="\&lt;\&lt;([\s\S]+?)\&gt;\&gt;">
+</TerminalType>
+<TerminalType name="Cell" elementClass="Text" regularExpression="\|(\d+) ([^|\n]+)" columnIndex="1">
+</TerminalType>
+<TerminalType name="Picture" elementClass="Picture" regularExpression="&lt;Picture&lt;([^&gt;]+)">
+</TerminalType>
+<TerminalType name="Table" elementClass="Table" regularExpression="^#TABLE$">
+</TerminalType>
+</DolwmentType>
+<DolwmentType name="SBR Req (2)" image="JAMA/jama" kind="xml" isFileBased="false" colwertTool="JamaRest">
+<ElementType name="Component" elementClass="Section" analysisTree="&lt;Item id='$u' name='$i' itemType='Component' description='$t'&gt;&lt;/Item&gt;">
+</ElementType>
+<ElementType name="Set" elementClass="Section" analysisTree="&lt;Item id='$u' name='$i' itemType='Set' description='$t'&gt;&lt;/Item&gt;">
+<ParentType name="Component" />
+<ParentType name="SBR Req (2)" />
+</ElementType>
+<ElementType name="Folder" elementClass="Section" analysisTree="&lt;Item id='$u' name='$i' itemType='Folder' description='$t' parent='$p'&gt;&lt;/Item&gt;">
+<ParentType name="Set" />
+</ElementType>
+<ElementType name="Text" elementClass="Section" analysisTree="&lt;Item id='$u' name='$i' itemType='Text' description='$t'&gt;&lt;/Item&gt;">
+<ParentType name="Set" />
+<ParentType name="Folder" />
+<ParentType name="Component" />
+</ElementType>
+<ElementType name="Requirement" elementClass="Requirement" analysisTree="&lt;Item id='$i' name='$l' itemType='$!Component|Set|Folder|Text' description='$t' parent='$p'&gt;&lt;/Item&gt;">
+<ParentType name="SBR Req (2)" />
+</ElementType>
+<ElementType name="Relationship" elementClass="CoverLink" analysisTree="&lt;Upstreamrelationship fromItemId='$i' relationshipType='$l'&gt;&lt;/Upstreamrelationship&gt;">
+</ElementType>
+<ElementType name="Status" printExpression="$t: $i" elementClass="Attribute" analysisTree="&lt;Field label='Status' value='$i'&gt;&lt;/Field&gt;">
+</ElementType>
+<ElementType name="TypeName" isVisible="false" elementClass="Attribute" analysisTree="&lt;Item itemType='$!Component|Set|Folder' itemType='$i'&gt;&lt;/Item&gt;">
+</ElementType>
+<ElementType name="icon" elementClass="Value" identFormat="Jama/\1" analysisTree="&lt;Item icon='$i'&gt;&lt;/Item&gt;">
+<ParentType name="Component" />
+<ParentType name="Set" />
+<ParentType name="Folder" />
+<ParentType name="Requirement" />
+</ElementType>
+</DolwmentType>
+</Types>

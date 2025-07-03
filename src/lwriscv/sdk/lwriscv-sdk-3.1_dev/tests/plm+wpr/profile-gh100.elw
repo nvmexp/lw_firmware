@@ -1,0 +1,39 @@
+###################################################
+# Chip-specific configuration settings for GH100. #
+###################################################
+# Test-plan links:                                #
+#   FNL - https://confluence.lwpu.com/x/xYnPM   #
+#   BNB - TODO                                    #
+###################################################
+
+export CHIP=gh100
+
+#
+# Target engines. A separate test binary will be built
+# for each engine listed here.
+#
+export ENGINES=${ENGINES-"fsp gsp lwdec sec"}
+
+#
+# Starting physical addresses for TCM regions. These
+# should match the values in lw_riscv_address_map.h.
+#
+export LWRISCV_APP_IMEM_START=0x0000000000100000
+export LWRISCV_APP_DMEM_START=0x0000000000180000
+
+#
+# Memory constraints. The linker will throw an error if
+# the resulting test application's memory footprint exceeds
+# these limits.
+# 
+export LWRISCV_APP_IMEM_LIMIT=0x8000
+export LWRISCV_APP_DMEM_LIMIT=0x4000
+
+#
+# Stack size. The linker will reserve this much space in
+# DMEM for shared use by the application and liblwriscv.
+#
+export LWRISCV_APP_STACK_SIZE=0x800
+
+# Signing profile. Will be passed to siggen.
+export SIGGEN_CHIP=gh100_rsa3k_0

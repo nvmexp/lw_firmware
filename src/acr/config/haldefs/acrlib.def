@@ -1,0 +1,868 @@
+# -*- mode: perl; -*-
+
+# ACRLIB Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $acrlibHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+        _STUB           => [ pre_TU10X, ],
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        FIND_REG_MAPPING => [
+            DESCRIPTION    => "Find reg mapping using reg label",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, ACR_FLCN_REG_LABEL, PACR_REG_MAPPING, PFLCN_REG_TGT',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        FLCN_REG_LABEL_WRITE => [
+            DESCRIPTION    => "Acr util function to write falcon registers using register label",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, ACR_FLCN_REG_LABEL, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        FLCN_REG_LABEL_READ => [
+            DESCRIPTION    => "Acr util function to read falcon registers using register label",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, ACR_FLCN_REG_LABEL',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        FLCN_REG_READ => [
+            DESCRIPTION    => "Acr util function to read falcon registers",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, FLCN_REG_TGT, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        FLCN_REG_WRITE => [
+            DESCRIPTION    => "Acr util function to write falcon registers",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, FLCN_REG_TGT, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        FLCN_REG_WRITE_NON_BLOCKING => [
+            DESCRIPTION    => "Acr util function to write falcon registers in a non-blocking manner",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, FLCN_REG_TGT, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_BODY      => "falc_halt();",
+
+            _GA10X         => [ GA102_and_later, -GA10B, ],
+            _STUB          => [ ALL, -GA102_and_later, GA10B, ],
+        ],
+
+        GET_FALCON_CONFIG => [
+            DESCRIPTION    => "Given falcon ID and instance ID, get the falcon
+                               specifications such as registerBase, pmcEnableMask etc",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32, LwU32, PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _TU10X         => [ TU10X, ],
+            _GA100         => [ GA100, ],
+            _GA10X         => [ GA102, GA103, GA104, GA106, GA107, ADA, ],
+            _GH100         => [ GH100_and_later, ],
+        ],
+
+        POLL_FOR_SCRUBBING => [
+            DESCRIPTION    => "Poll for IMEM and DMEM scrubbing to complete",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _TU10X         => [ TURING, GA100, ],
+            _GA10X         => [ GA102_and_later, ],
+        ],
+
+        IS_FALCON_HALTED => [
+            DESCRIPTION    => "Check if falcon is halted or not",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        SETUP_TARGET_REGISTERS => [
+            DESCRIPTION    => "Programs target registers to ensure the falcon goes into LS mode",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        GET_LWRRENT_TIME_NS => [
+            DESCRIPTION    => "Get current time in NS",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_TIMESTAMP',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        GET_ELAPSED_TIME_NS => [
+            DESCRIPTION    => "Measure the time in nanoseconds elapsed since pTime",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "const PACR_TIMESTAMP pTime",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        CHECK_TIMEOUT => [
+            DESCRIPTION    => "Check if given timeout has elapsed or not",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32, ACR_TIMESTAMP, LwS32*',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        SETUP_CTX_DMA => [
+            DESCRIPTION    => "Program FBIF to allow physical transactions,
+                               Incase of GR falcons, make appropriate writes",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwU32 ctxDma, LwBool bIsPhysical',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        ALLOW_VIRTUAL_FB_ACCESS => [
+            DESCRIPTION    => "Program FBIF to allow virtual FB transactions,
+                               Incase of GR falcons, make appropriate writes",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        ISSUE_TARGET_FALCON_DMA => [
+            DESCRIPTION    => "Issue target falcon DMA",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32, LwU64, LwU32, LwU32, LwU32, LwU8, LwU8, LwU8, PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        FALCON_ONLY_RESET => [
+            DESCRIPTION    => "Reset only the falcon part",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        IS_FALCON_IN_RESET => [
+            DESCRIPTION    => "Check if the given falcon is in reset state",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwBool *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        PUT_FALCON_IN_RESET => [
+            DESCRIPTION    => "Put the given falcon into reset state",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_FALCON_IN_RESET,
+        ],
+
+        BRING_FALCON_OUT_OF_RESET => [
+            DESCRIPTION    => "Bring the given falcon out of reset state",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => IS_FALCON_IN_RESET,
+        ],
+
+        ASSERT_ENGINE_RESET => [
+            DESCRIPTION    => "Assert engine reset",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _TU10X         => [ dTURING_thru_dAMPERE, AD10X, ],
+            _GH100         => [ GH100_and_later, ],
+
+        ],
+
+        DEASSERT_ENGINE_RESET => [
+            DESCRIPTION    => "Deassert engine reset",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => ASSERT_ENGINE_RESET,
+        ],
+
+        RESET_FALCON => [
+            DESCRIPTION    => "Resets a given falcon",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        FIND_FARTHEST_IMEM_BL => [
+            DESCRIPTION    => "Find the IMEM block from the end to load BL code",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        FIND_TOTAL_DMEM_BLOCKS => [
+            DESCRIPTION    => "Find the total number of DMEM blocks",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        PROGRAM_REGION_CFG => [
+            DESCRIPTION    => "Programs the region CFG in FBFI register",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwBool, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        SETUP_BOOTVEC => [
+            DESCRIPTION    => "Programs the bootvector",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        SETUP_BOOTVEC_RISCV => [
+            DESCRIPTION    => "Programs the bootvector for RISC-V",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwU32, PLSF_LSB_HEADER, LwU64',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_ILWALID_OPERATION,
+
+            _GA100         => [ GA100, ],
+            _GA102         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA100, ],
+        ],
+
+        SETUP_BOOTVEC_RISCV_EXT => [
+            DESCRIPTION    => "Programs the bootvector for RISC-V with new wpr blobs defines",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwU32, PLSF_LSB_HEADER_WRAPPER, LwU64',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_ILWALID_OPERATION,
+
+            _GA102         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA102, ],
+        ],
+
+        SETUP_DMA_CTL => [
+            DESCRIPTION    => "Setup DMACTL",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        PROGRAM_DMA_BASE => [
+            DESCRIPTION    => "Program DMA base register",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwU64',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _TU10X         => [ TURING_and_later, -AMPERE, GA100, -AD10X, ],
+            _GA10X         => [ AMPERE, -GA100, AD10X, ],
+        ],
+
+        GET_LWDEC_CONFIG => [
+            DESCRIPTION    => "Get Lwdec falcon specifications",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _TU10X         => [ TU10X, ],
+            _STUB          => [ GA100_and_later, ],
+        ],
+
+        SETUP_SEC2_REGISTERS => [
+            DESCRIPTION    => "Set up SEC2-specific registers",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _TU10X         => [ TURING, GA100, ],
+            _GA10X         => [ GA10X_and_later, -GA100, ],
+        ],
+
+        CHECK_IF_FALCON_IS_BOOTSTRAPPED_WITH_LOADER => [
+            DESCRIPTION    => "Check if falcon is bootstrapped with loader",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => LwU32,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        SETUP_TARGET_FALCON_PLMS => [
+            DESCRIPTION    => "Setup PLMs of target falcons booted from ACR",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _TU10X         => [ TURING, GA100, ],
+            _GA10X         => [ GA10X_and_later, -GA100, ],
+        ],
+
+        SETUP_FECS_DMA_THROUGH_ARBITER => [
+            DESCRIPTION    => "Setup arbiter to allow DMA transactions for FECS",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_ILWALID_OPERATION,
+
+            _TU10X         => [ TU10X, ],
+            _GA100         => [ AMPERE_and_later ],
+        ],
+
+        IS_FALCON_INSTANCE_VALID => [
+            DESCRIPTION    => "Validate falcon instance",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => 'LwU32, LwU32, LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => LW_TRUE,
+
+            _GA100         => [ GA100, ],
+            _GA10X         => [ dAmpere, -GA100, ],
+            _AD10X         => [ AD10X, ],
+            _GH100         => [ Hopper_and_later, ],
+            _STUB          => [ pre_AMPERE, ],
+        ],
+
+        BAR0_WAIT_IDLE => [
+            DESCRIPTION    => "Wait for BAR0 bus to get idle",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        BAR0_REG_READ => [
+            DESCRIPTION    => "Read register using BAR0 bus",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        BAR0_REG_READ_DMEM_APERT => [
+            DESCRIPTION    => "Read register using an external interface when DMEM is enabled",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        BAR0_REG_WRITE => [
+            DESCRIPTION    => "Write register using BAR0 bus",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        BAR0_REG_WRITE_NON_BLOCKING => [
+            DESCRIPTION    => "Write register using BAR0 bus in non-blocking manner",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_BODY      => "falc_halt();",
+
+            LIKE_INTERFACE => FLCN_REG_WRITE_NON_BLOCKING,
+        ],
+
+        BAR0_REG_WRITE_DMEM_APERT => [
+            DESCRIPTION    => "Write register using an external interface when DMEM is enabled",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+         IS_FALCON_INDEX_MASK_VALID => [
+            DESCRIPTION    => "Validate falcon index Mask",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => 'LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => LW_TRUE,
+
+            _GA100         => [ GA100, AD10X_and_later, ],
+            _GA10X         => [ dAmpere, -GA100, ],
+            _STUB          => [ pre_AMPERE, ],
+        ],
+
+         ENABLE_AND_SELECT_AES => [
+            DESCRIPTION    => "Enable and select AES HS authentication for BROM",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+            INTERFACE_TAG  => acrlibEnableAndSelectAES,
+
+            _GA100         => [ GA100, ],
+            _STUB          => [ ALL, -GA100, ],
+        ],
+
+        CORE_SELECT => [
+            DESCRIPTION    => "Selects core Falcon/RISCV for bootstrapping based on uprocType",
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            RETURN_TYPE    => ACR_STATUS,
+            STUB_RETURNS   => ACR_OK,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr","__FUNC__")',
+
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA102, ],
+        ],
+
+        LSF_LSB_HEADER_WRAPPER_CTRL => [
+            DESCRIPTION    => "LSF_LSB_HEADER_WRAPPER control function",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32, PLSF_LSB_HEADER_WRAPPER, void *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_HAL_NOT_DEFINED_FOR_CHIP,
+
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA102, ],
+        ],
+
+        LSF_WPR_HEADER_WRAPPER_CTRL => [
+            DESCRIPTION    => "LSF_WPR_HEADER_WRAPPER control function",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32, PLSF_WPR_HEADER_WRAPPER, void *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_HAL_NOT_DEFINED_FOR_CHIP,
+
+            LIKE_INTERFACE => LSF_LSB_HEADER_WRAPPER_CTRL,
+        ],
+
+        LSF_SUB_WPR_HEADER_WRAPPER_CTRL => [
+            DESCRIPTION    => "LSF_SHARED_SUB_WPR_HEADER_WRAPPER control function",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32, PLSF_SHARED_SUB_WPR_HEADER_WRAPPER, void *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_HAL_NOT_DEFINED_FOR_CHIP,
+
+            LIKE_INTERFACE => LSF_LSB_HEADER_WRAPPER_CTRL,
+        ],
+
+        LSF_UCODE_DESC_WRAPPER_CTRL => [
+            DESCRIPTION    => "LSF_UCODE_DESC_WRAPPER control function",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32, PLSF_UCODE_DESC_WRAPPER, void *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_HAL_NOT_DEFINED_FOR_CHIP,
+
+            LIKE_INTERFACE => LSF_LSB_HEADER_WRAPPER_CTRL,
+        ],
+
+        RISCV_PRE_RESET_SEQUENCE => [
+            DESCRIPTION    => "RISCV pre reset sequence",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _GA10X         => [ GA102, GA103, GA104, GA106, GA107, ],
+            _STUB          => [ ALL, -GA102, -GA103, -GA104, -GA106, -GA107, ],
+        ],
+
+        FALCON_PRE_RESET_SEQUENCE => [
+            DESCRIPTION    => "FALCON pre reset sequence",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            LIKE_INTERFACE => RISCV_PRE_RESET_SEQUENCE,
+        ],
+
+        FALCON_POST_RESET_SEQUENCE => [
+            DESCRIPTION    => "FALCON post reset sequence",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            LIKE_INTERFACE => RISCV_PRE_RESET_SEQUENCE,
+        ],
+
+        PRE_ENGINE_RESET_SEQUENCE_BUG_200590866 => [
+            DESCRIPTION    => "Pre Engine Reset sequence for Bug 200590866",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            LIKE_INTERFACE => RISCV_PRE_RESET_SEQUENCE,
+        ],
+
+        POST_ENGINE_RESET_SEQUENCE_BUG_200590866 => [
+            DESCRIPTION    => "Post Engine Reset sequence for Bug 200590866",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            LIKE_INTERFACE => RISCV_PRE_RESET_SEQUENCE,
+        ],
+
+        LOCK_FALCON_REG_SPACE => [
+            DESCRIPTION    => "Use decode traps (pre GA10X) or target mask (GA10X and later) to lock falcon register space",
+            RETURN_TYPE    => ACR_STATUS,
+            STUB_RETURNS   => ACR_OK,
+            ARGUMENTS      => 'LwU32, PACR_FLCN_CONFIG, LwBool, LwU32 *, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _TU10X         => [ TU10X, GA100, ],
+            _GA10X         => [ GA102_and_later, ],
+        ],
+
+        UPDATE_BOOTVEC_PLM_LEVEL3_WRITEABLE => [
+            DESCRIPTION    => "Update BOOTVEC_PLM to level 3 Writeable and read access for all",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA102, ],
+        ],
+
+        UPDATE_DMA_PLM_LEVEL3_WRITEABLE => [
+            DESCRIPTION    => "Update DMA_PLM to level 3 Writeable and read access for all",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA102, ],
+        ],
+
+        SETUP_HS_FMC_SIGNATURE_VALIDATION => [
+            DESCRIPTION    => "Setup the paramters for Signature verification (of First Mutable Code) by Bootrom",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, HS_FMC_PARAMS *, LwU32, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_ILWALID_OPERATION,
+
+            _GA102         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA102, ],
+        ],
+
+
+       PROGRAM_FALCON_CODE_DATA_BASE_IN_SCRATCH_GROUP => [
+            DESCRIPTION    => "Callwlate and Program IMB and DMB base address in Scratch group registers",
+            RETURN_TYPE    => ACR_STATUS,
+            STUB_RETURNS   => ACR_OK,
+            ARGUMENTS      => 'LwU64, PLSF_LSB_HEADER_WRAPPER, PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA102, ],
+         ],
+
+        GET_FALCON_SCRATCH_GROUP_ALLOCATIONS_FOR_CODE_DATA_BASE => [
+            DESCRIPTION    => "Get the common scratch group registers allocation for falcon IMB/IMB1/DMB/DMB1 registers",
+            RETURN_TYPE    => ACR_STATUS,
+            STUB_RETURNS   => ACR_OK,
+            ARGUMENTS      => 'LwU32, LwU32 *, LwU32 *, LwU32 *, LwU32 *, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA102, ],
+         ],
+
+        MEMSET => [
+            DESCRIPTION    => "Shared memset implementation",
+            RETURN_TYPE    => 'void *',
+            ARGUMENTS      => 'void *, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => NULL,
+
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ pre_TU10X, ],
+        ],
+
+        MEMCPY => [
+            DESCRIPTION    => "Shared memcpy implementation",
+            RETURN_TYPE    => 'void *',
+            ARGUMENTS      => 'void *, void *, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => NULL,
+
+            LIKE_INTERFACE => MEMSET,
+        ],
+
+        GET_LWENC_FALCON_CONFIG => [
+            DESCRIPTION    => "Get LWENC falcon configuration per instance",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'LwU32, LwU32, PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_FLCN_ID_NOT_FOUND,
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GA10B, -AD10X, ],
+            _AD10X         => [ AD10X, ],
+            _STUB          => [ ALL, -dAMPERE_and_later, GA100, GA10B, ],
+        ],
+
+        GET_LWDEC_FALCON_CONFIG => [
+            DESCRIPTION    => "Get LWDEC(except LWDEC0) falcon configuration per instance",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'LwU32, LwU32, PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_FLCN_ID_NOT_FOUND,
+
+            _GH100         => [ dHOPPER_and_later, ],
+            _STUB          => [ ALL, -dHOPPER_and_later ],
+        ],
+
+        GET_LWDEC1_FALCON_CONFIG => [
+            DESCRIPTION    => "Get LWDEC(except LWDEC0) falcon configuration per instance",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'LwU32, LwU32, PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_FLCN_ID_NOT_FOUND,
+
+            _GA10X         => [ dAMPERE, -GA100, ],
+            _AD10X         => [ AD10X, ],
+            _STUB          => [ ALL, -dAMPERE_thru_AD10X , GA100, ],
+        ],
+
+        GET_LWJPG_FALCON_CONFIG => [
+            DESCRIPTION    => "Get LWJPG falcon configuration per instance",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'LwU32, LwU32, PACR_FLCN_CONFIG',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_FLCN_ID_NOT_FOUND,
+
+            _AD10X         => [ AD10X, ],
+            _GH100         => [ dHOPPER_and_later, ],
+            _STUB          => [ ALL, -AD10X_and_later ],
+        ],
+
+        VALIDATE_LWDEC_ID => [
+            DESCRIPTION    => "validate input Id if a valid LWDEC Id",
+            RETURN_TYPE    => 'LwBool',
+            ARGUMENTS      => 'LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_FLCN_ID_NOT_FOUND,
+
+            LIKE_INTERFACE => GET_LWDEC_FALCON_CONFIG,
+        ],
+
+        VALIDATE_LWJPG_ID => [
+            DESCRIPTION    => "validate input Id if a valid LWJPG Id",
+            RETURN_TYPE    => 'LwBool',
+            ARGUMENTS      => 'LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_FLCN_ID_NOT_FOUND,
+
+            LIKE_INTERFACE => GET_LWDEC_FALCON_CONFIG,
+        ],
+
+        GET_FB_FALCON_TARGET_MASK_INDEX => [
+            DESCRIPTION    => "Get the target mask index for FbFalcon based on the current chip",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_HAL_NOT_DEFINED_FOR_CHIP,
+
+            _GA10X         => [ dAMPERE, -GA100, AD10X, ],
+            _GH100         => [ HOPPER_and_later, G00x,],
+            _STUB          => [ ALL, -dAMPERE_and_later, GA100, ],
+        ],
+
+        GET_LWDEC_TARGET_MASK_INDEX => [
+            DESCRIPTION    => "Get the target mask index for LWDEC based on the current chip",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_HAL_NOT_DEFINED_FOR_CHIP,
+
+            LIKE_INTERFACE  => GET_FB_FALCON_TARGET_MASK_INDEX,
+        ],
+
+        GET_FB_FALCON_TARGET_MASK_REGISTER_DETAILS => [
+            DESCRIPTION    => "Return the target mask register details for FbFalcon based on the current chip",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'LwU32 *, LwU32 *, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _GH100         => [ HOPPER_and_later, G00x,],
+            _STUB          => [ ALL, -HOPPER_and_later,],
+        ],
+
+        GET_LWDEC_TARGET_MASK_REGISTER_DETAILS => [
+            DESCRIPTION    => "Return the target mask register details for LWDEC based on the current chip",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwU32 *, LwU32 *, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            LIKE_INTERFACE => GET_FB_FALCON_TARGET_MASK_REGISTER_DETAILS,
+        ],
+
+        GET_LWJPG_TARGET_MASK_REGISTER_DETAILS => [
+            DESCRIPTION    => "Return the target mask register details for LWJPG based on the current chip",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwU32 *, LwU32 *, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _GH100         => [ GH100, GB10X, ],
+            _STUB          => [ ALL, -GH100, -GB10X, ],
+
+        ],
+
+        GET_IMEM_SIZE => [
+            DESCRIPTION    => "Return uproc IMEM size based on the current chip",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _GH100         => [ HOPPER_and_later, G00x,],
+            _STUB          => [ ALL, -HOPPER_and_later,],
+        ],
+
+        GET_DMEM_SIZE => [
+            DESCRIPTION    => "Return uproc DMEM size based on the current chip",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'PACR_FLCN_CONFIG, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            LIKE_INTERFACE => GET_IMEM_SIZE,
+        ],
+
+        RISCV_GET_PHYSICAL_ADDRESS => [
+            DESCRIPTION    => "Return RISCV physical address per input target",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'LW_RISCV_MEM_TARGET, LwU64 , LwU64 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            LIKE_INTERFACE => GET_IMEM_SIZE,
+        ],
+
+        GET_FALCON_INSTANCE_COUNT => [
+            DESCRIPTION    => "Return Falcon instance count on the current chip",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'LwU32 , LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _TU10X         => [ TU10X, dAMPERE, ],
+            _AD10X         => [ AD10X, ],
+            _GH100         => [ GH100_and_later, ],
+        ],
+
+        GET_FALCON_INSTANCE_STATUS => [
+            DESCRIPTION    => "Return Falcon instance status the current chip",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'LwU32 , LwU32, LwBool * ',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _AD10X         => [ AD10X, ],
+            _GH100         => [ GH100_and_later, ],
+            _STUB          => [ ALL, -AD10X, -GH100_and_later, ]
+        ],
+
+        GET_FUSE_REG_ADDRESS => [
+            DESCRIPTION    => "Return fuse register address per given fuse offset",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'LwU32, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_HAL_NOT_DEFINED_FOR_CHIP,
+
+            LIKE_INTERFACE => GET_FALCON_INSTANCE_STATUS,
+        ],
+
+        GET_GPCCS_TARGET_MASK_REGISTER_DETAILS => [
+            DESCRIPTION    => "Return the target mask register details for GPCCS based on the current chip",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'LwU32, LwU32 *, LwU32 *, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_HAL_NOT_DEFINED_FOR_CHIP,
+
+            _GA10X         => [dAMPERE_and_later, -GA100, -GH100, -GB10X, -G00X, ],
+            _GH100         => [ GH100, GB10X, G00X, ],
+            _STUB          => [ pre_AMPERE, GA100, ],
+        ],
+        
+        GET_FECS_TARGET_MASK_INDEX => [
+            DESCRIPTION    => "Get the target mask index for LWDEC based on the current chip",
+            RETURN_TYPE    => 'ACR_STATUS',
+            ARGUMENTS      => 'LwU32, LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _GH100         => [ GH100, GB10X, G00X, ],
+            _GH202         => [ HOPPER_and_later, -GH100, -GB10X, -G00X, ],
+            _STUB          => [ ALL, -HOPPER_and_later, ],
+        ],
+
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $acrlibHal;
+

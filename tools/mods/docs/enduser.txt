@@ -1,0 +1,22 @@
+How to build an End-User MODS.
+
+1) Build DOS MODS normally (see build.txt).
+
+2) Copy the extra script file .../mods/gpu/js/enduser.js into your runspace.
+
+3) You will need to use encrypt.exe. You can build it by using its makefile
+inside <branch>/diag/encrypt if you do not already have it.
+Go to your runspace folder and type:
+
+<path-to-your-encrypt-app>\encrypt.exe -b enduser.js boundjs.h
+
+4) Copy the file boundjs.h into .../mods/djgpp.
+
+5) Rebuild MODS with the environment variables BOUND_JS=gpu/js/enduser.js.
+Make sure you either do a clean build, or at least rebuild core/include/version.h
+and the .cpp files that #include it.
+
+6) The entire release package is just the mods.exe.  No golden files or
+.js scripts are included -- they are all either generated at runtime or
+are compiled into the exelwtable.
+

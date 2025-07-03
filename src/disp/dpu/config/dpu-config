@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# dpu-config
+# just run rmconfig using our config file
+
+# bail on any error
+set -e
+
+[ -f dpu-config.cfg ]  ||  cd $LW_ROOT/uproc/disp/dpu/config
+
+[ -f dpu-config.cfg ]  ||  { echo Cannot find dpu-config.cfg >&2; exit 1; }
+
+
+# NOTE: '--mode dpu-config' must be the first argument to rmconfig
+exec ${PERL:-perl} ../../../../drivers/common/chip-config/chip-config.pl \
+                   --mode dpu-config \
+                   --config dpu-config.cfg \
+                   --source-root $LW_ROOT/uproc/disp/dpu/src \
+                   "$@"

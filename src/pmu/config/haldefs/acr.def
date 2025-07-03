@@ -1,0 +1,579 @@
+# -*- mode: perl; -*-
+
+# Access Control Region Details.
+
+my $apHal = [
+
+    DEFAULTS => [
+
+        FLAGS       => ":DIRECT_HAL_CALLS",
+
+    ],
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        #
+        # Moving this function to libAcr overlay since it is required in both GCX and ACR task
+        # And loading this overlay instead of complete GCX or ACR overlay would be much lighter
+        #
+        GET_REGION_DETAILS => [
+            DESCRIPTION    => "Returns WPR region details for given region ID",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERROR,
+            ARGUMENTS      => "LwU32 regionId, LwU64 *pStartAddr, LwU64 *pEndAddr, LwU16 *pRdMask, LwU16 *pWrMask",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libAcr", "__FUNC__")',
+
+            _GM20X         => [ GM20X_thru_VOLTA,],
+            _GA10B         => [ TEGRA_DGPU_AMPERE,],
+            _STUB          => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+        ],
+
+        APERTURE_SETUP_VERIFY => [
+            DESCRIPTION    => "Verify context DMA for Aperture setups",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERROR,
+            ARGUMENTS      => "LwU8",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => GET_REGION_DETAILS,
+        ],
+
+        WRITE_ERROR_CODE => [
+            DESCRIPTION    => "Writes error information to PMU Mailbox registers",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32, LwU32",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => GET_REGION_DETAILS,
+        ],
+
+        PRE_INIT => [
+            DESCRIPTION    => "Pre-init the ACR engine",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GP10X         => [ GP10X_and_later, -GP100, -TEGRA_DGPU_AMPERE, -GV11B, ],
+            _STUB          => [ MAXWELL, GP100, TEGRA_DGPU_AMPERE, GV11B, ],
+        ],
+
+        #
+        # Moving this function to libGC6 overlay since it is used to check if we should load
+        # libAcr overlay or not in GCX task
+        #
+        CHECK_REGION_SETUP => [
+            DESCRIPTION    => "To check if ACR is setup i.e. enabled",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => "",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libGC6", "__FUNC__")',
+
+            _GM20X         => [ GM20X, ],
+            _STUB          => [ GM10X, GP10X_and_later, ]
+        ],
+
+        #
+        # Moving this function to libAcr overlay to avoid loading complete GCX or ACR overlay,
+        # as loading libAcr overlay would be much lighter
+        #
+        PATCH_REGION_INFO => [
+            DESCRIPTION    => "To patch ACR region related info in BSI RAM",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32",
+            STUB_RETURNS   => FLCN_OK,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libAcr", "__FUNC__")',
+
+            _GM20X         => [ GM20X, ],
+            _STUB          => [ GM10X, GP10X_and_later, ],
+        ],
+
+        WRITE_CBC_BASE => [
+            DESCRIPTION    => "Write the backing store base address to the chip",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERROR,
+            ARGUMENTS      => "LwU32",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GM20X         => [ GM20X, GP100, ],
+            _GP10X         => [ GP10X, GV10X, -GP100, ],
+            _STUB          => [ GM10X, GV11B, TU10X_and_later, ],
+        ],
+
+        RESET_CBC_BASE => [
+            DESCRIPTION    => "Reset the backing store base address to zero",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_cmdmgmtRpc", "__FUNC__")',
+
+            LIKE_INTERFACE => WRITE_CBC_BASE,
+        ],
+
+        GET_MAX_VPR_RANGE  => [
+            DESCRIPTION    => "Get the max VPR range possible on this chip",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => "LwBool *, LwU64 *, LwU64 *",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GP10X         => [ GP10X_and_later, -GP100, -TEGRA_DGPU_AMPERE, -GV11B, ],
+            _STUB          => [ MAXWELL, GP100, TEGRA_DGPU_AMPERE, GV11B, ],
+        ],
+
+        IS_FALCON_BOOTSTRAP_BLOCKED => [
+            DESCRIPTION    => "Check if particular falcon bootstrap is blocked from acrlib",
+            RETURN_TYPE    => LwBool,
+            STUB_RETURNS   => LW_FALSE,
+            ARGUMENTS      => "LwU32",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GV100         => [ GV100, ],
+            _STUB          => [ ALL, -GV100, ],
+
+        ],
+
+        CAN_READ_WRITE_PMGR_SELWRE_SCRATCH => [
+            DESCRIPTION    => "Check if the PMGR secure scratch registers are accessible",
+            RETURN_TYPE    => LwBool,
+            STUB_RETURNS   => LW_FALSE,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => GET_MAX_VPR_RANGE,
+        ],
+
+        FIND_REG_MAPPING => [
+            DESCRIPTION    => "Find reg mapping using reg label",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, ACR_FLCN_REG_LABEL, ACR_REG_MAPPING *, FLCN_REG_TGT *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            _GM20X         => [ GM20X_thru_GV100, ],
+            _STUB          => [ GM10X, TU10X_and_later, TEGRA_DGPU_AMPERE, GV11B, ],
+        ],
+
+        SETUP_TARGET_REGISTERS => [
+            DESCRIPTION    => "Programs target registers to ensure the falcon goes into LS mode",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            _GM20X                           => [ GM20X_thru_GV100, ],
+            #
+            # Few ACRLIB functions are used in both CheetAh and DGPU PMU profiles. CheetAh profiles use ACRLIB
+            # functions from 'uproc/tegra_acr' directory, so Prefix for functions used in CheetAh profile is
+            # 'acrlib', due to which function names are explicitly specified for CheetAh profiles.
+            #
+            acrlibSetupTargetRegisters_GM200 => [ TEGRA_DGPU_AMPERE, GV11B, ],
+            _STUB                            => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+        ],
+
+        FIND_FARTHEST_IMEM_BL => [
+            DESCRIPTION    => "Find the IMEM block from the end to load BL code",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ZERO,
+
+            _GM20X                         => [ GM20X_thru_GV100, ],
+            acrlibFindFarthestImemBl_GM200 => [ TEGRA_DGPU_AMPERE, GV11B, ],
+            _STUB                          => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+        ],
+
+        SETUP_BOOTVEC => [
+            DESCRIPTION    => "Programs the bootvector",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+
+            _GM20X                   => [ GM20X_thru_GV100, ],
+            acrlibSetupBootvec_GM200 => [ TEGRA_DGPU_AMPERE, GV11B, ],
+            _STUB                    => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+        ],
+
+        ISSUE_TARGET_FALCON_DMA => [
+            DESCRIPTION    => "Issue target falcon DMA",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32, LwU64, LwU32, LwU32, LwU32, LwU8, LwU8, ACR_FLCN_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            _GM20X                           => [ GM20X_thru_GV100, ],
+            acrlibIssueTargetFalconDma_GM200 => [ TEGRA_DGPU_AMPERE, GV11B, ],
+            _STUB                            => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+        ],
+
+        SETUP_CTX_DMA => [
+            DESCRIPTION    => "Program FBIF to allow physical transactions,
+                               Incase of GR falcons, make appropriate writes",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, LwU32 ctxDma, LwBool bIsPhysical',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            _GM20X                  => [ GM20X_thru_GV100, ],
+            acrlibSetupCtxDma_GV11B => [ TEGRA_DGPU_AMPERE, GV11B, ],
+            _STUB                   => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+        ],
+
+        SETUP_DMA_CTL => [
+            DESCRIPTION    => "Setup DMACTL",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GM20X                  => [ GM20X_thru_GV100, ],
+            acrlibSetupDmaCtl_GM200 => [ TEGRA_DGPU_AMPERE, GV11B, ],
+            _STUB                   => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+        ],
+
+        FLCN_REG_LABEL_WRITE => [
+            DESCRIPTION    => "Acr util function to write falcon registers using register label",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, ACR_FLCN_REG_LABEL, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GM20X                        => [ GM20X_thru_GV100, ],
+            acrlibFlcnRegLabelWrite_GM200 => [ TEGRA_DGPU_AMPERE, GV11B, ],
+            _STUB                         => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+        ],
+
+        FLCN_REG_LABEL_READ => [
+            DESCRIPTION    => "Acr util function to read falcon registers using register label",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, ACR_FLCN_REG_LABEL',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ZERO,
+
+            _GM20X                       => [ GM20X_thru_GV100, ],
+            acrlibFlcnRegLabelRead_GM200 => [ TEGRA_DGPU_AMPERE, GV11B, ],
+            _STUB                        => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+        ],
+
+        FLCN_REG_READ => [
+            DESCRIPTION    => "Acr util function to read falcon registers",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, FLCN_REG_TGT, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ZERO,
+
+            _GM20X                  => [ GM20X_thru_GV100, ],
+            acrlibFlcnRegRead_GM200 => [ TEGRA_DGPU_AMPERE, GV11B, ],
+            _STUB                   => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+        ],
+
+        FLCN_REG_WRITE => [
+            DESCRIPTION    => "Acr util function to write falcon registers",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, FLCN_REG_TGT, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GM20X                   => [ GM20X_thru_GV100, ],
+            acrlibFlcnRegWrite_GM200 => [ TEGRA_DGPU_AMPERE, GV11B, ],
+            _STUB                    => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+
+        ],
+
+        PROGRAM_REGION_CFG => [
+            DESCRIPTION    => "Programs the region CFG in FBFI register",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, LwBool, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            _GM20X                       => [ GM20X_thru_GV100, ],
+            acrlibProgramRegionCfg_GM200 => [ TEGRA_DGPU_AMPERE, GV11B, ],
+            _STUB                        => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+
+        ],
+
+        POLL_FOR_SCRUBBING => [
+            DESCRIPTION    => "Poll for IMEM and DMEM scrubbing to complete",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+
+            _GM20X                       => [ GM20X_thru_GV100, ],
+            acrlibPollForScrubbing_GM200 => [ TEGRA_DGPU_AMPERE, GV11B, ],
+            _STUB                        => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+        ],
+
+        FIND_TOTAL_DMEM_BLOCKS => [
+            DESCRIPTION    => "Find the total number of DMEM blocks",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ZERO,
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        IS_FALCON_HALTED => [
+            DESCRIPTION    => "Check if falcon is halted or not",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => LW_FALSE,
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        GET_LWRRENT_TIME_NS => [
+            DESCRIPTION    => "Get current time in NS",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'FLCN_TIMESTAMP *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        CHECK_TIMEOUT => [
+            DESCRIPTION    => "Check if given timeout has elapsed or not",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32, FLCN_TIMESTAMP, LwS32*',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        FALCON_ONLY_RESET => [
+            DESCRIPTION    => "Reset only the falcon part",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        GET_ELAPSED_TIME_NS => [
+            DESCRIPTION    => "Measure the time in nanoseconds elapsed since pTime",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "const FLCN_TIMESTAMP *pTime",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ZERO,
+
+            LIKE_INTERFACE => FIND_REG_MAPPING,
+        ],
+
+        GET_FALCON_CONFIG => [
+            DESCRIPTION    => "Given falcon ID and instance ID, get the falcon
+                               specifications such as registerBase, pmcEnableMask etc",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'LwU32, LwU32, ACR_FLCN_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            _GM20X                      => [ GM200_thru_GP100, ],
+            acrlibGetFalconConfig_GM200 => [ TEGRA_DGPU_AMPERE, GV11B, ],
+            _GP10X                      => [ GP10X, -GP100, USED_BY_GV100, ],
+            _GV100                      => [ GV100, ],
+            _STUB                       => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+        ],
+
+        RESET_FALCON => [
+            DESCRIPTION    => "Resets a given falcon",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            _GM20X                  => [ GM20X_thru_GV100, ],
+            acrlibResetFalcon_GM200 => [ TEGRA_DGPU_AMPERE, GV11B, ],
+            _STUB                   => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+        ],
+
+        CHECK_IF_FALCON_IS_BOOTSTRAPPED_WITH_LOADER => [
+            DESCRIPTION    => "Check if falcon is bootstrapped with loader",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => LwU32,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => LW_FALSE,
+
+            _GM20X         => [ GM20X, GP100, ],
+            _GP10X         => [ GP10X_thru_GV100, -GP100, ],
+            _STUB          => [ GM10X, TU10X_and_later, TEGRA_DGPU_AMPERE, GV11B, ],
+        ],
+
+        ENABLE_I_C_D => [
+            DESCRIPTION    => "Enabled debug support using ICD",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GM20X         => [ GM20X_thru_GV100, ],
+            _STUB          => [ GM10X, TU10X_and_later, TEGRA_DGPU_AMPERE, GV11B, ],
+        ],
+
+        INITIALIZE_STACK_CFG => [
+            DESCRIPTION    => "Initialize stack config",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GP100         => [ GP100, ],
+            _STUB          => [ ALL, -GP100, ],
+        ],
+
+        SELWRE_RESET_FALCON => [
+            DESCRIPTION    => "Resets a given falcon using secure reset",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GP10X         => [ PASCAL_thru_GV100, -GP100, -CHEETAH, ],
+            _STUB          => [ MAXWELL, GP100, CHEETAH, TU10X_and_later, TEGRA_DGPU_AMPERE, GV11B, ],
+        ],
+
+        SETUP_SEC2_REGISTERS => [
+            DESCRIPTION    => "Set up SEC2-specific registers",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => SELWRE_RESET_FALCON,
+        ],
+
+        IS_FALCON_IN_RESET => [
+            DESCRIPTION    => "Check if the given falcon is in reset state",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, LwBool *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            _GM20X         => [ GM200_thru_GP100, CHEETAH, ],
+            _GP10X         => [ PASCAL_thru_GV100, -GP100, -CHEETAH, ],
+            _STUB          => [ GM10X, TU10X_and_later, TEGRA_DGPU_AMPERE, GV11B, ],
+        ],
+
+        BRING_FALCON_OUT_OF_RESET => [
+            DESCRIPTION    => "Bring the given falcon out of reset state",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => IS_FALCON_IN_RESET,
+        ],
+
+        PUT_FALCON_IN_RESET => [
+            DESCRIPTION    => "Put the given falcon into reset state",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_BIN_NOT_SUPPORTED,
+
+            LIKE_INTERFACE => IS_FALCON_IN_RESET,
+        ],
+
+        BAR0_WAIT_IDLE => [
+            DESCRIPTION    => "Wait for BAR0 bus to get idle",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GM20X         => [ GM200_thru_GV100, ],
+            _STUB          => [ GM10X, TU10X_and_later, TEGRA_DGPU_AMPERE, GV11B, ],
+        ],
+
+        BAR0_REG_READ_DMEM_APERT => [
+            DESCRIPTION    => "Read register using an external interface when DMEM is enabled",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ZERO,
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        BAR0_REG_READ => [
+            DESCRIPTION    => "Read register using BAR0 bus",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ZERO,
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        BAR0_REG_WRITE_DMEM_APERT => [
+            DESCRIPTION    => "Write register using an external interface when DMEM is enabled",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        BAR0_REG_WRITE => [
+            DESCRIPTION    => "Write register using BAR0 bus",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            LIKE_INTERFACE => BAR0_WAIT_IDLE,
+        ],
+
+        SETUP_TARGET_FALCON_PLMS => [
+            DESCRIPTION    => "Setup PLMs of target falcons booted from ACR",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_OK,
+
+            _STUB          => [ ALL, ],
+        ],
+
+        PROGRAM_DMA_BASE => [
+            DESCRIPTION    => "Program DMA base register",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, LwU64',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GM20X         => [ GM20X, CHEETAH, TEGRA_DGPU_AMPERE, GV11B, ],
+            _GP100         => [ PASCAL_thru_GV100, -CHEETAH, ],
+            _STUB          => [ GM10X, TU10X_and_later, -TEGRA_DGPU_AMPERE,],
+        ],
+
+        SETUP_FECS_DMA_THROUGH_ARBITER => [
+            DESCRIPTION    => "Setup arbiter to allow DMA transactions for FECS",
+            RETURN_TYPE    => ACR_STATUS,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *, LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            STUB_RETURNS   => ACR_ERROR_ILWALID_OPERATION,
+
+            _GM20X         => [ pre_TURING, ],
+            _STUB          => [ TURING_and_later ],
+        ],
+
+        GET_LWENC2_CONFIG => [
+            DESCRIPTION    => "Get Lwenc2 falcon specifications",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GP100         => [ GP100, ],
+            _STUB          => [ ALL, -GP100, ],
+        ],
+
+        GET_LWDEC_CONFIG => [
+            DESCRIPTION    => "Get Lwdec falcon specifications",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'ACR_FLCN_CONFIG *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+
+            _GM20X         => [ GM20X_thru_GV100, ],
+            _STUB          => [ GM10X, TU10X_and_later, TEGRA_DGPU_AMPERE, GV11B, ],
+        ],
+    ],  # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $apHal;
+

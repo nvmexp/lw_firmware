@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# sec2-config
+# just run rmconfig using our config file
+
+# bail on any error
+set -e
+
+[ -f sec2-config.cfg ]  ||  cd ../config
+[ -f sec2-config.cfg ]  ||  { echo Cannot find sec2-config.cfg >&2; exit 1; }
+
+cd ../src
+
+# NOTE: '--mode sec2-config' must be the first argument to rmconfig
+exec ${PERL:-perl} ../../../drivers/common/chip-config/chip-config.pl \
+                   --mode sec2-config \
+                   --config ../config/sec2-config.cfg \
+                   --source-root ../src \
+                   "$@"

@@ -1,0 +1,32 @@
+# -*- mode: perl; -*-
+
+# SPDM Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $spdmHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_spdm", "__FUNC__")',
+        FLAGS           => ':DIRECT_HAL_CALLS',
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        CHECK_IF_SPDM_IS_SUPPORTED => [
+            DESCRIPTION    => "Check if build is supported on chip",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_ERR_HS_CHK_CHIP_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_spdm", "__FUNC__")',
+
+            _GA100         => [ GA100, ],
+            _STUB          => [ ALL, -GA100, ],
+        ],
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $spdmHal;

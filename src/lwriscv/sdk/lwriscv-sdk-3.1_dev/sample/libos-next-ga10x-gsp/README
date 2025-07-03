@@ -1,0 +1,16 @@
+This sample app is written primarily for GA10X silicon, and for mods build.
+
+This app includes 3 main sources of code: SK, libos-next kernel, and app specific code.
+
+To test on ga10x silicon using mods or lwwatch, use the following command as a base, and add parameters as needed
+
+<./sim.pl -gdb -chip ga104 -hwbios -hwchip2 -modsOpt -A rmtest.js -only_family ampere -no_stack_dump  -rmmsg "gsp,bindata" -hot_reset -skip_azalia_init -rmkey RmClkAdcCalRevCheckIgnore 1  -vfe_version_check_ignore -fundamental_reset>
+
+*for mods, add <-load_gsp_lwos_sample>
+
+*for standalone lwwatch, use the basic command as is, but there are few caveats/manual steps needed, due to the fact that the libos image needs to be loaded to FB prior to branching there.
+   1), modify SK to take a software breakpoint and loop on a CSR register such as "sscratch"
+   2), after <rv brb *>, perform <rv halt> to halt on above breakpoint.
+   3), load the image to FB using <rv load $fb_address $firmware.image>
+   4), in the halt state, unblock the software break condition "e.g. <rv wcsr sscratch 1>", set the $fb_address to mailbox1 and mailbox0 register
+   5), <rv go>

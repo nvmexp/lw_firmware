@@ -1,0 +1,88 @@
+
+Instructions for building and running MODS under Vista
+-----------------------------------------
+
+MODS is now supporting Windows Vista operating system. Here is a short 
+introduction.
+
+0. Prepare files you need:
+ 
+ //sw/dev/gpu_drv/chips_a/diag/cpp/...  
+ //sw/dev/gpu_drv/chips_a/diag/encrypt/...
+ //sw/dev/gpu_drv/chips_a/diag/js/...
+ //sw/dev/gpu_drv/chips_a/diag/mods/...
+
+ //sw/dev/gpu_drv/chips_a/drivers/*.lwmk
+ //sw/dev/gpu_drv/chips_a/drivers/cglang/...
+ //sw/dev/gpu_drv/chips_a/drivers/ddraw/...
+ //sw/dev/gpu_drv/chips_a/drivers/common/...
+ //sw/dev/gpu_drv/chips_a/drivers/display/*.lwmk
+ //sw/dev/gpu_drv/chips_a/drivers/display/lddm/...
+ //sw/dev/gpu_drv/chips_a/drivers/display/winnt4/...
+ //sw/dev/gpu_drv/chips_a/drivers/modeset/timing/...
+ //sw/dev/gpu_drv/chips_a/drivers/OpenGL/...
+ //sw/dev/gpu_drv/chips_a/drivers/resman/*
+ //sw/dev/gpu_drv/chips_a/drivers/resman/arch/...
+ //sw/dev/gpu_drv/chips_a/drivers/resman/config/...
+ //sw/dev/gpu_drv/chips_a/drivers/resman/kernel/...
+
+ //sw/dev/gpu_drv/chips_a/sdk/...
+
+
+1. Make Vista Display Driver.
+   Current version is under //sw/dev/gpu_drv/chips_a/drivers 
+   
+   a) Set environment variables: 
+		LW_SOURCE        = C:\src\dev\gpu_drv\chips_a
+		LW_TOOLS         = C:\src\sw\tools
+		LW_INSTALL_DIR   = C:\mods\src\drv
+		PATH             = C:\src\sw\tools\win32\MiscBuildTools
+		LW_BUILD_TYPE    = release
+
+   b) Make (C:\src\sw\dev\gpu_drv\chips_a\drivers\common\build) :
+		lwmake clean
+		lwmake lddm display 
+
+   Alternatively take already made one from
+   \\builds\Nightly\LW\Wilwista\00_LastKnownGood-CHIPS_A
+
+
+2. Copy driver files and reload the driver.
+   (assume that you have already installed common LWPU Vista Display Driver)
+
+   a) LW_INSTALL_DIR\lwd3dum.dll    ->  %windir%\system32\lwd3dum.dll
+      LW_INSTALL_DIR\lwlddmkm.sys   ->  %windir%\system32\drivers\lwlddmkm.sys
+      
+   b) Computer -> Manage -> Device Manager -> Display Adapters -> Lwpu Device
+       -> Disable [Enable]   
+
+   
+3. Build MODS.
+   a) Set environment variable important for Vista mode: 
+		BUILD_OS=wilwista
+
+   (more information on how to build MODS you find 
+    //sw/dev/gpu_drv/chips_a/diag/mods/docs/build.txt )
+
+		
+4. Run MODS with Admin rights. This is VERY important, otherwise MODS will not be
+   able to reload the Display Driver.
+   
+
+
+Miscellaneous (especially for remote debug)
+-----------------------------------------
+
+You will find Vista working much more better if you disable USER ACCOUNT CONTROL.
+Follow instructions given at https://engwiki/index.php/Vista  
+(Disabling User Account Control (UAC)).
+
+Turn off the firewall: Control Panel -> Windows Firewall -> Change settings 
+ -> Off
+
+For information on setting up the kernel debugger, boot menus and BCDEDIT see the
+Debugging Tips section at https://engwiki/index.php/Windows_Vista/Debugging
+
+All needed information about vista you will find at https://engwiki/index.php/Vista
+
+

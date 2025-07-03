@@ -1,0 +1,33 @@
+# -*- mode: perl; -*-
+
+# Interrupt Controller Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $EcidHal = [
+
+    # per-GPU defaults for IC for all interfaces below
+    DEFAULTS => [
+
+        FLAGS       => ":DIRECT_HAL_CALLS",
+
+        # optional defaults for gpus not specifically setup by an interface
+    ],
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+       GET_DATA => [
+            DESCRIPTION   => "Get ECID Data",
+            RETURN_TYPE   => FLCN_STATUS,
+            ARGUMENTS     => "LwU64 *pEcidData",
+            STUB_RETURNS  => FLCN_ERR_NOT_SUPPORTED,
+
+            _GM10X        => [ MAXWELL_and_later, ],
+        ],
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $EcidHal;

@@ -1,0 +1,885 @@
+
+# -*- mode: perl; -*-
+
+# MS Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $msHal = [
+
+    # per-GPU defaults for MS for all interfaces below
+    DEFAULTS => [
+
+        FLAGS       => ":DIRECT_HAL_CALLS",
+
+        # optional defaults for gpus not specifically setup by an interface
+    ],
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        PRIV_BLOCKER_XVE_TIMEOUT_INIT => [
+            DESCRIPTION    => "initializes MS engine",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GMXXX         => [ dMAXWELL_thru_dPASCAL, ],
+            _STUB          => [ ALL, -dMAXWELL_thru_dPASCAL, ],
+        ],
+
+        INIT_FB_PARAMS => [
+            DESCRIPTION    => "Initializes FB parameters for the MS engine",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GMXXX         => [ MAXWELL, GP100, ],
+            _GP10X         => [ PASCAL, VOLTA, -GP100, -GV11B, ],
+            _GV11B         => [ GV11B, ],
+            _TU10X         => [ dTURING ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB         =>  [ GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        FBPA_IDLE_CONFIG => [
+            DESCRIPTION    => "Configure the FBPA idle signal",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _AD10X         => [ dADA_and_later, -GH100, -G00X, ],
+            _STUB         =>  [ pre_dADA, GH100, G00X, ],
+        ],
+
+        INIT_HALF_FBPA_MASK => [
+            DESCRIPTION    => "Initialzes Half FBPA mask for MS",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GP10X         => [ PASCAL, -GP100, dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, ],
+            _TU10X         => [ TURING, ],
+            _STUB          => [ ALL, -PASCAL, -TU10X_and_later, GP100, GA100, GH100, GB100, G00X, ],
+        ],
+
+        SW_ASR_ISSUE_ENTRY_COMMAND => [
+            DESCRIPTION     => "Prepare and issue Self refresh entry command",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+
+            _GMXXX          => [ pre_TURING, ],
+            _TU10X          => [ TURING, ],
+            _GA10X          => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB           => [ ALL, -dMAXWELL_and_later, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, -T194, ],
+        ],
+
+        SW_ASR_ISSUE_EXIT_COMMAND => [
+            DESCRIPTION     => "Prepare and issue the exit command",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+
+            _GMXXX          => [ pre_VOLTA, USED_BY_TU10X, ],
+            _TU10X          => [ TURING, ],
+            _GA10X          => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB           => [ ALL, -dMAXWELL_and_later, VOLTA, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        PROGRAM_ALLOW_RANGES => [
+            DESCRIPTION    => "Program the allow ranges",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GP10X         => [ PASCAL, VOLTA, -GP100, ],
+            _STUB          => [ MAXWELL, dTURING_and_later, GP100, ],
+        ],
+
+        PROGRAM_DISALLOW_RANGES => [
+            DESCRIPTION    => "Program the disallow ranges",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GM10X         => [ GM10X, ],
+            _GM20X         => [ GM20X, ],
+            _GP10X         => [ PASCAL, VOLTA, -GV11B, ],
+            _GV11B         => [ GV11B, ],
+            _STUB          => [ dTURING_and_later, ],
+        ],
+
+        PROGRAM_PRIV_BLOCKER_ALLOW_RANGES => [
+            DESCRIPTION    => "Program the priv blocker Allowlist ranges",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 blockerInitMask",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GP10X         => [ PASCAL, -GP100, ],
+            _STUB          => [ ALL, -PASCAL, GP100, ],
+        ],
+
+        PROGRAM_PRIV_BLOCKER_DISALLOW_RANGES => [
+            DESCRIPTION    => "Program the priv blocker Disallow list ranges",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 blockerInitMask",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            LIKE_INTERFACE => PROGRAM_PRIV_BLOCKER_ALLOW_RANGES,
+        ],
+
+        MSCG_IDLE_MASK_INIT => [
+            DESCRIPTION    => "initializes the idle mask for MSCG",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GM10X         => [ GM10X, ],
+            _GM20X         => [ GM20X, ],
+            _GP10X         => [ PASCAL, -GP100, ],
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE, ],
+            _AD10X         => [ AD10X_and_later, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ GP100, VOLTA, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        HOLDOFF_MASK_INIT => [
+            DESCRIPTION    => "initializes the holdoff mask for MS engine",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GM10X         => [ GM10X, ],
+            _GM20X         => [ GM20X, ],
+            _GP10X         => [ PASCAL, -GP100, ],
+            _TU10X         => [ dTURING_and_later, ],
+            _STUB          => [ GP100, VOLTA, ],
+        ],
+
+        LTC_IDLE_MASK_INIT => [
+            DESCRIPTION    => "initializes the idle mask for MS-LTC",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10B         => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _STUB          => [ ALL, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+        ],
+
+        LTC_HOLDOFF_MASK_INIT => [
+            DESCRIPTION    => "initializes the holdoff mask for MS-LTC",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            LIKE_INTERFACE => LTC_IDLE_MASK_INIT,
+        ],
+
+        LTC_ENTRY_CONDITION_CONFIG => [
+            DESCRIPTION    => "Configure MS-LTC entry conditions",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            LIKE_INTERFACE => LTC_IDLE_MASK_INIT,
+        ],
+
+        LTC_INIT_AND_ENABLE_INTR => [
+            DESCRIPTION    => "Enable interrupts for MS-LTC",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            LIKE_INTERFACE => LTC_IDLE_MASK_INIT,
+        ],
+
+        LTC_ENTRY => [
+            DESCRIPTION    => "MS_LTC entry sequence",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _GA10B         => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _STUB          => [ ALL, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+        ],
+
+        LTC_EXIT => [
+            DESCRIPTION    => "MS_LTC exit sequence",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => FLCN_ERROR,
+
+            LIKE_INTERFACE => LTC_ENTRY,
+        ],
+
+        PASSIVE_IDLE_MASK_INIT => [
+            DESCRIPTION    => "Initializes the idle mask for MS-PASSIVE",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE, -GA100, -TEGRA_DGPU_AMPERE, ],
+            _AD10X         => [ AD10X_and_later, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ pre_dAMPERE, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        PASSIVE_ENTRY_CONDITION_CONFIG => [
+            DESCRIPTION    => "Configure MS-PASSIVE entry conditions",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ pre_dAMPERE, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        DISABLE_PRIV_ACCESS => [
+            DESCRIPTION    => "Toggle Priv Access in MSCG / GC5",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool bDisable",
+
+            _GMXXX         => [ MAXWELL_thru_VOLTA, ],
+            _TU10X         => [ dTURING_and_later, ],
+        ],
+
+        INIT_AND_ENABLE_INTR => [
+            DESCRIPTION    => "Enable interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GMXXX         => [ MAXWELL, ],
+            _GP10X         => [ PASCAL, -GP100, ],
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ GP100, VOLTA, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        ENABLE_INTR => [
+            DESCRIPTION    => "Re-enable interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwr", "__FUNC__") GCC_ATTRIB_NOINLINE()',
+
+            _GMXXX         => [ dMAXWELL_and_later, -VOLTA, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B         => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _GV11B         => [ GV11B, ],
+            _STUB          => [ VOLTA, -GV11B, ],
+        ],
+
+        PRIV_BLOCKERS_INTR_DISABLE => [
+            DESCRIPTION    => "Disable/Enable the MS Priv Blocker interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => LwBool,
+
+            _GMXXX         => [ pre_dAMPERE, ],
+            _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        COLWERT_INTRS_TO_WAKE_UP_MASK => [
+            DESCRIPTION    => "Colwert interrupts to wake-up mask",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "LwU32 intrStat",
+            STUB_RETURNS   => ZERO,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwr", "__FUNC__")',
+
+            LIKE_INTERFACE => INIT_AND_ENABLE_INTR,
+        ],
+
+        IS_ENGINE_INTR_PENDING => [
+            DESCRIPTION    => "checks for pending interrupts on each engine",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => LW_FALSE,
+
+            _GM10X         => [ GM10X, ],
+            _GM20X         => [ GM20X, ],
+            _GP10X         => [ PASCAL, -GP100, ],
+            _STUB          => [ GP100, VOLTA_and_later, ],
+        ],
+
+        IS_HOST_MEM_OP_PENDING => [
+            DESCRIPTION    => "Checks Host Mem-op status for pending",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => LW_FALSE,
+
+            _GM10X         => [ MAXWELL_thru_VOLTA, ],
+            _TU10X         => [ dTURING_thru_dADA, ],
+            _GHXXX         => [ dHOPPER_and_later, ],
+        ],
+
+        IS_HOST_INTR_PENDING => [
+            DESCRIPTION    => "Checks Host-interrupts status for pending.",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => LW_FALSE,
+
+            _GM10X         => [ GM10X, ],
+            _GM20X         => [ GM20X, ],
+            _GP10X         => [ PASCAL, VOLTA, -GV11B, ],
+            _GV11B         => [ GV11B, ],
+            _TU10X         => [ TURING, ],
+            _STUB          => [ dAMPERE_and_later, ],
+        ],
+
+        IS_HOST_IDLE => [
+            DESCRIPTION    => "Checks if Host is Idle or not",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => LW_TRUE,
+
+            _GP10X         => [ PASCAL_thru_TURING, ],
+            _STUB          => [ ALL, -PASCAL_thru_TURING, ],
+        ],
+
+        IDLE_FLIPPED_RESET => [
+            DESCRIPTION      => "Reset IDLE_FLIPPED if FB traffic is generated only by PMU",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 ctrlId",
+            STUB_RETURNS     => FLCN_OK,
+
+            _GP10X           => [ PASCAL, VOLTA, -GV11B, ],
+            _TU10X           => [ dTURING_and_later, ],
+            _STUB            => [ MAXWELL, GV11B, ],
+        ],
+
+        WAIT_FOR_SUBUNITS_IDLE => [
+            DESCRIPTION    => "Waits until FB Sub system gets idle",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 ctrlId, FLCN_TIMESTAMP *, LwS32 *",
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _GMXXX         => [ pre_VOLTA, -GP100, ],
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B         => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+            _STUB          => [ GP100, VOLTA, ],
+        ],
+
+        PRIV_PATH_FLUSH => [
+            DESCRIPTION    => "Legacy Flush the PRIV Path",
+            RETURN_TYPE    => "LwBool",
+            ARGUMENTS      => "LwU16 *pAbortReason, FLCN_TIMESTAMP *pBlockStartTimeNs, LwS32 *pTimeoutLeftNs",
+            STUB_RETURNS   => LW_TRUE,
+
+            _GMXXX         => [ MAXWELL_thru_TURING, ],
+            _STUB          => [ ALL, -MAXWELL_thru_TURING, ],
+        ],
+
+        PRIV_BLOCKER_ENGAGE => [
+            DESCRIPTION    => "Engage the priv blockers",
+            RETURN_TYPE    => "LwBool",
+            ARGUMENTS      => "LwBool bBlockMode, FLCN_TIMESTAMP *pBlockStartTimeNs, LwS32 *pTimeoutLeftNs",
+            STUB_RETURNS   => LW_TRUE,
+
+            _GMXXX         => [ MAXWELL, ],
+            _GP10X         => [ PASCAL, VOLTA, ],
+            _STUB          => [ dTURING_and_later, ],
+        ],
+
+        PRIV_BLOCKER_ENTRY => [
+            DESCRIPTION    => "Execute the priv blocker entry sequence",
+            RETURN_TYPE    => "LwBool",
+            ARGUMENTS      => "LwU8 ctrlId, FLCN_TIMESTAMP *pBlockStartTimeNs, LwS32 *pTimeoutLeftNs, LwU16 *pAbortReason",
+            STUB_RETURNS   => LW_TRUE,
+
+            _GMXXX         => [ MAXWELL_thru_PASCAL, -GP100, GV11B, ],
+            _TU10X         => [ dTURING_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -G00X, -GH100, -GB100, ],
+            _STUB          => [ ALL, -MAXWELL_and_later, GP100, GV100, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        PRIV_BLOCKER_EXIT => [
+            DESCRIPTION    => "Execute the Priv blocker exit sequence",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "LwU8 ctrlId",
+
+            LIKE_INTERFACE => PRIV_BLOCKER_ENTRY,
+        ],
+
+        NISO_BLOCKER_ENTRY => [
+            DESCRIPTION    => "Execute the NISO Blocker Entry Sequence",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 ctrlId, FLCN_TIMESTAMP *, LwS32 *, LwU16 *pAbortReason",
+            STUB_RETURNS   => FLCN_OK,
+
+            _GMXXX         => [ pre_VOLTA, -GP100, ],
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, ],
+            _STUB          => [ GP100, VOLTA, GA100, GH100, GB100, G00X, ],
+        ],
+
+        NISO_BLOCKER_EXIT => [
+            DESCRIPTION    => "Execute the NISO Blocker Exit Sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 ctrlId",
+
+            LIKE_INTERFACE => NISO_BLOCKER_ENTRY,
+        ],
+
+        ISO_BLOCKER_ENTRY => [
+            DESCRIPTION    => "Execute the ISO Blocker Entry Sequence",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 ctrlId, FLCN_TIMESTAMP *, LwS32 *, LwU16 *pAbortReason",
+            STUB_RETURNS   => FLCN_OK,
+
+            _GMXXX         => [ pre_VOLTA, -GP100, ],
+            _TU10X         => [ dTURING_and_later, -GA100, -GH100, -GB100, -G00X, ],
+            _STUB          => [ GP100, VOLTA, GA100, GH100, GB100, G00X, ],
+        ],
+
+        ISO_BLOCKER_EXIT => [
+            DESCRIPTION    => "Execute the ISO blocker exit sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 ctrlId",
+
+            LIKE_INTERFACE => ISO_BLOCKER_ENTRY,
+        ],
+
+        ISO_STUTTER_OVERRIDE=> [
+            DESCRIPTION    => "Add/Remove Iso Stutter to/from MS Features entry conditions",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 ctrlId, LwBool",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwr", "__FUNC__")',
+
+            _GMXXX         => [ pre_VOLTA, ],
+            _TU10X         => [ dTURING_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ VOLTA, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        DISP_FORCE_FILL_INIT => [
+            DESCRIPTION    => "Init the ISO HUB force fill mode",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GMXXX         => [ pre_VOLTA, ],
+            _TU10X         => [ dTURING_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ VOLTA, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        DISP_FORCE_FILL_ENABLE => [
+            DESCRIPTION    => "Enable disable Display ISO HUB force fill mode",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool",
+
+            LIKE_INTERFACE => DISP_FORCE_FILL_INIT,
+        ],
+
+        SEC2_PRIV_BLOCKER_INTR_DISABLE => [
+            DESCRIPTION    => "Disable (mask) the SEC2 priv blocker interrupt to PMU",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            _GP10X         => [ PASCAL, -GP100, ],
+            _STUB          => [ MAXWELL, GP100, dVOLTA_and_later, ],
+        ],
+
+        SEC2_PRIV_BLOCKER_INTR_ENABLE => [
+            DESCRIPTION    => "Enable (unmask) the SEC2 priv blocker interrupt to PMU",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => SEC2_PRIV_BLOCKER_INTR_DISABLE,
+        ],
+
+        SEC2_PRIV_FB_BLOCKERS_DISENGAGE => [
+            DESCRIPTION    => "Disengage the SEC2 priv and FB blockers",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => SEC2_PRIV_BLOCKER_INTR_DISABLE,
+        ],
+
+        SEC2_WAKEUP_PENDING => [
+            DESCRIPTION    => "Check for SEC2 wakeup",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => LW_TRUE,
+
+            LIKE_INTERFACE => SEC2_PRIV_BLOCKER_INTR_DISABLE,
+        ],
+
+        SMCARB_TIMESTAMP_DISABLE => [
+            DESCRIPTION    => "Enable/disable SMCARB free-running timestamp",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "LwBool bDisable",
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, ],
+            _STUB          => [ pre_dAMPERE, GA100, GH100, GB100, G00X, ],
+        ],
+
+        HOST_FLUSH_BIND_ENTRY => [
+            DESCRIPTION    => "Interface to execture the sequence for HOST side Flush and Bind requests",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU16 *pAbortReason",
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _GMXXX         => [ dMAXWELL_thru_ADA, ],
+            _STUB          => [ ALL, -dMAXWELL_thru_ADA, ],
+        ],
+
+        HOST_FLUSH_BIND_EXIT => [
+            DESCRIPTION    => "Interface to execture the sequence for HOST side Flush and Bind requests",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => HOST_FLUSH_BIND_ENTRY,
+        ],
+
+        # HALs related to SW-ASR
+
+        INIT_ACTIVE_FBIOS => [
+            DESCRIPTION    => "Extract Active FBIOs for Mixed-Mode memory.",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GM10X         => [ GM10X, ],
+            _GM20X         => [ GM20X, ],
+            _GP10X         => [ dPASCAL_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _GV11B         => [ GV11B, ],
+            _STUB          => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        SW_ASR_ENTRY => [
+            DESCRIPTION    => "SW-ASR entry sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 ctrlId",
+
+            _GMXXX         => [ dMAXWELL_and_later, -GA100, -GH100, -GB100, ],
+            _STUB          => [ GA100, GH100, GB100, ],
+        ],
+
+        SW_ASR_EXIT => [
+            DESCRIPTION    => "SW-ASR exit sequence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 ctrlId",
+
+            LIKE_INTERFACE => SW_ASR_ENTRY,
+        ],
+
+        SW_ASR_DRAM_CLOCK_GATE => [
+            DESCRIPTION    => "Gate DRAM Clock for DDR memory",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            _GM10X         => [ pre_AMPERE, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        SW_ASR_DRAM_CLOCK_UNGATE => [
+            DESCRIPTION    => "Ungate DRAM Clock for DDR memory",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => SW_ASR_DRAM_CLOCK_GATE,
+        ],
+
+        SW_ASR_DRAM_DISABLE_DLL => [
+            DESCRIPTION    => "Disable the DLL",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            _GM10X         => [ MAXWELL, ],
+            _STUB          => [ ALL, -MAXWELL, ],
+        ],
+
+        SW_ASR_DRAM_ENABLE_DLL => [
+            DESCRIPTION    => "Enable the DLL",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => SW_ASR_DRAM_DISABLE_DLL,
+        ],
+
+        SW_ASR_DRAM_CLOCK_GATE_FROM_BYPASS => [
+            DESCRIPTION    => "Gate DRAM Clock from bypass path for DDR memory",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool bGate",
+
+            _GM10X         => [ dMAXWELL_thru_AD10X, -TEGRA_DGPU_ADA, -GA100, GH202, ],
+            _STUB          => [ GA100, TEGRA_DGPU_ADA, dHOPPER_and_later, -GH202, ],
+        ],
+
+        SW_ASR_COMP_PAD_PWR_DOWN => [
+            DESCRIPTION    => "Powers Down COMP pads",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            _GM10X         => [ GM10X, ],
+            _STUB          => [ ALL, -GM10X, ],
+        ],
+
+        SW_ASR_COMP_PAD_PWR_UP => [
+            DESCRIPTION    => "Powers Up COMP pads",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => SW_ASR_COMP_PAD_PWR_DOWN,
+        ],
+
+        SW_ASR_PAD_VREF_SET => [
+            DESCRIPTION    => "Set the Pad verf settings",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ pre_TURING, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        SW_ASR_PAD_VREF_RESTORE => [
+            DESCRIPTION    => "Restore the Pad verf settings",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => SW_ASR_PAD_VREF_SET,
+        ],
+
+        HOST_TO_FECS_FENCE_INSERT => [
+            DESCRIPTION    => "Insert the Host to FECS fence",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            _GMXXX         => [ pre_AMPERE, ],
+            _STUB          => [ ALL, -pre_AMPERE, ],
+        ],
+
+        ENTRY_CONDITION_CONFIG => [
+            DESCRIPTION    => "Configure MS entry conditions",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 ctrlId",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GMXXX         => [ pre_VOLTA, ],
+            _TU10X         => [ dTURING_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ VOLTA, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        FB_PAD_PWR_DOWN => [
+            DESCRIPTION    => "Power down different components in FB pads",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            _GMXXX         => [ MAXWELL, GP100, ],
+            _GP10X         => [ PASCAL, -GP100, ],
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ VOLTA, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        FB_PAD_PWR_UP => [
+            DESCRIPTION    => "Power up different components in FB pads",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => FB_PAD_PWR_DOWN,
+        ],
+
+        FB_TEMPERATURE_CONTROL_DISABLE  => [
+            DESCRIPTION    => "disable/restore FB Temperature control",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool bDisable",
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ pre_dAMPERE, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        FB_TRAINING_INITIATE => [
+            DESCRIPTION    => "Initiate the FB Training",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 trainingCmd",
+
+            _GMXXX         => [ dMAXWELL_and_later, ],
+        ],
+
+        FB_TRAINING_COMMAND_UPDATE => [
+            DESCRIPTION    => "Update the FB Training Commands",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 trainingCmd",
+
+            _GMXXX         => [ dMAXWELL_and_later, ],
+        ],
+
+        PERIODIC_TRAINING_ENABLE  => [
+            DESCRIPTION    => "Disable the DRAM periodic training",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            _GMXXX         => [ pre_AMPERE, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        ACPD_ACTION => [
+            DESCRIPTION    => "Take out the DRAM out of self refresh",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool",
+
+            _GMXXX         => [ dMAXWELL_and_later, ],
+        ],
+
+        IS_IDLE => [
+            DESCRIPTION    => "Check Idleness of Memory Subsystem",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "LwU8 ctrlId, LwU16 *pAbortReason",
+            STUB_RETURNS   => LW_FALSE,
+
+            _GMXXX         => [ dMAXWELL_and_later, ],
+        ],
+
+        #MSCG Stop Clock HAL Interface
+
+        STOP_CLOCK_INIT => [
+            DESCRIPTION     => "Initialize MS Stop Clock profile for GPC/XBAR clock",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 clkMask",
+            STUB_RETURNS    => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _TU10X          => [ dTURING_and_later, ],
+            _STUB           => [ ALL, -dTURING_and_later, ],
+        ],
+
+        STOP_CLOCK_GATE => [
+            DESCRIPTION     => "Gate the GPC/XBAR clock using MSCG Stop Clock feature",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            STUB_RETURNS    => void,
+
+            LIKE_INTERFACE  => STOP_CLOCK_INIT,
+        ],
+
+        STOP_CLOCK_UNGATE => [
+            DESCRIPTION     => "Ungate the GPC/XBAR clock using MSCG Stop Clock feature",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            STUB_RETURNS    => void,
+
+            LIKE_INTERFACE  => STOP_CLOCK_INIT,
+        ],
+
+        WAIT_FOR_L2_FLUSH_FINISH => [
+            DESCRIPTION    => "wait for L2 flush to finish",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => void,
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -G00X, ],
+            _STUB          => [ pre_dAMPERE, GA100, GH100, GB100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, G00X, ],
+        ],
+
+        L2_FLUSH_AND_ILWALIDATE => [
+            DESCRIPTION    => "Flush and Ilwalidate the L2 Contents",
+            RETURN_TYPE    => "FLCN_STATUS",
+            ARGUMENTS      => "LwU8 ctrlId, FLCN_TIMESTAMP *pBlockStartTimeNs, LwS32 *pTimeoutLeftNs",
+            STUB_RETURNS   => FLCN_OK,
+
+            _GMXXX         => [ pre_AMPERE, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, ],
+            _STUB          => [ GA100, GH100, GB100, G00X, ],
+        ],
+
+        DISABLE_L2_AUTO_FLUSH => [
+            DESCRIPTION    => "Disable the L2 Auto Flush",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "void",
+
+            _GMXXX         => [ pre_AMPERE, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -G00X, ],
+            _STUB          => [ GA100, GH100, GB100, G00X, ],
+        ],
+
+        RESTORE_L2_AUTO_FLUSH => [
+            DESCRIPTION    => "Disable the L2 Auto Flush",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "void",
+
+            LIKE_INTERFACE => DISABLE_L2_AUTO_FLUSH,
+        ],
+
+        DIFR_SW_ASR_LTC_ENTRY => [
+            DESCRIPTION    => "Update the L2 Cache Dirty Data eviction settings",
+            RETURN_TYPE    => "FLCN_STATUS",
+            ARGUMENTS      => "LwU8 ctrlId",
+            STUB_RETURNS   => FLCN_OK,
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -GH100, -GB100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -G00X, ],
+            _STUB          => [ pre_dAMPERE, GA100, GH100, GB100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, G00X, ],
+        ],
+
+        DIFR_SW_ASR_LTC_EXIT => [
+            DESCRIPTION    => "Restore the L2 Cache Dirty Data eviction settings",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "LwU8 ctrlId",
+
+            LIKE_INTERFACE => DIFR_SW_ASR_LTC_ENTRY,
+        ],
+
+        SRAM_POWER_GATING_ENGAGE => [
+            DESCRIPTION    => "engage/disengage the Power gating for MS-SRAMs",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "LwU8 ctrlId, LwBool bEngage",
+
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ ALL, -dTURING_and_later, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        CLK_SLOW_DOWN_ENGAGE => [
+            DESCRIPTION    => "Engage/Disengage the CLock Slowdown",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => "LwU8 ctrlId, LwBool bEngage",
+
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ ALL, -dTURING_and_later, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        LTC_CACHE_OPS => [
+            DESCRIPTION    => "L2 Cache operation ",
+            RETURN_TYPE    => "FLCN_STATUS",
+            ARGUMENTS      => "LwU8 l2CacheOps",
+            STUB_RETURNS   => FLCN_OK,
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ ALL, -dAMPERE_and_later, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        RPG_PRE_ENTRY_SEQ => [
+            DESCRIPTION    => "Pre Sequence for L2-RPG",
+            RETURN_TYPE    => "FLCN_STATUS",
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ ALL, -dAMPERE_and_later, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        RPG_POST_EXIT_SEQ => [
+            DESCRIPTION    => "Pre Sequence for L2-RPG",
+            RETURN_TYPE    => "void",
+            ARGUMENTS      => void,
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ ALL, -dAMPERE_and_later, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+
+        # DIFR SW-ASR and DIFR CG Interface
+        DIFR_IDLE_MASK_INIT => [
+            DESCRIPTION    => "initializes the idle mask for DIFR FSM",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 ctrlId",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE, -GA100, ],
+            _AD10X         => [ AD10X_and_later, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ ALL, -dAMPERE_and_later, TEGRA_DGPU_ADA, GA100, GH100, GB100, G00X, ],
+        ],
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $msHal;

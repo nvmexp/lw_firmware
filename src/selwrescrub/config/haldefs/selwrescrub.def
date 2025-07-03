@@ -1,0 +1,595 @@
+# -*- mode: perl; -*-
+
+# SELWRESCRUB Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $selwrescrubHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        BAR0_WAIT_IDLE => [
+            DESCRIPTION    => "Wait for BAR0 to become idle",
+            RETURN_TYPE    => 'void',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ]
+        ],
+
+        READ_REGISTER => [
+            DESCRIPTION    => "Wrapper function for blocking falcon read instruction to halt in case of Priv Error.",
+            RETURN_TYPE    => 'LwU32',
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        WRITE_REGISTER => [
+            DESCRIPTION    => "Wrapper function for blocking falcon read instruction to halt in case of Priv Error.",
+            RETURN_TYPE    => 'void',
+            ARGUMENTS      => 'LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+       ],
+
+       READ_VPR_INFO => [
+            DESCRIPTION    => "VPR info can be read by querying VPR_INFO registers in MMU",
+            RETURN_TYPE    => 'LwU32',
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => ZERO,
+
+            _GP10X         => [ GP10X_thru_VOLTA, CHEETAH, ],
+            _STUB          => [ TU10X_and_later, ],
+        ],
+
+       READ_WPR_INFO => [
+            DESCRIPTION    => "WPR info can be read by querying WPR_INFO registers in MMU",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => LwU32,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => ZERO,
+
+            _GP10X         => [ GP10X_thru_VOLTA, CHEETAH, ],
+            _STUB          => [ TU10X_and_later, ],
+        ],
+
+       WRITE_VPR_WPR_DATA => [
+            DESCRIPTION    => "WPR info can be read by querying WPR_INFO registers in MMU",
+            RETURN_TYPE    => 'void',
+            ARGUMENTS      => 'LwU32 , LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => void,
+
+            _GP10X         => [ GP10X_thru_VOLTA, CHEETAH, ],
+            _STUB          => [ TU10X_and_later, ],
+        ],
+
+        SET_VPR_STATE => [
+            DESCRIPTION    => "Set/Unset VPR_IN_USE bit which enables VPR range check in MMU",
+            RETURN_TYPE    => 'void',
+            ARGUMENTS      => 'LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_thru_VOLTA, CHEETAH, ],
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        GET_VPR_STATE => [
+            DESCRIPTION    => "Returns VPR state in MMU",
+            RETURN_TYPE    => 'LwBool',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => SET_VPR_STATE,
+        ],
+
+        READ_BAR0 => [
+            DESCRIPTION    => "Reads BAR0",
+            RETURN_TYPE    => 'LwU32',
+            ARGUMENTS      => 'LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        WRITE_BAR0 => [
+            DESCRIPTION    => "Writes BAR0",
+            RETURN_TYPE    => 'void',
+            ARGUMENTS      => 'LwU32 , LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        GET_LWR_MEMLOCK_RANGE_IN_BYTES => [
+            DESCRIPTION    => "Get the current Mem Lock Range in bytes",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'LwU64 *, LwU64 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+
+            _GV10X         => [ VOLTA, CHEETAH, ],
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ pre_VOLTA, -CHEETAH, ],
+        ],
+
+        GET_HW_SCRUBBER_RANGE_IN_BYTES => [
+            DESCRIPTION    => "Get the current HW Scrubber Range in bytes",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'LwU64 *, LwU64 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+
+            LIKE_INTERFACE => GET_LWR_MEMLOCK_RANGE_IN_BYTES,
+        ],
+
+        VALIDATE_VPR_HAS_BEEN_SCRUBBED => [
+            DESCRIPTION    => "Validate VPR has been scrubbed by HW scrubber. Scrub was started by devinit.",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'LwU64 , LwU64',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_thru_VOLTA, CHEETAH, ],
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        IS_CHIP_SUPPORTED => [
+            DESCRIPTION     => "Validate if the ucode running supports the current chip",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS    => LW_FALSE,
+
+            _GP10X          => [ GP10X, ],
+            _GV10X          => [ GV10X, ],
+            _TU10X          => [ TU102, TU104, TU106, ],
+            _TU116          => [ TU116, TU117, ],
+            _GA10X          => [ GA102, GA103, GA104, GA106, GA107 ],
+            _STUB           => [ GA100, GH100_and_later ],
+        ],
+
+        GET_HW_FUSE_VERSION => [
+            DESCRIPTION     => "Returns HW fuse version",
+            RETURN_TYPE     => SELWRESCRUB_RC,
+            ARGUMENTS       => "LwU32 *",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS    => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+
+            _GP10X          => [ GP10X, ],
+            _GV10X          => [ GV10X, ],
+            _TU10X          => [ TURING, ],
+            _GA10X          => [ GA102_and_later, ],
+            _STUB           => [ GA100, ],
+        ],
+
+        GET_HW_FPF_FUSE_VERSION => [
+            DESCRIPTION     => "Returns HW FPF fuse version",
+            RETURN_TYPE     => SELWRESCRUB_RC,
+            ARGUMENTS       => "LwU32 *",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS    => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+
+            _GA10X          => [ GA102_and_later, ],
+            _STUB           => [ pre_GA102, ],
+        ],
+
+        GET_SET_VPR_MMU_SETTINGS => [
+            DESCRIPTION    => "Query VPR information in MMU",
+            RETURN_TYPE    => 'void',
+            ARGUMENTS      => 'PVPR_ACCESS_CMD',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_thru_VOLTA, CHEETAH, ],
+            _TU10X         => [ TU10X_and_later, ],
+        ],
+
+        GET_VPR_RANGE_FROM_BSI_SCRATCH => [
+            DESCRIPTION    => "Return the VPR range saved in BSI secure scratch registers",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'PVPR_ACCESS_CMD',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+            INTERFACE_TAG  => "selwrescrubGetVPRRangeFromBsiScratch",
+        ],
+
+        GET_VBIOS_VPR_SYNC_SCRUB_SIZE => [
+            DESCRIPTION    => "Return the size of memory, in MB, synchronously scrubbed by vbios just above the VPR range that is asyncronously scrubbed.",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'LwU32 *l',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        REPORT_STATUS => [
+            DESCRIPTION    => "reports error code in mailbox 0 and additional information in mailbox1",
+            RETURN_TYPE    => 'void',
+            ARGUMENTS      => 'LwU32 , LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        IS_DISP_ENGINE_ENABLED_IN_FUSE => [
+            DESCRIPTION    => "Check if display Engine is Enabled in fuse.",
+            RETURN_TYPE    => 'LwBool',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        REVOKE_HS_BIN => [
+            DESCRIPTION    => "revoke scrub binary",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',       
+            STUB_RETURNS   => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+
+            _GP10X         => [ GP10X_thru_TURING, ],
+            _GA10X         => [ GA102_and_later, ],
+            _STUB          => [ GA100, ], 
+        ],
+
+        CHECK_DEVINIT_HANDOFF_IS_AS_EXPECTED => [
+            DESCRIPTION    => "Check for devinit handoff value and halt if handoff value doesn't match expected behavior",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        UPDATE_HANDOFF_VAL_SCRUBBER_BIN_TAKING_OVER => [
+            DESCRIPTION    => "Update handoff value to indicate that scrubber binary is taking over.",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        UPDATE_HANDOFF_VAL_SCRUBBER_BIN_DONE => [
+            DESCRIPTION    => "Update handoff value to indicate that scrubber binary is done.",
+            RETURN_TYPE    => 'void',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        CLEAR_VPR_BLANKING_POLICY => [
+            DESCRIPTION    => "Clear VPR display blanking policy",
+            RETURN_TYPE    => 'void',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X, ],
+            _GV10X         => [ GV10X_and_later, ],
+        ],
+
+        ENABLE_DISPLAY_CRC => [
+
+            DESCRIPTION    => "Enable Display CRC.",
+            RETURN_TYPE    => 'void',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            INTERFACE_TAG  => 'selwrescrubEnableDisplayCRC',
+
+            _GP10X         => [ GP10X, ],
+            _STUB          => [ ALL, -GP10X, ]
+        ],
+
+        WRITE_SCRUBBER_BIN_VERSION_TO_BSI_SELWRE_SCRATCH => [
+            DESCRIPTION    => "Writing Scrubber bin version to BSI secure scratch",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+        ],
+
+        VALIDATE_WRITE_PROTECTION_IS_SET_ON_VPR_RANGE => [
+            DESCRIPTION    => "Check if the VPR range is write-locked with appropriate protection - WPR2/memlock range.",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'LwU64 , LwU64 , LwBool * , LwBool *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X, ],
+            _GV10X         => [ GV10X_and_later, ],
+            INTERFACE_TAG  => 'selwrescrubValidateWriteProtectionIsSetOlwPRRange',
+        ],
+
+        REMOVE_WRITE_PROTECTION => [
+            DESCRIPTION    => "Remove write protection as requested - WPR2/memlock range.",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'LwBool , LwBool',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => GET_SET_VPR_MMU_SETTINGS,
+        ],
+
+        IN_GC6_EXIT => [
+            DESCRIPTION    => "Check if we are GC6 exit.",
+            RETURN_TYPE    => 'LwBool',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+            INTERFACE_TAG  => 'selwrescrubInGC6Exit',
+        ],
+
+        PROGRAM_DECODE_TRAPS_FOR_FECS => [
+            DESCRIPTION    => "Program decode traps#10 and #11 to escalate FECS priv level to level3 for writes to LW_PFB_PRI_MMU_VPR_WPR_WRITE and LW_PGRAPH_PRI_GPCS_MMU_VPR_WPR_WRITE",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => 'SELWRESCRUB_RC_OK',
+
+            _GP10X         => [ GP10X, USED_BY_GV10X, ],
+            _GV10X         => [ GV10X, ],
+            _STUB          => [ TU10X_and_later, ],    # Settings moved to HW as init values so stubbing SW version.
+            INTERFACE_TAG  => 'selwrescrubProgramDecodeTrapsForFECS',
+        ],
+
+        PROGRAM_DECODE_TRAP_TO_UPGRADE_SEC2_MUTEX_TO_LEVEL3 => [
+            DESCRIPTION    => "Programs SEC2 mutex to level 3 using decode traps",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+
+            _GP10X         => [ PASCAL, ],
+            _STUB          => [ ALL, -PASCAL, ],
+        ],
+
+        PROGRAM_REQUIRED_DECODE_TRAPS => [
+            DESCRIPTION    => "Program decode traps#10 and #11 to escalate FECS priv level to level3 for writes to LW_PFB_PRI_MMU_VPR_WPR_WRITE and LW_PGRAPH_PRI_GPCS_MMU_VPR_WPR_WRITE",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+
+            _GP10X         => [ PASCAL, ],
+            _GV10X         => [ VOLTA_and_later, ],
+            _STUB          => [ pre_PASCAL, ],
+        ],
+
+
+
+        ACQUIRE_SELWRE_MUTEX => [
+            DESCRIPTION    => "This function acquires SEC2 mutex. Adopted from SEC2 ucode's implementation of function sec2MutexAcquire_GP10X",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'FLCNMUTEX *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            selwrescrubAcquireSec2Mutex_GP10X           => [ GP10X, ],
+            selwrescrubAcquireSelwreSECommonMutex_GV10X => [ GV10X_and_later, ]
+        ],
+
+        RELEASE_SELWRE_MUTEX => [
+            DESCRIPTION    => "This function Release SEC2 mutex. Adopted from SEC2 ucodes implementation of function sec2MutexAcquire_GP10X",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'FLCNMUTEX *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            selwrescrubReleaseSec2Mutex_GP10X => [ GP10X, ],
+            selwrescrubReleaseSelwreSECommonMutex_GV10X => [GV10X_and_later, ],
+        ],
+
+        RELEASE_TYPE1_LOCK_IN_DISP_SCRATCH => [
+            DESCRIPTION    => "Release the HDCP2.2 type1 lock state in DISP secure scratch register",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'void',
+            STUB_RETURNS   => 'SELWRESCRUB_RC_OK',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+
+            _GP10X         => [ GP10X, ],
+            _STUB          => [ ALL, -GP10X, ],
+        ],
+
+        UPGRADE_DISP_SELWRE_SCRATCH_WRITE_PROTECTION => [
+            DESCRIPTION    => "Upgrade write protection of PDISP_SELWRE_SCRATCH(i) registers by changing their PLM value",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => 'SELWRESCRUB_RC_OK',
+
+            LIKE_INTERFACE => RELEASE_TYPE1_LOCK_IN_DISP_SCRATCH,
+        ],
+
+        RELEASE_TYPE1_LOCK_IN_BSI_SCRATCH => [
+            DESCRIPTION    => "Release the HDCP2.2 type1 lock state in BSI secure scratch register",
+            RETURN_TYPE    => 'void',
+            ARGUMENTS      => 'void',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+
+            LIKE_INTERFACE => RELEASE_TYPE1_LOCK_IN_DISP_SCRATCH,
+        ],
+
+        SELWRE_BUS_SEND_REQUEST => [
+            DESCRIPTION    => "Sends request to Secure bus",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'SELWREBUS_REQUEST_TYPE, LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+
+            _GV10X         => [  GV10X_and_later, ],
+            _STUB          => [ pre_GV10X, ],
+        ],
+
+        SELWRE_BUS_GET_DATA => [
+            DESCRIPTION    => "Gets data from Secure bus",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+
+            LIKE_INTERFACE => SELWRE_BUS_SEND_REQUEST,
+        ],
+
+        SELWRE_BUS_WRITE_REGISTER => [
+            DESCRIPTION    => "Writes registers which in on secure bus",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'LwU32, LwU32',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+
+            LIKE_INTERFACE => SELWRE_BUS_SEND_REQUEST,
+        ],
+
+        SELWRE_BUS_READ_REGISTER => [
+            DESCRIPTION    => "Reads registers which in on secure bus",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'LwU32, LwU32*',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+
+            LIKE_INTERFACE => SELWRE_BUS_SEND_REQUEST,
+        ],
+
+        GET_USABLE_FB_SIZE_IN_MB => [
+            DESCRIPTION    => "Get Size of Frame Buffer in MB",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'LwU64 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+
+            _GP10X         => [ pre_AMPERE, ],
+            _GA10X         => [ GA10X_and_later, -GA100, ],
+            _STUB          => [ GA100, ],
+        ],
+
+        GET_SW_UCODE_VERSION => [
+            DESCRIPTION    => "Get SW Ucode version of binary",
+            RETURN_TYPE    => 'SELWRESCRUB_RC',
+            ARGUMENTS      => 'LwU32 *',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+
+            _GP10X => [ GP10X, ],
+            _GV10X => [ GV10X, ],
+            _TU10X => [ TU102, TU104, TU106, ],
+            _TU116 => [ TU116, TU117, ],
+            _GA10X => [ GA102, GA103, GA104, GA106, GA107, ],
+            _STUB  => [ GA100, GH100_and_later ],
+        ],
+
+        GET_FB_SYNC_SCRUB_SIZE_AT_FB_END_IN_BYTES       => [
+            DESCRIPTION    => "Get CBC related adjustment size",
+            RETURN_TYPE    => SELWRESCRUB_RC,
+            ARGUMENTS      => 'LwU64, LwU64*',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+            STUB_RETURNS   => SELWRESCRUB_RC_STUBBED_HAL_FOR_GET_UDE_SYNC_SCRUB_SIZE_DUE_TO_LARGE_CBC,
+
+            _GV10X => [ GV10X, ],
+            _TU10X => [ TU10X_and_later, ],
+            _STUB  => [ pre_GV10X, ],
+        ],
+
+        CHECK_IF_PRIV_SEC_ENABLED_ON_PROD => [
+            DESCRIPTION    => "Check if Priv Sec is enabled on prod board",
+            ARGUMENTS      => 'void',
+            RETURN_TYPE    => SELWRESCRUB_RC,
+            STUB_RETURNS   => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub","___FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, ], # This takes effect from GA100 and later, since there is no plan of supporting Turing fromm chips_a.
+            _STUB          => [ ALL, -TU10X_and_later, ],
+        ],
+
+        SET_BAR0_TIMEOUT => [
+            DESCRIPTION    => "Set timeout for BAR0 transactions",
+            ARGUMENTS      => 'void',
+            RETURN_TYPE    => void,
+            STUB_RETURNS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub","___FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ ALL, -TU10X_and_later, ],
+        ],
+
+        VALIDATE_BLOCKS => [
+            DESCRIPTION    => "This function will ilwalidate the bubbles(blocks not of SELWRESCRUB HS, caused if SELWRESCRUB blocks are not loaded contiguously in IMEM)",
+            ARGUMENTS      => 'void',
+            RETURN_TYPE    => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub", "__FUNC__")',
+
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ ALL, -TU10X_and_later, ],
+
+        ],
+
+        RESET_SCP_LOOP_TRACES_AND_PIPE => [
+            DESCRIPTION    => "Reset both instuction sequencers and pipe to put SCP in a more deterministic state",
+            RETURN_TYPE    => void,
+            FLAGS          => ":STATIC",
+            ARGUMENTS      => 'void',
+            ONLY_IF        => '!SELWRESCRUB_BOOT_FROM_HS', # Not required in Boot from HS build
+
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ ALL, -TU10X_and_later, ],
+
+        ],
+
+        SCP_GET_RANDOM_NUMBER => [
+                DESCRIPTION    => "Get Random number from SCP",
+                RETURN_TYPE    => 'SELWRESCRUB_RC',
+                FLAGS          => ":STATIC",
+                ARGUMENTS      => 'LwU32 *',
+                STUB_RETURNS   => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+                ONLY_IF        => '!SELWRESCRUB_BOOT_FROM_HS', # Not required in Boot from HS build
+
+                _TU10X         => [ TU10X_and_later, ],
+                _STUB          => [ ALL, -TU10X_and_later, ],
+        ],
+
+        CHECK_CHAIN_OF_TRUST => [
+            DESCRIPTION    => "Check whether Boostrap and FWSEC have run successfully to ensure Chain of Trust",
+            ARGUMENTS      => 'void',
+            RETURN_TYPE    => SELWRESCRUB_RC,
+            STUB_RETURNS   => 'SELWRESCRUB_RC_NOT_SUPPORTED',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_selwrescrub","___FUNC__")',
+
+            _GA10X         => [ GA10X, -GA100, ], # TODO(suppal): Re-enable for Hopper later
+            _STUB          => [ ALL, -GA10X, GA100, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $selwrescrubHal;
+

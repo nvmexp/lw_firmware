@@ -1,0 +1,78 @@
+#
+# LWIDIA_COPYRIGHT_BEGIN
+#
+# Copyright 2021 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# LWIDIA_COPYRIGHT_END
+#
+
+LW_MODS_MODULE := spdm lib
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+LIBSPDM_DIR := $(LW_SOURCE)/drivers/resman/src/libraries/libspdm
+
+# LWPU includes
+LW_INCLUDES += $(LW_DIAG_SOURCE)/mods
+LW_INCLUDES += $(LW_SDK_SOURCE)
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/shared
+LW_INCLUDES += $(LW_TOOLS)/cryptopp-8.2
+LW_INCLUDES += ../utils
+
+# libspdm includes
+LW_INCLUDES += $(LIBSPDM_DIR)/include
+LW_INCLUDES += $(LIBSPDM_DIR)/include/library
+LW_INCLUDES += $(LIBSPDM_DIR)/include/hal
+LW_INCLUDES += $(LIBSPDM_DIR)/include/hal/library
+LW_INCLUDES += $(LIBSPDM_DIR)/library/spdm_common_lib
+LW_INCLUDES += $(LIBSPDM_DIR)/library/spdm_crypt_lib
+LW_INCLUDES += $(LIBSPDM_DIR)/library/spdm_requester_lib
+LW_INCLUDES += $(LIBSPDM_DIR)/library/spdm_responder_lib
+LW_INCLUDES += $(LIBSPDM_DIR)/library/spdm_selwred_message_lib
+
+# The following includes handle processor-specific definitions.
+ifeq ($(LW_TARGET_ARCH), amd64)
+	LW_INCLUDES += $(LIBSPDM_DIR)/include/hal/x64
+endif
+
+# libspdm source files.
+SOURCES += $(LIBSPDM_DIR)/library/spdm_common_lib/context_data.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_common_lib/context_data_session.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_common_lib/crypto_service.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_common_lib/crypto_service_session.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_common_lib/opaque_data.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_common_lib/support.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_crypt_lib/crypt.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_requester_lib/challenge.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_requester_lib/communication.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_requester_lib/end_session.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_requester_lib/finish.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_requester_lib/get_capabilities.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_requester_lib/get_certificate.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_requester_lib/get_digests.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_requester_lib/get_measurements.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_requester_lib/get_version.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_requester_lib/handle_error_response.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_requester_lib/key_exchange.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_requester_lib/key_update.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_requester_lib/negotiate_algorithms.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_requester_lib/send_receive.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_selwred_message_lib/selwred_context_data.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_selwred_message_lib/encode_decode.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_selwred_message_lib/selwred_key_exchange.c
+SOURCES += $(LIBSPDM_DIR)/library/spdm_selwred_message_lib/session.c
+SOURCES += $(LIBSPDM_DIR)/os_stub/memlib/copy_mem.c
+SOURCES += $(LIBSPDM_DIR)/os_stub/memlib/compare_mem.c
+SOURCES += $(LIBSPDM_DIR)/os_stub/memlib/set_mem.c
+SOURCES += $(LIBSPDM_DIR)/os_stub/memlib/zero_mem.c
+SOURCES += $(LIBSPDM_DIR)/os_stub/spdm_device_secret_lib_null/secret_lib.c
+
+# LWPU source files for library hooks.
+SOURCES += certificate.cpp
+SOURCES += crypto.cpp
+SOURCES += debug.cpp
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk

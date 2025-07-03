@@ -1,0 +1,71 @@
+#!/bin/bash
+# LWIDIA_COPYRIGHT_BEGIN
+#
+# Copyright 2018-2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# LWIDIA_COPYRIGHT_END
+
+# This script runs a simple SRIOV regression in PVS.  Hopefully, it
+# can be deprecated if/when we roll the SRIOV options into the
+# gputest.js command line or spec file.
+
+set -euo pipefail
+MYNAME="$(basename $0)"
+if (($# < 2)) || [[ "$1" != gpugen.* && "$1" != gputest.* ]]; then
+    echo "Usage: $MYNAME (gpugen.js|gputest.js) args"
+    exit 1
+fi
+JSCRIPT="$1"
+shift
+ARGS=("$@")
+
+MODS_DIR="$(cd -P "$(dirname "$0")" && pwd)"
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-$MODS_DIR}"
+MODS="$MODS_DIR/mods"
+
+if ACCESS_TOKEN_CMD="$("$MODS" -acquire_access_token 2>&1)"; then
+    ACCESS_TOKEN="$(echo "$ACCESS_TOKEN_CMD" | sed -n 's/Access Token : //p')"
+else
+    ACCESS_TOKEN_RC=$?
+    echo "$ACCESS_TOKEN_CMD"
+    return $ACCESS_TOKEN_RC
+fi
+
+release_access_token()
+{
+    "$MODS" -release_access_token -access_token $ACCESS_TOKEN >/dev/null
+}
+
+trap release_access_token EXIT
+
+echo '---' > "$MYNAME.yml"
+for SUBTEST_DIR in "${MYNAME}_subtest_"{01..02}; do
+    mkdir -p "$SUBTEST_DIR"
+    cp "$MODS_DIR/liblwidia-vgpu.so" "$SUBTEST_DIR/liblwidia-vgpu.so"
+
+    if [[ "$JSCRIPT" != gpugen.* ]]; then
+        GOLDENFILES=$(ls gld*.bin || true)
+        for GLDFILE in $GOLDENFILES; do
+            if [[ ! -f "$SUBTEST_DIR/$GLDFILE" ]]; then
+                cp "$GLDFILE" "$SUBTEST_DIR/"
+            fi
+        done
+    fi
+
+    SUBTEST_SCRIPT="$SUBTEST_DIR/run.sh"
+    echo "- test_exelwtable: $SUBTEST_SCRIPT" >> "$MYNAME.yml"
+    echo "#!/bin/bash"               > "$SUBTEST_SCRIPT"
+    echo 'LD_LIBRARY_PATH+=":$PWD"' >> "$SUBTEST_SCRIPT"
+    echo 'cd "$(dirname "$0")"'     >> "$SUBTEST_SCRIPT"
+    for ii in "$MODS" -access_token "$ACCESS_TOKEN" -b bypass.INTERNAL.bin "$JSCRIPT" -ignore_branch_check -no_rcwd "${ARGS[@]}"; do
+        printf "%q " "$ii" >> "$SUBTEST_SCRIPT"
+    done
+    echo >> "$SUBTEST_SCRIPT"
+
+    chmod +x "$SUBTEST_SCRIPT"
+done
+
+"$MODS" -access_token "$ACCESS_TOKEN" -b bypass.INTERNAL.bin "$JSCRIPT" -disable_ecc -ignore_branch_check -vfe_version_check_ignore -adc_cal_check_ignore -adc_temp_err_check_ignore -timeout_ms 5000 -hot_reset -sriov_config_file "$MYNAME.yml" "${ARGS[@]}"

@@ -1,0 +1,70 @@
+# -*- mode: perl; -*-
+
+# Timer Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $lsfHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        VERIFY_FALCON_SELWRE_RUN_MODE => [
+            DESCRIPTION    => "Checks secure run mode and level",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _LR10         => [ ALL, ],
+        ],
+
+        INIT_APERTURE_SETTINGS => [
+            DESCRIPTION    => "Initialize aperture settings",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _LR10         => [ ALL, ],
+        ],
+
+        IS_DMA_IDX_PERMITTED => [
+            DESCRIPTION    => "Check whether an access using the specified dmaIdx is permitted",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "LwU8 dmaIdx",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => VERIFY_FALCON_SELWRE_RUN_MODE,
+        ],
+
+        SETUP_MTHDCTX_PRIV_MASK => [
+            DESCRIPTION    => "Sets MTDHCTX_PRIV_LEVEL_MASK",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _LR10         => [ ALL, ],
+        ],
+
+        VERIFY_PRIV_SEC_ENABLED => [
+            DESCRIPTION    => "Check that PRIV_SEC is enabled for production boards",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            STUB_RETURNS   => FLCN_OK,
+
+            _LR10         => [ ALL, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $lsfHal;

@@ -1,0 +1,24 @@
+TODO List for Mac OSX port
+--------------------------
+
+- //sw/main/drivers/resman/arch/lwalloc/mods/src/rmmacosx.cpp:
+  RmFindDevices is lwrrently not very robust.  See the file for details.
+
+- Xp::DisableUserInterface and Xp::EnableUserInterface are far from
+  perfect.  I've had great diffilwlty in finding a way to save the
+  original DM settings in DisableUserInterface and then restore those
+  settings in EnableUserInterface.
+
+- Apparently, calls to the OS function Debugger() do nothing except
+  print out "Debugger() was called!"  We'd like this to shunt us out
+  to the actual debugger, of course.
+
+- Keymapping is very screwy, since OSX, unlike DOS, is sending
+  multi-character escape sequences for some special keys and
+  key combinations (like alt-f1), and nothing is getting to
+  getchar() at all for other sequences (like alt-f10).
+
+- In the makefile, INCLUDE_OGL is lwrrently turned off for the
+  OSX build.  OpenGL support hasn't been touched yet.
+
+  

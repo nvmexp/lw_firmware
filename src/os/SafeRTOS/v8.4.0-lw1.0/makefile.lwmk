@@ -1,0 +1,305 @@
+#
+# Copyright 2018-2021 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+
+#
+# The primary usage of this makefile is as a sub-makefile for a larger uproc
+# build (such as the PMU/DPU/SEC2/GSP/SOE builds). It relies on the user (or top-level
+# makefile) to establish the following make-vars before it is ilwoked:
+#     * UPROC_ARCH
+#     * LW_PROJ
+#     * MANUAL_PATHS
+#
+# If building directly, it is highly recommended that you explicitly state (on
+# the build command-line) which uproc architecture and chip project you're
+# targeting. If unspecified, falcon6 and tu10x is assumed. The target
+# architecture may be specified by setting UPROC_ARCH on the command-line.
+#
+# LW_PROJ is only used to uniquely name the output directory where the built libraries
+# will be located. This facilitates parallel building of uproc ucode for multiple
+# projects.
+#
+# Examples:
+#
+# % make UPROC_ARCH=falcon4 LW_PROJ=gf11x
+# % make UPROC_ARCH=lwriscv LW_PROJ=tu10x
+#
+# Additionally, based on the target arch, you need to also specify where the
+# manuals are for the architecture.  This is specified using
+# MANUAL_PATHS.
+#
+# Examples:
+#
+# % make UPROC_ARCH=falcon6 MANUAL_PATHS=$LW_SOURCE/drivers/common/inc/hwref/turing/tu102
+#
+
+
+ifeq (,$(findstring lwriscv,$(UPROC_ARCH)))
+    error Only lwriscv is supported
+endif
+
+override LW_TARGET_OS := riscv
+
+# if some configurations are not specified, assume defaults
+RESMAN_ROOT               ?= $(LW_SOURCE)/drivers/resman
+DMA_SUSPENSION            ?= false
+LS_FALCON                 ?= false
+FLCNDBG_ENABLED           ?= false
+OS_CALLBACKS              ?= false
+FREEABLE_HEAP             ?= false
+TASK_RESTART              ?= false
+ON_DEMAND_PAGING_OVL_IMEM ?= false
+FB_CMD_QUEUES             ?= false
+FB_MSG_QUEUES             ?= false
+QUEUE_HALT_ON_FULL        ?= false
+ON_DEMAND_PAGING_BLK      ?= false
+TASK_QUEUE_MAP            ?= false
+WATCHDOG_ENABLE           ?= false
+ODP_ENABLED               ?= false
+QUEUE_MSG_BUF_SIZE        ?= 0
+INSTRUMENTATION           ?= false
+FAULT_RECOVERY            ?= false
+USTREAMER                 ?= false
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+build: all
+
+###############################################################################
+# Additional configuration flags for compiler and assembler.
+#
+# -DBASEADDR_NEEDED
+#
+#     This option will inherit the setting (i.e. BASEADDR_NEEDED_FOR_CSB_ACCESS)
+#     from different falcon so that the RTOS knows if the base address is needed
+#     for the CSB access on the specific falcon
+#
+# -DPMU_RTOS/DDPU_RTOS/DSEC2_RTOS/DSOE_RTOS/GSP_RTOS
+#
+#     These options depend on a flag exported by Falcon makefiles, and decide
+#     which Falcon we're building for. For PMU and DPU, we only use it in .S
+#     files whose preprocessor doesn't understand include paths and hence can't
+#     include manuals very cleanly. We define the appropriate CSB register
+#     offsets to use in assembly files where manuals can't be directly included.
+#     SEC2, uses this option in other .c files as well since it uses different
+#     CSB offsets altogether that cannot be mathematically determined using a
+#     base address (unlike PMU and DPU). These flags should be sparingly used
+#     in all cases (only where absolutely necessary) to avoid forking RTOS code
+#     that is designed to be shared among all Falcons.
+#
+###############################################################################
+
+CFLAGS += -std=c11
+
+CONFIG_FLAGS += -DSAFE_RTOS_BUILD
+
+ifdef BASEADDR_NEEDED_FOR_CSB_ACCESS
+    CONFIG_FLAGS += -DBASEADDR_NEEDED=$(BASEADDR_NEEDED_FOR_CSB_ACCESS)
+endif
+
+ifdef PMU_RTOS
+  CONFIG_FLAGS += -DPMU_CSB_ACCESS=$(PMU_RTOS)
+  CFLAGS       += -DLW_MISRA_COMPLIANCE_REQUIRED
+
+  CFLAGS += -fno-jump-tables
+endif
+
+ifdef SEC2_RTOS
+    CONFIG_FLAGS += -DSEC2_CSB_ACCESS=$(SEC2_RTOS)
+endif
+
+ifdef SOE_RTOS
+    CONFIG_FLAGS += -DSOE_CSB_ACCESS=$(SOE_RTOS)
+endif
+
+ifdef GSP_RTOS
+    ifeq ($(RUN_ON_SEC), true)
+        CONFIG_FLAGS += -DRUN_ON_SEC
+    endif
+endif
+
+ifdef SEC2_RTOS
+    CONFIG_FLAGS += -DSEC2_RTOS
+endif
+
+ifeq ($(DMA_SUSPENSION),true)
+    CONFIG_FLAGS += -DDMA_SUSPENSION
+endif
+
+ifeq ($(LS_FALCON),true)
+    CONFIG_FLAGS += -DDYNAMIC_FLCN_PRIV_LEVEL
+endif
+
+ifeq ($(FLCNDBG_ENABLED),true)
+    CONFIG_FLAGS += -DFLCNDBG_ENABLED
+endif
+
+ifeq ($(OS_CALLBACKS),true)
+    CONFIG_FLAGS += -DOS_CALLBACKS
+endif
+
+ifeq ($(ON_DEMAND_PAGING_OVL_IMEM),true)
+    CONFIG_FLAGS += -DON_DEMAND_PAGING_OVL_IMEM
+endif
+
+ifeq ($(TASK_RESTART),true)
+    CONFIG_FLAGS += -DTASK_RESTART
+endif
+
+ifeq ($(FB_CMD_QUEUES), true)
+    CONFIG_FLAGS += -DFB_CMD_QUEUES
+endif
+
+ifeq ($(FB_MSG_QUEUES), true)
+    CONFIG_FLAGS += -DFB_MSG_QUEUES
+endif
+
+ifeq ($(FREEABLE_HEAP),true)
+    CONFIG_FLAGS += -DFREEABLE_HEAP
+endif
+
+ifeq ($(QUEUE_HALT_ON_FULL),true)
+    CONFIG_FLAGS += -DQUEUE_HALT_ON_FULL
+endif
+
+CONFIG_FLAGS += -DUPROC_RISCV
+
+ifeq ($(ON_DEMAND_PAGING_BLK),true)
+    CONFIG_FLAGS += -DON_DEMAND_PAGING_BLK
+endif
+
+ifeq ($(TASK_QUEUE_MAP),true)
+    CONFIG_FLAGS += -DTASK_QUEUE_MAP
+endif
+
+ifeq ($(WATCHDOG_ENABLE),true)
+    CONFIG_FLAGS += -DWATCHDOG_ENABLE
+endif
+
+ifeq ("$(ODP_ENABLED)","true")
+    CONFIG_FLAGS += -DODP_ENABLED
+endif
+
+# Check that QUEUE_MSG_BUF_SIZE > 0:
+# Sort 0 and QUEUE_MSG_BUF_SIZE and make sure the largest word is not 0.
+ifneq ($(lastword $(sort 0 $(QUEUE_MSG_BUF_SIZE))),0)
+    CONFIG_FLAGS += -DQUEUE_MSG_BUF_SIZE=$(QUEUE_MSG_BUF_SIZE)
+endif
+
+ifeq ($(FAULT_RECOVERY),true)
+    CONFIG_FLAGS += -DFAULT_RECOVERY
+endif
+
+ifeq ($(INSTRUMENTATION),true)
+    CONFIG_FLAGS += -DINSTRUMENTATION
+endif
+
+ifeq ($(USTREAMER),true)
+    CONFIG_FLAGS += -DUSTREAMER
+endif
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+RTOS_PORTABLE = portable/GCC/LWRISCV
+
+LW_INCLUDES  += ./include
+LW_INCLUDES  += $(RTOS_PORTABLE)
+LW_INCLUDES  += $(MANUAL_PATHS)
+
+LW_INCLUDES  += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES  += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc
+LW_INCLUDES  += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES  += $(LW_SOURCE)/uproc/libs/lwos/$(LWOS_VERSION)/inc
+LW_INCLUDES  += $(LW_SOURCE)/uproc/lwriscv/inc
+LW_INCLUDES  += $(LW_SOURCE)/uproc/lwriscv/drivers/inc
+LW_INCLUDES  += $(LW_SOURCE)/uproc/lwriscv/shlib/inc
+LW_INCLUDES  += $(MEMMAP_PATH)
+ifdef LWRISCV_SDK
+  LW_INCLUDES  += $(LWRISCV_SDK)/inc
+  LW_INCLUDES  += $(LWRISCV_SDK_PROFILE)/inc
+endif
+# We need dpu headers for intrinsics
+ifndef SOE_RTOS
+LW_INCLUDES  += $(LW_SOURCE)/uproc/disp/dpu/inc
+else
+LW_INCLUDES  += $(LW_SOURCE)/uproc/soe_riscv/inc
+endif
+
+ifdef GSP_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/uproc/gsp/src/$(GSP_OUTPUTDIR)
+endif
+ifdef SEC2_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/uproc/sec2_riscv/src/$(SEC2_OUTPUTDIR)
+endif
+ifdef SOE_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/uproc/soe_riscv/src/$(SOE_OUTPUTDIR)
+endif
+ifdef PMU_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/pmu_sw/prod_app/$(PMU_OUTPUTDIR)
+endif
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+
+# Common RTOS source
+SOURCES  += list.c
+SOURCES  += lwrtos.c
+SOURCES  += queue.c
+SOURCES  += semaphore.c
+SOURCES  += task.c
+
+# RISCV-specific RTOS source
+SOURCES  += eventgroups.c
+SOURCES  += eventpoll.c
+SOURCES  += mutex.c
+
+# Common portable layer source
+SOURCES  += $(RTOS_PORTABLE)/port.c
+SOURCES  += $(RTOS_PORTABLE)/portasm.S
+SOURCES  += $(RTOS_PORTABLE)/portisr.c
+ifeq ($(FREEABLE_HEAP),true)
+    SOURCES  += $(RTOS_PORTABLE)/heap_4.c
+endif
+
+SOURCES  += $(RTOS_PORTABLE)/shared.c
+
+CFLAGS   += $(CONFIG_FLAGS)
+CFLAGS   += $(SUBMAKE_CFLAGS)
+ASMFLAGS += $(CONFIG_FLAGS) $(addprefix -I,$(LW_INCLUDES))
+ASMFLAGS += $(SUBMAKE_ASMFLAGS)
+
+TGT       = $(OUTPUTDIR)/libSafeRTOS.a
+
+###############################################################################
+# Vectorcast support
+###############################################################################
+
+ifdef VCAST_INSTRUMENT_LIB
+    VCAST_SRC_DIR := $(LW_SOURCE)/uproc/os/SafeRTOS/v8.4.0-lw1.0/
+    VCAST_EXCLUDE_FILES := lwrtos.c portable/GCC/LWRISCV/portasm.S
+    include $(LW_SOURCE)/uproc/vcast/vcast.mk
+endif
+
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[rtos-$(LW_PROJ)-$(UPROC_ARCH)]"
+
+all: $(TGT)
+$(TGT): $(OBJECTS)
+	$(MKDIR) ${dir $@}
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(AR) -r -c $(TGT) $(OBJECTS)
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+

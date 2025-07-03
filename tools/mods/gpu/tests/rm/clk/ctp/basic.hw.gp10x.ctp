@@ -1,0 +1,25 @@
+# BasicSanityNonPstateTest
+# Adapted from diag/mods/gpu/tests/rm/utility/clk/clk_gf100.cpp:493 (ClockUtilGF100::ClockSanityTest)
+# If this test fails, please file a bug and/or contact sw-gpu-rm-clocks-dev.
+# https://wiki.lwpu.com/engwiki/index.php/Resman/Resman_Components/Clocks/UniversalClockTest
+
+# You can make chip/family/platform-specific versions of this test,
+# but your probably don't want to.  You'd probably prefer making
+# chip/family/platform-specific versions of basic.pstate.ctp.
+# Examples: basic.pstate.gf119.ctp, basic.pstate.gf11x.ctp, basic.pstate.fermi.ctp
+# Examples: basic.pstate.emu.ctp, basic.pstate.emu.maxwell.ctp, basic.pstate.rtl.gf20x.ctp
+# The 'include' directive automatically loads chip/family/platform-specific profiles.
+
+
+
+# Define BasicSanity.dispclk and BasicSanity.other
+include basic.nonpstate
+
+# Trial Specification
+# For a sanity test, once in each is sufficient.
+name        = BasicSanityNonPstateTest
+test        = initPstate:BasicSanity.dispclk, initPstate:BasicSanity.other
+tolerance   = 0.05, 0.10
+rmapi       = vfinject
+order       = sequence
+prune       = auto

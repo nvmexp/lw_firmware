@@ -1,0 +1,202 @@
+# -*- mode: perl; -*-
+
+# Fifo Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $fifoHal = [
+
+    DEFAULTS => [
+        FLAGS       => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PRE_INIT => [
+            DESCRIPTION    => "Fifo initialization",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GMXXX         => [ pre_AMPERE, ],
+            _GA10X         => [ dAMPERE_and_later, ],
+        ],
+
+        GET_ENGINE_LOOKUP_TABLE => [
+            DESCRIPTION    => "Get the engine table used for this chip",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "PMU_ENGINE_LOOKUP_TABLE **ppEngineLookupTable, LwU32 *pEngLookupTblSize",
+            STUB_RETURNS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM10X         => [ GM10X, ],
+            _GM20X         => [ GM20X, ],
+            _GP100         => [ GP100, ],
+            _GP10X         => [ GP10X_thru_VOLTA, -GP100, -GV11B, ],
+            _GV11B         => [ GV11B, ],
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE, -TEGRA_DGPU_AMPERE, ],
+            _AD10X         => [ AD10X_and_later, -TEGRA_DGPU_ADA, ],
+            _GA10B         => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        SCHEDULER_DISABLE => [
+            DESCRIPTION    => "Disable activity for fifo engine",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "LwU32 pmuEngId",
+            STUB_RETURNS   => LW_TRUE,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libFifo", "__FUNC__")',
+
+            _GMXXX         => [ pre_AMPERE, ],
+            _GA10X         => [ dAMPERE_and_later, ]
+        ],
+
+        SCHEDULER_ENABLE => [
+            DESCRIPTION    => "Enable activity for fifo engine",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 pmuEngId",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libFifo", "__FUNC__")',
+
+            LIKE_INTERFACE   => SCHEDULER_DISABLE,
+        ],
+
+        IS_ENGINE_DISABLED => [
+            DESCRIPTION    => "True iff the engine is disabled (e.g. floorswept)",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "LwU8 pmuEngId",
+            STUB_RETURNS   => LW_FALSE,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM10X         => [ GM10X, ],
+            _GM20X         => [ GM20X, ],
+            _GP100         => [ GP100, ],
+            _GP10X         => [ GP10X_thru_VOLTA, -GP100, -GV11B, ],
+            _TU10X         => [ TU10X_and_later, ],
+            _STUB          => [ GV11B, ],
+        ],
+
+        GET_ENGINE_STATUS => [
+            DESCRIPTION   => "get scheduling status of an engine",
+            RETURN_TYPE   => "void",
+            ARGUMENTS     => "LwU32 pmuEngId, LwU32 *pEngStatus",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_loggerWrite", "__FUNC__")',
+
+            _GMXXX        => [ pre_AMPERE, ],
+            _GA10X        => [ dAMPERE_and_later, ],
+        ],
+
+        GET_LWDEC_PMU_ENGINE_ID => [
+            DESCRIPTION    => "Get the pmu engine id for LWDEC",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 *pPmuEngIdLwdec",
+            STUB_RETURNS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_loggerWrite", "__FUNC__")',
+
+            _GM10X         => [ GM10X, ],
+            _GM20X         => [ GM20X, ],
+            _GP100         => [ GP100, ],
+            _GP10X         => [ GP10X, -GP100, VOLTA, TURING, -GV11B, ],
+            _GA10X         => [ AMPERE_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        GET_PMU_ENGINE_FROM_LOOKUP_TABLE => [
+            DESCRIPTION    => "Get the pmu engine id for the engine type from device info",
+            RETURN_TYPE    => LwU8,
+            ARGUMENTS      => "PMU_ENGINE_LOOKUP_TABLE *pEngineLookupTable, LwU32 engLookupTblSize, LwU32 fifoEngineData, LwU8 fifoEngineType, LwBool bFifoDataFound",
+            STUB_RETURNS   => NEG1,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GMXXX         => [ MAXWELL, ],
+            _GPXXX         => [ GV11B, PASCAL_thru_TURING, ],
+            _GA10X         => [ dAMPERE_and_later, ],
+        ],
+
+        FIND_PBDMA_MASK_FOR_RUNLIST => [
+            DESCRIPTION    => "Get the PBDMA ID mask for a given runlist ID",
+            RETURN_TYPE    => LwU16,
+            ARGUMENTS      => "LwU32 runlistId",
+            STUB_RETURNS   => PMU_PBDMA_MASK_ILWALID,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM10X         => [ pre_AMPERE, ],
+            _STUB          => [ AMPERE_and_later, ],
+        ],
+
+        PREEMPT_SEQUENCE => [
+            DESCRIPTION    => "Exelwtes the Host Preempt Sequence",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 pmuEngId, LwU8 ctrlId",
+            STUB_RETURNS   => ERROR,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libFifo", "__FUNC__")',
+
+            _GMXXX         => [ MAXWELL, ],
+            _GP10X         => [ PASCAL_thru_TURING, ],
+            _GA10X         => [ dAMPERE_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B         => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        IS_STALLING_INTR_PENDING => [
+            DESCRIPTION    => "Check if preempt stalling interrupts are pending",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "LwU16 pbdmaIdMask",
+            STUB_RETURNS   => LW_FALSE,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libFifo", "__FUNC__")',
+
+            _GMXXX         => [ pre_AMPERE, ],
+            _STUB          => [ dAMPERE_and_later, ],
+        ],
+
+        IS_RUNLIST_AND_ENG_IDLE => [
+            DESCRIPTION    => "Check the idleness of runlist and associated engines",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "LwU32 runlistId",
+            STUB_RETURNS   => LW_TRUE,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libFifo", "__FUNC__")',
+
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ dAMPERE_and_later, ],
+            _STUB          => [ pre_TURING, ],
+        ],
+
+        DISABLE_PLC_RECOMPRESS_WAR => [
+            DESCRIPTION    => "WAR to disable PLC_RECOMPRESS_{PLC,RWM} for Bug 2265227",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _TU10X         => [ TURING, ],
+            _STUB          => [ ALL, -TURING, ],
+        ],
+
+        IS_PBDMA_INTR_PENDING => [
+            DESCRIPTION    => "Check if a PBDMA interrupt is pending on this engine",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "LwU32 pmuEngId",
+            STUB_RETURNS   => LW_FALSE,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libFifo", "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, ],
+            _STUB          => [ pre_dAMPERE, ],
+        ],
+
+        IS_ENGINE_IDLE => [
+            DESCRIPTION    => "Check if the engine is idle or not",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "LwU32 fifoEngId",
+            STUB_RETURNS   => LW_FALSE,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwr", "__FUNC__")',
+
+            _GMXXX         => [ pre_AMPERE, ],
+            _GA10X         => [ dAMPERE_and_later, ],
+        ],
+
+    ],  # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $fifoHal;

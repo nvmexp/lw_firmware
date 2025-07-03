@@ -1,0 +1,36 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2017-2018 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+TESTCFG_PERL ?= $(if $(findstring undefined,$(origin PERL)), perl, $(PERL))
+
+TEST_NAME := rvbl_mpu_auto
+
+include $(LW_SOURCE)/uproc/lwriscv/bootloader_tests/common/make-profile.lwmk
+
+TEST_PARAMS = $(IMG_TARGET).test0_params.bin
+
+all: $(IMG_BIN) $(TEST_PARAMS)
+
+$(IMG_BIN): $(LDR_BIN) $(IMG_ELF)
+	$(TESTCFG_PERL) $(BUILD_SCRIPTS)/mkimage/rvmkimg.pl \
+        --loaderFile        $(LDR_BIN) \
+        --elfFile           $(IMG_ELF) \
+        --readelf           $(IMG_READELF) \
+        --outFilePrefix     $(TEST_NAME) \
+        --outDir            $(OUTPUTDIR)
+
+### This program runs 1 test:
+# 0: Basic FB exelwtion with MPU auto-configured
+#    - 1 load base: 0x6180000000807000
+#    - Expected code: -1
+
+$(IMG_TARGET).test0_params.bin:
+	$(PARAMGEN) --loadBases 0x6180000000807000 --outFile $@

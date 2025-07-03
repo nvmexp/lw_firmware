@@ -1,0 +1,441 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2019-2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD ?= false
+NO_RELEASE     ?= false
+INCLUDE_DT     ?= false
+FALCON_ARCH    ?= falcon5
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+LWUPROC        = $(LW_SOURCE)/uproc
+SPARKSW        = $(LW_SOURCE)uproc/spark
+PUBSW          = $(SPARKSW)/ucode/pub/c_code
+PUBCFG         = $(PUBSW)/config
+PUB_SPARKSW    = $(SPARKSW)/ucode/pub/spark_code
+RESMAN_ROOT    = $(LW_SOURCE)/drivers/resman
+UPROC_LWOS_SRC = $(LWUPROC)/libs/lwos/$(LWOS_VERSION)
+UPROC_CMN_SRC  = $(LW_SOURCE)/uproc/libs/cmn
+LD_SCRIPT_PATH = $(PUBSW)/build/$(LDSCRIPT)
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+
+include $(PUBCFG)/pub-profiles.mk
+
+
+###############################################################################
+# Load common falcon make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LWUPROC)/build/common/lwFalconArch.lwmk
+ifdef CHIP_MANUAL_PATH
+    include $(CHIP_MANUAL_PATH)/lwFalconSignParams.mk
+endif
+
+override LW_TARGET_ARCH = $(FALCON_TOOLS_BUILD)
+override LW_TARGET_OS   = falcon
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Define the output directory paths for the PUB build and all sub-make builds.
+###############################################################################
+
+CHIPNAME  := $(subst pub_,,$(PUBCFG_PROFILE))
+CHIPNAME  := $(subst sec2-,,$(CHIPNAME))
+FALCONNAME := sec2
+
+OUTPUTDIR := _out/$(FALCONNAME)/$(CHIPNAME)
+
+###############################################################################
+# Setup pub-config make vars and ilwoke pub-config. Use pub-config's
+# makefile.mk to do all the work. The makefile will generate pub-config.mk in
+# the output directory and then include it.
+###############################################################################
+
+#PUBSRC_ALL          :=
+#PUBCFG_OPTIONS      :=
+#PUBCFG_OUTPUTDIR    ?= $(OUTPUTDIR)/config
+#PUBCFG_RESMAN_ROOT  := $(RESMAN_ROOT)
+#PUBCFG_PUBSW_ROOT   := $(PUB_SW)/src
+
+###############################################################################
+# Include profile-specific make settings to account for profile-specific build
+# options/requirements.
+###############################################################################
+
+-include $(PUBSW)/config/$(PUBCFG_PROFILE).mk
+include $(LWUPROC)/build/common/lwRtosVersion.lwmk
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(LW_SOURCE)/uproc/cmn/inc
+LW_INCLUDES += $(PUBSW)/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/swref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/hwref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(RESMAN_ROOT)/kernel/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(FALCON_TOOLS)/include
+LW_INCLUDES += $(UPROC_LWOS_SRC)/inc
+LW_INCLUDES += $(UPROC_CMN_SRC)/inc
+LW_INCLUDES += $(OUTPUTDIR)
+LW_INCLUDES += $(SPARKSW)/shared_c_code/inc
+LW_INCLUDES += $(PUBSW)/gen_c_src
+LW_INCLUDES += $(MANUAL_PATHS)
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+
+IMG_TARGET      := $(OUTPUTDIR)/g_pubuc_$(CHIPNAME)
+IMG_TARGET_DBG  := $(OUTPUTDIR)/g_pubuc_$(CHIPNAME)_dbg
+IMG_TARGET_PROD := $(OUTPUTDIR)/g_pubuc_$(CHIPNAME)_prod
+
+IMG_ELF     := $(IMG_TARGET).out
+IMG_ELF_DBG := $(IMG_TARGET_DBG).out
+IMG_ELF_PROD:= $(IMG_TARGET_PROD).out
+IMG_READELF := $(IMG_TARGET).readelf
+IMG_SECTIONS:= $(IMG_TARGET).sections
+IMG_H       := $(IMG_TARGET).h
+IMG_H_DBG   := $(IMG_TARGET_DBG).h
+IMG_H_PROD  := $(IMG_TARGET_PROD).h
+IMG_BIN     := $(IMG_TARGET).bin
+IMG_OBJDUMP := $(IMG_TARGET).objdump
+IMG_NM      := $(IMG_TARGET).nm
+IMG_MAP     := $(IMG_TARGET).map
+IMG_DT      := $(IMG_TARGET).dt
+IMG_DBGLINE := $(IMG_TARGET).dbgline
+
+RELEASE_FILES            = $(IMG_NM) $(IMG_OBJDUMP) $(IMG_READELF)
+RESTRICTED_RELEASE_FILES =
+
+ifeq ("$(IS_HS_ENCRYPTED)", "true")
+    RELEASE_FILES += $(IMG_ELF_PROD) $(IMG_H_DBG) $(IMG_H_PROD) $(IMG_SECTIONS) $(IMG_MAP)
+else
+    RELEASE_FILES += $(IMG_ELF) $(IMG_H)
+endif
+
+###############################################################################
+# Application-specific compiler/linker flags
+# Only adding required libraries
+###############################################################################
+
+LDFLAGS += -nodefaultlibs
+LDFLAGS += -lgcc -lfalcon
+LDFLAGS += -T $(LD_SCRIPT_PATH)
+
+# Disable jump tables, because they go to RO data section which is not covered under signature check
+CFLAGS += -fno-jump-tables
+
+CFLAGS += -DSIG_SIZE=$(SIGNATURE_SIZE)
+CFLAGS += -DLW_MISRA_COMPLIANCE_REQUIRED
+
+
+
+CFLAGS += -Wno-unused
+CFLAGS += -D__USE_ISOC99
+
+ifeq ($(LW_TARGET_OS),falcon)
+    CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+    CFLAGS += -DUPROC_RISCV
+endif
+
+ifneq (,$(findstring SafeRTOS, $(RTOS_VERSION)))
+    CFLAGS += -DSAFERTOS
+endif
+
+ifeq ("$(IS_HS_ENCRYPTED)", "true")
+    CFLAGS += -DIS_HS_ENCRYPTED=1
+else
+    CFLAGS += -DIS_HS_ENCRYPTED=0
+endif
+
+ifeq ($(SSP_ENABLED), true)
+RANDOM_CANARY_NS := $(shell $(PYTHON) -c 'from random import randint; print(randint(65535,1048576))')
+    CFLAGS += -DIS_SSP_ENABLED
+    CFLAGS += -fstack-protector-all
+    CFLAGS += -DRANDOM_CANARY_NS=$(RANDOM_CANARY_NS)
+endif
+
+ifeq ($(PKC_ENABLED), true)
+    CFLAGS += -DPKC_ENABLED
+    CFLAGS += -DFUSE_VERSION=$(SIGGEN_FUSE_VER)
+    CFLAGS += -DUCODE_ID=$(SIGGEN_UCODE_ID)
+    CFLAGS += -DENGINE_ID=$(SIGGEN_ENGINE_ID)
+endif
+
+CFLAGS += -fno-strict-aliasing
+
+ADA_SCENARIO += -XBUILD_UCODE=$(BUILD_UCODE)
+ADA_SCENARIO += -XArchitecture=$(ARCHITECTURE)
+ADA_SCENARIO += -XFALCON=$(FALCON)
+ADA_SCENARIO += -XBOARD=$(BOARD)
+
+ifeq ($(VCAST_INSTRUMENT), 1)
+ADA_SCENARIO += -XVCAST_ENABLE=TRUE
+else
+ADA_SCENARIO += -XVCAST_ENABLE=FALSE
+endif
+
+ifneq ("$(FALCON_TOOLS_BUILD)" , "falcon6/6.5.4")
+        $(error falcon-gcc $(FALCON_TOOLS_BUILD) used is not 6.5.4 version)
+endif 
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(.)); delete $$ELW{PWD}; \
+		  print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(PUBCFG_PROFILE)]"
+
+###############################################################################
+# Create Source File list
+###############################################################################
+
+# SOURCES += $(filter-out ../gen_c_src/b__ns_main.c, $(wildcard ../gen_c_src/*.c))
+SOURCES += $(wildcard ../gen_c_src/*.c)
+# This will go away once NS canary setup is moved to SPARK.
+SOURCES += main.c
+
+###############################################################################
+# Build ADA/SPARK Files via CCG
+###############################################################################
+
+GPR_PATH := $(SPARKSW)/shared_spark_code/config/project_files/ucode_aggregator.gpr
+# TODO : Since gnattools under sw/tools was unstable due to many wavefronts getting released periodically,
+#        we have used local gnattools. Revert back once sw/tools is stable
+#GNAT_PATH :=$(LW_TOOLS)\adacore\gnat_pro_ada\gnatpro-ccg\bin\gprbuild.exe
+#Put local path here
+#GNAT_PATH := C:\_devTools\Adacore\Safety\Install\bin\gprbuild.exe
+GNAT_PATH := C:\PLMLB\Adacore_x64\install\bin\gprbuild.exe
+MAIN_ADB_PATH := $(SPARKSW)/shared_spark_code/src/ns/ns_main.adb
+
+ada:
+	$(GNAT_PATH) -d -P$(GPR_PATH) $(ADA_SCENARIO) $(MAIN_ADB_PATH) --target=c -s
+
+###############################################################################
+# Vectorcast support
+ifeq ($(VCAST_INSTRUMENT), 1)
+  SHARED_SPARK_BASE_DIR = $(SPARKSW)/shared_spark_code/src
+  PUB_SPARK_BASE_DIR = $(PUB_SPARKSW)/src
+#  SOURCE_DIRS += $(SHARED_SPARK_BASE_DIR)/hsinit
+#  SOURCE_DIRS += $(SHARED_SPARK_BASE_DIR)/register_access
+  SOURCE_DIRS += $(SHARED_SPARK_BASE_DIR)/scp
+  SOURCE_DIRS += $(SHARED_SPARK_BASE_DIR)/se
+  SOURCE_DIRS += $(SHARED_SPARK_BASE_DIR)/hswrapper
+  SOURCE_DIRS += $(PUB_SPARK_BASE_DIR)/common
+  SOURCE_DIRS += $(PUB_SPARK_BASE_DIR)/shared_src
+
+  VCAST_ELW_BASE_DIRECTORY  = $(PUBSW)/src/
+
+  CFLAGS += -Wno-strict-prototypes
+  
+  include $(SPARKSW)/utilities/vcast/vcast.mk
+
+PUBVC_INIT:
+	  $(VCAST_GENERATE_CCAST_CMD)
+	  $(VCAST_CREATE_PROJ_CMD)
+	  $(VCAST_INIT_PROJ_CMD)
+	  $(COPY) $(PUBSW)/utilities/vcast/pub_dma_tu10x.c $(PUBSW)/gen_c_src/pub_dma_tu10x.c
+
+
+PUBVC_ADD_SOURCE: PUBVC_INIT
+	for %%i in ($(SOURCE_DIRS)) do ( $(P4) edit %%i/... && $(VCAST_ADD_SOURCE_CMD) %%i )
+
+PUBVC_INSTRUMENT: PUBVC_ADD_SOURCE
+	  $(VCAST_INSTRUMENT_CMD) 
+
+PUBVC_CLOBBER:
+    ifneq ($(wildcard $(VCAST_ELW_BASE_DIRECTORY)/vcast_elw.vcp),)
+	    $(VCAST_CLOBBER_CMD)
+    endif
+
+all:: PUBVC_INSTRUMENT
+
+clean: PUBVC_CLOBBER
+	  -$(RMDIR) -rf $(VCAST_ELW_BASE_DIRECTORY)/vcast_elw
+	  -$(RM) $(VCAST_ELW_BASE_DIRECTORY)/vcast_elw.vcp
+	  -$(RM) $(VCAST_ELW_BASE_DIRECTORY)/CCAST_.CFG
+endif
+###############################################################################
+
+###############################################################################
+# Rules for buildig the ELF image and binary files
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+all:: ada $(IMG_ELF) sign release
+# all:: $(IMG_ELF) sign release
+
+###############################################################################
+# Sign the binary. Uses pre-build signing tool (linux only for now)
+###############################################################################
+
+CFLAGS += -DPUB_TU104_UCODE_BUILD_VERSION=$(PUB_TU104_UCODE_BUILD_VERSION)
+
+UCODE_BUILD_VERSIONS :=
+
+  ifneq (,$(findstring tu10a, $(CHIPNAME)))
+    UCODE_BUILD_VERSIONS := "\"PUB_TU104_UCODE_BUILD_VERSION 0x$(PUB_TU104_UCODE_BUILD_VERSION)\""
+  endif
+
+SIG_GEN        = $(PUBSW)/utilities/siggen/siggen_pkc.exe
+CHMOD_CMD     = "icacls"
+CHMOD_CMD_ARGS = "/grant Users:F"
+SIGN_SCRIPT    = "tmpsign.bat"
+SIG_GEN_CFG    = ../build/sign/$(SIGGEN_CFG)
+GEN_CLASS_PL   = $(PUBSW)/utilities/gen_class_os.pl
+GEN_CLASS_OUT  = $(IMG_TARGET).h
+GEN_CLASS_PL_VPPATH = "-vppath $(FALCON_TOOLS)\bin"
+define  sig_test
+         $(ECHO) "$(COPY) $(RELEASE_PATH)/g_pubuc_$(CHIPNAME)_$(CHIP)_sig.h $(OUTPUTDIR)/g_pubuc_$(CHIPNAME)_$(CHIP)_sig.h" >> $(SIGN_SCRIPT)
+         $(ECHO) "$(CHMOD_CMD) $(OUTPUTDIR)/g_pubuc_$(CHIPNAME)_$(CHIP)_sig.h $(CHMOD_CMD_ARGS)" >> $(SIGN_SCRIPT)
+         $(ECHO) "$(SIG_GEN) $(SIG_GEN_CFG) $(IMG_TARGET) $(IMG_TARGET) -app $(OUTPUTDIR)/g_pubuc_$(CHIPNAME)_$(CHIP)_sig.h -sig $(OUTPUTDIR)/g_pubuc_$(CHIPNAME)_$(CHIP)_sig.h -chip $(CHIP) -fuseVer $(SIGGEN_FUSE_VER) -engineId $(SIGGEN_ENGINE_ID) -ucodeId $(SIGGEN_UCODE_ID) $(if $(filter $(IS_HS_ENCRYPTED),true), -forceSign -encryptUcode -totAppFilePrefix $(RELEASE_PATH)/g_pubuc_$(CHIPNAME) -totAppFilePrefixDH $(RELEASE_PATH)/g_pubuc_$(CHIPNAME)) -openssl C:\p4\RBHENWAL_LT\sw\pvt\gfw_ucode\common\tools\openssl\1.1.1c\bin\windows-x64\openssl.exe" >> $(SIGN_SCRIPT)
+endef
+
+SIG_SCRIPT_EXP = $(foreach CHIP,$(SIGGEN_CHIPS),  $(call sig_test,$(CHIP)))
+
+RELEASE_FILES += $(foreach CHIP,$(SIGGEN_CHIPS),"$(OUTPUTDIR)/g_pubuc_$(CHIPNAME)_$(CHIP)_sig.h")
+
+sign:
+	$(ECHO) $(SIG_SCRIPT_EXP) >> $(SIGN_SCRIPT)
+	$(ECHO) "$(PERL) $(GEN_CLASS_PL) $(GEN_CLASS_PL_VPPATH) -dump app_os_images -hdr $(IMG_H_DBG) -bin $(IMG_ELF_DBG) -chip $(CHIPNAME) -version $(UCODE_BUILD_VERSIONS)" >> $(SIGN_SCRIPT)
+	$(ECHO) "$(PERL) $(GEN_CLASS_PL) $(GEN_CLASS_PL_VPPATH) -dump app_os_images -hdr $(IMG_H_PROD) -bin $(IMG_ELF_PROD) -chip $(CHIPNAME) -version $(UCODE_BUILD_VERSIONS)" >> $(SIGN_SCRIPT)
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(LW_SOURCE)/uproc/build/scripts/release-imgs-if-changed.pl
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_ARGS += --output-prefix $(BUILD_PROJECT_NAME)
+RELEASE_IMG_ARGS += --image         $(IMG_BIN)
+RELEASE_IMG_ARGS += --p4            $(P4)
+
+RELEASE_IMG_ARGS += --release-path $(RELEASE_PATH)
+
+RELEASE_IMG_ARGS += --release-files            \
+  $(subst $(SPACE),$(COMMA),$(RELEASE_FILES))
+
+RELEASE_IMG_ARGS += --restricted-release-path  \
+  ../../tools/restricted/falcon/bin/pmu
+
+#RELEASE_IMG_ARGS += --restricted-release-files \
+#  $(subst $(SPACE),$(COMMA),$(RESTRICTED_RELEASE_FILES))
+
+# unless disabled, make sure the environment is fresh before installing
+ifneq ("$(NO_CHECK_BUILD)","true")
+  .PHONY: checkbuild
+  install: checkbuild
+endif
+
+release: $(IMG_ELF)
+	$(ECHO) $(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)  >> $(SIGN_SCRIPT)
+
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files is the prerequisite
+# for this rule.
+###############################################################################
+$(IMG_ELF): $(OBJECTS) $(LD_SCRIPT_PATH)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(CFLAGS) $(OBJECTS) -o $(IMG_ELF) $(LDFLAGS)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_READELF)
+	$(OBJDUMP) -d    $(IMG_ELF) >> $(IMG_OBJDUMP)
+	$(OBJDUMP) -S -d $(IMG_ELF) >> $(IMG_OBJDUMP).source
+	$(DUMPEXEC) -img $(IMG_ELF) -b $(IMG_ELF)
+	$(NM)      -S -n $(IMG_ELF) >> $(IMG_NM)
+	$(ECHO) $(NM)      $(IMG_ELF)       > $(IMG_MAP)
+	$(NM)      $(IMG_ELF)       >> $(IMG_MAP)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_READELF))
+	$(READELF) --all $(IMG_ELF) >> $(IMG_READELF)
+	$(READELF) -S $(IMG_ELF) >> $(IMG_SECTIONS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(IMG_ELF) >> $(IMG_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(IMG_ELF)
+
+###############################################################################
+# Rule for generating .dt/symdump file
+###############################################################################
+
+SYMDUMP_SCRIPT = $(LW_SOURCE)/pmu_sw/build/symdump/symdump.pl
+
+SYMDUMP_ARGS  += $(IMG_ELF) $(IMG_DT)
+SYMDUMP_ARGS  += --falcon-tools $(FALCON_TOOLS)
+SYMDUMP_ARGS  += --acl          $(APP_P4_CL)
+
+$(IMG_DT):
+	-$(PERL) $(SYMDUMP_SCRIPT) $(SYMDUMP_ARGS)
+
+ifeq ("$(INCLUDE_DT)","true")
+  all: $(IMG_DT)
+endif
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clean_ucode
+clean: clean_ucode

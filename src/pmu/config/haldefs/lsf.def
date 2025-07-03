@@ -1,0 +1,122 @@
+# -*- mode: perl; -*-
+
+# PMU Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $lsfHal = [
+
+    # per-GPU defaults for LSF for all interfaces below
+    DEFAULTS => [
+        FLAGS       => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        INIT => [
+            DESCRIPTION     => "Initializes Light Secure Falcon settings",
+            ARGUMENTS       => "void",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM20X          => [ GM20X_and_later, ],
+            _STUB           => [ GM10X, ],
+        ],
+
+        INIT_DMEM_CARVEOUT_REGIONS => [
+            DESCRIPTION     => "Initializes DMEM carveout region settings",
+            ARGUMENTS       => "void",
+            RETURN_TYPE     => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM20X          => [ GM20X, ],
+            _GP10X          => [ PASCAL_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _STUB           => [ GM10X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        INIT_APERTURE_SETTINGS => [
+            DESCRIPTION     => "Setup aperture settings (protected TRANSCONFIG regs)",
+            ARGUMENTS       => "void",
+            RETURN_TYPE     => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION(LW_ARCH_VAL("imem_init", "imem_resident"), "__FUNC__")',
+
+            _GM20X          => [ GM20X_thru_TURING, GA100, USED_BY_GA10X, -GV11B, ],
+            _GA10X          => [ AMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _GA10B          => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+            _STUB           => [ GM10X, ],
+        ],
+
+        VERIFY_FALCON_SELWRE_RUN_MODE => [
+            DESCRIPTION     => "Checks secure run mode and level",
+            ARGUMENTS       => "void",
+            RETURN_TYPE     => LwBool,
+            STUB_RETURNS    => LW_FALSE,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION(LW_ARCH_VAL("imem_init", "kernel_code_init"), "__FUNC__")',
+
+            _GM20X          => [ GM20X_thru_TURING, GA100, USED_BY_GA10X, ],
+            _GA10X          => [ AMPERE_and_later, -GA100, ],
+            _STUB           => [ GM10X, ],
+        ],
+
+        INIT_BRSS_DATA => [
+            DESCRIPTION     => "Initialize BRSS data from BSIRAM",
+            ARGUMENTS       => "void",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM20X          => [ GM20X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _STUB           => [ GM10X, tMAXWELL_and_later, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        COPY_BRSS_DATA => [
+            DESCRIPTION     => "Copy BRSS data to pointer",
+            ARGUMENTS       => "RM_PMU_BSI_RAM_SELWRE_SCRATCH_DATA *pBrssData",
+            RETURN_TYPE     => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_cmdmgmtMisc", "__FUNC__")',
+
+            _GM20X          => [ GM20X_and_later, -GP100, ],
+            _GP100          => [ GP100, ],
+            _STUB           => [ GM10X, tMAXWELL_and_later, ],
+        ],
+
+        INIT_INFOROM_DATA => [
+            DESCRIPTION     => "Initialize Inforom data from BSI RAM",
+            ARGUMENTS       => "LwU32 *pInforomData",
+            RETURN_TYPE     => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GP10X          => [ GP10X_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        IS_DMA_IDX_PERMITTED => [
+            DESCRIPTION     => "Check whether an access using the specified dmaIdx is permitted",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => "LwU8 dmaIdx",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            STUB_RETURNS    => LW_FALSE,
+
+            LIKE_INTERFACE  => INIT,
+        ],
+
+        VERIFY_PRIV_SEC_ENABLED => [
+            DESCRIPTION     => "Check that PRIV_SEC is enabled for production boards",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            STUB_RETURNS    => FLCN_OK,
+
+            _GA100          => [ GA100_and_later, ],
+            _STUB           => [ pre_GA100, ],
+
+        ]
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $lsfHal;

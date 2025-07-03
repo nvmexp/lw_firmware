@@ -1,0 +1,91 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Engines.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    ACRSRC_CORE => [
+
+        FLAGS => ':CORE',             # following are all part of core (non-hal)
+
+        'acrshared/lw/acr_helper_functions.c',
+
+    ],  # ACRSRC_CORE
+
+    ACRSRC_ENGINES => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        HAL =>
+        [
+            # These are the files that install the hal support for a given gpu.
+            # The files may be shared across multiple gpus, but every gpu must
+            # be represented by exactly 1 file.
+
+            FLAGS => ':HAL_IMPLEMENTATION'    # mark these files as the hal implementation
+                   . ':HAL_SETUP'
+                   . '',
+        ],
+
+        ACR =>
+        [
+            CHIPS_SUPPORTED => [ GH100_and_later, ],
+                 'init/lw/acr_partition_entry.c',
+                 'wprsetup/lw/acr_command_wpr.c',
+                 'lsboot/lw/acr_command_ls_boot.c',
+                 'acrshared/hopper/acr_helper_functions_gh100.c',
+                 'acrshared/hopper/acr_sanity_checks_gh100.c',
+                 'lsauth/hopper/acr_verify_ls_signature_gh100.c',
+                 'lsauth/hopper/acr_signature_manager_gh100.c',
+                 'lsauth/hopper/acr_se_access_gh100.c',
+                 'lsauth/hopper/acr_decrypt_ls_ucode_gh100.c',
+                 'lsboot/hopper/acr_ls_riscv_boot_gh100.c',
+                 'lsboot/hopper/acr_ls_falcon_boot_gh100.c',
+                 'unload/lw/acr_command_unload.c',
+                 'unload/hopper/acr_unload_gh100.c',
+                 'riscv/lw/acr_helper_functions_riscv.c',
+                 'riscv/lw/acr_riscv_stubs.c',
+                 'utils/hopper/acr_timer_access_gh100.c',
+                 'utils/hopper/acr_dma_gh100.c',
+                 'utils/hopper/acr_mem_utils_gh100.c',
+                 'utils/hopper/acr_register_access_gh100.c',
+                 'utils/hopper/acr_fuse_gh100.c',
+                 'wprsetup/hopper/acr_sub_wpr_gh100.c',
+                 'wprsetup/hopper/acr_lock_wpr_gh100.c',
+                 'wprsetup/hopper/acr_wpr_ctrl_gh100.c',
+
+            ONLY_IF => 'GSPRM_BOOT',
+                 'gsprmboot/lw/acr_command_gsprm_boot.c',
+                 'gsprmboot/hopper/acr_boot_gsprm_gh100.c',
+
+            ONLY_IF => 'GSPRM_PROXY_BOOT',
+                 'gsprmboot/lw/acr_command_gsprm_proxy_boot.c',
+                 'gsprmboot/hopper/acr_boot_gsprm_proxy_gh100.c',
+        ],
+
+    ],  # ACRSRC_ENGINES
+
+];   # filesRef
+
+
+my $platformsRef = [
+
+    # the ACR platform
+    PLATFORM_ACR  => [
+        ACRSRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

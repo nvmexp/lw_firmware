@@ -1,0 +1,58 @@
+--*_LWRM_COPYRIGHT_BEGIN_
+--*
+--* Copyright 2021 by LWPU Corporation.  All rights reserved.  All
+--* information contained herein is proprietary and confidential to LWPU
+--* Corporation.  Any use, reproduction, or disclosure without the written
+--* permission of LWPU Corporation is prohibited.
+--*
+--*_LWRM_COPYRIGHT_END_
+
+with Lw_Types;                use Lw_Types;
+with Policy_Types;            use Policy_Types;
+with Mpu_Policy_Types;        use Mpu_Policy_Types;
+with Iopmp_Policy_Types;      use Iopmp_Policy_Types;
+with Device_Map_Policy_Types; use Device_Map_Policy_Types;
+with Policy_External;         use Policy_External;
+with Dev_Riscv_Csr_64;        use Dev_Riscv_Csr_64;
+with Dev_Prgnlcl;             use Dev_Prgnlcl;
+with Lw_Types.Shift_Right_Op; use Lw_Types.Shift_Right_Op;
+with Dummy_Policy_Constants;  use Dummy_Policy_Constants;
+
+-- Example policy array with dummy values
+package Policies
+is
+
+    Always_Clear_MPU_On_Switch : constant LwU1 := 1;
+    External_Policies : constant External_Policy_Array := External_Policy_Array'(
+TEMPLATE_START
+           COMMA
+           PARTITION_INDEX => External_Policy'(
+                    Switchable_To       => Plcy_Switchable_To_Array'(others => PERMITTED),
+                    Entry_Point_Address => 16#123123#,
+                    Ucode_Id            => 0,
+                    Sspm                => Plcy_SSPM'(
+                                            Splm => 2#1#,
+                                            Ssecm => SSECM_INSEC),
+                    Secret_Mask         => Plcy_Secret_Mask'(
+                                            Scp_Secret_Mask0 => 0,
+                                            Scp_Secret_Mask1 => 0,
+                                            Scp_Secret_Mask_lock0 => 0,
+                                            Scp_Secret_Mask_lock1 => 0),
+                    Debug_Control       => Debug_Control,
+                    Mpu_Control         => Mpu_Control,
+                    Device_Map_Group_0  => Device_Map_Group_0,
+                    Device_Map_Group_1  => Device_Map_Group_1,
+                    Device_Map_Group_2  => Device_Map_Group_2,
+                    Device_Map_Group_3  => Device_Map_Group_3,
+                    Core_Pmp            => Core_Pmp,
+#if POLICY_CONFIG_SBI
+                    SBI_Access_Config   => ALLOW_ALL_SBI,
+#end if;
+#if POLICY_CONFIG_PRIV_LOCKDOWN
+                    Priv_Lockdown       => LW_PRGNLCL_RISCV_BR_PRIV_LOCKDOWN_Register'(Lock => LOCK_UNLOCKED),
+#end if;
+                    Io_Pmp              => Io_Pmp)
+TEMPLATE_END
+   );
+
+end Policies;

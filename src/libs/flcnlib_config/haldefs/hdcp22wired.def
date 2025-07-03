@@ -1,0 +1,409 @@
+# -*- mode: perl; -*-
+
+# Hdcp22 Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $hdcp22wiredHal = [
+
+    # per-GPU defaults for hdcp 2.2 wired task for all interfaces below
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libHdcp22wired", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        ENCRYPTION_ACTIVE => [
+            DESCRIPTION     => "Check if HDCP 2.2 is not active on particular SOR",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 sorNumber, LwBool *pBEncActive",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _v02_05         => [ GM20x_thru_dPASCAL, -DISPLAYLESS, ],
+            _v03_00         => [ GV10x_and_later, -DISPLAYLESS, ],
+            _v04_02         => [ T234D_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, CHEETAH, -T234D_and_later, ],
+        ],
+
+        ENCRYPTION_ACTIVE_HS => [
+            DESCRIPTION     => "Check if HDCP 2.2 is not active on particular SOR HS version",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 sorNumber, LwBool *pBEncActive",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_selwreActionHs", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _v03_00         => [ GV10x_and_later, -DISPLAYLESS, ],
+            _v04_02         => [ T234D_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GV10X, CHEETAH, -T234D_and_later, ],
+        ],
+
+        WRITE_STREAM_TYPE_IN_SCRATCH => [
+            DESCRIPTION     => "Write Stream Type to scratch registers",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 sorNum, HDCP22_STREAM streamIdType[HDCP22_NUM_STREAMS_MAX]",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_hdcp22ControlEncryption", "__FUNC__")',
+            STUB_RETURNS    => FLCN_OK,
+
+            _v02_07         => [ dPASCAL, ],
+            _STUB           => [ ALL, -dPASCAL, ],
+        ],
+
+        IS_SOR_DRIVES_EIGHT_LANE_DP => [
+            DESCRIPTION     => "Check whether SOR supports Eight Lane DP",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 sorNumber, LwBool *pBSor8LaneDp",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => ENCRYPTION_ACTIVE,
+        ],
+
+        IS_SOR_DRIVES_EIGHT_LANE_DP_HS => [
+            DESCRIPTION     => "Check whether SOR supports Eight Lane DP HS version",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 sorNumber, LwBool *pBSor8LaneDp",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_hdcp22ControlEncryption", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => ENCRYPTION_ACTIVE_HS,
+        ],
+
+        HANDLE_ENABLE_ENC => [
+            DESCRIPTION     => "Enables HDCP 2.2 Encryption",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 sorNum, LwU8 linkIndex, LwBool bIsRepeater, LwBool bApplyHwDrmType1LockedWar",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_hdcp22ControlEncryption", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERROR,
+            LIKE_INTERFACE  => ENCRYPTION_ACTIVE,
+        ],
+
+        WRITE_STREAM_TYPE => [
+            DESCRIPTION     => "Write Stream Type",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 sorNum, LwU8 linkIndex, HDCP22_STREAM streamIdType[HDCP22_NUM_STREAMS_MAX], LwU32 dpTypeMask[HDCP22_NUM_DP_TYPE_MASK], LwBool bIsAux",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_hdcp22ControlEncryption", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERROR,
+            LIKE_INTERFACE  => ENCRYPTION_ACTIVE,
+        ],
+
+        HANDLE_DISABLE_ENC => [
+            DESCRIPTION     => "Disables HDCP 2.2 Encryption",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 maxNoOfSors, LwU8 maxNoOfHeads, LwU8 sorNum, LwBool bCheckCryptStatus",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_hdcp22ControlEncryption", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERROR,
+
+            LIKE_INTERFACE  => ENCRYPTION_ACTIVE,
+        ],
+
+
+        IS_SOR_POWERED_DOWN => [
+            DESCRIPTION     => "Checks whether a SOR is powered down",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 sorNum, LwU8 dfpSublinkMask, LwBool *pBSorPowerDown",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => ENCRYPTION_ACTIVE,
+        ],
+
+        SELWRITY_ENGINE_RSA_VERIF => [
+            DESCRIPTION     => "Call SE lib to verify a RSA operation",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "void",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _v02_07         => [ dPASCAL_and_later, ],
+            _STUB           => [ pre_dPASCAL, CHEETAH ],
+        ],
+
+        INIT_SOR_HDCP22_CTRL_REG => [
+            DESCRIPTION     => "Init LW_PDISP_SOR_HDCP22_CTRL reg setting",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            # GM200, GM204 hdcp22 are disabled both from RM, DPU due to HW issue,
+            # therefore, keep to use legacy ecf write without protection for GM200, GM204.
+            # No hdcp22 task for GM200, GM204 and wouldnt init to enable ecf projection.
+            _v02_05         => [ GM20x_thru_dPASCAL, -DISPLAYLESS, ],
+            _v03_00         => [ GV10x_thru_TU10X, -DISPLAYLESS, ],
+            _v04_01         => [ GA10x_and_later, -DISPLAYLESS, ],
+            _v04_02         => [ T234D_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, CHEETAH, -T234D_and_later, ],
+        ],
+
+        WRITE_DP_ECF => [
+            DESCRIPTION     => "Write DP MST ECF",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 sorIndex, LwU32* pEcf",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_hdcp22WriteDpEcf", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _v02_05         => [ GM20x_thru_dPASCAL, -DISPLAYLESS, ],
+            _v03_00         => [ GV10x_and_later, -DISPLAYLESS, ], # TODO, stub GA10X_and_later after RISC-V supports HDCP22_WAR_ECF_SELWRE_ENABLED.
+            _v04_02         => [ T234D_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, CHEETAH, -T234D_and_later, ],
+        ],
+
+        SELWRE_WRITE_DP_ECF => [
+            DESCRIPTION     => "Write DP MST ECF Selwrely",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 maxNoOfSors, LwU8 maxNoOfHeads, LwU8 sorIndex, LwU32* pEcf, LwBool bForecClearEcf, LwBool bAddStreamBack, LwBool bInternalReq",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_hdcp22WriteDpEcf", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _v04_01         => [ GA10x_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GA10X, CHEETAH,],
+        ],
+
+        CLEAR_DP_ECF => [
+            DESCRIPTION     => "Clear DP MST ECF",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 maxNoOfSors, LwU8 maxNoOfHeads, LwU8 sorIndex",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_hdcp22ControlEncryption", "__FUNC__")',
+            STUB_RETURNS    => FLCN_OK,
+
+            _v04_01         => [ GA10x_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GA10X, CHEETAH,],
+        ],
+
+        WRITE_KS => [
+            DESCRIPTION     => "Write Ks",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 sorNum, LwU8 linkIndex, LwBool bIsMst, LwU32 *pKs",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_hdcp22GenerateSessionkey", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => ENCRYPTION_ACTIVE,
+        ],
+
+        WRITE_RIV => [
+            DESCRIPTION     => "Write Riv",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 sorNum, LwU8 linkIndex, LwBool bIsMst, LwU32 *pRiv",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_hdcp22GenerateSessionkey", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => ENCRYPTION_ACTIVE,
+        ],
+
+        SEND_TYPE1_LOCK_RSP_TO_SEC2 => [
+            DESCRIPTION     => "Clears resposne bit to intimate SEC2 that lock/unlock request is completed",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "HDCP22_SEC2LOCK_STATUS hdcp22Sec2LockStatus",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _v02_07         => [ GP10X, ],
+            _STUB           => [ pre_dPASCAL, GV10X_and_later, CHEETAH, ],
+        ],
+
+        IS_TYPE1_LOCK_ACTIVE => [
+            DESCRIPTION     => "Reads lock/unlock bit, set by SEC2",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwBool *pBType1LockActive",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            STUB_RETURNS    => FLCN_OK,
+
+            _v02_07         => [ GP10X, ],
+            _v03_00         => [ GV10X_and_later, ],
+            _STUB           => [ pre_dPASCAL, CHEETAH, ],
+        ],
+
+        IS_TYPE1_LOCK_ACTIVE_HS => [
+            DESCRIPTION     => "Reads lock/unlock bit HS version, set by SEC2",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwBool *pBType1LockActive",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_selwreActionHs", "__FUNC__")',
+            STUB_RETURNS    => FLCN_OK,
+
+            _v03_00         => [ GV10x_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GV10X, CHEETAH, ],
+        ],
+
+        READ_AUDIT_TIMER => [
+            DESCRIPTION     => "Read audit timer",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32* pLwrrentTimeUs",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _v02_05         => [ GM20x, dPascal, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, CHEETAH, GV10X_and_later, ],
+        ],
+
+        CONFIDENTIAL_SECRET_DO_CRYPT => [
+            DESCRIPTION     => "Do AES-CBC encryption/decryption to hdcp22 confidential.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 *pRandom, LwU32 *pSecret, LwU32 *pDest, LwU32 size, LwBool bIsEncrypt",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _v02_05         => [ GM20x_thru_dPASCAL, -DISPLAYLESS, ],
+            _v03_00         => [ GV10x_and_later, -DISPLAYLESS, ],
+            _v04_02         => [ T234D_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, CHEETAH, -T234D_and_later, ],
+        ],
+
+        CHECK_OR_UPDATE_STATE_INTEGRITY => [
+            DESCRIPTION     => "Check or update state variable's integrity.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 *pData, LwU32 *pHash, LwU32 size, LwBool bIsUpdate",
+            STUB_RETURNS    => FLCN_OK,
+
+            _v03_00         => [ GV10x_and_later, -DISPLAYLESS, ],
+            _v04_02         => [ T234D_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GV10X, CHEETAH, -T234D_and_later, ],
+        ],
+
+        IS_AUTO_DISABLED_WITH_LANE_COUNT0 => [
+            DESCRIPTION     => "Check if encryption got disabled due to lane count as 0",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 sorIndex, LwBool *bDisabledWithLaneCount0",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _v02_05         => [ GM20x, dPascal, -DISPLAYLESS, -CHEETAH, ],
+            _v03_00         => [ dVOLTA, -DISPLAYLESS, -CHEETAH, ],
+            _STUB           => [ pre_GM20X, TURING_and_later, CHEETAH, DISPLAYLESS, ],
+        ],
+
+        AUX_PERFORM_TRANSACTION => [
+            DESCRIPTION     => "Perform Aux transaction",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 port, LwU32 dataOffset, LwU32 dataSize, LwU8 *pData, LwBool bRead",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libDpaux", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _v02_05         => [ GM20x_and_later, -DISPLAYLESS, ],
+            _v04_02         => [ T234D_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, CHEETAH, -T234D_and_later, ],
+        ],
+
+        I2C_PERFORM_TRANSACTION => [
+            DESCRIPTION     => "Perform Aux transaction",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 port, LwU32 dataOffset, LwU32 dataSize, LwU8 *pData, LwBool bRead",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libI2c", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _v02_05         => [ GM20x_and_later, -DISPLAYLESS, ],
+            _v04_02         => [ T234D_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, CHEETAH, -T234D_and_later, ],
+        ],
+
+        GET_RAND_NUMBER => [
+            DESCRIPTION     => "Get generated random number.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 *pDest, LwS32 size",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _v02_05         => [ GM20x_thru_dPASCAL, -DISPLAYLESS, ],
+            _v03_00         => [ GV10x_thru_dADA, -DISPLAYLESS, ],
+            _v04_02         => [ T234D_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, CHEETAH, -T234D_and_later, ],
+        ],
+
+        GET_MAX_NO_OF_SORS_HEADS  => [
+            DESCRIPTION     => "Get Maximum no of SORs, HEADs we have in that board",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 *pMaxNoOfSors, LwU8 *pMaxNoOfHeads",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => ENCRYPTION_ACTIVE,
+        ],
+
+        GET_MAX_NO_OF_SORS_HEADS_HS  => [
+            DESCRIPTION     => "Get Maximum no of SORs, HEADs we have in that board HS version",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 *pMaxNoOfSors, LwU8 *pMaxNoOfHeads",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_selwreActionHs", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => ENCRYPTION_ACTIVE_HS,
+        ],
+
+        READ_FROM_SELWRE_MEMORY => [
+            DESCRIPTION     => "Read HDCP22 Secrets from secure memory",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "HDCP22_SECRET hdcp22Secret, LwU8 *pData",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            _v02_05         => [ GM20x_thru_dPASCAL, T234D_and_later, -DISPLAYLESS, ],
+            _v03_00         => [ dVOLTA, -DISPLAYLESS, -CHEETAH, ],
+            _v04_00         => [ TU10x_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, CHEETAH, -T234D_and_later, ],
+        ],
+
+        WRITE_TO_SELWRE_MEMORY => [
+            DESCRIPTION     => "Write HDCP22 Secrets to secure memory",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "HDCP22_SECRET hdcp22Secret, LwU8 *pData, LwBool bIsReset",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => READ_FROM_SELWRE_MEMORY,
+        ],
+
+        SAVE_SESSION_SECRETS => [
+            DESCRIPTION     => "Save active session secrets per SOR",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 sorNum",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => READ_FROM_SELWRE_MEMORY,
+        ],
+
+        RETRIEVE_SESSION_SECRETS => [
+            DESCRIPTION     => "Retrieve active session secrets per SOR",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 sorNum",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => READ_FROM_SELWRE_MEMORY,
+        ],
+
+        KMEM_INIT => [
+            DESCRIPTION     => "Init KeyMemory storage",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 requestSize",
+            STUB_RETURNS    => FLCN_OK,
+
+            _v04_00         => [ TU10x_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_TURING, CHEETAH, ],
+        ],
+
+        KMEM_CHECK_PROTINFO_HS => [
+            DESCRIPTION     => "Check protectInfo setting in HS",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "void",
+            STUB_RETURNS    => FLCN_OK,
+
+            _v04_00         => [ TU10x_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_TURING, CHEETAH, ],
+        ],
+
+        KMEM_WRITE_TO_KSLT => [
+            DESCRIPTION     => "Write to KMEM keyslot storage",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 offset, LwU32 size, LwU8 *pData",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => KMEM_INIT,
+        ],
+
+        KMEM_READ_FROM_KSLT => [
+            DESCRIPTION     => "Read from KMEM keyslot storage",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 offset, LwU32 size, LwU8 *pData",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+
+            LIKE_INTERFACE  => KMEM_INIT,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $hdcp22wiredHal;
+

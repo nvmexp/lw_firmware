@@ -1,0 +1,96 @@
+# -*- mode: perl; -*-
+
+# APM Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $apmHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_apm", "__FUNC__")',
+        FLAGS           => ':DIRECT_HAL_CALLS'
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+        GET_RTS_FB_OFFSET => [
+            DESCRIPTION    => "Returns the offset of APM root of trust SubWPR",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => "LwU64 *pOutRts",
+
+            _GA100         => [ GA100, ],
+            _STUB          => [ ALL, -GA100 ],
+        ],
+
+        CAPTURE_VPR_MMU_STATE => [
+            DESCRIPTION    => "Dynamically measures VPR state",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => "LwU64 apmRtsOffset",
+
+            _GA100         => [ GA100, ],
+            _STUB          => [ ALL, -GA100 ],
+        ],
+
+        CAPTURE_DECODE_TRAP_STATE => [
+            DESCRIPTION    => "Dynamically measures decode traps",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED,
+            ARGUMENTS      => "LwU64 apmRtsOffset",
+
+            _GA100         => [ GA100, ],
+            _STUB          => [ ALL, -GA100 ],
+        ],
+
+        CHECK_IF_ENABLED_HS => [
+            DESCRIPTION     => "Check if APM is enabled, returns OK if yes",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_initHs", "__FUNC__")',
+            ARGUMENTS       => void,
+
+            _GA100          => [ GA100, ],
+            _STUB           => [ ALL, -GA100 ],
+        ],
+
+        ENABLE_PROTECTIONS_HS => [
+            DESCRIPTION     => "Enable necessary protections",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_initHs", "__FUNC__")',
+            ARGUMENTS       => void,
+
+            _GA100          => [ GA100, ],
+            _STUB           => [ ALL, -GA100 ],
+        ],
+
+        UPDATE_SCRATCH_GROUP0_PLM_HS => [
+            DESCRIPTION     => "Initialize Scratch Group0 PLM",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_initHs", "__FUNC__")',
+            ARGUMENTS       => void,
+
+            _GA100          => [ GA100, ],
+            _STUB           => [ ALL, -GA100 ],
+        ],
+
+        UPDATE_SCRATCH_WITH_STATUS => [
+            DESCRIPTION     => "Initialize Scratch with status",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_initHs", "__FUNC__")',
+            ARGUMENTS       => LwU32,
+
+            _GA100          => [ GA100, ],
+            _STUB           => [ ALL, -GA100 ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $apmHal;
+

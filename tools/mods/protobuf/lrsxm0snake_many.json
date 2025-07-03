@@ -1,0 +1,334 @@
+{
+    "config" :
+    {
+        "topology_architecture" : "limerock"
+    },
+    "node0" :
+    {
+        "type" : "node",
+        "ip"   : "ipaddr"   
+    },
+    "gpu0" :
+    {
+        "type"             : "gpu",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "target_id"        : 0,
+        "gpa_base"         : 0,
+        "fla_base"         : 16,
+        "requester_base"   : 0,
+        "max_ports"        : 12,
+        "rlan_ids"         : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ]
+    },
+    "switch0" :
+    {
+        "type"             : "switch",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "max_ports"        : 36,
+        "ports"            : 
+            [
+                { "port"        : 0,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 9,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29 ] }
+                      ]
+                },
+                { "port"        : 1,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 8,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29 ] }
+                      ]
+                },
+                { "port"        : 2,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 1,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29 ] }
+                      ]
+                },
+                { "port"        : 3,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 0,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29 ] }
+                      ]
+                },
+                { "port"        : 4,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 11,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29 ] }
+                      ]
+                },
+                { "port"        : 5,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 10,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29 ] }
+                      ]
+                },
+                { "port"        : 6,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 3,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29 ] }
+                      ]
+                },
+                { "port"        : 7,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 2,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29 ] }
+                      ]
+                },
+                { "port"        : 8,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 4,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29 ] }
+                      ]
+                },
+                { "port"        : 9,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 5,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29 ] }
+                      ]
+                },
+                { "port"        : 10,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 6,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29 ] }
+                      ]
+                },
+                { "port"        : 11,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 7,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29 ] }
+                      ]
+                },
+                { "port"        : 12,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 12,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
+                            "rlan" : [[3,1],[2,1],[7,1],[6,1],[8,1],[9,1],[10,1],[11,1],[1,1],[0,1],[5,1],[4,1]] }
+                      ]
+                },
+                { "port"        : 13,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 13,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
+                            "rlan" : [[3,1],[2,1],[7,1],[6,1],[8,1],[9,1],[10,1],[11,1],[1,1],[0,1],[5,1],[4,1]] }
+                      ]
+                },
+                { "port"        : 14,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 14,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
+                            "rlan" : [[3,1],[2,1],[7,1],[6,1],[8,1],[9,1],[10,1],[11,1],[1,1],[0,1],[5,1],[4,1]] }
+                      ]
+                },
+                { "port"        : 15,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 15,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
+                            "rlan" : [[3,1],[2,1],[7,1],[6,1],[8,1],[9,1],[10,1],[11,1],[1,1],[0,1],[5,1],[4,1]] }
+                      ]
+                },
+                { "port"        : 16,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 20,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 27 ] }
+                      ]
+                },
+                { "port"        : 17,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 21,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 14 ] }
+                      ]
+                },
+                { "port"        : 18,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 25,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 33 ] }
+                      ]
+                },
+                { "port"        : 19,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 24,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 32 ] }
+                      ]
+                },
+                { "port"        : 20,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 16,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 13 ] }
+                      ]
+                },
+                { "port"        : 21,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 17,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 34 ] }
+                      ]
+                },
+                { "port"        : 22,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 29,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 12 ] }
+                      ]
+                },
+                { "port"        : 23,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 28,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 26 ] }
+                      ]
+                },                
+                { "port"        : 24,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 19,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 31 ] }
+                      ]
+                },
+                { "port"        : 25,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 18,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 30 ] }
+                      ]
+                },
+                { "port"        : 26,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 26,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
+                            "rlan" : [[3,1],[2,1],[7,1],[6,1],[8,1],[9,1],[10,1],[11,1],[1,1],[0,1],[5,1],[4,1]] }
+                      ]
+                },
+                { "port"        : 27,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 27,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
+                            "rlan" : [[3,1],[2,1],[7,1],[6,1],[8,1],[9,1],[10,1],[11,1],[1,1],[0,1],[5,1],[4,1]] }
+                      ]
+                },
+                { "port"        : 28,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 23,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 35 ] }
+                      ]
+                },
+                { "port"        : 29,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 22,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 15 ] }
+                      ]
+                },
+                { "port"        : 30,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 30,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
+                            "rlan" : [[3,1],[2,1],[7,1],[6,1],[8,1],[9,1],[10,1],[11,1],[1,1],[0,1],[5,1],[4,1]] }
+                      ]
+                },
+                { "port"        : 31,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 31,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
+                            "rlan" : [[3,1],[2,1],[7,1],[6,1],[8,1],[9,1],[10,1],[11,1],[1,1],[0,1],[5,1],[4,1]] }
+                      ]
+                },
+                { "port"        : 32,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 32,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
+                            "rlan" : [[3,1],[2,1],[7,1],[6,1],[8,1],[9,1],[10,1],[11,1],[1,1],[0,1],[5,1],[4,1]] }
+                      ]
+                },
+                { "port"        : 33,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 33,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
+                            "rlan" : [[3,1],[2,1],[7,1],[6,1],[8,1],[9,1],[10,1],[11,1],[1,1],[0,1],[5,1],[4,1]] }
+                      ]
+                },
+                { "port"        : 34,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 34,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
+                            "rlan" : [[3,1],[2,1],[7,1],[6,1],[8,1],[9,1],[10,1],[11,1],[1,1],[0,1],[5,1],[4,1]] }
+                      ]
+                },
+                { "port"        : 35,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 35,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "rmod" : 0, "output_ports" : [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
+                            "rlan" : [[3,1],[2,1],[7,1],[6,1],[8,1],[9,1],[10,1],[11,1],[1,1],[0,1],[5,1],[4,1]] }
+                      ]
+                }
+            ]
+    }
+}
+

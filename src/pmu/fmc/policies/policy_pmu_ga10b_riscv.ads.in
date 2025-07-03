@@ -1,0 +1,791 @@
+-- _LWRM_COPYRIGHT_BEGIN_
+--
+-- Copyright 2021 by LWPU Corporation.  All rights reserved.  All
+-- information contained herein is proprietary and confidential to LWPU
+-- Corporation.  Any use, reproduction, or disclosure without the written
+-- permission of LWPU Corporation is prohibited.
+--
+-- _LWRM_COPYRIGHT_END_
+
+with Lw_Types;                use Lw_Types;
+with Policy_Types;            use Policy_Types;
+with Mpu_Policy_Types;        use Mpu_Policy_Types;
+with Iopmp_Policy_Types;      use Iopmp_Policy_Types;
+with Device_Map_Policy_Types; use Device_Map_Policy_Types;
+with Policy_External;         use Policy_External;
+with Dev_Riscv_Csr_64;        use Dev_Riscv_Csr_64;
+with Dev_Prgnlcl;             use Dev_Prgnlcl;
+with Lw_Riscv_Address_Map;    use Lw_Riscv_Address_Map;
+with Types;                   use Types;
+
+package Policies is
+    Always_Clear_MPU_On_Switch : constant LwU1 := 1;
+
+    RTOS_Debug_Control_Lock : constant LW_PRGNLCL_RISCV_DBGCTL_LOCK_Register := LW_PRGNLCL_RISCV_DBGCTL_LOCK_Register'(
+        -- Default DBGCTL_LOCK settings matching manifest
+        Icd_Cmdwl_Stop   => STOP_LOCKED,
+        Icd_Cmdwl_Run    => RUN_LOCKED,
+        Rsvd1            => LW_PRGNLCL_RISCV_DBGCTL_LOCK_RSVD1_INIT,
+        Icd_Cmdwl_Step   => STEP_LOCKED,
+        Icd_Cmdwl_J      => J_LOCKED,
+        Icd_Cmdwl_Emask  => EMASK_LOCKED,
+        Icd_Cmdwl_Rreg   => RREG_LOCKED,
+        Icd_Cmdwl_Wreg   => WREG_LOCKED,
+        Icd_Cmdwl_Rdm    => RDM_LOCKED,
+        Icd_Cmdwl_Wdm    => WDM_LOCKED,
+        Icd_Cmdwl_Rstat  => RSTAT_UNLOCKED,
+        Icd_Cmdwl_Ibrkpt => IBRKPT_LOCKED,
+        Icd_Cmdwl_Rcsr   => RCSR_LOCKED,
+        Icd_Cmdwl_Wcsr   => WCSR_LOCKED,
+        Icd_Cmdwl_Rpc    => RPC_UNLOCKED,
+        Icd_Cmdwl_Rfreg  => RFREG_LOCKED,
+        Icd_Cmdwl_Wfreg  => WFREG_LOCKED,
+        Rsvd             => LW_PRGNLCL_RISCV_DBGCTL_LOCK_RSVD_INIT,
+        Single_Step_Mode => MODE_LOCKED);
+
+    RTOS_Debug_Control : constant Plcy_Debug_Control := Plcy_Debug_Control'(
+        -- Default DBGCTL settings matching manifest
+        Debug_Ctrl => LW_PRGNLCL_RISCV_DBGCTL_Register'(
+            Icd_Cmdwl_Stop   => STOP_DISABLE,
+            Icd_Cmdwl_Run    => RUN_DISABLE,
+            Rsvd1            => LW_PRGNLCL_RISCV_DBGCTL_RSVD1_INIT,
+            Icd_Cmdwl_Step   => STEP_DISABLE,
+            Icd_Cmdwl_J      => J_DISABLE,
+            Icd_Cmdwl_Emask  => EMASK_DISABLE,
+            Icd_Cmdwl_Rreg   => RREG_DISABLE,
+            Icd_Cmdwl_Wreg   => WREG_DISABLE,
+            Icd_Cmdwl_Rdm    => RDM_DISABLE,
+            Icd_Cmdwl_Wdm    => WDM_DISABLE,
+            Icd_Cmdwl_Rstat  => RSTAT_ENABLE,
+            Icd_Cmdwl_Ibrkpt => IBRKPT_DISABLE,
+            Icd_Cmdwl_Rcsr   => RCSR_DISABLE,
+            Icd_Cmdwl_Wcsr   => WCSR_DISABLE,
+            Icd_Cmdwl_Rpc    => RPC_ENABLE,
+            Icd_Cmdwl_Rfreg  => RFREG_DISABLE,
+            Icd_Cmdwl_Wfreg  => WFREG_DISABLE,
+            Rsvd             => LW_PRGNLCL_RISCV_DBGCTL_RSVD_INIT,
+            Start_In_Icd     => ICD_FALSE,
+            Single_Step_Mode => MODE_DISABLE),
+
+        Debug_Ctrl_Lock => RTOS_Debug_Control_Lock);
+
+    Tegra_ACR_Debug_Control : constant Plcy_Debug_Control := Plcy_Debug_Control'(
+        -- For the CheetAh-ACR partition, we need ICD completely locked down
+        Debug_Ctrl => LW_PRGNLCL_RISCV_DBGCTL_Register'(
+            Icd_Cmdwl_Stop   => STOP_DISABLE,
+            Icd_Cmdwl_Run    => RUN_DISABLE,
+            Rsvd1            => LW_PRGNLCL_RISCV_DBGCTL_RSVD1_INIT,
+            Icd_Cmdwl_Step   => STEP_DISABLE,
+            Icd_Cmdwl_J      => J_DISABLE,
+            Icd_Cmdwl_Emask  => EMASK_DISABLE,
+            Icd_Cmdwl_Rreg   => RREG_DISABLE,
+            Icd_Cmdwl_Wreg   => WREG_DISABLE,
+            Icd_Cmdwl_Rdm    => RDM_DISABLE,
+            Icd_Cmdwl_Wdm    => WDM_DISABLE,
+            Icd_Cmdwl_Rstat  => RSTAT_DISABLE,
+            Icd_Cmdwl_Ibrkpt => IBRKPT_DISABLE,
+            Icd_Cmdwl_Rcsr   => RCSR_DISABLE,
+            Icd_Cmdwl_Wcsr   => WCSR_DISABLE,
+            Icd_Cmdwl_Rpc    => RPC_DISABLE,
+            Icd_Cmdwl_Rfreg  => RFREG_DISABLE,
+            Icd_Cmdwl_Wfreg  => WFREG_DISABLE,
+            Rsvd             => LW_PRGNLCL_RISCV_DBGCTL_RSVD_INIT,
+            Start_In_Icd     => ICD_FALSE,
+            Single_Step_Mode => MODE_DISABLE),
+
+        Debug_Ctrl_Lock => RTOS_Debug_Control_Lock);
+
+    RTOS_Mpu_Control : constant Plcy_Mpu_Control := Plcy_Mpu_Control'(
+        Start_Index       => 0,
+        Entry_Count       => 128);
+
+    Tegra_ACR_Mpu_Control : constant Plcy_Mpu_Control := Plcy_Mpu_Control'(
+        Start_Index       => 0,
+        Entry_Count       => 0); -- CheetAh-ACR partition runs in bare mode only, so ignore MPU
+
+    RTOS_Device_Map_Group_0 : constant Plcy_Device_Map_Group_0 := (
+        MMODE => (
+            -- SAFETY_CTRL/DCLS_SELWRITY/SAFETY_ERR*/DBGCTL*/SHA_CTRL/MSIP_PRIV_LEVEL_MASK/
+            -- /*IRQDELEG/LWCONFIG/CG/CYA/MSPM/TRACECTL/MTIMECMP*/INTR_STATUS/MSIP/
+            -- /BR_PRIV_LOCKDOWN/FBIF_TRANSCFG/FBIF_REGIONCFG/FBIF_CG1
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        RISCV_CTL => ( -- Unused
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        PIC => ( -- FALCON_IRQSSET/IRQSCLR/IRQSTAT/IRQMODE/IRQSCMASK
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        TIMER => ( -- GPTMR/PTMR/WDTMR
+            Readable => SUBMMODE_READ_DISABLE, -- PMU-RTOS uses lwriscv csr timers instead
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        HOSTIF => ( -- ENGCTL/PRICFG/FHSTATE/ITFEN/CTXACK/*CTX/MTHD*/DEBUG1
+            Readable => SUBMMODE_READ_ENABLE, -- PMU-RTOS needs this for pmuCtxBind; and also for writes to ENGCTL as part of shutdown sequence
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        DMA => ( -- DMACTL/DMATRF*/DMAPOLL/DMAINFO
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        PMB => (
+            -- LOCKPMB/DMEM_PRIV_RANGE/*MEM_DUMMY
+            -- PMB must be enabled so RTOS partition entry code can write LOCKPMB later (to set IMEM->locked and DMEM->unlocked)
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        DIO => ( -- PMU doesn't use DIO
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0));
+
+    Tegra_ACR_Device_Map_Group_0 : constant Plcy_Device_Map_Group_0 := (
+        MMODE => (
+            -- SAFETY_CTRL/DCLS_SELWRITY/SAFETY_ERR*/DBGCTL*/SHA_CTRL/MSIP_PRIV_LEVEL_MASK/
+            -- /*IRQDELEG/LWCONFIG/CG/CYA/MSPM/TRACECTL/MTIMECMP*/INTR_STATUS/MSIP/
+            -- /BR_PRIV_LOCKDOWN/FBIF_TRANSCFG/FBIF_REGIONCFG/FBIF_CG1
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        RISCV_CTL => ( -- Unused
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        PIC => ( -- FALCON_IRQSSET/IRQSCLR/IRQSTAT/IRQMODE/IRQSCMASK
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        TIMER => ( -- GPTMR/PTMR/WDTMR
+            Readable => SUBMMODE_READ_ENABLE, -- ACR partition uses PTIMER for timeout tracking due to code reuse.
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        HOSTIF => ( -- ENGCTL/PRICFG/FHSTATE/ITFEN/CTXACK/*CTX/MTHD*/DEBUG1
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        DMA => ( -- DMACTL/DMATRF*/DMAPOLL/DMAINFO
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        PMB => ( -- LOCKPMB/DMEM_PRIV_RANGE/*MEM_DUMMY
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        DIO => ( -- PMU doesn't use DIO
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0));
+
+    RTOS_Device_Map_Group_1 : constant Plcy_Device_Map_Group_1 := (
+        KEY => ( -- PMU has no key access
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        DEBUG => ( -- RSTAT0/RSTAT3/ICD_*/RPC/TRACE*
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        SHA => ( -- PMU does not use SHA engine
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        KMEM => ( -- PMU doesn't use KMEM
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        BROM => ( -- UCODE_VERSION/KFUSE_LOAD/PR_CTKID/KEYGLOB_*/BCR_CTRL/BCR_DMA*/SCP_PK_*
+            Readable => SUBMMODE_READ_ENABLE, -- RTOS springboard needs to read BR DMA config (BCR_DMA*) to jump to bootloader
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        ROM_PATCH => ( -- Not used by PMU
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        IOPMP => ( -- IOPMP_INDEX/IOPMP_CFG/IOPMP_ADDR*/IOPMP_MODE/IOPMP_ERR*
+            Readable => SUBMMODE_READ_ENABLE, -- Inside partition code this is only needed to check IOPMP error status
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        NOACCESS => ( -- Empty group
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0));
+
+    Tegra_ACR_Device_Map_Group_1 : constant Plcy_Device_Map_Group_1 := (
+        KEY => ( -- PMU has no key access
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        DEBUG => ( -- RSTAT0/RSTAT3/ICD_*/RPC/TRACE*
+            Readable => SUBMMODE_READ_DISABLE, -- For the CheetAh-ACR partition, debug is disabled
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        SHA => ( -- PMU does not use SHA engine
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        KMEM => ( -- PMU doesn't use KMEM
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        BROM => ( -- UCODE_VERSION/KFUSE_LOAD/PR_CTKID/KEYGLOB_*/BCR_CTRL/BCR_DMA*/SCP_PK_*
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        ROM_PATCH => ( -- Not used by PMU
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        IOPMP => ( -- IOPMP_INDEX/IOPMP_CFG/IOPMP_ADDR*/IOPMP_MODE/IOPMP_ERR*
+            Readable => SUBMMODE_READ_ENABLE, -- Inside partition code this is only needed to check IOPMP error status
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        NOACCESS => ( -- Empty group
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0));
+
+    RTOS_Device_Map_Group_2 : constant Plcy_Device_Map_Group_2 := (
+        SCP => ( -- SVEC_SPR/SCPDMA*/SCP_*
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        FBIF => ( -- FBIF_INSTBLK/FBIF_TLB_*/FBIF_CTL*/FBIF_THROTTLE/FBIF_ACHK_*/FBIF_DBG_*/FBIF_BW_ALLOC
+            Readable => SUBMMODE_READ_ENABLE, -- PMU-RTOS uses FBIF_CTL when doing mem flush for RPC, and FBIF_CTL2 to enable NACK_AS_ACK.
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        FALCON_ONLY => ( -- Registers which only apply to Falcon part of Peregrine. These must be disabled!
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        PRGN_CTL => ( -- RESET_PRIV_LEVEL_MASK/IDLESTATE/SFTRESET/SCTL/OS/RM/SOFT_PM/SOFT_MODE/PMM/DEBUG_INFO
+            Readable => SUBMMODE_READ_ENABLE, -- PMU-RTOS needs access to RESET_PRIV_LEVEL_MASK to lower it before shutdown.
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        -- Today PMU doesn't use scratch groups, but they are enabled just in case anyway:
+        SCR_GRP0 => ( -- COMMON_SCRATCH_GROUP_0/COMMON_SCRATCH_GROUP_0_PRIV_LEVEL_MASK
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        SCR_GRP1 => ( -- COMMON_SCRATCH_GROUP_1/COMMON_SCRATCH_GROUP_1_PRIV_LEVEL_MASK
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        SCR_GRP2 => ( -- COMMON_SCRATCH_GROUP_2/COMMON_SCRATCH_GROUP_2_PRIV_LEVEL_MASK
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        SCR_GRP3 => ( -- COMMON_SCRATCH_GROUP_2/COMMON_SCRATCH_GROUP_2_PRIV_LEVEL_MASK
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0));
+
+    Tegra_ACR_Device_Map_Group_2 : constant Plcy_Device_Map_Group_2 := (
+        SCP => ( -- SVEC_SPR/SCPDMA*/SCP_*
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        FBIF => ( -- FBIF_INSTBLK/FBIF_TLB_*/FBIF_CTL*/FBIF_THROTTLE/FBIF_ACHK_*/FBIF_DBG_*/FBIF_BW_ALLOC
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        FALCON_ONLY => ( -- Registers which only apply to Falcon part of Peregrine. These must be disabled!
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        PRGN_CTL => ( -- RESET_PRIV_LEVEL_MASK/IDLESTATE/SFTRESET/SCTL/OS/RM/SOFT_PM/SOFT_MODE/PMM/DEBUG_INFO
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        -- Today PMU doesn't use scratch groups, but they are enabled just in case anyway:
+        SCR_GRP0 => ( -- COMMON_SCRATCH_GROUP_0/COMMON_SCRATCH_GROUP_0_PRIV_LEVEL_MASK
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        SCR_GRP1 => ( -- COMMON_SCRATCH_GROUP_1/COMMON_SCRATCH_GROUP_1_PRIV_LEVEL_MASK
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        SCR_GRP2 => ( -- COMMON_SCRATCH_GROUP_2/COMMON_SCRATCH_GROUP_2_PRIV_LEVEL_MASK
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        SCR_GRP3 => ( -- COMMON_SCRATCH_GROUP_2/COMMON_SCRATCH_GROUP_2_PRIV_LEVEL_MASK
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0));
+
+    RTOS_Device_Map_Group_3 : constant Plcy_Device_Map_Group_3 := (
+        PLM => ( -- *_PRIV_LEVEL_MASK
+            Readable => SUBMMODE_READ_ENABLE,
+            Writable => SUBMMODE_WRITE_ENABLE,
+            Reserved => 0),
+        HUB_DIO => ( -- PMU doesn't use DIO
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        Reserved => 0);
+
+    Tegra_ACR_Device_Map_Group_3 : constant Plcy_Device_Map_Group_3 := (
+        PLM => ( -- *_PRIV_LEVEL_MASK
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        HUB_DIO => ( -- PMU doesn't use DIO
+            Readable => SUBMMODE_READ_DISABLE,
+            Writable => SUBMMODE_WRITE_DISABLE,
+            Reserved => 0),
+        Reserved => 0);
+
+    Core_Pmp_Access_Mode_X : constant PMP_Access_Mode := (
+        Exelwtion_Access => PERMITTED,
+        Write_Access => DENIED,
+        Read_Access => DENIED,
+        Reserved => 0
+    );
+
+    Core_Pmp_Access_Mode_R : constant PMP_Access_Mode := (
+        Exelwtion_Access => DENIED,
+        Write_Access => DENIED,
+        Read_Access => PERMITTED,
+        Reserved => 0
+    );
+
+    Core_Pmp_Access_Mode_RW : constant PMP_Access_Mode := (
+        Exelwtion_Access => DENIED,
+        Write_Access => PERMITTED,
+        Read_Access => PERMITTED,
+        Reserved => 0
+    );
+
+    Core_Pmp_Access_Mode_RWX : constant PMP_Access_Mode := (
+        Exelwtion_Access => PERMITTED,
+        Write_Access => PERMITTED,
+        Read_Access => PERMITTED,
+        Reserved => 0
+    );
+
+    Core_Pmp_Access_Mode_None : constant PMP_Access_Mode := (
+        Exelwtion_Access => DENIED,
+        Write_Access => DENIED,
+        Read_Access => DENIED,
+        Reserved => 0
+    );
+
+    Core_Pmp_Entry_Disabled : constant Core_Pmp_Entry := (
+        Addr => 16#0#,
+        Address_Mode => OFF,
+        Access_Mode => Core_Pmp_Access_Mode_None,
+        Reserved => 0
+    );
+
+    -- Memory layout:
+
+    Tegra_ACR_IMEM_Start            : constant := LW_RISCV_AMAP_IMEM_START + 16#$SEPKERN_IMEM_LIMIT#;
+    Liblwriscv_Shared_IMEM_Start    : constant := Tegra_ACR_IMEM_Start + 16#$TEGRA_ACR_IMEM_SIZE#;
+    RTOS_IMEM_Start                 : constant := Liblwriscv_Shared_IMEM_Start + 16#$LIBLWRISCV_IMEM_SIZE#;
+
+    Tegra_ACR_DMEM_RO_Start         : constant := LW_RISCV_AMAP_DMEM_START + 16#$SEPKERN_DMEM_LIMIT#;
+    Tegra_ACR_DMEM_Start            : constant := Tegra_ACR_DMEM_RO_Start + 16#$TEGRA_ACR_DMEM_RO_SIZE#;
+    Liblwriscv_Shared_DMEM_RO_Start : constant := Tegra_ACR_DMEM_Start + 16#$TEGRA_ACR_DMEM_SIZE#;
+    RTOS_DMEM_Start                 : constant := Liblwriscv_Shared_DMEM_RO_Start + 16#$LIBLWRISCV_DMEM_RO_SIZE#;
+
+    -- MMINTS-TODO: most of our Core-PMP entries (exception: CheetAh-ACR imem), but TOR is actually more readable.
+    -- Colwerting all these entries to NAPOT is always an option if we need to add more entries and start running out.
+    RTOS_Core_Pmp : constant Plcy_Core_Pmp := (
+        -- Core-PMP is used to restrict the two partitions' access to each others TCM.
+        -- The CheetAh-ACR partition exists in the space between the SK carveout and the PMU ucode (applies to IMEM and DMEM).
+        -- The RTOS partition won't have access to the CheetAh-ACR partition's IMEM or DMEM.
+        -- The CheetAh-ACR partition will not have access to the RTOS partition's IMEM or DMEM, and it won't have access to SYSGPA;
+        -- a simple security measure to ensure we always run the right code at the right priv level!
+
+        -- Imem
+        0 => Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(RTOS_IMEM_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        1 => Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(LW_RISCV_AMAP_IMEM_END), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_X,
+                                Reserved => 0),
+        -- Dmem
+        2 => Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(RTOS_DMEM_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        3 => Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(LW_RISCV_AMAP_DMEM_END), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_RW,
+                                Reserved => 0),
+        -- SYSGPA, RWX because bootloader is the one using it
+        4 => Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(LW_RISCV_AMAP_SYSGPA_START), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        5 => Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(LW_RISCV_AMAP_SYSGPA_END), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_RWX,
+                                Reserved => 0),
+        6 => Core_Pmp_Entry_Disabled,
+        7 => Core_Pmp_Entry_Disabled,
+        8 => Core_Pmp_Entry_Disabled,
+        9 => Core_Pmp_Entry_Disabled,
+        10 => Core_Pmp_Entry_Disabled,
+        11 => Core_Pmp_Entry_Disabled,
+        12 => Core_Pmp_Entry_Disabled,
+        13 => Core_Pmp_Entry_Disabled,
+        14 => Core_Pmp_Entry_Disabled,
+        15 => Core_Pmp_Entry_Disabled
+    );
+
+    Tegra_ACR_Core_Pmp : constant Plcy_Core_Pmp := (
+        -- Imem
+        0 => Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Tegra_ACR_IMEM_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        1 => Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Tegra_ACR_IMEM_Start + 16#$TEGRA_ACR_IMEM_SIZE#), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_X,
+                                Reserved => 0),
+        -- Dmem R/O
+        2 => Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Tegra_ACR_DMEM_RO_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        3 => Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Tegra_ACR_DMEM_RO_Start + 16#$TEGRA_ACR_DMEM_RO_SIZE#), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_R,
+                                Reserved => 0),
+        -- Dmem R/W
+        4 => Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Tegra_ACR_DMEM_Start), 2)),
+                                Address_Mode => OFF,
+                                Access_Mode => Core_Pmp_Access_Mode_None,
+                                Reserved => 0),
+        5 => Core_Pmp_Entry'(   Addr => PMP_Address(Shift_Right(LwU64(Tegra_ACR_DMEM_Start + 16#$TEGRA_ACR_DMEM_SIZE#), 2)),
+                                Address_Mode => TOR,
+                                Access_Mode => Core_Pmp_Access_Mode_RW,
+                                Reserved => 0),
+        6 => Core_Pmp_Entry_Disabled,
+        7 => Core_Pmp_Entry_Disabled,
+        8 => Core_Pmp_Entry_Disabled,
+        9 => Core_Pmp_Entry_Disabled,
+        10 => Core_Pmp_Entry_Disabled,
+        11 => Core_Pmp_Entry_Disabled,
+        12 => Core_Pmp_Entry_Disabled,
+        13 => Core_Pmp_Entry_Disabled,
+        14 => Core_Pmp_Entry_Disabled,
+        15 => Core_Pmp_Entry_Disabled
+    );
+
+    -- Our IOPMP settings assume read-disable-write-disable match-all-sources entries for IMEM and DMEM at the end of IOPMP
+
+    Default_Io_Pmp_Entry : constant Io_Pmp_Entry := (
+        Cfg  => Plcy_Io_Pmp_Cfg'(
+            Read         => READ_DISABLE,
+            Write        => WRITE_DISABLE,
+            Fbdma        => DISABLE,
+            Cpdma        => DISABLE,
+            Sha          => DISABLE,
+            Reserved     => 0,
+            PMB0         => DISABLE,
+            PMB1         => DISABLE,
+            PMB2         => DISABLE,
+            PMB3         => DISABLE,
+            PMB4         => DISABLE,
+            PMB5         => DISABLE,
+            PMB6         => DISABLE,
+            PMB7         => DISABLE,
+            Lock         => LOCK_UNLOCKED),
+        Mode            => OFF, -- policy disabled
+        Addr_Lo_1k      => 0,
+        Addr_Lo_Above1k => 0,
+        Addr_Hi         => 0);
+
+    Tegra_ACR_Io_Pmp : constant Plcy_Io_Pmp := (
+        0 => Io_Pmp_Entry'( -- CheetAh-ACR RO DMEM, read-only to FBDMA and (S)CPDMA when in CheetAh-ACR partition
+                Cfg  => Plcy_Io_Pmp_Cfg'(
+                    Read         => READ_ENABLE,
+                    Write        => WRITE_DISABLE,
+                    Fbdma        => ENABLE,
+                    Cpdma        => ENABLE,
+                    Sha          => DISABLE,
+                    Reserved     => 0,
+                    PMB0         => DISABLE,
+                    PMB1         => DISABLE,
+                    PMB2         => DISABLE,
+                    PMB3         => DISABLE,
+                    PMB4         => DISABLE,
+                    PMB5         => DISABLE,
+                    PMB6         => DISABLE,
+                    PMB7         => DISABLE,
+                    Lock         => LOCK_UNLOCKED),
+                Mode            => NAPOT,
+                -- IOPMP only supports NAPOT addressing. Assume an earlier IOPMP entry covers FMC DMEM for all sources.
+                Addr_Lo_1k      => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_LO_1K_INIT, -- size is 1K or more (IOPMP requirement)
+                -- right-shift by 2+7, by 3+7 (Lo_1k is 7 bits, Lo_Above1k is the remaining 25 bits)
+                Addr_Lo_Above1k => LwU25(((Tegra_ACR_DMEM_RO_Start) / 512) + ((16#$TEGRA_ACR_DMEM_RO_SIZE# - 1) / 1024)),
+                Addr_Hi         => 0),
+        1 => Io_Pmp_Entry'( -- CheetAh-ACR DMEM, accessible (R/W) by FBDMA and (S)CPDMA.
+                Cfg  => Plcy_Io_Pmp_Cfg'(
+                    Read         => READ_ENABLE,
+                    Write        => WRITE_ENABLE,
+                    Fbdma        => ENABLE,
+                    Cpdma        => ENABLE,
+                    Sha          => DISABLE,
+                    Reserved     => 0,
+                    PMB0         => DISABLE,
+                    PMB1         => DISABLE,
+                    PMB2         => DISABLE,
+                    PMB3         => DISABLE,
+                    PMB4         => DISABLE,
+                    PMB5         => DISABLE,
+                    PMB6         => DISABLE,
+                    PMB7         => DISABLE,
+                    Lock         => LOCK_UNLOCKED),
+                Mode            => NAPOT,
+                -- IOPMP only supports NAPOT addressing. Assume an earlier IOPMP entry covers FMC DMEM for all sources.
+                -- This includes the RO ACR data (at the start), assume that is covered by the previous entry.
+                Addr_Lo_1k      => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_LO_1K_INIT, -- size is 1K or more (IOPMP requirement)
+                -- right-shift by 2+7, by 3+7 (Lo_1k is 7 bits, Lo_Above1k is the remaining 25 bits)
+                Addr_Lo_Above1k => LwU25((Tegra_ACR_DMEM_RO_Start / 512) + ((16#$TEGRA_ACR_DMEM_RO_SIZE# + 16#$TEGRA_ACR_DMEM_SIZE# - 1) / 1024)),
+                Addr_Hi         => 0),
+        2 => Default_Io_Pmp_Entry,
+        3 => Default_Io_Pmp_Entry,
+        4 => Default_Io_Pmp_Entry,
+        5 => Default_Io_Pmp_Entry,
+        6 => Default_Io_Pmp_Entry,
+        7 => Default_Io_Pmp_Entry
+    );
+
+    RTOS_Io_Pmp : constant Plcy_Io_Pmp := (
+        0 => Io_Pmp_Entry'( -- CheetAh-ACR DMEM, inaccessible to all sources when in RTOS partition
+                Cfg  => Plcy_Io_Pmp_Cfg'(
+                    Read         => READ_DISABLE,
+                    Write        => WRITE_DISABLE,
+                    Fbdma        => ENABLE,
+                    Cpdma        => ENABLE,
+                    Sha          => ENABLE,
+                    Reserved     => 0,
+                    PMB0         => ENABLE,
+                    PMB1         => ENABLE,
+                    PMB2         => ENABLE,
+                    PMB3         => ENABLE,
+                    PMB4         => ENABLE,
+                    PMB5         => ENABLE,
+                    PMB6         => ENABLE,
+                    PMB7         => ENABLE,
+                    Lock         => LOCK_UNLOCKED),
+                Mode            => NAPOT,
+                -- IOPMP only supports NAPOT addressing. Assume an earlier IOPMP entry covers FMC DMEM for all sources.
+                Addr_Lo_1k      => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_LO_1K_INIT, -- size is 1K or more (IOPMP requirement)
+                -- right-shift by 2+7, by 3+7 (Lo_1k is 7 bits, Lo_Above1k is 25 bits)
+                Addr_Lo_Above1k => LwU25((Tegra_ACR_DMEM_RO_Start / 512) + ((16#$TEGRA_ACR_DMEM_RO_SIZE# + 16#$TEGRA_ACR_DMEM_SIZE# - 1) / 1024)),
+                Addr_Hi         => 0),
+        1 => Io_Pmp_Entry'( -- RTOS IMEM, write-only accessible by FBDMA only! (for bootloader and ODP)
+                Cfg  => Plcy_Io_Pmp_Cfg'(
+                    Read         => READ_DISABLE,
+                    Write        => WRITE_ENABLE,
+                    Fbdma        => ENABLE,
+                    Cpdma        => DISABLE,
+                    Sha          => DISABLE,
+                    Reserved     => 0,
+                    PMB0         => DISABLE,
+                    PMB1         => DISABLE,
+                    PMB2         => DISABLE,
+                    PMB3         => DISABLE,
+                    PMB4         => DISABLE,
+                    PMB5         => DISABLE,
+                    PMB6         => DISABLE,
+                    PMB7         => DISABLE,
+                    Lock         => LOCK_UNLOCKED),
+                Mode            => NAPOT,
+                -- IOPMP only supports NAPOT addressing. Assume earlier IOPMP entries cover FMC IMEM, shared and CheetAh-ACR IMEM for these sources.
+                Addr_Lo_1k      => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_LO_1K_INIT, -- size is 1K or more (IOPMP requirement)
+                -- right-shift by 2+7, by 3+7 (Lo_1k is 7 bits, Lo_Above1k is 25 bits)
+                Addr_Lo_Above1k => LwU25((LW_RISCV_AMAP_IMEM_START / 512) + ((16#$PMU_IMEM_SIZE# - 1) / 1024)),
+                Addr_Hi         => 0),
+        2 => Io_Pmp_Entry'( -- RTOS DMEM, accessible (R/W) by FBDMA and (S)CPDMA
+                Cfg  => Plcy_Io_Pmp_Cfg'(
+                    Read         => READ_ENABLE,
+                    Write        => WRITE_ENABLE,
+                    Fbdma        => ENABLE,
+                    Cpdma        => ENABLE,
+                    Sha          => DISABLE,
+                    Reserved     => 0,
+                    PMB0         => DISABLE,
+                    PMB1         => DISABLE,
+                    PMB2         => DISABLE,
+                    PMB3         => DISABLE,
+                    PMB4         => DISABLE,
+                    PMB5         => DISABLE,
+                    PMB6         => DISABLE,
+                    PMB7         => DISABLE,
+                    Lock         => LOCK_UNLOCKED),
+                Mode            => NAPOT,
+                -- IOPMP only supports NAPOT addressing. Assume earlier IOPMP entries cover FMC DMEM, shared and CheetAh-ACR DMEM for these sources.
+                Addr_Lo_1k      => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_LO_1K_INIT, -- size is 1K or more (IOPMP requirement)
+                -- right-shift by 2+7, by 3+7 (Lo_1k is 7 bits, Lo_Above1k is 25 bits)
+                Addr_Lo_Above1k => LwU25((LW_RISCV_AMAP_DMEM_START / 512) + ((16#$PMU_DMEM_SIZE# - 1) / 1024)),
+                Addr_Hi         => 0),
+#if USE_PL0_CONFIG then
+        -- Here, USE_PL0_CONFIG doubles as a debug flag. Since the inst_in_sys profile
+        -- will always be used in chips_a arch tests, we can have its IOPMP include the read-all-DMEM entry.
+        -- This way, LPWR can still access their logs and stats in ga10b tests.
+        -- Since this won't be used on prod and will never be used with the lwgpu-cheetah driver,
+        -- the inst_in_sys ga10b profile should never be prod-signed, and the "normal" profile will
+        -- only have the print buffer opened for read.
+        -- On future chips we'll implement proper support for a hybrid solution with access to both
+        -- LPWR stats/logs and the print buffer. But for ga10b this should be fine.
+        3 => Io_Pmp_Entry'( -- RTOS DMEM, read-only accessible by PMB (for print buffer, LPWR stats/PG_LOG etc)
+                Cfg  => Plcy_Io_Pmp_Cfg'(
+                    Read         => READ_ENABLE,
+                    Write        => WRITE_DISABLE,
+                    Fbdma        => DISABLE,
+                    Cpdma        => DISABLE,
+                    Sha          => DISABLE,
+                    Reserved     => 0,
+                    PMB0         => ENABLE,
+                    PMB1         => ENABLE,
+                    PMB2         => ENABLE,
+                    PMB3         => ENABLE,
+                    PMB4         => ENABLE,
+                    PMB5         => ENABLE,
+                    PMB6         => ENABLE,
+                    PMB7         => ENABLE,
+                    Lock         => LOCK_UNLOCKED),
+                Mode            => NAPOT,
+                -- IOPMP only supports NAPOT addressing. Assume earlier IOPMP entries cover FMC DMEM, shared and CheetAh-ACR DMEM for these sources.
+                Addr_Lo_1k      => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_LO_1K_INIT, -- size is 1K or more (IOPMP requirement)
+                -- right-shift by 2+7, by 3+7 (Lo_1k is 7 bits, Lo_Above1k is 25 bits)
+                Addr_Lo_Above1k => LwU25((LW_RISCV_AMAP_DMEM_START / 512) + ((16#$PMU_DMEM_SIZE# - 1) / 1024)),
+                Addr_Hi         => 0),
+#else
+        -- The final prod setting for this IOPMP entry: only allow PMB read access to debug buffer.
+        3 => Io_Pmp_Entry'( -- RTOS print buffer, read-only accessible by PMB.
+                Cfg  => Plcy_Io_Pmp_Cfg'(
+                    Read         => READ_ENABLE,
+                    Write        => WRITE_DISABLE,
+                    Fbdma        => DISABLE,
+                    Cpdma        => DISABLE,
+                    Sha          => DISABLE,
+                    Reserved     => 0,
+                    PMB0         => ENABLE,
+                    PMB1         => ENABLE,
+                    PMB2         => ENABLE,
+                    PMB3         => ENABLE,
+                    PMB4         => ENABLE,
+                    PMB5         => ENABLE,
+                    PMB6         => ENABLE,
+                    PMB7         => ENABLE,
+                    Lock         => LOCK_UNLOCKED),
+                Mode            => NAPOT,
+                -- IOPMP only supports NAPOT addressing. Assume earlier IOPMP entries cover FMC DMEM, shared and CheetAh-ACR DMEM for these sources.
+                Addr_Lo_1k      => LW_PRGNLCL_RISCV_IOPMP_ADDR_LO_LO_1K_INIT, -- size is 1K or more (IOPMP requirement)
+                -- right-shift by 2+7, by 3+7 (Lo_1k is 7 bits, Lo_Above1k is 25 bits)
+                Addr_Lo_Above1k => LwU25(((LW_RISCV_AMAP_DMEM_START + 16#$PMU_DMEM_SIZE# - 16#$DEBUG_BUFFER_SIZE#) / 512) + ((16#$DEBUG_BUFFER_SIZE# - 1) / 1024)),
+                Addr_Hi         => 0),
+#end if;
+        4 => Default_Io_Pmp_Entry,
+        5 => Default_Io_Pmp_Entry,
+        6 => Default_Io_Pmp_Entry,
+        7 => Default_Io_Pmp_Entry
+    );
+
+    -------------------------------------------------------------------------------------------------------------------------------
+    --***************************************************************************************************************************--
+    -------------------------------------------------------------------------------------------------------------------------------
+    Ucode_Id : constant := 4; -- Must be in sync with manifest, see https://confluence.lwpu.com/display/GFS/Ucode+ID+Assignment
+
+    -- Partition indices. WARNING: they must match partitions.h and tegra_acr.h, as well as the dispatcher routine layout.
+    Partition_ID_RTOS_Val      : constant := 0;
+    Partition_ID_Tegra_ACR_Val : constant := 1;
+
+    Partition_ID_RTOS      : constant Partition_ID := Partition_ID_RTOS_Val;
+    Partition_ID_Tegra_ACR : constant Partition_ID := Partition_ID_Tegra_ACR_Val;
+
+    -- RTOS partition
+    P_RTOS_Policy : constant External_Policy := (
+        Switchable_To       => Plcy_Switchable_To_Array'(
+                                    Partition_ID_Tegra_ACR => PERMITTED,
+                                    others => DENIED),
+        Entry_Point_Address => Plcy_Entry_Point_Addr_Type(Liblwriscv_Shared_IMEM_Start + 16#10# * Partition_ID_RTOS_Val),
+        Ucode_Id            => Ucode_Id,
+        Sspm                => Plcy_SSPM'(
+#if USE_PL0_CONFIG then
+                                    Splm => LW_RISCV_CSR_SSPM_SPLM_LEVEL0, -- 16#1#, (L0) allowed
+#else
+                                    Splm => LW_RISCV_CSR_SSPM_SPLM_LEVEL2, -- 16#5#, (L2 | L0) allowed
+#end if;
+                                    Ssecm => SSECM_SEC),
+        Secret_Mask         => Plcy_Secret_Mask'(
+                                    Scp_Secret_Mask0 => 1, -- needed for proper cleanup because we use SSECM_SEC
+                                    Scp_Secret_Mask1 => 0,
+                                    Scp_Secret_Mask_lock0 => 0,
+                                    Scp_Secret_Mask_lock1 => 0),
+        Debug_Control       => RTOS_Debug_Control,
+        Mpu_Control         => RTOS_Mpu_Control,
+        Device_Map_Group_0  => RTOS_Device_Map_Group_0,
+        Device_Map_Group_1  => RTOS_Device_Map_Group_1,
+        Device_Map_Group_2  => RTOS_Device_Map_Group_2,
+        Device_Map_Group_3  => RTOS_Device_Map_Group_3,
+        Core_Pmp            => RTOS_Core_Pmp,
+        Io_Pmp              => RTOS_Io_Pmp,
+        SBI_Access_Config   => Plcy_SBI_Access'(Release_Priv_Lockdown => PERMITTED,
+                                                TraceCtl => PERMITTED,
+                                                FBIF_TransCfg => PERMITTED,
+                                                FBIF_RegionCfg => PERMITTED,
+                                                TFBIF_TransCfg => DENIED,
+                                                TFBIF_RegionCfg => DENIED),
+        -- RTOS always releases lockdown. This is mainly done for the benefit of early code:
+        -- springboard, bootloader will be locked down.
+        Priv_Lockdown       => LW_PRGNLCL_RISCV_BR_PRIV_LOCKDOWN_Register'(Lock => LOCK_LOCKED)
+    );
+
+    -- CheetAh-ACR partition
+    P_Tegra_ACR_Policy : constant External_Policy := (
+        Switchable_To       => Plcy_Switchable_To_Array'(
+                                    Partition_ID_RTOS => PERMITTED,
+                                    others => DENIED),
+        Entry_Point_Address => Plcy_Entry_Point_Addr_Type(Liblwriscv_Shared_IMEM_Start + 16#10# * Partition_ID_Tegra_ACR_Val),
+        Ucode_Id            => Ucode_Id,
+        Sspm                => Plcy_SSPM'(
+#if USE_PL0_CONFIG then
+                                    Splm => LW_RISCV_CSR_SSPM_SPLM_LEVEL0, -- 16#1#, (L0) allowed
+#else
+                                    Splm => 2#1001#, -- 16#5#, (L3 | L0) allowed. Note: L0 is always allowed, enforced by HW.
+#end if;
+                                    Ssecm => SSECM_SEC),
+        Secret_Mask         => Plcy_Secret_Mask'(
+                                    Scp_Secret_Mask0 => 1, -- needed for proper cleanup because we use SSECM_SEC
+                                    Scp_Secret_Mask1 => 0,
+                                    Scp_Secret_Mask_lock0 => 0,
+                                    Scp_Secret_Mask_lock1 => 0),
+        Debug_Control       => Tegra_ACR_Debug_Control,
+        Mpu_Control         => Tegra_ACR_Mpu_Control,
+        Device_Map_Group_0  => Tegra_ACR_Device_Map_Group_0,
+        Device_Map_Group_1  => Tegra_ACR_Device_Map_Group_1,
+        Device_Map_Group_2  => Tegra_ACR_Device_Map_Group_2,
+        Device_Map_Group_3  => Tegra_ACR_Device_Map_Group_3,
+        Core_Pmp            => Tegra_ACR_Core_Pmp,
+        Io_Pmp              => Tegra_ACR_Io_Pmp,
+        SBI_Access_Config   => Plcy_SBI_Access'(Release_Priv_Lockdown => DENIED,
+                                                TraceCtl => DENIED,
+                                                FBIF_TransCfg => PERMITTED,
+                                                FBIF_RegionCfg => PERMITTED,
+                                                TFBIF_TransCfg => DENIED,
+                                                TFBIF_RegionCfg => DENIED),
+        Priv_Lockdown       => LW_PRGNLCL_RISCV_BR_PRIV_LOCKDOWN_Register'(Lock => LOCK_LOCKED)
+    );
+
+-------------------------------------------------------------------------------------------------------------------------------
+--***************************************************************************************************************************--
+-------------------------------------------------------------------------------------------------------------------------------
+    External_Policies : constant External_Policy_Array := External_Policy_Array'(
+        Partition_ID_RTOS       => P_RTOS_Policy,
+        Partition_ID_Tegra_ACR  => P_Tegra_ACR_Policy
+    );
+
+end Policies;

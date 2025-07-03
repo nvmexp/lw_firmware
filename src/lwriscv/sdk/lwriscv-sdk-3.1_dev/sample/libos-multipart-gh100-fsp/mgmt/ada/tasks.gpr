@@ -1,0 +1,72 @@
+-- _LWRM_COPYRIGHT_BEGIN_
+--
+-- Copyright 2021 by LWPU Corporation.  All rights reserved.  All
+-- information contained herein is proprietary and confidential to LWPU
+-- Corporation.  Any use, reproduction, or disclosure without the written
+-- permission of LWPU Corporation is prohibited.
+--
+-- _LWRM_COPYRIGHT_END_
+
+project Tasks is
+    for Library_Name use "tasks";
+    for Library_Kind use "static";
+    for Source_Dirs use ("src", external("LWRISCVX_SDK_ROOT", "") & "/os/libos/ada_specs");
+    for Object_Dir use "../../_out/mgmt/ada/obj";
+    for Library_Dir use "../../_out/mgmt/ada";
+    for Target use "riscv64-elf";
+    for Runtime ("ada") use "zfp-spike";
+    for Languages use ("Ada");
+    for Create_Missing_Dirs use "True";
+
+    package Builder is
+        for Global_Configuration_Pragmas use "./config/global_config_pragmas.adc";
+        for Global_Compilation_Switches ("ada") use ("-gnateT=" & project'Project_Dir & "./config/riscv64.atp");
+    end Builder;
+
+    package Compiler is
+        for Local_Configuration_Pragmas use "./config/local_config_pragmas.adc";
+        for Default_Switches ("Ada") use (
+                                        -- Debug options, don't open these unless you are debugging the code
+                                        --"-save-temps", -- Store the normally temporary intermediate files( *.s, *.i, *.o) permanently.
+                                        --"-fno-inline", -- Suppresses all back-end inlining, the gnatn and gnatN takes no effect
+                                        --"-gnatR", -- Show representation of every object.
+                                        --"-gnatG", -- The compiler generates a low-level version of the source program in an Ada-like format.
+
+                                        "-g", -- Debug symbol
+                                        "-fcallgraph-info=su,da", -- Make the compiler output callgraph information on a per file basis.
+
+                                        -- Normal options, shall be always enabled
+                                        "-Os",
+                                        "-mabi=lp64f",
+                                        "-ffunction-sections", "-fdata-sections",  -- Allocate individial sections for each function and data
+                                        "-fno-jump-tables", "-fno-tree-switch-colwersion", -- Eliminate rodata for case-when statement
+                                        "-gnat12", -- Ada 2012 features enabled
+                                        "-gnato", -- Equivalent to -gnato11, causing all intermediate overflows to be handled in strict mode.
+                                        "-gnatn2", -- Frontend Inline
+
+                                        --Gnat styles control
+                                        "-gnatyB", -- Check boolean operators to force short circuit given the C background everyone has
+                                        "-gnatyM240", -- 180 columns permitted.
+                                        "-gnatye", -- Ensure that end/exit have labels
+                                        "-gnatyf", -- No form feeds or vertical tabs
+                                        "-gnatyh", -- No horizontal tabs
+                                        "-gnatyi", -- Enforce standardization on if-then layout
+                                        "-gnatyI", -- Do not use "in" mode KW
+                                        "-gnatyk", -- All keywords must be in lower case
+                                        "-gnatyl", -- Check layout
+                                        "-gnatyL6", -- Max 6 level deep nesting
+                                        "-gnatyn", -- Check casing of entities in Standard
+                                        "-gnaty4", -- Specify indentation level (4 spaces)
+                                        "-gnatyp", -- Check pragma casing
+                                        "-gnatyr", -- All identifier references must be cased in the same way as the corresponding declaration
+                                        "-gnatyx", -- Avoid unnecessary parentheses
+                                        "-gnatyu", -- Check unnecessary blank lines.
+                                        "-gnatyb", -- Blanks not allowed at statement end
+                                        "-gnatyS"); -- Check no statements after then/else
+    end Compiler;
+
+    package Binder is
+        for Default_Switches ("ada") use ("-minimal");
+    end Binder;
+
+end Tasks;

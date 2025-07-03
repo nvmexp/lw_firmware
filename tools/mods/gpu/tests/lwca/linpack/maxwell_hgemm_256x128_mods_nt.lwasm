@@ -1,0 +1,1507 @@
+.headerflags	@"EF_LWDA_TEXMODE_UNIFIED EF_LWDA_64BIT_ADDRESS EF_LWDA_SM60 EF_LWDA_PTX_SM(EF_LWDA_SM60) "
+
+	.section       .text.maxwell_hgemm_256x128_mods_nt,"ax",@progbits
+	.sectionflags	@"SHF_BARRIERS=1"
+	.align 32
+	.global        maxwell_hgemm_256x128_mods_nt
+	.type          maxwell_hgemm_256x128_mods_nt,@function
+	.size          maxwell_hgemm_256x128_mods_nt,(maxwell_hgemm_256x128_mods_nt_END - maxwell_hgemm_256x128_mods_nt)
+	.other         maxwell_hgemm_256x128_mods_nt,@"STO_LWDA_ENTRY STV_DEFAULT"
+maxwell_hgemm_256x128_mods_nt:
+.text.maxwell_hgemm_256x128_mods_nt:
+      MOV R0, c[0][0x1b4] ?W1;                               // MOV mode, Mode
+      S2R R1, SR_CTAid.Z &wr=4 ?W1;                          // S2R batchIdx, SR_CTAid.Z
+      S2R R2, SR_VirtId &wr=4 ?W1;                           // S2R smId, SR_VirtId
+      S2R         R90, SR_Tid.X &wr=4 ?W1;                   // S2R tid, SR_Tid.X
+      ISETP.NE    P0, RZ, c[0][0x1cc] ?W1;                   // ISETP.NE P0, RZ, AbByRef
+      S2R         R88, SR_CTAid.X &wr=4 ?W1;                 // S2R ctaRow, SR_CTAid.X
+      S2R         R89, SR_CTAid.Y &wr=4 ?W2G;                // S2R ctaCol, SR_CTAid.Y
+      LOP.AND.NZ P3, RZ, R0, 4 ?W1;                          // LOP.AND.NZ P3, RZ, mode, 4
+      XMAD  R3, R1.H0, c[0][0x1b0].H0, RZ &req=4 ?W6G;       // XMAD temp0, batchIdx.reuse.H0, ChunkK.H0, RZ
+      XMAD.PSL R3, R1.H0,    c[0][0x1b0].H1, R3 ?W6G;        // XMAD.PSL temp0, batchIdx.H0, ChunkK.H1, temp0
+      IADD    R3, -R3, c[0][0x1a4] ?W1;                      // IADD temp0, -temp0, CountK
+      MOV     R81, c[0][0x1a4] ?W5G;                         // MOV counterK, CountK
+      ISETP.LT.AND  P4, PT, R3, c[0][0x1b0], P3 ?W1;         // ISETP.LT.AND P4, PT, temp0, ChunkK, P3
+(P3)  MOV        R81, c[0][0x1b0] ?W12G;                     // @P3 MOV counterK, ChunkK
+(P4)  MOV        R81, R3 ?W2G;                               // @P4 MOV counterK, temp0
+      BFE.U32  R3, R0, 0x408 ?W1;                            // BFE.U32 log2GroupCols, mode, 0x408
+      MOV      R11, 1 ?W1;                                   // MOV one, 1
+      LOP.AND.NZ  P5, RZ, R0, 0x1000 ?W5G;                   // LOP.AND.NZ P5, RZ, mode, 0x1000
+      SHL     R4, R11, R3 ?W6G;                              // SHL groupCols, one, log2GroupCols
+      IADD     R5, R4, -1 ?W1;                               // IADD mask, groupCols, -1
+      PSETP.AND P4, !PT, !PT ?W5G;                           // PSETP.AND P4, !PT, !PT
+maxwell_hgemm_256x128_mods_nt_prolog_cta_swizzle_loop:
+      LOP.OR   R6, R89.reuse, R5.reuse &req=4 ?W1;           // LOP.OR testCol, ctaCol.reuse, mask.reuse
+      ISETP.EQ P3, R5, 3 ?W1;                                // ISETP.EQ P3, mask, 3
+      LOP.AND  R7,  R89.reuse,  R5.reuse ?W1;                // LOP.AND colMod, ctaCol.reuse, mask.reuse
+      LOP.AND  R8, R89.reuse, ~R5 ?W1;                       // LOP.AND colBase, ctaCol.reuse, ~mask
+      LOP.AND  R10,  R89,        R4 ?W3G;                    // LOP.AND colBit, ctaCol, groupCols
+      ISETP.LT P2, R6, c[0x0][0x018] ?W1;                    // ISETP.LT P2, testCol, GridDimY
+      XMAD     R9, R7.H0, c[0x0][0x014].H0, R88 ?W2G;        // XMAD linear, colMod.H0, GridDimX.H0, ctaRow
+(P5)  ISETP.EQ.XOR P4, PT, R10, R4, P4 ?W1;                  // @P5 ISETP.EQ.XOR P4, PT, colBit, groupCols, P4
+      SHR.U32 R4, R4, 1 ?W8G;                                // SHR.U32 groupCols, groupCols, 1
+      ISETP.EQ.AND P3, PT, R6, c[0x0][0x018], P3 ?W1;        // ISETP.EQ.AND P3, PT, testCol, GridDimY, P3
+      XMAD.PSL R9, R7.H0, c[0x0][0x014].H1, R9 ?W5G;         // XMAD.PSL linear, colMod.H0, GridDimX.H1, linear
+(P2)  BRA maxwell_hgemm_256x128_mods_nt_prolog_cta_swizzle_group_col_pow2 ?W7G; // @P2 BRA maxwell_hgemm_256x128_mods_nt_prolog_cta_swizzle_group_col_pow2
+(!P3) SHR.U32  R5, R5, 1 ?W1;                                // @!P3 SHR.U32 mask, mask, 1
+(!P3) IADD     R3, R3, -1 ?W1;                               // @!P3 IADD log2GroupCols, log2GroupCols, -1
+(!P3) BRA maxwell_hgemm_256x128_mods_nt_prolog_cta_swizzle_loop ?W5G; // @!P3 BRA maxwell_hgemm_256x128_mods_nt_prolog_cta_swizzle_loop
+      XMAD     R12,   R9.H0.reuse, 0x5556, RZ ?W1;           // XMAD xmad0, linear.H0.reuse, 0x5556, RZ
+      XMAD     R13,   R9.H0,       0x5555, RZ ?W1;           // XMAD xmad1, linear.H0, 0x5555, RZ
+      XMAD     R88,  R9.H1, 0x5555, RZ ?W4G;                 // XMAD ctaRow, linear.H1.reuse, 0x5555, RZ
+      XMAD.CHI R12,   R9.H1,       0x5556, R12 ?W6G;         // XMAD.CHI xmad0, linear.H1, 0x5556, xmad0
+      IADD3.RS R88,  R12,           R13,  R88 ?W6G;          // IADD3.RS ctaRow, xmad0, xmad1, ctaRow
+      LEA.LO R14, R88, R88, 1 ?W1;                           // LEA.LO swizRow3, ctaRow, ctaRow, 1
+(P4)  IADD3 R88, -R88, c[0x0][0x014], -R11 ?W5G;             // @P4 IADD3 ctaRow, -ctaRow, GridDimX, -one
+      IADD3   R89, R8, R9, -R14 ?W1;                         // IADD3 ctaCol, colBase, linear, -swizRow3
+      BRA maxwell_hgemm_256x128_mods_nt_prolog_cta_swizzle_done ?W5G; // BRA maxwell_hgemm_256x128_mods_nt_prolog_cta_swizzle_done
+maxwell_hgemm_256x128_mods_nt_prolog_cta_swizzle_group_col_pow2:
+      SHR.U32 R88, R9, R3 ?W1;                               // SHR.U32 ctaRow, linear, log2GroupCols
+      LOP3.LUT  R89, R8, R9, R5, 0xf8 ?W5G;                  // LOP3.LUT ctaCol, colBase, linear, mask, B_AND_C__OR_A ?WiL-iT
+(P4)  IADD3 R88, -R88, c[0x0][0x014], -R11 ?W6G;             // @P4 IADD3 ctaRow, -ctaRow, GridDimX, -one
+maxwell_hgemm_256x128_mods_nt_prolog_cta_swizzle_done:
+      SHR.U32 R2, R2, 20 ?W1;                                // SHR.U32 smId, smId, 20
+      LOP.AND.NZ P3, RZ, R0, 0x10000 ?W1;                    // LOP.AND.NZ P3, RZ, mode, 0x10000
+      XMAD R6, R1, c[0x0][0x018], R89 ?W6G;                  // XMAD ctaIdx, batchIdx, GridDimY, ctaCol
+      XMAD.CLO R3,     R6.reuse.H0, c[0x0][0x014].H0, R88.reuse ?W1; // XMAD.CLO t0, ctaIdx.reuse.H0, GridDimX.H0, ctaRow.reuse
+      XMAD.CHI R8,     R6.reuse.H0, c[0x0][0x014].H1, R88 ?W1; // XMAD.CHI t1, ctaIdx.reuse.H0, GridDimX.H1, ctaRow
+      XMAD     R7, R6.H1, c[0x0][0x014].H1, RZ ?W4G;         // XMAD ctaIdx_HI, ctaIdx.reuse.H1, GridDimX.H1, RZ
+      XMAD.CHI R9,     R6.H1,       c[0x0][0x014].H0, R3 ?W6G; // XMAD.CHI t2, ctaIdx.H1, GridDimX.H0, t0.reuse
+      VADD.U16.U16.MRG_16H R6, R8.H0, R9.H0, R3 ?W2G;        // VADD.U16.U16.MRG_16H ctaIdx, t1.H0, t2.H0, t0
+      IADD3.RS R7, R8,         R9,   R7 ?W5G;                // IADD3.RS ctaIdx_HI, t1, t2, ctaIdx_HI
+      LOP.AND R2, R2, 0x1ff ?W1;                             // LOP.AND smId, smId, 0x1ff
+      LEA.LO   R4.CC, R6, c[0][0x1a8], 1 ?W6G;               // LEA.LO syncPointer.CC, ctaIdx.reuse, Sync, 1
+      LEA.HI.X R5, R6, c[0][0x1ac], R7, 1 ?W2G;              // LEA.HI.X syncPointer_HI, ctaIdx, Sync_HI, ctaIdx_HI, 1
+(P3)  STG.E.CG.U16 [R4], R2 &rd=3 ?W1;                       // @P3 STG.E.CG.U16 [syncPointer], smId
+      MOV      R85, 6144 ?W1;                                // MOV sharedPageFlip, 6144
+      MOV           R86, c[0][0x1c0] ?W1;                    // MOV readPtr, BetaRef
+      MOV           R87, c[0][0x1c4] ?W2G;                   // MOV readPtr_HI, BetaRef_HI
+(P0)  LDG.E.CI.U16    R80, [R86] &req=3 &rd=3 &wr=2 ?W1;     // @P0 LDG.E.CI.U16 beta, [readPtr]
+      ISETP.GE      P1, R81, 8 ?W1;                          // ISETP.GE P1, counterK, 8
+(!P0) LDC.U16 R80, c[0][0x1ca] &wr=2 ?W1G;                   // @!P0 LDC.U16 beta, BetaVal
+      SHL R91, R90, 2 &req=4 ?W1;                            // SHL sharedZeroOffset, tid, 2
+      BFE.U32  R5, R90, 0x305 &req=4 ?W1;                    // BFE.U32 maskedWid, tid, 0x305
+      LOP.AND  R9, R90, 31 ?W1;                              // LOP.AND thread, tid, 31
+      MOV        R86, c[0][0x140] &req=3 ?W1;                // MOV readPtrA, BaseA
+      MOV        R87, c[0][0x144] ?W3G;                      // MOV readPtrA_HI, BaseA_HI
+      LOP.AND.NZ P2, R2, R0, 7 ?W13G;                        // LOP.AND.NZ predCarry, temp0, mode, 7
+(!P2) BRA.U maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALCA_PROLOG ?W5G; // @!predCarry BRA.U maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALCA_PROLOG
+      ISETP.EQ  P2, R2, 2 ?W13G;                             // ISETP.EQ predCarry, temp0, 2
+(!P2) BRA.U maxwell_hgemm_256x128_mods_nt_BATCHED_CONTIG_PTR_CALCA_PROLOG ?W5G; // @!predCarry BRA.U maxwell_hgemm_256x128_mods_nt_BATCHED_CONTIG_PTR_CALCA_PROLOG
+      LEA.LO   R6.CC, R1, R86, 3 &req=4 ?W6G;                // LEA.LO readPtrMul.CC, batchIdx.reuse, readPtrA, 3
+      LEA.HI.X R7, R1, R87, RZ, 3 ?W2G;                      // LEA.HI.X readPtrMul_HI, batchIdx, readPtrA_HI, RZ, 3
+      LDG.E.CI.64 R86, [R6 + 0x00] &rd=3 &wr=2 ?W2G;         // LDG.E.CI.64 readPtrA, [readPtrMul + 0x00]
+      BRA.U maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALCA_PROLOG ?W5G; // BRA.U maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALCA_PROLOG
+maxwell_hgemm_256x128_mods_nt_BATCHED_CONTIG_PTR_CALCA_PROLOG:
+      XMAD     R2.CC,   R1.reuse.H0, c[0][0x178].H0, RZ &req=4 ?W1; // XMAD temp0.CC, batchIdx.reuse.H0, MatrixStrideA.H0, RZ
+      XMAD     R7,  R1.H0, c[0][0x17c].H0, RZ ?W5G;          // XMAD readPtrMul_HI, batchIdx.reuse.H0, MatrixStrideA_HI.H0, RZ
+      XMAD.PSL R6,     R1.reuse.H0, c[0][0x178].H1, R2 ?W1;  // XMAD.PSL readPtrMul, batchIdx.reuse.H0, MatrixStrideA.H1, temp0
+      XMAD.CHI R2,      R1.H0,       c[0][0x178].H1, R2 ?W6G; // XMAD.CHI temp0, batchIdx.H0, MatrixStrideA.H1, temp0
+      XMAD.X   R7,  R2.H1,      1,        R7 ?W1;            // XMAD.X readPtrMul_HI, temp0.H1, 1, readPtrMul_HI
+      LEA.LO   R86.CC, R6, R86, 1 ?W6G;                      // LEA.LO readPtrA.CC, readPtrMul.reuse, readPtrA, 1
+      LEA.HI.X R87, R6, R87, R7, 1 ?W1;                      // LEA.HI.X readPtrA_HI, readPtrMul, readPtrA_HI, readPtrMul_HI, 1
+maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALCA_PROLOG:
+      ISCADD     R82, R5, 0x0, 9 ?W6G;                       // ISCADD sharedWriteA, maskedWid, 0x0, 9
+      ISCADD     R82, R9, R82, 1 ?W1;                        // ISCADD sharedWriteA, thread, sharedWriteA, 1
+      ISCADD     R8, R88, R9, 8 ?W6G;                        // ISCADD absRowCol, ctaRow, thread, 8
+      XMAD.CLO R2, R5.reuse.H0, c[0][0x190], R8.reuse &req=3 ?W1; // XMAD.CLO temp0, maskedWid.reuse.H0, StrideA, absRowCol.reuse
+      XMAD.CHI R7, R5.H0, c[0][0x190].H1, R8 ?W6G;           // XMAD.CHI readPtrMul_HI, maskedWid.H0, StrideA.H1, absRowCol
+      IADD3.LS R6, R2.reuse.H1, R7.H0, R2.H0 ?W1;            // IADD3.LS readPtrMul, temp0.reuse.H1, readPtrMul_HI.H0, temp0.H0
+      IADD3.RS R7, R2.H1, R7.32, RZ.32 ?W6G;                 // IADD3.RS readPtrMul_HI, temp0.H1, readPtrMul_HI.32, RZ.32
+      LEA.LO   R86.CC, R6, R86, 1 &req=2 ?W6G;               // LEA.LO readPtrA.CC, readPtrMul.reuse, readPtrA, 1
+      LEA.HI.X R87, R6, R87, R7, 1 ?W6G;                     // LEA.HI.X readPtrA_HI, readPtrMul, readPtrA_HI, readPtrMul_HI, 1
+      IADD R8, R8, -c[0][0x19c] ?W6G;                        // IADD absRowCol, absRowCol, -CountM
+      ISETP.LT P3, R8, 0 ?W1;                                // ISETP.LT P3, absRowCol, 0
+      ISETP.LT P4, R8, -32 ?W1;                              // ISETP.LT P4, absRowCol, -32
+      ISETP.LT P5, R8, -64 ?W1;                              // ISETP.LT P5, absRowCol, -64
+      ISETP.LT P6, R8, -96 ?W13G;                            // ISETP.LT P6, absRowCol, -96
+      P2R.B0 R84, PR, RZ, 0x78 ?W1;                          // P2R.B0 raggedMnPreds0, PR, RZ, 0x78
+      ISETP.LT P3, R8, -128 ?W1;                             // ISETP.LT P3, absRowCol, -128
+      ISETP.LT P4, R8, -160 ?W1;                             // ISETP.LT P4, absRowCol, -160
+      ISETP.LT P5, R8, -192 ?W1;                             // ISETP.LT P5, absRowCol, -192
+      ISETP.LT P6, R8, -224 ?W13G;                           // ISETP.LT P6, absRowCol, -224
+      P2R.B1 R84, PR, R84, 0x78 ?W4G;                        // P2R.B1 raggedMnPreds0, PR, raggedMnPreds0, 0x78
+      BFE.U32  R5, R90, 0x305 &req=4 ?W1;                    // BFE.U32 maskedWid, tid, 0x305
+      LOP.AND  R9, R90, 31 ?W1;                              // LOP.AND thread, tid, 31
+      MOV        R78, c[0][0x148] &req=3 ?W1;                // MOV readPtrB, BaseB
+      MOV        R79, c[0][0x14c] ?W3G;                      // MOV readPtrB_HI, BaseB_HI
+      LOP.AND.NZ P2, R2, R0, 7 ?W13G;                        // LOP.AND.NZ predCarry, temp0, mode, 7
+(!P2) BRA.U maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALCB_PROLOG ?W5G; // @!predCarry BRA.U maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALCB_PROLOG
+      ISETP.EQ  P2, R2, 2 ?W13G;                             // ISETP.EQ predCarry, temp0, 2
+(!P2) BRA.U maxwell_hgemm_256x128_mods_nt_BATCHED_CONTIG_PTR_CALCB_PROLOG ?W5G; // @!predCarry BRA.U maxwell_hgemm_256x128_mods_nt_BATCHED_CONTIG_PTR_CALCB_PROLOG
+      LEA.LO   R6.CC, R1, R78, 3 &req=4 ?W6G;                // LEA.LO readPtrMul.CC, batchIdx.reuse, readPtrB, 3
+      LEA.HI.X R7, R1, R79, RZ, 3 ?W2G;                      // LEA.HI.X readPtrMul_HI, batchIdx, readPtrB_HI, RZ, 3
+      LDG.E.CI.64 R78, [R6 + 0x00] &rd=3 &wr=2 ?W2G;         // LDG.E.CI.64 readPtrB, [readPtrMul + 0x00]
+      BRA.U maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALCB_PROLOG ?W5G; // BRA.U maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALCB_PROLOG
+maxwell_hgemm_256x128_mods_nt_BATCHED_CONTIG_PTR_CALCB_PROLOG:
+      XMAD     R2.CC,   R1.reuse.H0, c[0][0x180].H0, RZ &req=4 ?W1; // XMAD temp0.CC, batchIdx.reuse.H0, MatrixStrideB.H0, RZ
+      XMAD     R7,  R1.H0, c[0][0x184].H0, RZ ?W5G;          // XMAD readPtrMul_HI, batchIdx.reuse.H0, MatrixStrideB_HI.H0, RZ
+      XMAD.PSL R6,     R1.reuse.H0, c[0][0x180].H1, R2 ?W1;  // XMAD.PSL readPtrMul, batchIdx.reuse.H0, MatrixStrideB.H1, temp0
+      XMAD.CHI R2,      R1.H0,       c[0][0x180].H1, R2 ?W6G; // XMAD.CHI temp0, batchIdx.H0, MatrixStrideB.H1, temp0
+      XMAD.X   R7,  R2.H1,      1,        R7 ?W1;            // XMAD.X readPtrMul_HI, temp0.H1, 1, readPtrMul_HI
+      LEA.LO   R78.CC, R6, R78, 1 ?W6G;                      // LEA.LO readPtrB.CC, readPtrMul.reuse, readPtrB, 1
+      LEA.HI.X R79, R6, R79, R7, 1 ?W1;                      // LEA.HI.X readPtrB_HI, readPtrMul, readPtrB_HI, readPtrMul_HI, 1
+maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALCB_PROLOG:
+      ISCADD     R83, R5, 0x1000, 8 ?W6G;                    // ISCADD sharedWriteB, maskedWid, 0x1000, 8
+      ISCADD     R83, R9, R83, 1 ?W1;                        // ISCADD sharedWriteB, thread, sharedWriteB, 1
+      ISCADD     R8, R89, R9, 7 ?W6G;                        // ISCADD absRowCol, ctaCol, thread, 7
+      XMAD.CLO R2, R5.reuse.H0, c[0][0x194], R8.reuse &req=3 ?W1; // XMAD.CLO temp0, maskedWid.reuse.H0, StrideB, absRowCol.reuse
+      XMAD.CHI R7, R5.H0, c[0][0x194].H1, R8 ?W6G;           // XMAD.CHI readPtrMul_HI, maskedWid.H0, StrideB.H1, absRowCol
+      IADD3.LS R6, R2.reuse.H1, R7.H0, R2.H0 ?W1;            // IADD3.LS readPtrMul, temp0.reuse.H1, readPtrMul_HI.H0, temp0.H0
+      IADD3.RS R7, R2.H1, R7.32, RZ.32 ?W6G;                 // IADD3.RS readPtrMul_HI, temp0.H1, readPtrMul_HI.32, RZ.32
+      LEA.LO   R78.CC, R6, R78, 1 &req=2 ?W6G;               // LEA.LO readPtrB.CC, readPtrMul.reuse, readPtrB, 1
+      LEA.HI.X R79, R6, R79, R7, 1 ?W6G;                     // LEA.HI.X readPtrB_HI, readPtrMul, readPtrB_HI, readPtrMul_HI, 1
+      IADD R8, R8, -c[0][0x1a0] ?W6G;                        // IADD absRowCol, absRowCol, -CountN
+      ISETP.LT P3, R8, 0 ?W1;                                // ISETP.LT P3, absRowCol, 0
+      ISETP.LT P4, R8, -32 ?W1;                              // ISETP.LT P4, absRowCol, -32
+      ISETP.LT P5, R8, -64 ?W1;                              // ISETP.LT P5, absRowCol, -64
+      ISETP.LT P6, R8, -96 ?W13G;                            // ISETP.LT P6, absRowCol, -96
+      P2R.B2 R84, PR, R84, 0x78 ?W4G;                        // P2R.B2 raggedMnPreds0, PR, raggedMnPreds0, 0x78
+      STS.32  [R91 + 0x1800], RZ &rd=1 ?W1;                  // STS.32 [sharedZeroOffset + 0x1800], RZ
+      BAR.SYNC 0 ?W5G;                                       // BAR.SYNC 0
+(!P1) R2P PR, RZ.B0, 0x78 ?W1;                               // @!P1 R2P PR, RZ.B0, 0x78
+(P1)  R2P PR, R84.B0, 0x78 ?W13G;                            // @P1 R2P PR, raggedMnPreds0.B0, 0x78
+(P3)  LDG.E.CI.U16  R64, [R86 + 0x0] ?W1;                    // @P3 LDG.E.CI.U16 fetchRegA0, [readPtrA + 0x0]
+(!P3) MOV R64, RZ ?W1;                                       // @!P3 MOV fetchRegA0_0, RZ
+(P4)  LDG.E.CI.U16  R65, [R86 + 0x40] ?W1;                   // @P4 LDG.E.CI.U16 fetchRegA1, [readPtrA + 0x40]
+(!P4) MOV R65, RZ ?W1;                                       // @!P4 MOV fetchRegA1_0, RZ
+(P5)  LDG.E.CI.U16  R66, [R86 + 0x80] ?W1;                   // @P5 LDG.E.CI.U16 fetchRegA2, [readPtrA + 0x80]
+(!P5) MOV R66, RZ ?W1;                                       // @!P5 MOV fetchRegA2_0, RZ
+(P6)  LDG.E.CI.U16  R67, [R86 + 0xc0] ?W1;                   // @P6 LDG.E.CI.U16 fetchRegA3, [readPtrA + 0xc0]
+(!P6) MOV R67, RZ ?W1;                                       // @!P6 MOV fetchRegA3_0, RZ
+(P1)  R2P PR, R84.B1, 0x78 ?W13G;                            // @P1 R2P PR, raggedMnPreds0.B1, 0x78
+(P3)  LDG.E.CI.U16  R68, [R86 + 0x100] ?W1;                  // @P3 LDG.E.CI.U16 fetchRegA4, [readPtrA + 0x100]
+(!P3) MOV R68, RZ ?W1;                                       // @!P3 MOV fetchRegA4_0, RZ
+(P4)  LDG.E.CI.U16  R69, [R86 + 0x140] ?W1;                  // @P4 LDG.E.CI.U16 fetchRegA5, [readPtrA + 0x140]
+(!P4) MOV R69, RZ ?W1;                                       // @!P4 MOV fetchRegA5_0, RZ
+(P5)  LDG.E.CI.U16  R70, [R86 + 0x180] ?W1;                  // @P5 LDG.E.CI.U16 fetchRegA6, [readPtrA + 0x180]
+(!P5) MOV R70, RZ ?W1;                                       // @!P5 MOV fetchRegA6_0, RZ
+(P6)  LDG.E.CI.U16  R71, [R86 + 0x1c0] &rd=3 &wr=2 ?W2G;     // @P6 LDG.E.CI.U16 fetchRegA7, [readPtrA + 0x1c0]
+(!P6) MOV R71, RZ ?W1;                                       // @!P6 MOV fetchRegA7_0, RZ
+(P1)  IADD   R86.CC, R86,   c[0][0x168] &req=3 ?W6G;         // @P1 IADD readPtrA.CC, readPtrA, IncSlowA
+(P1)  IADD.X R87, R87, c[0][0x16c] ?W2G;                     // @P1 IADD.X readPtrA_HI, readPtrA_HI, IncSlowA_HI
+(P1)  R2P PR, R84.B2, 0x78 ?W13G;                            // @P1 R2P PR, raggedMnPreds0.B2, 0x78
+(P3)  LDG.E.CI.U16  R72, [R78 + 0x0] ?W1;                    // @P3 LDG.E.CI.U16 fetchRegB0, [readPtrB + 0x0]
+(!P3) MOV R72, RZ ?W1;                                       // @!P3 MOV fetchRegB0_0, RZ
+(P4)  LDG.E.CI.U16  R73, [R78 + 0x40] ?W1;                   // @P4 LDG.E.CI.U16 fetchRegB1, [readPtrB + 0x40]
+(!P4) MOV R73, RZ ?W1;                                       // @!P4 MOV fetchRegB1_0, RZ
+(P5)  LDG.E.CI.U16  R74, [R78 + 0x80] ?W1;                   // @P5 LDG.E.CI.U16 fetchRegB2, [readPtrB + 0x80]
+(!P5) MOV R74, RZ ?W1;                                       // @!P5 MOV fetchRegB2_0, RZ
+(P6)  LDG.E.CI.U16  R75, [R78 + 0xc0] &rd=3 &wr=2 ?W2G;      // @P6 LDG.E.CI.U16 fetchRegB3, [readPtrB + 0xc0]
+(!P6) MOV R75, RZ ?W1;                                       // @!P6 MOV fetchRegB3_0, RZ
+(P1)  IADD   R78.CC, R78,   c[0][0x170] &req=3 ?W6G;         // @P1 IADD readPtrB.CC, readPtrB, IncSlowB
+(P1)  IADD.X R79, R79, c[0][0x174] ?W2G;                     // @P1 IADD.X readPtrB_HI, readPtrB_HI, IncSlowB_HI
+      SHR         R1, R90.reuse, 7 ?W1;                      // SHR awTid, tid.reuse, 7
+      SHR         R0, R90, 1 ?W5G;                           // SHR aiTid, tid.reuse, 1
+      SHL         R1, R1, 4 ?W1;                             // SHL awTid, awTid, 4
+      LOP.AND     R76, R0, 0x7 ?W6G;                         // LOP.AND sharedA, aiTid, 0x7
+      LOP.OR      R76, R76, R1 ?W6G;                         // LOP.OR sharedA, sharedA, awTid
+      SHL         R76, R76, 4 ?W1;                           // SHL sharedA, sharedA, 4
+      SHR         R3, R90.reuse, 5 ?W1;                      // SHR bwTid, tid.reuse, 5
+      SHR         R2, R90.reuse, 3 ?W1;                      // SHR bmTid, tid.reuse, 3
+      LOP.AND     R77, R90, 1 ?W4G;                          // LOP.AND sharedB, tid.reuse, 1
+      LOP.AND     R3, R3, 3 ?W1;                             // LOP.AND bwTid, bwTid, 3
+      LOP.AND     R2, R2, 2 ?W6G;                            // LOP.AND bmTid, bmTid, 2
+      SHL         R3, R3, 2 ?W6G;                            // SHL bwTid, bwTid, 2
+      LOP3.OR     R77, R77, R2, R3 ?W6G;                     // LOP3.OR sharedB, sharedB, bmTid, bwTid
+      ISCADD      R77, R77, 0x1000, 4 ?W4G;                  // ISCADD sharedB, sharedB, 0x1000, 4
+      LDS.U.128   R0, [0x1800] ?W1;                          // LDS.U.128 R0, [0x1800]
+      LDS.U.128   R4, [0x1800] ?W1;                          // LDS.U.128 R4, [0x1800]
+      LDS.U.128   R8, [0x1800] ?W1;                          // LDS.U.128 R8, [0x1800]
+      LDS.U.128   R12, [0x1800] ?W1;                         // LDS.U.128 R12, [0x1800]
+      LDS.U.128   R16, [0x1800] ?W1;                         // LDS.U.128 R16, [0x1800]
+      LDS.U.128   R20, [0x1800] ?W1;                         // LDS.U.128 R20, [0x1800]
+      LDS.U.128   R24, [0x1800] ?W1;                         // LDS.U.128 R24, [0x1800]
+      LDS.U.128   R28, [0x1800] ?W1;                         // LDS.U.128 R28, [0x1800]
+      LDS.U.128   R32, [0x1800] ?W1;                         // LDS.U.128 R32, [0x1800]
+      LDS.U.128   R36, [0x1800] ?W1;                         // LDS.U.128 R36, [0x1800]
+      LDS.U.128   R40, [0x1800] ?W1;                         // LDS.U.128 R40, [0x1800]
+      LDS.U.128   R44, [0x1800] ?W1;                         // LDS.U.128 R44, [0x1800]
+      LDS.U.128   R48, [0x1800] ?W1;                         // LDS.U.128 R48, [0x1800]
+      LDS.U.128   R52, [0x1800] ?W1;                         // LDS.U.128 R52, [0x1800]
+      LDS.U.128   R56, [0x1800] ?W1;                         // LDS.U.128 R56, [0x1800]
+      LDS.U.128   R60, [0x1800] &wr=0 ?W1;                   // LDS.U.128 R60, [0x1800]
+(!P1) BRA.U maxwell_hgemm_256x128_mods_nt_K_RESIDUE ?W5G;    // @!P1 BRA.U maxwell_hgemm_256x128_mods_nt_K_RESIDUE
+maxwell_hgemm_256x128_mods_nt_PRELOOP:
+      STS.U16    [R82 + 0x0], R64 &req=2 ?W1;                // STS.U16 [sharedWriteA + 0x0], fetchRegA0
+      STS.U16    [R82 + 0x40], R65 ?W1;                      // STS.U16 [sharedWriteA + 0x40], fetchRegA1
+      STS.U16    [R82 + 0x80], R66 ?W1;                      // STS.U16 [sharedWriteA + 0x80], fetchRegA2
+      STS.U16    [R82 + 0xc0], R67 ?W1;                      // STS.U16 [sharedWriteA + 0xc0], fetchRegA3
+      STS.U16    [R82 + 0x100], R68 ?W1;                     // STS.U16 [sharedWriteA + 0x100], fetchRegA4
+      STS.U16    [R82 + 0x140], R69 ?W1;                     // STS.U16 [sharedWriteA + 0x140], fetchRegA5
+      STS.U16    [R82 + 0x180], R70 ?W1;                     // STS.U16 [sharedWriteA + 0x180], fetchRegA6
+      STS.U16    [R82 + 0x1c0], R71 ?W1;                     // STS.U16 [sharedWriteA + 0x1c0], fetchRegA7
+      STS.U16    [R83 + 0x0], R72 ?W1;                       // STS.U16 [sharedWriteB + 0x0], fetchRegB0
+      STS.U16    [R83 + 0x40], R73 ?W1;                      // STS.U16 [sharedWriteB + 0x40], fetchRegB1
+      STS.U16    [R83 + 0x80], R74 ?W1;                      // STS.U16 [sharedWriteB + 0x80], fetchRegB2
+      STS.U16    [R83 + 0xc0], R75 &rd=1 ?W1;                // STS.U16 [sharedWriteB + 0xc0], fetchRegB3
+      BAR.SYNC  0 ?W5G;                                      // BAR.SYNC 0
+      IADD      R82, R82, R85 &req=1 ?W1;                    // IADD sharedWriteA, sharedWriteA, sharedPageFlip
+      IADD      R83, R83, R85 ?W1;                           // IADD sharedWriteB, sharedWriteB, sharedPageFlip
+      LDS.U.128 R88, [R76 + 0x0] ?W1;                        // LDS.U.128 A_r0_k0, [sharedA + 0x0]
+      LDS.U.128 R104, [R77 + 0x0] ?W1;                       // LDS.U.128 B_c0_k0, [sharedB + 0x0]
+      LDS.U.128 R92, [R76 + 0x80] &rd=1 &wr=0 ?W2G;          // LDS.U.128 A_r8_k0, [sharedA + 0x80]
+maxwell_hgemm_256x128_mods_nt_LOOP:
+      ISETP.GE  P1, R81, 16 ?W1;                             // ISETP.GE P1, counterK, 16
+      IADD32I   R81, R81, -8 ?W1;                            // IADD32I counterK, counterK, -8
+      HFMA2 R2, R88.reuse, R105.reuse.H0_H0, R2 &req={0,4} ?PAIR; // HFMA2 C_r0_c2, A_r0_k0.reuse, B_c2_k0.reuse.H0_H0, C_r0_c2
+      LDS.U.128 R96, [R76 + 0x200] ?W1;                      // LDS.U.128 A_r0_k1, [sharedA + 0x200]
+      HFMA2 R0, R90.reuse, R105.reuse.H0_H0, R0 ?W1;         // HFMA2 C_r4_c2, A_r4_k0.reuse, B_c2_k0.reuse.H0_H0, C_r4_c2
+      HFMA2 R3, R88, R104.reuse.H0_H0, R3 ?PAIR;             // HFMA2 C_r0_c0, A_r0_k0, B_c0_k0.reuse.H0_H0, C_r0_c0
+      LDS.U.128 R108, [R77 + 0x100] ?W1;                     // LDS.U.128 B_c0_k1, [sharedB + 0x100]
+      HFMA2 R1, R90, R104.reuse.H0_H0, R1 ?W1;               // HFMA2 C_r4_c0, A_r4_k0, B_c0_k0.reuse.H0_H0, C_r4_c0
+      HFMA2 R10, R89.reuse, R105.reuse.H0_H0, R10 ?PAIR;     // HFMA2 C_r2_c2, A_r2_k0.reuse, B_c2_k0.reuse.H0_H0, C_r2_c2
+      LDS.U.128 R100, [R76 + 0x280] &rd=1 &wr=0 ?W1;         // LDS.U.128 A_r8_k1, [sharedA + 0x280]
+      HFMA2 R8, R91.reuse, R105.reuse.H0_H0, R8 ?W1;         // HFMA2 C_r6_c2, A_r6_k0.reuse, B_c2_k0.reuse.H0_H0, C_r6_c2
+      HFMA2 R11, R89, R104.reuse.H0_H0, R11 ?W1;             // HFMA2 C_r2_c0, A_r2_k0, B_c0_k0.reuse.H0_H0, C_r2_c0
+      HFMA2 R9, R91, R104.reuse.H0_H0, R9 ?W1;               // HFMA2 C_r6_c0, A_r6_k0, B_c0_k0.reuse.H0_H0, C_r6_c0
+      HFMA2 R6, R88.reuse, R105.reuse.H1_H1, R6 ?W1;         // HFMA2 C_r0_c3, A_r0_k0.reuse, B_c2_k0.reuse.H1_H1, C_r0_c3
+      HFMA2 R4, R90.reuse, R105.reuse.H1_H1, R4 ?W1;         // HFMA2 C_r4_c3, A_r4_k0.reuse, B_c2_k0.reuse.H1_H1, C_r4_c3
+      HFMA2 R7, R88, R104.reuse.H1_H1, R7 ?W1;               // HFMA2 C_r0_c1, A_r0_k0, B_c0_k0.reuse.H1_H1, C_r0_c1
+(!P1) R2P PR, RZ.B0, 0x78 ?W1;                               // @!P1 R2P PR, RZ.B0, 0x78
+(P1)  R2P PR, R84.B0, 0x78 ?W1;                              // @P1 R2P PR, raggedMnPreds0.B0, 0x78
+      HFMA2 R5, R90, R104.reuse.H1_H1, R5 ?W1;               // HFMA2 C_r4_c1, A_r4_k0, B_c0_k0.reuse.H1_H1, C_r4_c1
+      HFMA2 R14, R89.reuse, R105.reuse.H1_H1, R14 ?W1;       // HFMA2 C_r2_c3, A_r2_k0.reuse, B_c2_k0.reuse.H1_H1, C_r2_c3
+      HFMA2 R12, R91.reuse, R105.reuse.H1_H1, R12 ?W1;       // HFMA2 C_r6_c3, A_r6_k0.reuse, B_c2_k0.reuse.H1_H1, C_r6_c3
+      HFMA2 R15, R89, R104.reuse.H1_H1, R15 ?W1;             // HFMA2 C_r2_c1, A_r2_k0, B_c0_k0.reuse.H1_H1, C_r2_c1
+      HFMA2 R13, R91, R104.reuse.H1_H1, R13 ?W1;             // HFMA2 C_r6_c1, A_r6_k0, B_c0_k0.reuse.H1_H1, C_r6_c1
+      HFMA2 R34, R92.reuse, R105.reuse.H0_H0, R34 ?W1;       // HFMA2 C_r8_c2, A_r8_k0.reuse, B_c2_k0.reuse.H0_H0, C_r8_c2
+      HFMA2 R32, R94.reuse, R105.reuse.H0_H0, R32 ?W1;       // HFMA2 C_r12_c2, A_r12_k0.reuse, B_c2_k0.reuse.H0_H0, C_r12_c2
+      HFMA2 R35, R92, R104.reuse.H0_H0, R35 ?W1;             // HFMA2 C_r8_c0, A_r8_k0, B_c0_k0.reuse.H0_H0, C_r8_c0
+      HFMA2 R33, R94, R104.reuse.H0_H0, R33 ?W1;             // HFMA2 C_r12_c0, A_r12_k0, B_c0_k0.reuse.H0_H0, C_r12_c0
+      HFMA2 R42, R93.reuse, R105.reuse.H0_H0, R42 ?W1;       // HFMA2 C_r10_c2, A_r10_k0.reuse, B_c2_k0.reuse.H0_H0, C_r10_c2
+      HFMA2 R40, R95.reuse, R105.reuse.H0_H0, R40 ?W1;       // HFMA2 C_r14_c2, A_r14_k0.reuse, B_c2_k0.reuse.H0_H0, C_r14_c2
+      HFMA2 R43, R93, R104.reuse.H0_H0, R43 ?W1;             // HFMA2 C_r10_c0, A_r10_k0, B_c0_k0.reuse.H0_H0, C_r10_c0
+      HFMA2 R41, R95, R104.reuse.H0_H0, R41 ?W1;             // HFMA2 C_r14_c0, A_r14_k0, B_c0_k0.reuse.H0_H0, C_r14_c0
+      HFMA2 R38, R92.reuse, R105.reuse.H1_H1, R38 ?W1;       // HFMA2 C_r8_c3, A_r8_k0.reuse, B_c2_k0.reuse.H1_H1, C_r8_c3
+      HFMA2 R36, R94.reuse, R105.reuse.H1_H1, R36 ?W1;       // HFMA2 C_r12_c3, A_r12_k0.reuse, B_c2_k0.reuse.H1_H1, C_r12_c3
+      HFMA2 R39, R92, R104.reuse.H1_H1, R39 ?W1;             // HFMA2 C_r8_c1, A_r8_k0, B_c0_k0.reuse.H1_H1, C_r8_c1
+      HFMA2 R37, R94, R104.reuse.H1_H1, R37 ?W1;             // HFMA2 C_r12_c1, A_r12_k0, B_c0_k0.reuse.H1_H1, C_r12_c1
+      HFMA2 R46, R93.reuse, R105.reuse.H1_H1, R46 ?W1;       // HFMA2 C_r10_c3, A_r10_k0.reuse, B_c2_k0.reuse.H1_H1, C_r10_c3
+      HFMA2 R44, R95.reuse, R105.H1_H1, R44 ?W1;             // HFMA2 C_r14_c3, A_r14_k0.reuse, B_c2_k0.H1_H1, C_r14_c3
+      HFMA2 R47, R93.reuse, R104.reuse.H1_H1, R47 ?W1;       // HFMA2 C_r10_c1, A_r10_k0.reuse, B_c0_k0.reuse.H1_H1, C_r10_c1
+      HFMA2 R45, R95.reuse, R104.H1_H1, R45 ?W1;             // HFMA2 C_r14_c1, A_r14_k0.reuse, B_c0_k0.H1_H1, C_r14_c1
+      HFMA2 R58, R93.reuse, R107.reuse.H0_H0, R58 ?PAIR;     // HFMA2 C_r10_c6, A_r10_k0.reuse, B_c6_k0.reuse.H0_H0, C_r10_c6
+(P3)  LDG.E.CI.U16  R64, [R86 + 0x0] ?W1;                    // @P3 LDG.E.CI.U16 fetchRegA0, [readPtrA + 0x0]
+      HFMA2 R56, R95.reuse, R107.reuse.H0_H0, R56 ?W1;       // HFMA2 C_r14_c6, A_r14_k0.reuse, B_c6_k0.reuse.H0_H0, C_r14_c6
+      HFMA2 R59, R93, R106.reuse.H0_H0, R59 ?PAIR;           // HFMA2 C_r10_c4, A_r10_k0, B_c4_k0.reuse.H0_H0, C_r10_c4
+(P4)  LDG.E.CI.U16  R65, [R86 + 0x40] ?W1;                   // @P4 LDG.E.CI.U16 fetchRegA1, [readPtrA + 0x40]
+      HFMA2 R57, R95, R106.reuse.H0_H0, R57 ?W1;             // HFMA2 C_r14_c4, A_r14_k0, B_c4_k0.reuse.H0_H0, C_r14_c4
+      HFMA2 R50, R92.reuse, R107.reuse.H0_H0, R50 ?PAIR;     // HFMA2 C_r8_c6, A_r8_k0.reuse, B_c6_k0.reuse.H0_H0, C_r8_c6
+(P5)  LDG.E.CI.U16  R66, [R86 + 0x80] ?W1;                   // @P5 LDG.E.CI.U16 fetchRegA2, [readPtrA + 0x80]
+      HFMA2 R48, R94.reuse, R107.reuse.H0_H0, R48 ?W1;       // HFMA2 C_r12_c6, A_r12_k0.reuse, B_c6_k0.reuse.H0_H0, C_r12_c6
+      HFMA2 R51, R92, R106.reuse.H0_H0, R51 ?PAIR;           // HFMA2 C_r8_c4, A_r8_k0, B_c4_k0.reuse.H0_H0, C_r8_c4
+(P6)  LDG.E.CI.U16  R67, [R86 + 0xc0] ?W1;                   // @P6 LDG.E.CI.U16 fetchRegA3, [readPtrA + 0xc0]
+      HFMA2 R49, R94, R106.reuse.H0_H0, R49 ?W1;             // HFMA2 C_r12_c4, A_r12_k0, B_c4_k0.reuse.H0_H0, C_r12_c4
+(P1)  R2P PR, R84.B1, 0x78 ?W13G;                            // @P1 R2P PR, raggedMnPreds0.B1, 0x78
+      HFMA2 R62, R93.reuse, R107.reuse.H1_H1, R62 ?PAIR;     // HFMA2 C_r10_c7, A_r10_k0.reuse, B_c6_k0.reuse.H1_H1, C_r10_c7
+(P3)  LDG.E.CI.U16  R68, [R86 + 0x100] ?W1;                  // @P3 LDG.E.CI.U16 fetchRegA4, [readPtrA + 0x100]
+      HFMA2 R60, R95.reuse, R107.reuse.H1_H1, R60 ?W1;       // HFMA2 C_r14_c7, A_r14_k0.reuse, B_c6_k0.reuse.H1_H1, C_r14_c7
+      HFMA2 R63, R93, R106.reuse.H1_H1, R63 ?PAIR;           // HFMA2 C_r10_c5, A_r10_k0, B_c4_k0.reuse.H1_H1, C_r10_c5
+(P4)  LDG.E.CI.U16  R69, [R86 + 0x140] ?W1;                  // @P4 LDG.E.CI.U16 fetchRegA5, [readPtrA + 0x140]
+      HFMA2 R61, R95, R106.reuse.H1_H1, R61 ?W1;             // HFMA2 C_r14_c5, A_r14_k0, B_c4_k0.reuse.H1_H1, C_r14_c5
+      HFMA2 R54, R92.reuse, R107.reuse.H1_H1, R54 ?PAIR;     // HFMA2 C_r8_c7, A_r8_k0.reuse, B_c6_k0.reuse.H1_H1, C_r8_c7
+(P5)  LDG.E.CI.U16  R70, [R86 + 0x180] ?W1;                  // @P5 LDG.E.CI.U16 fetchRegA6, [readPtrA + 0x180]
+      HFMA2 R52, R94.reuse, R107.reuse.H1_H1, R52 ?W1;       // HFMA2 C_r12_c7, A_r12_k0.reuse, B_c6_k0.reuse.H1_H1, C_r12_c7
+      HFMA2 R55, R92, R106.reuse.H1_H1, R55 ?PAIR;           // HFMA2 C_r8_c5, A_r8_k0, B_c4_k0.reuse.H1_H1, C_r8_c5
+(P6)  LDG.E.CI.U16  R71, [R86 + 0x1c0] &rd=3 &wr=2 ?W1;      // @P6 LDG.E.CI.U16 fetchRegA7, [readPtrA + 0x1c0]
+      HFMA2 R53, R94, R106.reuse.H1_H1, R53 ?W1;             // HFMA2 C_r12_c5, A_r12_k0, B_c4_k0.reuse.H1_H1, C_r12_c5
+      HFMA2 R26, R89.reuse, R107.reuse.H0_H0, R26 ?W1;       // HFMA2 C_r2_c6, A_r2_k0.reuse, B_c6_k0.reuse.H0_H0, C_r2_c6
+      HFMA2 R24, R91.reuse, R107.reuse.H0_H0, R24 ?W1;       // HFMA2 C_r6_c6, A_r6_k0.reuse, B_c6_k0.reuse.H0_H0, C_r6_c6
+      HFMA2 R27, R89, R106.reuse.H0_H0, R27 ?W1;             // HFMA2 C_r2_c4, A_r2_k0, B_c4_k0.reuse.H0_H0, C_r2_c4
+      HFMA2 R25, R91, R106.reuse.H0_H0, R25 ?W1;             // HFMA2 C_r6_c4, A_r6_k0, B_c4_k0.reuse.H0_H0, C_r6_c4
+      HFMA2 R18, R88.reuse, R107.reuse.H0_H0, R18 ?W1;       // HFMA2 C_r0_c6, A_r0_k0.reuse, B_c6_k0.reuse.H0_H0, C_r0_c6
+      HFMA2 R16, R90.reuse, R107.reuse.H0_H0, R16 ?W1;       // HFMA2 C_r4_c6, A_r4_k0.reuse, B_c6_k0.reuse.H0_H0, C_r4_c6
+      HFMA2 R19, R88, R106.reuse.H0_H0, R19 ?W1;             // HFMA2 C_r0_c4, A_r0_k0, B_c4_k0.reuse.H0_H0, C_r0_c4
+      HFMA2 R17, R90, R106.reuse.H0_H0, R17 ?W1;             // HFMA2 C_r4_c4, A_r4_k0, B_c4_k0.reuse.H0_H0, C_r4_c4
+      HFMA2 R30, R89.reuse, R107.reuse.H1_H1, R30 ?W1;       // HFMA2 C_r2_c7, A_r2_k0.reuse, B_c6_k0.reuse.H1_H1, C_r2_c7
+      HFMA2 R28, R91.reuse, R107.reuse.H1_H1, R28 ?W1;       // HFMA2 C_r6_c7, A_r6_k0.reuse, B_c6_k0.reuse.H1_H1, C_r6_c7
+      HFMA2 R31, R89, R106.reuse.H1_H1, R31 ?W1;             // HFMA2 C_r2_c5, A_r2_k0, B_c4_k0.reuse.H1_H1, C_r2_c5
+      HFMA2 R29, R91, R106.reuse.H1_H1, R29 ?W1;             // HFMA2 C_r6_c5, A_r6_k0, B_c4_k0.reuse.H1_H1, C_r6_c5
+      HFMA2 R22, R88.reuse, R107.reuse.H1_H1, R22 ?W1;       // HFMA2 C_r0_c7, A_r0_k0.reuse, B_c6_k0.reuse.H1_H1, C_r0_c7
+      HFMA2 R20, R90.reuse, R107.H1_H1, R20 ?W1;             // HFMA2 C_r4_c7, A_r4_k0.reuse, B_c6_k0.H1_H1, C_r4_c7
+      HFMA2 R23, R88, R106.reuse.H1_H1, R23 ?W1;             // HFMA2 C_r0_c5, A_r0_k0, B_c4_k0.reuse.H1_H1, C_r0_c5
+      HFMA2 R21, R90, R106.H1_H1, R21 &wr=4 ?W1;             // HFMA2 C_r4_c5, A_r4_k0, B_c4_k0.H1_H1, C_r4_c5
+(P1)  IADD   R86.CC, R86,   c[0][0x168] &req=3 ?W6G;         // @P1 IADD readPtrA.CC, readPtrA, IncSlowA
+(P1)  IADD.X R87, R87, c[0][0x16c] ?W1;                      // @P1 IADD.X readPtrA_HI, readPtrA_HI, IncSlowA_HI
+(P1)  R2P PR, R84.B2, 0x78 ?W1;                              // @P1 R2P PR, raggedMnPreds0.B2, 0x78
+      HFMA2 R2, R96.reuse, R109.reuse.H0_H0, R2 &req={0,4} ?PAIR; // HFMA2 C_r0_c2, A_r0_k1.reuse, B_c2_k1.reuse.H0_H0, C_r0_c2
+      LDS.U.128 R88, [R76 + 0x400] ?W1;                      // LDS.U.128 A_r0_k0, [sharedA + 0x400]
+      HFMA2 R0, R98.reuse, R109.reuse.H0_H0, R0 ?W1;         // HFMA2 C_r4_c2, A_r4_k1.reuse, B_c2_k1.reuse.H0_H0, C_r4_c2
+      HFMA2 R3, R96, R108.reuse.H0_H0, R3 ?PAIR;             // HFMA2 C_r0_c0, A_r0_k1, B_c0_k1.reuse.H0_H0, C_r0_c0
+      LDS.U.128 R104, [R77 + 0x200] ?W1;                     // LDS.U.128 B_c0_k0, [sharedB + 0x200]
+      HFMA2 R1, R98, R108.reuse.H0_H0, R1 ?W1;               // HFMA2 C_r4_c0, A_r4_k1, B_c0_k1.reuse.H0_H0, C_r4_c0
+      HFMA2 R10, R97.reuse, R109.reuse.H0_H0, R10 ?PAIR;     // HFMA2 C_r2_c2, A_r2_k1.reuse, B_c2_k1.reuse.H0_H0, C_r2_c2
+      LDS.U.128 R92, [R76 + 0x480] &rd=1 &wr=0 ?W1;          // LDS.U.128 A_r8_k0, [sharedA + 0x480]
+      HFMA2 R8, R99.reuse, R109.reuse.H0_H0, R8 ?W1;         // HFMA2 C_r6_c2, A_r6_k1.reuse, B_c2_k1.reuse.H0_H0, C_r6_c2
+      HFMA2 R11, R97, R108.reuse.H0_H0, R11 ?W1;             // HFMA2 C_r2_c0, A_r2_k1, B_c0_k1.reuse.H0_H0, C_r2_c0
+      HFMA2 R9, R99, R108.reuse.H0_H0, R9 ?W1;               // HFMA2 C_r6_c0, A_r6_k1, B_c0_k1.reuse.H0_H0, C_r6_c0
+      HFMA2 R6, R96.reuse, R109.reuse.H1_H1, R6 ?W1;         // HFMA2 C_r0_c3, A_r0_k1.reuse, B_c2_k1.reuse.H1_H1, C_r0_c3
+      HFMA2 R4, R98.reuse, R109.reuse.H1_H1, R4 ?W1;         // HFMA2 C_r4_c3, A_r4_k1.reuse, B_c2_k1.reuse.H1_H1, C_r4_c3
+      HFMA2 R7, R96, R108.reuse.H1_H1, R7 ?W1;               // HFMA2 C_r0_c1, A_r0_k1, B_c0_k1.reuse.H1_H1, C_r0_c1
+      HFMA2 R5, R98, R108.reuse.H1_H1, R5 ?W1;               // HFMA2 C_r4_c1, A_r4_k1, B_c0_k1.reuse.H1_H1, C_r4_c1
+      HFMA2 R14, R97.reuse, R109.reuse.H1_H1, R14 ?W1;       // HFMA2 C_r2_c3, A_r2_k1.reuse, B_c2_k1.reuse.H1_H1, C_r2_c3
+      HFMA2 R12, R99.reuse, R109.reuse.H1_H1, R12 ?W1;       // HFMA2 C_r6_c3, A_r6_k1.reuse, B_c2_k1.reuse.H1_H1, C_r6_c3
+      HFMA2 R15, R97, R108.reuse.H1_H1, R15 ?W1;             // HFMA2 C_r2_c1, A_r2_k1, B_c0_k1.reuse.H1_H1, C_r2_c1
+      HFMA2 R13, R99, R108.reuse.H1_H1, R13 ?W1;             // HFMA2 C_r6_c1, A_r6_k1, B_c0_k1.reuse.H1_H1, C_r6_c1
+      HFMA2 R34, R100.reuse, R109.reuse.H0_H0, R34 ?W1;      // HFMA2 C_r8_c2, A_r8_k1.reuse, B_c2_k1.reuse.H0_H0, C_r8_c2
+      HFMA2 R32, R102.reuse, R109.reuse.H0_H0, R32 ?W1;      // HFMA2 C_r12_c2, A_r12_k1.reuse, B_c2_k1.reuse.H0_H0, C_r12_c2
+      HFMA2 R35, R100, R108.reuse.H0_H0, R35 ?W1;            // HFMA2 C_r8_c0, A_r8_k1, B_c0_k1.reuse.H0_H0, C_r8_c0
+      HFMA2 R33, R102, R108.reuse.H0_H0, R33 ?W1;            // HFMA2 C_r12_c0, A_r12_k1, B_c0_k1.reuse.H0_H0, C_r12_c0
+      HFMA2 R42, R101.reuse, R109.reuse.H0_H0, R42 ?W1;      // HFMA2 C_r10_c2, A_r10_k1.reuse, B_c2_k1.reuse.H0_H0, C_r10_c2
+      HFMA2 R40, R103.reuse, R109.reuse.H0_H0, R40 ?W1;      // HFMA2 C_r14_c2, A_r14_k1.reuse, B_c2_k1.reuse.H0_H0, C_r14_c2
+      HFMA2 R43, R101, R108.reuse.H0_H0, R43 ?W1;            // HFMA2 C_r10_c0, A_r10_k1, B_c0_k1.reuse.H0_H0, C_r10_c0
+      HFMA2 R41, R103, R108.reuse.H0_H0, R41 ?W1;            // HFMA2 C_r14_c0, A_r14_k1, B_c0_k1.reuse.H0_H0, C_r14_c0
+      HFMA2 R38, R100.reuse, R109.reuse.H1_H1, R38 ?W1;      // HFMA2 C_r8_c3, A_r8_k1.reuse, B_c2_k1.reuse.H1_H1, C_r8_c3
+      HFMA2 R36, R102.reuse, R109.reuse.H1_H1, R36 ?W1;      // HFMA2 C_r12_c3, A_r12_k1.reuse, B_c2_k1.reuse.H1_H1, C_r12_c3
+      HFMA2 R39, R100, R108.reuse.H1_H1, R39 ?W1;            // HFMA2 C_r8_c1, A_r8_k1, B_c0_k1.reuse.H1_H1, C_r8_c1
+      HFMA2 R37, R102, R108.reuse.H1_H1, R37 ?W1;            // HFMA2 C_r12_c1, A_r12_k1, B_c0_k1.reuse.H1_H1, C_r12_c1
+      HFMA2 R46, R101.reuse, R109.reuse.H1_H1, R46 ?W1;      // HFMA2 C_r10_c3, A_r10_k1.reuse, B_c2_k1.reuse.H1_H1, C_r10_c3
+      HFMA2 R44, R103.reuse, R109.H1_H1, R44 ?W1;            // HFMA2 C_r14_c3, A_r14_k1.reuse, B_c2_k1.H1_H1, C_r14_c3
+      HFMA2 R47, R101.reuse, R108.reuse.H1_H1, R47 ?W1;      // HFMA2 C_r10_c1, A_r10_k1.reuse, B_c0_k1.reuse.H1_H1, C_r10_c1
+      HFMA2 R45, R103.reuse, R108.H1_H1, R45 ?W1;            // HFMA2 C_r14_c1, A_r14_k1.reuse, B_c0_k1.H1_H1, C_r14_c1
+      HFMA2 R58, R101.reuse, R111.reuse.H0_H0, R58 ?PAIR;    // HFMA2 C_r10_c6, A_r10_k1.reuse, B_c6_k1.reuse.H0_H0, C_r10_c6
+(P3)  LDG.E.CI.U16  R72, [R78 + 0x0] ?W1;                    // @P3 LDG.E.CI.U16 fetchRegB0, [readPtrB + 0x0]
+      HFMA2 R56, R103.reuse, R111.reuse.H0_H0, R56 ?W1;      // HFMA2 C_r14_c6, A_r14_k1.reuse, B_c6_k1.reuse.H0_H0, C_r14_c6
+      HFMA2 R59, R101, R110.reuse.H0_H0, R59 ?PAIR;          // HFMA2 C_r10_c4, A_r10_k1, B_c4_k1.reuse.H0_H0, C_r10_c4
+(P4)  LDG.E.CI.U16  R73, [R78 + 0x40] ?W1;                   // @P4 LDG.E.CI.U16 fetchRegB1, [readPtrB + 0x40]
+      HFMA2 R57, R103, R110.reuse.H0_H0, R57 ?W1;            // HFMA2 C_r14_c4, A_r14_k1, B_c4_k1.reuse.H0_H0, C_r14_c4
+      HFMA2 R50, R100.reuse, R111.reuse.H0_H0, R50 ?PAIR;    // HFMA2 C_r8_c6, A_r8_k1.reuse, B_c6_k1.reuse.H0_H0, C_r8_c6
+(P5)  LDG.E.CI.U16  R74, [R78 + 0x80] ?W1;                   // @P5 LDG.E.CI.U16 fetchRegB2, [readPtrB + 0x80]
+      HFMA2 R48, R102.reuse, R111.reuse.H0_H0, R48 ?W1;      // HFMA2 C_r12_c6, A_r12_k1.reuse, B_c6_k1.reuse.H0_H0, C_r12_c6
+      HFMA2 R51, R100, R110.reuse.H0_H0, R51 ?PAIR;          // HFMA2 C_r8_c4, A_r8_k1, B_c4_k1.reuse.H0_H0, C_r8_c4
+(P6)  LDG.E.CI.U16  R75, [R78 + 0xc0] &rd=3 &wr=2 ?W1;       // @P6 LDG.E.CI.U16 fetchRegB3, [readPtrB + 0xc0]
+      HFMA2 R49, R102, R110.reuse.H0_H0, R49 ?W1;            // HFMA2 C_r12_c4, A_r12_k1, B_c4_k1.reuse.H0_H0, C_r12_c4
+      HFMA2 R62, R101.reuse, R111.reuse.H1_H1, R62 ?W1;      // HFMA2 C_r10_c7, A_r10_k1.reuse, B_c6_k1.reuse.H1_H1, C_r10_c7
+      HFMA2 R60, R103.reuse, R111.reuse.H1_H1, R60 ?W1;      // HFMA2 C_r14_c7, A_r14_k1.reuse, B_c6_k1.reuse.H1_H1, C_r14_c7
+      HFMA2 R63, R101, R110.reuse.H1_H1, R63 ?W1;            // HFMA2 C_r10_c5, A_r10_k1, B_c4_k1.reuse.H1_H1, C_r10_c5
+      HFMA2 R61, R103, R110.reuse.H1_H1, R61 ?W1;            // HFMA2 C_r14_c5, A_r14_k1, B_c4_k1.reuse.H1_H1, C_r14_c5
+      HFMA2 R54, R100.reuse, R111.reuse.H1_H1, R54 ?W1;      // HFMA2 C_r8_c7, A_r8_k1.reuse, B_c6_k1.reuse.H1_H1, C_r8_c7
+      HFMA2 R52, R102.reuse, R111.reuse.H1_H1, R52 ?W1;      // HFMA2 C_r12_c7, A_r12_k1.reuse, B_c6_k1.reuse.H1_H1, C_r12_c7
+      HFMA2 R55, R100, R110.reuse.H1_H1, R55 ?W1;            // HFMA2 C_r8_c5, A_r8_k1, B_c4_k1.reuse.H1_H1, C_r8_c5
+      HFMA2 R53, R102, R110.reuse.H1_H1, R53 ?W1;            // HFMA2 C_r12_c5, A_r12_k1, B_c4_k1.reuse.H1_H1, C_r12_c5
+      HFMA2 R26, R97.reuse, R111.reuse.H0_H0, R26 ?W1;       // HFMA2 C_r2_c6, A_r2_k1.reuse, B_c6_k1.reuse.H0_H0, C_r2_c6
+      HFMA2 R24, R99.reuse, R111.reuse.H0_H0, R24 ?W1;       // HFMA2 C_r6_c6, A_r6_k1.reuse, B_c6_k1.reuse.H0_H0, C_r6_c6
+      HFMA2 R27, R97, R110.reuse.H0_H0, R27 ?W1;             // HFMA2 C_r2_c4, A_r2_k1, B_c4_k1.reuse.H0_H0, C_r2_c4
+      HFMA2 R25, R99, R110.reuse.H0_H0, R25 ?W1;             // HFMA2 C_r6_c4, A_r6_k1, B_c4_k1.reuse.H0_H0, C_r6_c4
+      HFMA2 R18, R96.reuse, R111.reuse.H0_H0, R18 ?W1;       // HFMA2 C_r0_c6, A_r0_k1.reuse, B_c6_k1.reuse.H0_H0, C_r0_c6
+      HFMA2 R16, R98.reuse, R111.reuse.H0_H0, R16 ?W1;       // HFMA2 C_r4_c6, A_r4_k1.reuse, B_c6_k1.reuse.H0_H0, C_r4_c6
+      HFMA2 R19, R96, R110.reuse.H0_H0, R19 ?W1;             // HFMA2 C_r0_c4, A_r0_k1, B_c4_k1.reuse.H0_H0, C_r0_c4
+      HFMA2 R17, R98, R110.reuse.H0_H0, R17 ?W1;             // HFMA2 C_r4_c4, A_r4_k1, B_c4_k1.reuse.H0_H0, C_r4_c4
+      HFMA2 R30, R97.reuse, R111.reuse.H1_H1, R30 ?W1;       // HFMA2 C_r2_c7, A_r2_k1.reuse, B_c6_k1.reuse.H1_H1, C_r2_c7
+      HFMA2 R28, R99.reuse, R111.reuse.H1_H1, R28 ?W1;       // HFMA2 C_r6_c7, A_r6_k1.reuse, B_c6_k1.reuse.H1_H1, C_r6_c7
+      HFMA2 R31, R97, R110.reuse.H1_H1, R31 ?W1;             // HFMA2 C_r2_c5, A_r2_k1, B_c4_k1.reuse.H1_H1, C_r2_c5
+      HFMA2 R29, R99, R110.reuse.H1_H1, R29 ?W1;             // HFMA2 C_r6_c5, A_r6_k1, B_c4_k1.reuse.H1_H1, C_r6_c5
+      HFMA2 R22, R96.reuse, R111.reuse.H1_H1, R22 ?W1;       // HFMA2 C_r0_c7, A_r0_k1.reuse, B_c6_k1.reuse.H1_H1, C_r0_c7
+      HFMA2 R20, R98.reuse, R111.H1_H1, R20 ?W1;             // HFMA2 C_r4_c7, A_r4_k1.reuse, B_c6_k1.H1_H1, C_r4_c7
+      HFMA2 R23, R96, R110.reuse.H1_H1, R23 ?W1;             // HFMA2 C_r0_c5, A_r0_k1, B_c4_k1.reuse.H1_H1, C_r0_c5
+      HFMA2 R21, R98, R110.H1_H1, R21 &wr=4 ?W1;             // HFMA2 C_r4_c5, A_r4_k1, B_c4_k1.H1_H1, C_r4_c5
+(P1)  IADD   R78.CC, R78,   c[0][0x170] &req=3 ?W6G;         // @P1 IADD readPtrB.CC, readPtrB, IncSlowB
+(P1)  IADD.X R79, R79, c[0][0x174] ?W1;                      // @P1 IADD.X readPtrB_HI, readPtrB_HI, IncSlowB_HI
+      HFMA2 R2, R88.reuse, R105.reuse.H0_H0, R2 &req={0,4} ?PAIR; // HFMA2 C_r0_c2, A_r0_k0.reuse, B_c2_k0.reuse.H0_H0, C_r0_c2
+      LDS.U.128 R96, [R76 + 0x600] ?W1;                      // LDS.U.128 A_r0_k1, [sharedA + 0x600]
+      HFMA2 R0, R90.reuse, R105.reuse.H0_H0, R0 ?W1;         // HFMA2 C_r4_c2, A_r4_k0.reuse, B_c2_k0.reuse.H0_H0, C_r4_c2
+      HFMA2 R3, R88, R104.reuse.H0_H0, R3 ?PAIR;             // HFMA2 C_r0_c0, A_r0_k0, B_c0_k0.reuse.H0_H0, C_r0_c0
+      LDS.U.128 R108, [R77 + 0x300] ?W1;                     // LDS.U.128 B_c0_k1, [sharedB + 0x300]
+      HFMA2 R1, R90, R104.reuse.H0_H0, R1 ?W1;               // HFMA2 C_r4_c0, A_r4_k0, B_c0_k0.reuse.H0_H0, C_r4_c0
+      HFMA2 R10, R89.reuse, R105.reuse.H0_H0, R10 ?PAIR;     // HFMA2 C_r2_c2, A_r2_k0.reuse, B_c2_k0.reuse.H0_H0, C_r2_c2
+      LDS.U.128 R100, [R76 + 0x680] &rd=1 &wr=0 ?W1;         // LDS.U.128 A_r8_k1, [sharedA + 0x680]
+      HFMA2 R8, R91.reuse, R105.reuse.H0_H0, R8 ?W1;         // HFMA2 C_r6_c2, A_r6_k0.reuse, B_c2_k0.reuse.H0_H0, C_r6_c2
+      HFMA2 R11, R89, R104.reuse.H0_H0, R11 ?W1;             // HFMA2 C_r2_c0, A_r2_k0, B_c0_k0.reuse.H0_H0, C_r2_c0
+      HFMA2 R9, R91, R104.reuse.H0_H0, R9 ?W1;               // HFMA2 C_r6_c0, A_r6_k0, B_c0_k0.reuse.H0_H0, C_r6_c0
+      HFMA2 R6, R88.reuse, R105.reuse.H1_H1, R6 ?W1;         // HFMA2 C_r0_c3, A_r0_k0.reuse, B_c2_k0.reuse.H1_H1, C_r0_c3
+      HFMA2 R4, R90.reuse, R105.reuse.H1_H1, R4 ?W1;         // HFMA2 C_r4_c3, A_r4_k0.reuse, B_c2_k0.reuse.H1_H1, C_r4_c3
+      HFMA2 R7, R88, R104.reuse.H1_H1, R7 ?W1;               // HFMA2 C_r0_c1, A_r0_k0, B_c0_k0.reuse.H1_H1, C_r0_c1
+      HFMA2 R5, R90, R104.reuse.H1_H1, R5 ?W1;               // HFMA2 C_r4_c1, A_r4_k0, B_c0_k0.reuse.H1_H1, C_r4_c1
+      HFMA2 R14, R89.reuse, R105.reuse.H1_H1, R14 ?W1;       // HFMA2 C_r2_c3, A_r2_k0.reuse, B_c2_k0.reuse.H1_H1, C_r2_c3
+      HFMA2 R12, R91.reuse, R105.reuse.H1_H1, R12 ?W1;       // HFMA2 C_r6_c3, A_r6_k0.reuse, B_c2_k0.reuse.H1_H1, C_r6_c3
+      HFMA2 R15, R89, R104.reuse.H1_H1, R15 ?W1;             // HFMA2 C_r2_c1, A_r2_k0, B_c0_k0.reuse.H1_H1, C_r2_c1
+      HFMA2 R13, R91, R104.reuse.H1_H1, R13 ?W1;             // HFMA2 C_r6_c1, A_r6_k0, B_c0_k0.reuse.H1_H1, C_r6_c1
+      HFMA2 R34, R92.reuse, R105.reuse.H0_H0, R34 ?W1;       // HFMA2 C_r8_c2, A_r8_k0.reuse, B_c2_k0.reuse.H0_H0, C_r8_c2
+      HFMA2 R32, R94.reuse, R105.reuse.H0_H0, R32 ?W1;       // HFMA2 C_r12_c2, A_r12_k0.reuse, B_c2_k0.reuse.H0_H0, C_r12_c2
+      HFMA2 R35, R92, R104.reuse.H0_H0, R35 ?W1;             // HFMA2 C_r8_c0, A_r8_k0, B_c0_k0.reuse.H0_H0, C_r8_c0
+      HFMA2 R33, R94, R104.reuse.H0_H0, R33 ?W1;             // HFMA2 C_r12_c0, A_r12_k0, B_c0_k0.reuse.H0_H0, C_r12_c0
+      HFMA2 R42, R93.reuse, R105.reuse.H0_H0, R42 ?W1;       // HFMA2 C_r10_c2, A_r10_k0.reuse, B_c2_k0.reuse.H0_H0, C_r10_c2
+      HFMA2 R40, R95.reuse, R105.reuse.H0_H0, R40 ?W1;       // HFMA2 C_r14_c2, A_r14_k0.reuse, B_c2_k0.reuse.H0_H0, C_r14_c2
+      HFMA2 R43, R93, R104.reuse.H0_H0, R43 ?W1;             // HFMA2 C_r10_c0, A_r10_k0, B_c0_k0.reuse.H0_H0, C_r10_c0
+      HFMA2 R41, R95, R104.reuse.H0_H0, R41 ?W1;             // HFMA2 C_r14_c0, A_r14_k0, B_c0_k0.reuse.H0_H0, C_r14_c0
+      HFMA2 R38, R92.reuse, R105.reuse.H1_H1, R38 ?W1;       // HFMA2 C_r8_c3, A_r8_k0.reuse, B_c2_k0.reuse.H1_H1, C_r8_c3
+      HFMA2 R36, R94.reuse, R105.reuse.H1_H1, R36 ?W1;       // HFMA2 C_r12_c3, A_r12_k0.reuse, B_c2_k0.reuse.H1_H1, C_r12_c3
+      HFMA2 R39, R92, R104.reuse.H1_H1, R39 ?W1;             // HFMA2 C_r8_c1, A_r8_k0, B_c0_k0.reuse.H1_H1, C_r8_c1
+      HFMA2 R37, R94, R104.reuse.H1_H1, R37 ?W1;             // HFMA2 C_r12_c1, A_r12_k0, B_c0_k0.reuse.H1_H1, C_r12_c1
+      HFMA2 R46, R93.reuse, R105.reuse.H1_H1, R46 ?W1;       // HFMA2 C_r10_c3, A_r10_k0.reuse, B_c2_k0.reuse.H1_H1, C_r10_c3
+      HFMA2 R44, R95.reuse, R105.H1_H1, R44 ?W1;             // HFMA2 C_r14_c3, A_r14_k0.reuse, B_c2_k0.H1_H1, C_r14_c3
+      HFMA2 R47, R93.reuse, R104.reuse.H1_H1, R47 ?W1;       // HFMA2 C_r10_c1, A_r10_k0.reuse, B_c0_k0.reuse.H1_H1, C_r10_c1
+      HFMA2 R45, R95.reuse, R104.H1_H1, R45 ?W1;             // HFMA2 C_r14_c1, A_r14_k0.reuse, B_c0_k0.H1_H1, C_r14_c1
+      HFMA2 R58, R93.reuse, R107.reuse.H0_H0, R58 ?W1;       // HFMA2 C_r10_c6, A_r10_k0.reuse, B_c6_k0.reuse.H0_H0, C_r10_c6
+      HFMA2 R56, R95.reuse, R107.reuse.H0_H0, R56 ?W1;       // HFMA2 C_r14_c6, A_r14_k0.reuse, B_c6_k0.reuse.H0_H0, C_r14_c6
+      HFMA2 R59, R93, R106.reuse.H0_H0, R59 ?W1;             // HFMA2 C_r10_c4, A_r10_k0, B_c4_k0.reuse.H0_H0, C_r10_c4
+      HFMA2 R57, R95, R106.reuse.H0_H0, R57 ?W1;             // HFMA2 C_r14_c4, A_r14_k0, B_c4_k0.reuse.H0_H0, C_r14_c4
+      HFMA2 R50, R92.reuse, R107.reuse.H0_H0, R50 ?W1;       // HFMA2 C_r8_c6, A_r8_k0.reuse, B_c6_k0.reuse.H0_H0, C_r8_c6
+      HFMA2 R48, R94.reuse, R107.reuse.H0_H0, R48 ?W1;       // HFMA2 C_r12_c6, A_r12_k0.reuse, B_c6_k0.reuse.H0_H0, C_r12_c6
+      HFMA2 R51, R92, R106.reuse.H0_H0, R51 ?W1;             // HFMA2 C_r8_c4, A_r8_k0, B_c4_k0.reuse.H0_H0, C_r8_c4
+      HFMA2 R49, R94, R106.reuse.H0_H0, R49 ?W1;             // HFMA2 C_r12_c4, A_r12_k0, B_c4_k0.reuse.H0_H0, C_r12_c4
+      HFMA2 R62, R93.reuse, R107.reuse.H1_H1, R62 ?W1;       // HFMA2 C_r10_c7, A_r10_k0.reuse, B_c6_k0.reuse.H1_H1, C_r10_c7
+      HFMA2 R60, R95.reuse, R107.reuse.H1_H1, R60 ?W1;       // HFMA2 C_r14_c7, A_r14_k0.reuse, B_c6_k0.reuse.H1_H1, C_r14_c7
+      HFMA2 R63, R93, R106.reuse.H1_H1, R63 ?W1;             // HFMA2 C_r10_c5, A_r10_k0, B_c4_k0.reuse.H1_H1, C_r10_c5
+      HFMA2 R61, R95, R106.reuse.H1_H1, R61 ?W1;             // HFMA2 C_r14_c5, A_r14_k0, B_c4_k0.reuse.H1_H1, C_r14_c5
+      HFMA2 R54, R92.reuse, R107.reuse.H1_H1, R54 ?W1;       // HFMA2 C_r8_c7, A_r8_k0.reuse, B_c6_k0.reuse.H1_H1, C_r8_c7
+      HFMA2 R52, R94.reuse, R107.reuse.H1_H1, R52 ?W1;       // HFMA2 C_r12_c7, A_r12_k0.reuse, B_c6_k0.reuse.H1_H1, C_r12_c7
+      HFMA2 R55, R92, R106.reuse.H1_H1, R55 ?W1;             // HFMA2 C_r8_c5, A_r8_k0, B_c4_k0.reuse.H1_H1, C_r8_c5
+      HFMA2 R53, R94, R106.reuse.H1_H1, R53 ?W1;             // HFMA2 C_r12_c5, A_r12_k0, B_c4_k0.reuse.H1_H1, C_r12_c5
+      HFMA2 R26, R89.reuse, R107.reuse.H0_H0, R26 ?W1;       // HFMA2 C_r2_c6, A_r2_k0.reuse, B_c6_k0.reuse.H0_H0, C_r2_c6
+      HFMA2 R24, R91.reuse, R107.reuse.H0_H0, R24 ?W1;       // HFMA2 C_r6_c6, A_r6_k0.reuse, B_c6_k0.reuse.H0_H0, C_r6_c6
+      HFMA2 R27, R89, R106.reuse.H0_H0, R27 ?W1;             // HFMA2 C_r2_c4, A_r2_k0, B_c4_k0.reuse.H0_H0, C_r2_c4
+      HFMA2 R25, R91, R106.reuse.H0_H0, R25 ?W1;             // HFMA2 C_r6_c4, A_r6_k0, B_c4_k0.reuse.H0_H0, C_r6_c4
+      HFMA2 R18, R88.reuse, R107.reuse.H0_H0, R18 ?W1;       // HFMA2 C_r0_c6, A_r0_k0.reuse, B_c6_k0.reuse.H0_H0, C_r0_c6
+      HFMA2 R16, R90.reuse, R107.reuse.H0_H0, R16 ?W1;       // HFMA2 C_r4_c6, A_r4_k0.reuse, B_c6_k0.reuse.H0_H0, C_r4_c6
+      HFMA2 R19, R88, R106.reuse.H0_H0, R19 ?W1;             // HFMA2 C_r0_c4, A_r0_k0, B_c4_k0.reuse.H0_H0, C_r0_c4
+      HFMA2 R17, R90, R106.reuse.H0_H0, R17 ?W1;             // HFMA2 C_r4_c4, A_r4_k0, B_c4_k0.reuse.H0_H0, C_r4_c4
+      HFMA2 R30, R89.reuse, R107.reuse.H1_H1, R30 ?W1;       // HFMA2 C_r2_c7, A_r2_k0.reuse, B_c6_k0.reuse.H1_H1, C_r2_c7
+      HFMA2 R28, R91.reuse, R107.reuse.H1_H1, R28 ?W1;       // HFMA2 C_r6_c7, A_r6_k0.reuse, B_c6_k0.reuse.H1_H1, C_r6_c7
+      HFMA2 R31, R89, R106.reuse.H1_H1, R31 ?W1;             // HFMA2 C_r2_c5, A_r2_k0, B_c4_k0.reuse.H1_H1, C_r2_c5
+      HFMA2 R29, R91, R106.reuse.H1_H1, R29 ?W1;             // HFMA2 C_r6_c5, A_r6_k0, B_c4_k0.reuse.H1_H1, C_r6_c5
+      HFMA2 R22, R88.reuse, R107.reuse.H1_H1, R22 ?W1;       // HFMA2 C_r0_c7, A_r0_k0.reuse, B_c6_k0.reuse.H1_H1, C_r0_c7
+      HFMA2 R20, R90.reuse, R107.H1_H1, R20 ?W1;             // HFMA2 C_r4_c7, A_r4_k0.reuse, B_c6_k0.H1_H1, C_r4_c7
+      HFMA2 R23, R88, R106.reuse.H1_H1, R23 ?W1;             // HFMA2 C_r0_c5, A_r0_k0, B_c4_k0.reuse.H1_H1, C_r0_c5
+      HFMA2 R21, R90, R106.H1_H1, R21 &wr=4 ?W2G;            // HFMA2 C_r4_c5, A_r4_k0, B_c4_k0.H1_H1, C_r4_c5
+      HFMA2 R2, R96.reuse, R109.reuse.H0_H0, R2 &req={0,4} ?PAIR; // HFMA2 C_r0_c2, A_r0_k1.reuse, B_c2_k1.reuse.H0_H0, C_r0_c2
+      LDS.U.128 R88, [R76 + 0x800] ?W1;                      // LDS.U.128 A_r0_k0, [sharedA + 0x800]
+      HFMA2 R0, R98.reuse, R109.reuse.H0_H0, R0 ?W1;         // HFMA2 C_r4_c2, A_r4_k1.reuse, B_c2_k1.reuse.H0_H0, C_r4_c2
+      HFMA2 R3, R96, R108.reuse.H0_H0, R3 ?PAIR;             // HFMA2 C_r0_c0, A_r0_k1, B_c0_k1.reuse.H0_H0, C_r0_c0
+      LDS.U.128 R104, [R77 + 0x400] ?W1;                     // LDS.U.128 B_c0_k0, [sharedB + 0x400]
+      HFMA2 R1, R98, R108.reuse.H0_H0, R1 ?W1;               // HFMA2 C_r4_c0, A_r4_k1, B_c0_k1.reuse.H0_H0, C_r4_c0
+      HFMA2 R10, R97.reuse, R109.reuse.H0_H0, R10 ?PAIR;     // HFMA2 C_r2_c2, A_r2_k1.reuse, B_c2_k1.reuse.H0_H0, C_r2_c2
+      LDS.U.128 R92, [R76 + 0x880] &rd=1 &wr=0 ?W1;          // LDS.U.128 A_r8_k0, [sharedA + 0x880]
+      HFMA2 R8, R99.reuse, R109.reuse.H0_H0, R8 ?W1;         // HFMA2 C_r6_c2, A_r6_k1.reuse, B_c2_k1.reuse.H0_H0, C_r6_c2
+      HFMA2 R11, R97, R108.reuse.H0_H0, R11 ?W1;             // HFMA2 C_r2_c0, A_r2_k1, B_c0_k1.reuse.H0_H0, C_r2_c0
+      HFMA2 R9, R99, R108.reuse.H0_H0, R9 ?W1;               // HFMA2 C_r6_c0, A_r6_k1, B_c0_k1.reuse.H0_H0, C_r6_c0
+      HFMA2 R6, R96.reuse, R109.reuse.H1_H1, R6 ?W1;         // HFMA2 C_r0_c3, A_r0_k1.reuse, B_c2_k1.reuse.H1_H1, C_r0_c3
+      HFMA2 R4, R98.reuse, R109.reuse.H1_H1, R4 ?W1;         // HFMA2 C_r4_c3, A_r4_k1.reuse, B_c2_k1.reuse.H1_H1, C_r4_c3
+      HFMA2 R7, R96, R108.reuse.H1_H1, R7 ?W1;               // HFMA2 C_r0_c1, A_r0_k1, B_c0_k1.reuse.H1_H1, C_r0_c1
+      HFMA2 R5, R98, R108.reuse.H1_H1, R5 ?W1;               // HFMA2 C_r4_c1, A_r4_k1, B_c0_k1.reuse.H1_H1, C_r4_c1
+      HFMA2 R14, R97.reuse, R109.reuse.H1_H1, R14 ?W1;       // HFMA2 C_r2_c3, A_r2_k1.reuse, B_c2_k1.reuse.H1_H1, C_r2_c3
+      HFMA2 R12, R99.reuse, R109.reuse.H1_H1, R12 ?W1;       // HFMA2 C_r6_c3, A_r6_k1.reuse, B_c2_k1.reuse.H1_H1, C_r6_c3
+      HFMA2 R15, R97, R108.reuse.H1_H1, R15 ?W1;             // HFMA2 C_r2_c1, A_r2_k1, B_c0_k1.reuse.H1_H1, C_r2_c1
+      HFMA2 R13, R99, R108.reuse.H1_H1, R13 ?W1;             // HFMA2 C_r6_c1, A_r6_k1, B_c0_k1.reuse.H1_H1, C_r6_c1
+      HFMA2 R34, R100.reuse, R109.reuse.H0_H0, R34 ?W1;      // HFMA2 C_r8_c2, A_r8_k1.reuse, B_c2_k1.reuse.H0_H0, C_r8_c2
+      HFMA2 R32, R102.reuse, R109.reuse.H0_H0, R32 ?W1;      // HFMA2 C_r12_c2, A_r12_k1.reuse, B_c2_k1.reuse.H0_H0, C_r12_c2
+      HFMA2 R35, R100, R108.reuse.H0_H0, R35 ?W1;            // HFMA2 C_r8_c0, A_r8_k1, B_c0_k1.reuse.H0_H0, C_r8_c0
+      HFMA2 R33, R102, R108.reuse.H0_H0, R33 ?W1;            // HFMA2 C_r12_c0, A_r12_k1, B_c0_k1.reuse.H0_H0, C_r12_c0
+      HFMA2 R42, R101.reuse, R109.reuse.H0_H0, R42 ?W1;      // HFMA2 C_r10_c2, A_r10_k1.reuse, B_c2_k1.reuse.H0_H0, C_r10_c2
+      HFMA2 R40, R103.reuse, R109.reuse.H0_H0, R40 ?W1;      // HFMA2 C_r14_c2, A_r14_k1.reuse, B_c2_k1.reuse.H0_H0, C_r14_c2
+      HFMA2 R43, R101, R108.reuse.H0_H0, R43 ?W1;            // HFMA2 C_r10_c0, A_r10_k1, B_c0_k1.reuse.H0_H0, C_r10_c0
+      HFMA2 R41, R103, R108.reuse.H0_H0, R41 ?W1;            // HFMA2 C_r14_c0, A_r14_k1, B_c0_k1.reuse.H0_H0, C_r14_c0
+      HFMA2 R38, R100.reuse, R109.reuse.H1_H1, R38 ?W1;      // HFMA2 C_r8_c3, A_r8_k1.reuse, B_c2_k1.reuse.H1_H1, C_r8_c3
+      HFMA2 R36, R102.reuse, R109.reuse.H1_H1, R36 ?W1;      // HFMA2 C_r12_c3, A_r12_k1.reuse, B_c2_k1.reuse.H1_H1, C_r12_c3
+      HFMA2 R39, R100, R108.reuse.H1_H1, R39 ?W1;            // HFMA2 C_r8_c1, A_r8_k1, B_c0_k1.reuse.H1_H1, C_r8_c1
+      HFMA2 R37, R102, R108.reuse.H1_H1, R37 ?W1;            // HFMA2 C_r12_c1, A_r12_k1, B_c0_k1.reuse.H1_H1, C_r12_c1
+      HFMA2 R46, R101.reuse, R109.reuse.H1_H1, R46 ?W1;      // HFMA2 C_r10_c3, A_r10_k1.reuse, B_c2_k1.reuse.H1_H1, C_r10_c3
+      HFMA2 R44, R103.reuse, R109.H1_H1, R44 ?W1;            // HFMA2 C_r14_c3, A_r14_k1.reuse, B_c2_k1.H1_H1, C_r14_c3
+      HFMA2 R47, R101.reuse, R108.reuse.H1_H1, R47 ?W1;      // HFMA2 C_r10_c1, A_r10_k1.reuse, B_c0_k1.reuse.H1_H1, C_r10_c1
+      HFMA2 R45, R103.reuse, R108.H1_H1, R45 ?W1;            // HFMA2 C_r14_c1, A_r14_k1.reuse, B_c0_k1.H1_H1, C_r14_c1
+      HFMA2 R58, R101.reuse, R111.reuse.H0_H0, R58 ?W1;      // HFMA2 C_r10_c6, A_r10_k1.reuse, B_c6_k1.reuse.H0_H0, C_r10_c6
+      HFMA2 R56, R103.reuse, R111.reuse.H0_H0, R56 ?W1;      // HFMA2 C_r14_c6, A_r14_k1.reuse, B_c6_k1.reuse.H0_H0, C_r14_c6
+      HFMA2 R59, R101, R110.reuse.H0_H0, R59 ?W1;            // HFMA2 C_r10_c4, A_r10_k1, B_c4_k1.reuse.H0_H0, C_r10_c4
+      HFMA2 R57, R103, R110.reuse.H0_H0, R57 ?W1;            // HFMA2 C_r14_c4, A_r14_k1, B_c4_k1.reuse.H0_H0, C_r14_c4
+      HFMA2 R50, R100.reuse, R111.reuse.H0_H0, R50 ?W1;      // HFMA2 C_r8_c6, A_r8_k1.reuse, B_c6_k1.reuse.H0_H0, C_r8_c6
+      HFMA2 R48, R102.reuse, R111.reuse.H0_H0, R48 ?W1;      // HFMA2 C_r12_c6, A_r12_k1.reuse, B_c6_k1.reuse.H0_H0, C_r12_c6
+      HFMA2 R51, R100, R110.reuse.H0_H0, R51 ?W1;            // HFMA2 C_r8_c4, A_r8_k1, B_c4_k1.reuse.H0_H0, C_r8_c4
+      HFMA2 R49, R102, R110.reuse.H0_H0, R49 ?W1;            // HFMA2 C_r12_c4, A_r12_k1, B_c4_k1.reuse.H0_H0, C_r12_c4
+      HFMA2 R62, R101.reuse, R111.reuse.H1_H1, R62 ?W1;      // HFMA2 C_r10_c7, A_r10_k1.reuse, B_c6_k1.reuse.H1_H1, C_r10_c7
+      HFMA2 R60, R103.reuse, R111.reuse.H1_H1, R60 ?W1;      // HFMA2 C_r14_c7, A_r14_k1.reuse, B_c6_k1.reuse.H1_H1, C_r14_c7
+      HFMA2 R63, R101, R110.reuse.H1_H1, R63 ?W1;            // HFMA2 C_r10_c5, A_r10_k1, B_c4_k1.reuse.H1_H1, C_r10_c5
+      HFMA2 R61, R103, R110.reuse.H1_H1, R61 ?W1;            // HFMA2 C_r14_c5, A_r14_k1, B_c4_k1.reuse.H1_H1, C_r14_c5
+      HFMA2 R54, R100.reuse, R111.reuse.H1_H1, R54 ?W1;      // HFMA2 C_r8_c7, A_r8_k1.reuse, B_c6_k1.reuse.H1_H1, C_r8_c7
+      HFMA2 R52, R102.reuse, R111.reuse.H1_H1, R52 ?W1;      // HFMA2 C_r12_c7, A_r12_k1.reuse, B_c6_k1.reuse.H1_H1, C_r12_c7
+      HFMA2 R55, R100, R110.reuse.H1_H1, R55 ?W1;            // HFMA2 C_r8_c5, A_r8_k1, B_c4_k1.reuse.H1_H1, C_r8_c5
+      HFMA2 R53, R102, R110.reuse.H1_H1, R53 ?W1;            // HFMA2 C_r12_c5, A_r12_k1, B_c4_k1.reuse.H1_H1, C_r12_c5
+      HFMA2 R26, R97.reuse, R111.reuse.H0_H0, R26 ?W1;       // HFMA2 C_r2_c6, A_r2_k1.reuse, B_c6_k1.reuse.H0_H0, C_r2_c6
+      HFMA2 R24, R99.reuse, R111.reuse.H0_H0, R24 ?W1;       // HFMA2 C_r6_c6, A_r6_k1.reuse, B_c6_k1.reuse.H0_H0, C_r6_c6
+      HFMA2 R27, R97, R110.reuse.H0_H0, R27 ?W1;             // HFMA2 C_r2_c4, A_r2_k1, B_c4_k1.reuse.H0_H0, C_r2_c4
+      HFMA2 R25, R99, R110.reuse.H0_H0, R25 ?W1;             // HFMA2 C_r6_c4, A_r6_k1, B_c4_k1.reuse.H0_H0, C_r6_c4
+      HFMA2 R18, R96.reuse, R111.reuse.H0_H0, R18 ?W1;       // HFMA2 C_r0_c6, A_r0_k1.reuse, B_c6_k1.reuse.H0_H0, C_r0_c6
+      HFMA2 R16, R98.reuse, R111.reuse.H0_H0, R16 ?W1;       // HFMA2 C_r4_c6, A_r4_k1.reuse, B_c6_k1.reuse.H0_H0, C_r4_c6
+      HFMA2 R19, R96, R110.reuse.H0_H0, R19 ?W1;             // HFMA2 C_r0_c4, A_r0_k1, B_c4_k1.reuse.H0_H0, C_r0_c4
+      HFMA2 R17, R98, R110.reuse.H0_H0, R17 ?W1;             // HFMA2 C_r4_c4, A_r4_k1, B_c4_k1.reuse.H0_H0, C_r4_c4
+      HFMA2 R30, R97.reuse, R111.reuse.H1_H1, R30 ?W1;       // HFMA2 C_r2_c7, A_r2_k1.reuse, B_c6_k1.reuse.H1_H1, C_r2_c7
+      HFMA2 R28, R99.reuse, R111.reuse.H1_H1, R28 ?W1;       // HFMA2 C_r6_c7, A_r6_k1.reuse, B_c6_k1.reuse.H1_H1, C_r6_c7
+      HFMA2 R31, R97, R110.reuse.H1_H1, R31 ?W1;             // HFMA2 C_r2_c5, A_r2_k1, B_c4_k1.reuse.H1_H1, C_r2_c5
+      HFMA2 R29, R99, R110.reuse.H1_H1, R29 ?W1;             // HFMA2 C_r6_c5, A_r6_k1, B_c4_k1.reuse.H1_H1, C_r6_c5
+      HFMA2 R22, R96.reuse, R111.reuse.H1_H1, R22 ?W1;       // HFMA2 C_r0_c7, A_r0_k1.reuse, B_c6_k1.reuse.H1_H1, C_r0_c7
+      HFMA2 R20, R98.reuse, R111.H1_H1, R20 ?W1;             // HFMA2 C_r4_c7, A_r4_k1.reuse, B_c6_k1.H1_H1, C_r4_c7
+      HFMA2 R23, R96, R110.reuse.H1_H1, R23 ?W1;             // HFMA2 C_r0_c5, A_r0_k1, B_c4_k1.reuse.H1_H1, C_r0_c5
+      HFMA2 R21, R98, R110.H1_H1, R21 &wr=4 ?W2G;            // HFMA2 C_r4_c5, A_r4_k1, B_c4_k1.H1_H1, C_r4_c5
+      HFMA2 R2, R88.reuse, R105.reuse.H0_H0, R2 &req={0,4} ?PAIR; // HFMA2 C_r0_c2, A_r0_k0.reuse, B_c2_k0.reuse.H0_H0, C_r0_c2
+      LDS.U.128 R96, [R76 + 0xa00] ?W1;                      // LDS.U.128 A_r0_k1, [sharedA + 0xa00]
+      HFMA2 R0, R90.reuse, R105.reuse.H0_H0, R0 ?W1;         // HFMA2 C_r4_c2, A_r4_k0.reuse, B_c2_k0.reuse.H0_H0, C_r4_c2
+      HFMA2 R3, R88, R104.reuse.H0_H0, R3 ?PAIR;             // HFMA2 C_r0_c0, A_r0_k0, B_c0_k0.reuse.H0_H0, C_r0_c0
+      LDS.U.128 R108, [R77 + 0x500] ?W1;                     // LDS.U.128 B_c0_k1, [sharedB + 0x500]
+      HFMA2 R1, R90, R104.reuse.H0_H0, R1 ?W1;               // HFMA2 C_r4_c0, A_r4_k0, B_c0_k0.reuse.H0_H0, C_r4_c0
+      HFMA2 R10, R89.reuse, R105.reuse.H0_H0, R10 ?PAIR;     // HFMA2 C_r2_c2, A_r2_k0.reuse, B_c2_k0.reuse.H0_H0, C_r2_c2
+      LDS.U.128 R100, [R76 + 0xa80] &rd=1 &wr=0 ?W1;         // LDS.U.128 A_r8_k1, [sharedA + 0xa80]
+      HFMA2 R8, R91.reuse, R105.reuse.H0_H0, R8 ?W1;         // HFMA2 C_r6_c2, A_r6_k0.reuse, B_c2_k0.reuse.H0_H0, C_r6_c2
+      HFMA2 R11, R89, R104.reuse.H0_H0, R11 ?W1;             // HFMA2 C_r2_c0, A_r2_k0, B_c0_k0.reuse.H0_H0, C_r2_c0
+      HFMA2 R9, R91, R104.reuse.H0_H0, R9 ?W1;               // HFMA2 C_r6_c0, A_r6_k0, B_c0_k0.reuse.H0_H0, C_r6_c0
+      HFMA2 R6, R88.reuse, R105.reuse.H1_H1, R6 ?W1;         // HFMA2 C_r0_c3, A_r0_k0.reuse, B_c2_k0.reuse.H1_H1, C_r0_c3
+      HFMA2 R4, R90.reuse, R105.reuse.H1_H1, R4 ?W1;         // HFMA2 C_r4_c3, A_r4_k0.reuse, B_c2_k0.reuse.H1_H1, C_r4_c3
+      HFMA2 R7, R88, R104.reuse.H1_H1, R7 ?W1;               // HFMA2 C_r0_c1, A_r0_k0, B_c0_k0.reuse.H1_H1, C_r0_c1
+      HFMA2 R5, R90, R104.reuse.H1_H1, R5 ?W1;               // HFMA2 C_r4_c1, A_r4_k0, B_c0_k0.reuse.H1_H1, C_r4_c1
+      HFMA2 R14, R89.reuse, R105.reuse.H1_H1, R14 ?W1;       // HFMA2 C_r2_c3, A_r2_k0.reuse, B_c2_k0.reuse.H1_H1, C_r2_c3
+      HFMA2 R12, R91.reuse, R105.reuse.H1_H1, R12 ?W1;       // HFMA2 C_r6_c3, A_r6_k0.reuse, B_c2_k0.reuse.H1_H1, C_r6_c3
+      HFMA2 R15, R89, R104.reuse.H1_H1, R15 ?W1;             // HFMA2 C_r2_c1, A_r2_k0, B_c0_k0.reuse.H1_H1, C_r2_c1
+      HFMA2 R13, R91, R104.reuse.H1_H1, R13 ?W1;             // HFMA2 C_r6_c1, A_r6_k0, B_c0_k0.reuse.H1_H1, C_r6_c1
+      HFMA2 R34, R92.reuse, R105.reuse.H0_H0, R34 ?W1;       // HFMA2 C_r8_c2, A_r8_k0.reuse, B_c2_k0.reuse.H0_H0, C_r8_c2
+      HFMA2 R32, R94.reuse, R105.reuse.H0_H0, R32 ?W1;       // HFMA2 C_r12_c2, A_r12_k0.reuse, B_c2_k0.reuse.H0_H0, C_r12_c2
+      HFMA2 R35, R92, R104.reuse.H0_H0, R35 ?W1;             // HFMA2 C_r8_c0, A_r8_k0, B_c0_k0.reuse.H0_H0, C_r8_c0
+      HFMA2 R33, R94, R104.reuse.H0_H0, R33 ?W1;             // HFMA2 C_r12_c0, A_r12_k0, B_c0_k0.reuse.H0_H0, C_r12_c0
+      HFMA2 R42, R93.reuse, R105.reuse.H0_H0, R42 ?W1;       // HFMA2 C_r10_c2, A_r10_k0.reuse, B_c2_k0.reuse.H0_H0, C_r10_c2
+      HFMA2 R40, R95.reuse, R105.reuse.H0_H0, R40 ?W1;       // HFMA2 C_r14_c2, A_r14_k0.reuse, B_c2_k0.reuse.H0_H0, C_r14_c2
+      HFMA2 R43, R93, R104.reuse.H0_H0, R43 ?W1;             // HFMA2 C_r10_c0, A_r10_k0, B_c0_k0.reuse.H0_H0, C_r10_c0
+      HFMA2 R41, R95, R104.reuse.H0_H0, R41 ?W1;             // HFMA2 C_r14_c0, A_r14_k0, B_c0_k0.reuse.H0_H0, C_r14_c0
+      HFMA2 R38, R92.reuse, R105.reuse.H1_H1, R38 ?W1;       // HFMA2 C_r8_c3, A_r8_k0.reuse, B_c2_k0.reuse.H1_H1, C_r8_c3
+      HFMA2 R36, R94.reuse, R105.reuse.H1_H1, R36 ?W1;       // HFMA2 C_r12_c3, A_r12_k0.reuse, B_c2_k0.reuse.H1_H1, C_r12_c3
+      HFMA2 R39, R92, R104.reuse.H1_H1, R39 ?W1;             // HFMA2 C_r8_c1, A_r8_k0, B_c0_k0.reuse.H1_H1, C_r8_c1
+      HFMA2 R37, R94, R104.reuse.H1_H1, R37 ?W1;             // HFMA2 C_r12_c1, A_r12_k0, B_c0_k0.reuse.H1_H1, C_r12_c1
+      HFMA2 R46, R93.reuse, R105.reuse.H1_H1, R46 ?W1;       // HFMA2 C_r10_c3, A_r10_k0.reuse, B_c2_k0.reuse.H1_H1, C_r10_c3
+      HFMA2 R44, R95.reuse, R105.H1_H1, R44 ?W1;             // HFMA2 C_r14_c3, A_r14_k0.reuse, B_c2_k0.H1_H1, C_r14_c3
+      HFMA2 R47, R93.reuse, R104.reuse.H1_H1, R47 ?W1;       // HFMA2 C_r10_c1, A_r10_k0.reuse, B_c0_k0.reuse.H1_H1, C_r10_c1
+      HFMA2 R45, R95.reuse, R104.H1_H1, R45 ?W1;             // HFMA2 C_r14_c1, A_r14_k0.reuse, B_c0_k0.H1_H1, C_r14_c1
+      HFMA2 R58, R93.reuse, R107.reuse.H0_H0, R58 ?W1;       // HFMA2 C_r10_c6, A_r10_k0.reuse, B_c6_k0.reuse.H0_H0, C_r10_c6
+      HFMA2 R56, R95.reuse, R107.reuse.H0_H0, R56 ?W1;       // HFMA2 C_r14_c6, A_r14_k0.reuse, B_c6_k0.reuse.H0_H0, C_r14_c6
+      HFMA2 R59, R93, R106.reuse.H0_H0, R59 ?W1;             // HFMA2 C_r10_c4, A_r10_k0, B_c4_k0.reuse.H0_H0, C_r10_c4
+      HFMA2 R57, R95, R106.reuse.H0_H0, R57 ?W1;             // HFMA2 C_r14_c4, A_r14_k0, B_c4_k0.reuse.H0_H0, C_r14_c4
+      HFMA2 R50, R92.reuse, R107.reuse.H0_H0, R50 ?W1;       // HFMA2 C_r8_c6, A_r8_k0.reuse, B_c6_k0.reuse.H0_H0, C_r8_c6
+      HFMA2 R48, R94.reuse, R107.reuse.H0_H0, R48 ?W1;       // HFMA2 C_r12_c6, A_r12_k0.reuse, B_c6_k0.reuse.H0_H0, C_r12_c6
+      HFMA2 R51, R92, R106.reuse.H0_H0, R51 ?W1;             // HFMA2 C_r8_c4, A_r8_k0, B_c4_k0.reuse.H0_H0, C_r8_c4
+      HFMA2 R49, R94, R106.reuse.H0_H0, R49 ?W1;             // HFMA2 C_r12_c4, A_r12_k0, B_c4_k0.reuse.H0_H0, C_r12_c4
+      HFMA2 R62, R93.reuse, R107.reuse.H1_H1, R62 ?W1;       // HFMA2 C_r10_c7, A_r10_k0.reuse, B_c6_k0.reuse.H1_H1, C_r10_c7
+      HFMA2 R60, R95.reuse, R107.reuse.H1_H1, R60 ?W1;       // HFMA2 C_r14_c7, A_r14_k0.reuse, B_c6_k0.reuse.H1_H1, C_r14_c7
+      HFMA2 R63, R93, R106.reuse.H1_H1, R63 ?W1;             // HFMA2 C_r10_c5, A_r10_k0, B_c4_k0.reuse.H1_H1, C_r10_c5
+      HFMA2 R61, R95, R106.reuse.H1_H1, R61 ?W1;             // HFMA2 C_r14_c5, A_r14_k0, B_c4_k0.reuse.H1_H1, C_r14_c5
+      HFMA2 R54, R92.reuse, R107.reuse.H1_H1, R54 ?W1;       // HFMA2 C_r8_c7, A_r8_k0.reuse, B_c6_k0.reuse.H1_H1, C_r8_c7
+      HFMA2 R52, R94.reuse, R107.reuse.H1_H1, R52 ?W1;       // HFMA2 C_r12_c7, A_r12_k0.reuse, B_c6_k0.reuse.H1_H1, C_r12_c7
+      HFMA2 R55, R92, R106.reuse.H1_H1, R55 ?W1;             // HFMA2 C_r8_c5, A_r8_k0, B_c4_k0.reuse.H1_H1, C_r8_c5
+      HFMA2 R53, R94, R106.reuse.H1_H1, R53 ?W1;             // HFMA2 C_r12_c5, A_r12_k0, B_c4_k0.reuse.H1_H1, C_r12_c5
+      HFMA2 R26, R89.reuse, R107.reuse.H0_H0, R26 ?W1;       // HFMA2 C_r2_c6, A_r2_k0.reuse, B_c6_k0.reuse.H0_H0, C_r2_c6
+      HFMA2 R24, R91.reuse, R107.reuse.H0_H0, R24 ?W1;       // HFMA2 C_r6_c6, A_r6_k0.reuse, B_c6_k0.reuse.H0_H0, C_r6_c6
+      HFMA2 R27, R89, R106.reuse.H0_H0, R27 ?W1;             // HFMA2 C_r2_c4, A_r2_k0, B_c4_k0.reuse.H0_H0, C_r2_c4
+      HFMA2 R25, R91, R106.reuse.H0_H0, R25 ?W1;             // HFMA2 C_r6_c4, A_r6_k0, B_c4_k0.reuse.H0_H0, C_r6_c4
+      HFMA2 R18, R88.reuse, R107.reuse.H0_H0, R18 ?W1;       // HFMA2 C_r0_c6, A_r0_k0.reuse, B_c6_k0.reuse.H0_H0, C_r0_c6
+      HFMA2 R16, R90.reuse, R107.reuse.H0_H0, R16 ?W1;       // HFMA2 C_r4_c6, A_r4_k0.reuse, B_c6_k0.reuse.H0_H0, C_r4_c6
+      HFMA2 R19, R88, R106.reuse.H0_H0, R19 ?W1;             // HFMA2 C_r0_c4, A_r0_k0, B_c4_k0.reuse.H0_H0, C_r0_c4
+      HFMA2 R17, R90, R106.reuse.H0_H0, R17 ?W1;             // HFMA2 C_r4_c4, A_r4_k0, B_c4_k0.reuse.H0_H0, C_r4_c4
+      HFMA2 R30, R89.reuse, R107.reuse.H1_H1, R30 ?W1;       // HFMA2 C_r2_c7, A_r2_k0.reuse, B_c6_k0.reuse.H1_H1, C_r2_c7
+      HFMA2 R28, R91.reuse, R107.reuse.H1_H1, R28 ?W1;       // HFMA2 C_r6_c7, A_r6_k0.reuse, B_c6_k0.reuse.H1_H1, C_r6_c7
+      HFMA2 R31, R89, R106.reuse.H1_H1, R31 ?W1;             // HFMA2 C_r2_c5, A_r2_k0, B_c4_k0.reuse.H1_H1, C_r2_c5
+      HFMA2 R29, R91, R106.reuse.H1_H1, R29 ?W1;             // HFMA2 C_r6_c5, A_r6_k0, B_c4_k0.reuse.H1_H1, C_r6_c5
+      HFMA2 R22, R88.reuse, R107.reuse.H1_H1, R22 ?W1;       // HFMA2 C_r0_c7, A_r0_k0.reuse, B_c6_k0.reuse.H1_H1, C_r0_c7
+      HFMA2 R20, R90.reuse, R107.H1_H1, R20 ?W1;             // HFMA2 C_r4_c7, A_r4_k0.reuse, B_c6_k0.H1_H1, C_r4_c7
+      HFMA2 R23, R88, R106.reuse.H1_H1, R23 ?W1;             // HFMA2 C_r0_c5, A_r0_k0, B_c4_k0.reuse.H1_H1, C_r0_c5
+      HFMA2 R21, R90, R106.H1_H1, R21 &wr=4 ?W2G;            // HFMA2 C_r4_c5, A_r4_k0, B_c4_k0.H1_H1, C_r4_c5
+      HFMA2 R2, R96.reuse, R109.reuse.H0_H0, R2 &req={0,4} ?PAIR; // HFMA2 C_r0_c2, A_r0_k1.reuse, B_c2_k1.reuse.H0_H0, C_r0_c2
+      LDS.U.128 R88, [R76 + 0xc00] ?W1;                      // LDS.U.128 A_r0_k0, [sharedA + 0xc00]
+      HFMA2 R0, R98.reuse, R109.reuse.H0_H0, R0 ?W1;         // HFMA2 C_r4_c2, A_r4_k1.reuse, B_c2_k1.reuse.H0_H0, C_r4_c2
+      HFMA2 R3, R96, R108.reuse.H0_H0, R3 ?PAIR;             // HFMA2 C_r0_c0, A_r0_k1, B_c0_k1.reuse.H0_H0, C_r0_c0
+      LDS.U.128 R104, [R77 + 0x600] ?W1;                     // LDS.U.128 B_c0_k0, [sharedB + 0x600]
+      HFMA2 R1, R98, R108.reuse.H0_H0, R1 ?W1;               // HFMA2 C_r4_c0, A_r4_k1, B_c0_k1.reuse.H0_H0, C_r4_c0
+      HFMA2 R10, R97.reuse, R109.reuse.H0_H0, R10 ?PAIR;     // HFMA2 C_r2_c2, A_r2_k1.reuse, B_c2_k1.reuse.H0_H0, C_r2_c2
+      LDS.U.128 R92, [R76 + 0xc80] &rd=1 &wr=0 ?W1;          // LDS.U.128 A_r8_k0, [sharedA + 0xc80]
+      HFMA2 R8, R99.reuse, R109.reuse.H0_H0, R8 ?W1;         // HFMA2 C_r6_c2, A_r6_k1.reuse, B_c2_k1.reuse.H0_H0, C_r6_c2
+      HFMA2 R11, R97, R108.reuse.H0_H0, R11 ?W1;             // HFMA2 C_r2_c0, A_r2_k1, B_c0_k1.reuse.H0_H0, C_r2_c0
+      HFMA2 R9, R99, R108.reuse.H0_H0, R9 ?W1;               // HFMA2 C_r6_c0, A_r6_k1, B_c0_k1.reuse.H0_H0, C_r6_c0
+      HFMA2 R6, R96.reuse, R109.reuse.H1_H1, R6 ?W1;         // HFMA2 C_r0_c3, A_r0_k1.reuse, B_c2_k1.reuse.H1_H1, C_r0_c3
+      HFMA2 R4, R98.reuse, R109.reuse.H1_H1, R4 ?W1;         // HFMA2 C_r4_c3, A_r4_k1.reuse, B_c2_k1.reuse.H1_H1, C_r4_c3
+      HFMA2 R7, R96, R108.reuse.H1_H1, R7 ?W1;               // HFMA2 C_r0_c1, A_r0_k1, B_c0_k1.reuse.H1_H1, C_r0_c1
+      HFMA2 R5, R98, R108.reuse.H1_H1, R5 ?W1;               // HFMA2 C_r4_c1, A_r4_k1, B_c0_k1.reuse.H1_H1, C_r4_c1
+      HFMA2 R14, R97.reuse, R109.reuse.H1_H1, R14 ?W1;       // HFMA2 C_r2_c3, A_r2_k1.reuse, B_c2_k1.reuse.H1_H1, C_r2_c3
+      HFMA2 R12, R99.reuse, R109.reuse.H1_H1, R12 ?W1;       // HFMA2 C_r6_c3, A_r6_k1.reuse, B_c2_k1.reuse.H1_H1, C_r6_c3
+      HFMA2 R15, R97, R108.reuse.H1_H1, R15 ?W1;             // HFMA2 C_r2_c1, A_r2_k1, B_c0_k1.reuse.H1_H1, C_r2_c1
+      HFMA2 R13, R99, R108.reuse.H1_H1, R13 ?W1;             // HFMA2 C_r6_c1, A_r6_k1, B_c0_k1.reuse.H1_H1, C_r6_c1
+      HFMA2 R34, R100.reuse, R109.reuse.H0_H0, R34 ?W1;      // HFMA2 C_r8_c2, A_r8_k1.reuse, B_c2_k1.reuse.H0_H0, C_r8_c2
+      HFMA2 R32, R102.reuse, R109.reuse.H0_H0, R32 ?W1;      // HFMA2 C_r12_c2, A_r12_k1.reuse, B_c2_k1.reuse.H0_H0, C_r12_c2
+      HFMA2 R35, R100, R108.reuse.H0_H0, R35 ?W1;            // HFMA2 C_r8_c0, A_r8_k1, B_c0_k1.reuse.H0_H0, C_r8_c0
+      HFMA2 R33, R102, R108.reuse.H0_H0, R33 ?W1;            // HFMA2 C_r12_c0, A_r12_k1, B_c0_k1.reuse.H0_H0, C_r12_c0
+      HFMA2 R42, R101.reuse, R109.reuse.H0_H0, R42 ?W1;      // HFMA2 C_r10_c2, A_r10_k1.reuse, B_c2_k1.reuse.H0_H0, C_r10_c2
+      HFMA2 R40, R103.reuse, R109.reuse.H0_H0, R40 ?W1;      // HFMA2 C_r14_c2, A_r14_k1.reuse, B_c2_k1.reuse.H0_H0, C_r14_c2
+      HFMA2 R43, R101, R108.reuse.H0_H0, R43 ?W1;            // HFMA2 C_r10_c0, A_r10_k1, B_c0_k1.reuse.H0_H0, C_r10_c0
+      HFMA2 R41, R103, R108.reuse.H0_H0, R41 ?W1;            // HFMA2 C_r14_c0, A_r14_k1, B_c0_k1.reuse.H0_H0, C_r14_c0
+      HFMA2 R38, R100.reuse, R109.reuse.H1_H1, R38 ?W1;      // HFMA2 C_r8_c3, A_r8_k1.reuse, B_c2_k1.reuse.H1_H1, C_r8_c3
+      HFMA2 R36, R102.reuse, R109.reuse.H1_H1, R36 ?W1;      // HFMA2 C_r12_c3, A_r12_k1.reuse, B_c2_k1.reuse.H1_H1, C_r12_c3
+      HFMA2 R39, R100, R108.reuse.H1_H1, R39 ?W1;            // HFMA2 C_r8_c1, A_r8_k1, B_c0_k1.reuse.H1_H1, C_r8_c1
+      HFMA2 R37, R102, R108.reuse.H1_H1, R37 ?W1;            // HFMA2 C_r12_c1, A_r12_k1, B_c0_k1.reuse.H1_H1, C_r12_c1
+      HFMA2 R46, R101.reuse, R109.reuse.H1_H1, R46 ?W1;      // HFMA2 C_r10_c3, A_r10_k1.reuse, B_c2_k1.reuse.H1_H1, C_r10_c3
+      HFMA2 R44, R103.reuse, R109.H1_H1, R44 ?W1;            // HFMA2 C_r14_c3, A_r14_k1.reuse, B_c2_k1.H1_H1, C_r14_c3
+      HFMA2 R47, R101.reuse, R108.reuse.H1_H1, R47 ?W1;      // HFMA2 C_r10_c1, A_r10_k1.reuse, B_c0_k1.reuse.H1_H1, C_r10_c1
+      HFMA2 R45, R103.reuse, R108.H1_H1, R45 ?W1;            // HFMA2 C_r14_c1, A_r14_k1.reuse, B_c0_k1.H1_H1, C_r14_c1
+      HFMA2 R58, R101.reuse, R111.reuse.H0_H0, R58 ?PAIR;    // HFMA2 C_r10_c6, A_r10_k1.reuse, B_c6_k1.reuse.H0_H0, C_r10_c6
+(P1)  STS.U16    [R82 + 0x0], R64 &req=2 ?W1;                // @P1 STS.U16 [sharedWriteA + 0x0], fetchRegA0
+      HFMA2 R56, R103.reuse, R111.reuse.H0_H0, R56 ?W1;      // HFMA2 C_r14_c6, A_r14_k1.reuse, B_c6_k1.reuse.H0_H0, C_r14_c6
+      HFMA2 R59, R101, R110.reuse.H0_H0, R59 ?PAIR;          // HFMA2 C_r10_c4, A_r10_k1, B_c4_k1.reuse.H0_H0, C_r10_c4
+(P1)  STS.U16    [R82 + 0x40], R65 ?W1;                      // @P1 STS.U16 [sharedWriteA + 0x40], fetchRegA1
+      HFMA2 R57, R103, R110.reuse.H0_H0, R57 ?W1;            // HFMA2 C_r14_c4, A_r14_k1, B_c4_k1.reuse.H0_H0, C_r14_c4
+      HFMA2 R50, R100.reuse, R111.reuse.H0_H0, R50 ?PAIR;    // HFMA2 C_r8_c6, A_r8_k1.reuse, B_c6_k1.reuse.H0_H0, C_r8_c6
+(P1)  STS.U16    [R82 + 0x80], R66 ?W1;                      // @P1 STS.U16 [sharedWriteA + 0x80], fetchRegA2
+      HFMA2 R48, R102.reuse, R111.reuse.H0_H0, R48 ?W1;      // HFMA2 C_r12_c6, A_r12_k1.reuse, B_c6_k1.reuse.H0_H0, C_r12_c6
+      HFMA2 R51, R100, R110.reuse.H0_H0, R51 ?PAIR;          // HFMA2 C_r8_c4, A_r8_k1, B_c4_k1.reuse.H0_H0, C_r8_c4
+(P1)  STS.U16    [R82 + 0xc0], R67 ?W1;                      // @P1 STS.U16 [sharedWriteA + 0xc0], fetchRegA3
+      HFMA2 R49, R102, R110.reuse.H0_H0, R49 ?W1;            // HFMA2 C_r12_c4, A_r12_k1, B_c4_k1.reuse.H0_H0, C_r12_c4
+      HFMA2 R62, R101.reuse, R111.reuse.H1_H1, R62 ?PAIR;    // HFMA2 C_r10_c7, A_r10_k1.reuse, B_c6_k1.reuse.H1_H1, C_r10_c7
+(P1)  STS.U16    [R82 + 0x100], R68 ?W1;                     // @P1 STS.U16 [sharedWriteA + 0x100], fetchRegA4
+      HFMA2 R60, R103.reuse, R111.reuse.H1_H1, R60 ?W1;      // HFMA2 C_r14_c7, A_r14_k1.reuse, B_c6_k1.reuse.H1_H1, C_r14_c7
+      HFMA2 R63, R101, R110.reuse.H1_H1, R63 ?PAIR;          // HFMA2 C_r10_c5, A_r10_k1, B_c4_k1.reuse.H1_H1, C_r10_c5
+(P1)  STS.U16    [R82 + 0x140], R69 ?W1;                     // @P1 STS.U16 [sharedWriteA + 0x140], fetchRegA5
+      HFMA2 R61, R103, R110.reuse.H1_H1, R61 ?W1;            // HFMA2 C_r14_c5, A_r14_k1, B_c4_k1.reuse.H1_H1, C_r14_c5
+      HFMA2 R54, R100.reuse, R111.reuse.H1_H1, R54 ?PAIR;    // HFMA2 C_r8_c7, A_r8_k1.reuse, B_c6_k1.reuse.H1_H1, C_r8_c7
+(P1)  STS.U16    [R82 + 0x180], R70 ?W1;                     // @P1 STS.U16 [sharedWriteA + 0x180], fetchRegA6
+      HFMA2 R52, R102.reuse, R111.reuse.H1_H1, R52 ?W1;      // HFMA2 C_r12_c7, A_r12_k1.reuse, B_c6_k1.reuse.H1_H1, C_r12_c7
+      HFMA2 R55, R100, R110.reuse.H1_H1, R55 ?PAIR;          // HFMA2 C_r8_c5, A_r8_k1, B_c4_k1.reuse.H1_H1, C_r8_c5
+(P1)  STS.U16    [R82 + 0x1c0], R71 ?W1;                     // @P1 STS.U16 [sharedWriteA + 0x1c0], fetchRegA7
+      HFMA2 R53, R102, R110.reuse.H1_H1, R53 ?W1;            // HFMA2 C_r12_c5, A_r12_k1, B_c4_k1.reuse.H1_H1, C_r12_c5
+      HFMA2 R26, R97.reuse, R111.reuse.H0_H0, R26 ?PAIR;     // HFMA2 C_r2_c6, A_r2_k1.reuse, B_c6_k1.reuse.H0_H0, C_r2_c6
+(P1)  STS.U16    [R83 + 0x0], R72 ?W1;                       // @P1 STS.U16 [sharedWriteB + 0x0], fetchRegB0
+      HFMA2 R24, R99.reuse, R111.reuse.H0_H0, R24 ?W1;       // HFMA2 C_r6_c6, A_r6_k1.reuse, B_c6_k1.reuse.H0_H0, C_r6_c6
+      HFMA2 R27, R97, R110.reuse.H0_H0, R27 ?PAIR;           // HFMA2 C_r2_c4, A_r2_k1, B_c4_k1.reuse.H0_H0, C_r2_c4
+(P1)  STS.U16    [R83 + 0x40], R73 ?W1;                      // @P1 STS.U16 [sharedWriteB + 0x40], fetchRegB1
+      HFMA2 R25, R99, R110.reuse.H0_H0, R25 ?W1;             // HFMA2 C_r6_c4, A_r6_k1, B_c4_k1.reuse.H0_H0, C_r6_c4
+      HFMA2 R18, R96.reuse, R111.reuse.H0_H0, R18 ?PAIR;     // HFMA2 C_r0_c6, A_r0_k1.reuse, B_c6_k1.reuse.H0_H0, C_r0_c6
+(P1)  STS.U16    [R83 + 0x80], R74 ?W1;                      // @P1 STS.U16 [sharedWriteB + 0x80], fetchRegB2
+      HFMA2 R16, R98.reuse, R111.reuse.H0_H0, R16 ?W1;       // HFMA2 C_r4_c6, A_r4_k1.reuse, B_c6_k1.reuse.H0_H0, C_r4_c6
+      HFMA2 R19, R96, R110.reuse.H0_H0, R19 ?PAIR;           // HFMA2 C_r0_c4, A_r0_k1, B_c4_k1.reuse.H0_H0, C_r0_c4
+(P1)  STS.U16    [R83 + 0xc0], R75 &rd=1 ?W1;                // @P1 STS.U16 [sharedWriteB + 0xc0], fetchRegB3
+      HFMA2 R17, R98, R110.reuse.H0_H0, R17 ?W1;             // HFMA2 C_r4_c4, A_r4_k1, B_c4_k1.reuse.H0_H0, C_r4_c4
+      HFMA2 R30, R97.reuse, R111.reuse.H1_H1, R30 ?W1;       // HFMA2 C_r2_c7, A_r2_k1.reuse, B_c6_k1.reuse.H1_H1, C_r2_c7
+      HFMA2 R28, R99.reuse, R111.reuse.H1_H1, R28 ?W1;       // HFMA2 C_r6_c7, A_r6_k1.reuse, B_c6_k1.reuse.H1_H1, C_r6_c7
+      HFMA2 R31, R97, R110.reuse.H1_H1, R31 ?W1;             // HFMA2 C_r2_c5, A_r2_k1, B_c4_k1.reuse.H1_H1, C_r2_c5
+      HFMA2 R29, R99, R110.reuse.H1_H1, R29 ?W1;             // HFMA2 C_r6_c5, A_r6_k1, B_c4_k1.reuse.H1_H1, C_r6_c5
+      HFMA2 R22, R96.reuse, R111.reuse.H1_H1, R22 ?W1;       // HFMA2 C_r0_c7, A_r0_k1.reuse, B_c6_k1.reuse.H1_H1, C_r0_c7
+      HFMA2 R20, R98.reuse, R111.H1_H1, R20 ?W1;             // HFMA2 C_r4_c7, A_r4_k1.reuse, B_c6_k1.H1_H1, C_r4_c7
+      HFMA2 R23, R96, R110.reuse.H1_H1, R23 ?W1;             // HFMA2 C_r0_c5, A_r0_k1, B_c4_k1.reuse.H1_H1, C_r0_c5
+      HFMA2 R21, R98, R110.H1_H1, R21 &wr=4 ?W2G;            // HFMA2 C_r4_c5, A_r4_k1, B_c4_k1.H1_H1, C_r4_c5
+      HFMA2 R2, R88.reuse, R105.reuse.H0_H0, R2 &req={0,4} ?PAIR; // HFMA2 C_r0_c2, A_r0_k0.reuse, B_c2_k0.reuse.H0_H0, C_r0_c2
+      LDS.U.128 R96, [R76 + 0xe00] ?W1;                      // LDS.U.128 A_r0_k1, [sharedA + 0xe00]
+      HFMA2 R0, R90.reuse, R105.reuse.H0_H0, R0 ?W1;         // HFMA2 C_r4_c2, A_r4_k0.reuse, B_c2_k0.reuse.H0_H0, C_r4_c2
+      HFMA2 R3, R88, R104.reuse.H0_H0, R3 ?PAIR;             // HFMA2 C_r0_c0, A_r0_k0, B_c0_k0.reuse.H0_H0, C_r0_c0
+      LDS.U.128 R108, [R77 + 0x700] ?W1;                     // LDS.U.128 B_c0_k1, [sharedB + 0x700]
+      HFMA2 R1, R90, R104.reuse.H0_H0, R1 ?W1;               // HFMA2 C_r4_c0, A_r4_k0, B_c0_k0.reuse.H0_H0, C_r4_c0
+      HFMA2 R10, R89.reuse, R105.reuse.H0_H0, R10 ?PAIR;     // HFMA2 C_r2_c2, A_r2_k0.reuse, B_c2_k0.reuse.H0_H0, C_r2_c2
+      LDS.U.128 R100, [R76 + 0xe80] &rd=1 &wr=0 ?W1;         // LDS.U.128 A_r8_k1, [sharedA + 0xe80]
+      HFMA2 R8, R91.reuse, R105.reuse.H0_H0, R8 ?W1;         // HFMA2 C_r6_c2, A_r6_k0.reuse, B_c2_k0.reuse.H0_H0, C_r6_c2
+      HFMA2 R11, R89, R104.reuse.H0_H0, R11 ?PAIR;           // HFMA2 C_r2_c0, A_r2_k0, B_c0_k0.reuse.H0_H0, C_r2_c0
+(P1)  BAR.SYNC  0 ?W5G;                                      // @P1 BAR.SYNC 0
+      HFMA2 R9, R91, R104.reuse.H0_H0, R9 ?W1;               // HFMA2 C_r6_c0, A_r6_k0, B_c0_k0.reuse.H0_H0, C_r6_c0
+      HFMA2 R6, R88.reuse, R105.reuse.H1_H1, R6 ?W1;         // HFMA2 C_r0_c3, A_r0_k0.reuse, B_c2_k0.reuse.H1_H1, C_r0_c3
+      HFMA2 R4, R90.reuse, R105.reuse.H1_H1, R4 ?W1;         // HFMA2 C_r4_c3, A_r4_k0.reuse, B_c2_k0.reuse.H1_H1, C_r4_c3
+      HFMA2 R7, R88, R104.reuse.H1_H1, R7 ?W1;               // HFMA2 C_r0_c1, A_r0_k0, B_c0_k0.reuse.H1_H1, C_r0_c1
+      HFMA2 R5, R90, R104.reuse.H1_H1, R5 ?W1;               // HFMA2 C_r4_c1, A_r4_k0, B_c0_k0.reuse.H1_H1, C_r4_c1
+      HFMA2 R14, R89.reuse, R105.reuse.H1_H1, R14 ?W1;       // HFMA2 C_r2_c3, A_r2_k0.reuse, B_c2_k0.reuse.H1_H1, C_r2_c3
+      HFMA2 R12, R91.reuse, R105.reuse.H1_H1, R12 ?W1;       // HFMA2 C_r6_c3, A_r6_k0.reuse, B_c2_k0.reuse.H1_H1, C_r6_c3
+      HFMA2 R15, R89, R104.reuse.H1_H1, R15 ?W1;             // HFMA2 C_r2_c1, A_r2_k0, B_c0_k0.reuse.H1_H1, C_r2_c1
+      HFMA2 R13, R91, R104.reuse.H1_H1, R13 ?W1;             // HFMA2 C_r6_c1, A_r6_k0, B_c0_k0.reuse.H1_H1, C_r6_c1
+      HFMA2 R34, R92.reuse, R105.reuse.H0_H0, R34 ?W1;       // HFMA2 C_r8_c2, A_r8_k0.reuse, B_c2_k0.reuse.H0_H0, C_r8_c2
+      HFMA2 R32, R94.reuse, R105.reuse.H0_H0, R32 ?W1;       // HFMA2 C_r12_c2, A_r12_k0.reuse, B_c2_k0.reuse.H0_H0, C_r12_c2
+      HFMA2 R35, R92, R104.reuse.H0_H0, R35 ?W1;             // HFMA2 C_r8_c0, A_r8_k0, B_c0_k0.reuse.H0_H0, C_r8_c0
+      HFMA2 R33, R94, R104.reuse.H0_H0, R33 ?W1;             // HFMA2 C_r12_c0, A_r12_k0, B_c0_k0.reuse.H0_H0, C_r12_c0
+      HFMA2 R42, R93.reuse, R105.reuse.H0_H0, R42 ?W1;       // HFMA2 C_r10_c2, A_r10_k0.reuse, B_c2_k0.reuse.H0_H0, C_r10_c2
+      HFMA2 R40, R95.reuse, R105.reuse.H0_H0, R40 ?W1;       // HFMA2 C_r14_c2, A_r14_k0.reuse, B_c2_k0.reuse.H0_H0, C_r14_c2
+      HFMA2 R43, R93, R104.reuse.H0_H0, R43 ?W1;             // HFMA2 C_r10_c0, A_r10_k0, B_c0_k0.reuse.H0_H0, C_r10_c0
+      HFMA2 R41, R95, R104.reuse.H0_H0, R41 ?W1;             // HFMA2 C_r14_c0, A_r14_k0, B_c0_k0.reuse.H0_H0, C_r14_c0
+      HFMA2 R38, R92.reuse, R105.reuse.H1_H1, R38 ?W1;       // HFMA2 C_r8_c3, A_r8_k0.reuse, B_c2_k0.reuse.H1_H1, C_r8_c3
+      HFMA2 R36, R94.reuse, R105.reuse.H1_H1, R36 ?W1;       // HFMA2 C_r12_c3, A_r12_k0.reuse, B_c2_k0.reuse.H1_H1, C_r12_c3
+      HFMA2 R39, R92, R104.reuse.H1_H1, R39 ?W1;             // HFMA2 C_r8_c1, A_r8_k0, B_c0_k0.reuse.H1_H1, C_r8_c1
+      HFMA2 R37, R94, R104.reuse.H1_H1, R37 ?W1;             // HFMA2 C_r12_c1, A_r12_k0, B_c0_k0.reuse.H1_H1, C_r12_c1
+      HFMA2 R46, R93.reuse, R105.reuse.H1_H1, R46 ?W1;       // HFMA2 C_r10_c3, A_r10_k0.reuse, B_c2_k0.reuse.H1_H1, C_r10_c3
+      HFMA2 R44, R95.reuse, R105.H1_H1, R44 ?W1;             // HFMA2 C_r14_c3, A_r14_k0.reuse, B_c2_k0.H1_H1, C_r14_c3
+      HFMA2 R47, R93.reuse, R104.reuse.H1_H1, R47 ?W1;       // HFMA2 C_r10_c1, A_r10_k0.reuse, B_c0_k0.reuse.H1_H1, C_r10_c1
+      HFMA2 R45, R95.reuse, R104.H1_H1, R45 ?W1;             // HFMA2 C_r14_c1, A_r14_k0.reuse, B_c0_k0.H1_H1, C_r14_c1
+      HFMA2 R58, R93.reuse, R107.reuse.H0_H0, R58 ?W1;       // HFMA2 C_r10_c6, A_r10_k0.reuse, B_c6_k0.reuse.H0_H0, C_r10_c6
+      HFMA2 R56, R95.reuse, R107.reuse.H0_H0, R56 ?W1;       // HFMA2 C_r14_c6, A_r14_k0.reuse, B_c6_k0.reuse.H0_H0, C_r14_c6
+      HFMA2 R59, R93, R106.reuse.H0_H0, R59 ?W1;             // HFMA2 C_r10_c4, A_r10_k0, B_c4_k0.reuse.H0_H0, C_r10_c4
+      HFMA2 R57, R95, R106.reuse.H0_H0, R57 ?W1;             // HFMA2 C_r14_c4, A_r14_k0, B_c4_k0.reuse.H0_H0, C_r14_c4
+      HFMA2 R50, R92.reuse, R107.reuse.H0_H0, R50 ?W1;       // HFMA2 C_r8_c6, A_r8_k0.reuse, B_c6_k0.reuse.H0_H0, C_r8_c6
+      HFMA2 R48, R94.reuse, R107.reuse.H0_H0, R48 ?W1;       // HFMA2 C_r12_c6, A_r12_k0.reuse, B_c6_k0.reuse.H0_H0, C_r12_c6
+      HFMA2 R51, R92, R106.reuse.H0_H0, R51 ?W1;             // HFMA2 C_r8_c4, A_r8_k0, B_c4_k0.reuse.H0_H0, C_r8_c4
+      HFMA2 R49, R94, R106.reuse.H0_H0, R49 ?W1;             // HFMA2 C_r12_c4, A_r12_k0, B_c4_k0.reuse.H0_H0, C_r12_c4
+      HFMA2 R62, R93.reuse, R107.reuse.H1_H1, R62 ?W1;       // HFMA2 C_r10_c7, A_r10_k0.reuse, B_c6_k0.reuse.H1_H1, C_r10_c7
+      HFMA2 R60, R95.reuse, R107.reuse.H1_H1, R60 ?W1;       // HFMA2 C_r14_c7, A_r14_k0.reuse, B_c6_k0.reuse.H1_H1, C_r14_c7
+      HFMA2 R63, R93, R106.reuse.H1_H1, R63 ?W1;             // HFMA2 C_r10_c5, A_r10_k0, B_c4_k0.reuse.H1_H1, C_r10_c5
+      HFMA2 R61, R95, R106.reuse.H1_H1, R61 ?W1;             // HFMA2 C_r14_c5, A_r14_k0, B_c4_k0.reuse.H1_H1, C_r14_c5
+      HFMA2 R54, R92.reuse, R107.reuse.H1_H1, R54 ?W1;       // HFMA2 C_r8_c7, A_r8_k0.reuse, B_c6_k0.reuse.H1_H1, C_r8_c7
+      HFMA2 R52, R94.reuse, R107.reuse.H1_H1, R52 ?W1;       // HFMA2 C_r12_c7, A_r12_k0.reuse, B_c6_k0.reuse.H1_H1, C_r12_c7
+      HFMA2 R55, R92, R106.reuse.H1_H1, R55 ?W1;             // HFMA2 C_r8_c5, A_r8_k0, B_c4_k0.reuse.H1_H1, C_r8_c5
+      HFMA2 R53, R94, R106.reuse.H1_H1, R53 ?W1;             // HFMA2 C_r12_c5, A_r12_k0, B_c4_k0.reuse.H1_H1, C_r12_c5
+      HFMA2 R26, R89.reuse, R107.reuse.H0_H0, R26 ?W1;       // HFMA2 C_r2_c6, A_r2_k0.reuse, B_c6_k0.reuse.H0_H0, C_r2_c6
+      HFMA2 R24, R91.reuse, R107.reuse.H0_H0, R24 ?W1;       // HFMA2 C_r6_c6, A_r6_k0.reuse, B_c6_k0.reuse.H0_H0, C_r6_c6
+      HFMA2 R27, R89, R106.reuse.H0_H0, R27 ?W1;             // HFMA2 C_r2_c4, A_r2_k0, B_c4_k0.reuse.H0_H0, C_r2_c4
+      HFMA2 R25, R91, R106.reuse.H0_H0, R25 ?W1;             // HFMA2 C_r6_c4, A_r6_k0, B_c4_k0.reuse.H0_H0, C_r6_c4
+      HFMA2 R18, R88.reuse, R107.reuse.H0_H0, R18 ?W1;       // HFMA2 C_r0_c6, A_r0_k0.reuse, B_c6_k0.reuse.H0_H0, C_r0_c6
+      HFMA2 R16, R90.reuse, R107.reuse.H0_H0, R16 ?W1;       // HFMA2 C_r4_c6, A_r4_k0.reuse, B_c6_k0.reuse.H0_H0, C_r4_c6
+      HFMA2 R19, R88, R106.reuse.H0_H0, R19 ?W1;             // HFMA2 C_r0_c4, A_r0_k0, B_c4_k0.reuse.H0_H0, C_r0_c4
+      HFMA2 R17, R90, R106.reuse.H0_H0, R17 ?W1;             // HFMA2 C_r4_c4, A_r4_k0, B_c4_k0.reuse.H0_H0, C_r4_c4
+      HFMA2 R30, R89.reuse, R107.reuse.H1_H1, R30 ?W1;       // HFMA2 C_r2_c7, A_r2_k0.reuse, B_c6_k0.reuse.H1_H1, C_r2_c7
+      HFMA2 R28, R91.reuse, R107.reuse.H1_H1, R28 ?W1;       // HFMA2 C_r6_c7, A_r6_k0.reuse, B_c6_k0.reuse.H1_H1, C_r6_c7
+      HFMA2 R31, R89, R106.reuse.H1_H1, R31 ?W1;             // HFMA2 C_r2_c5, A_r2_k0, B_c4_k0.reuse.H1_H1, C_r2_c5
+      HFMA2 R29, R91, R106.reuse.H1_H1, R29 ?W1;             // HFMA2 C_r6_c5, A_r6_k0, B_c4_k0.reuse.H1_H1, C_r6_c5
+      HFMA2 R22, R88.reuse, R107.reuse.H1_H1, R22 ?W1;       // HFMA2 C_r0_c7, A_r0_k0.reuse, B_c6_k0.reuse.H1_H1, C_r0_c7
+      HFMA2 R20, R90.reuse, R107.H1_H1, R20 ?W1;             // HFMA2 C_r4_c7, A_r4_k0.reuse, B_c6_k0.H1_H1, C_r4_c7
+      HFMA2 R23, R88, R106.reuse.H1_H1, R23 ?W1;             // HFMA2 C_r0_c5, A_r0_k0, B_c4_k0.reuse.H1_H1, C_r0_c5
+      HFMA2 R21, R90, R106.H1_H1, R21 &wr=4 ?W1;             // HFMA2 C_r4_c5, A_r4_k0, B_c4_k0.H1_H1, C_r4_c5
+      IADD   R76, R76, R85 &req=1 ?W1;                       // IADD sharedA, sharedA, sharedPageFlip
+      IADD   R77, R77, R85 &req=1 ?W1;                       // IADD sharedB, sharedB, sharedPageFlip
+(P1)  IADD   R82, R82, -R85 &req=1 ?W1;                      // @P1 IADD sharedWriteA, sharedWriteA, -sharedPageFlip
+(P1)  IADD   R83, R83, -R85 &req=1 ?W1;                      // @P1 IADD sharedWriteB, sharedWriteB, -sharedPageFlip
+(P1)  IADD   R85, RZ, -R85 ?W1;                              // @P1 IADD sharedPageFlip, RZ, -sharedPageFlip
+      HFMA2 R2, R96.reuse, R109.reuse.H0_H0, R2 &req={0,4} ?PAIR; // HFMA2 C_r0_c2, A_r0_k1.reuse, B_c2_k1.reuse.H0_H0, C_r0_c2
+(P1)  LDS.U.128 R88, [R76 + 0x0] ?W1;                        // @P1 LDS.U.128 A_r0_k0, [sharedA + 0x0]
+      HFMA2 R0, R98.reuse, R109.reuse.H0_H0, R0 ?W1;         // HFMA2 C_r4_c2, A_r4_k1.reuse, B_c2_k1.reuse.H0_H0, C_r4_c2
+      HFMA2 R3, R96, R108.reuse.H0_H0, R3 ?PAIR;             // HFMA2 C_r0_c0, A_r0_k1, B_c0_k1.reuse.H0_H0, C_r0_c0
+(P1)  LDS.U.128 R104, [R77 + 0x0] ?W1;                       // @P1 LDS.U.128 B_c0_k0, [sharedB + 0x0]
+      HFMA2 R1, R98, R108.reuse.H0_H0, R1 ?W1;               // HFMA2 C_r4_c0, A_r4_k1, B_c0_k1.reuse.H0_H0, C_r4_c0
+      HFMA2 R10, R97.reuse, R109.reuse.H0_H0, R10 ?PAIR;     // HFMA2 C_r2_c2, A_r2_k1.reuse, B_c2_k1.reuse.H0_H0, C_r2_c2
+(P1)  LDS.U.128 R92, [R76 + 0x80] &rd=1 &wr=0 ?W1;           // @P1 LDS.U.128 A_r8_k0, [sharedA + 0x80]
+      HFMA2 R8, R99.reuse, R109.reuse.H0_H0, R8 ?W1;         // HFMA2 C_r6_c2, A_r6_k1.reuse, B_c2_k1.reuse.H0_H0, C_r6_c2
+      HFMA2 R11, R97, R108.reuse.H0_H0, R11 ?W1;             // HFMA2 C_r2_c0, A_r2_k1, B_c0_k1.reuse.H0_H0, C_r2_c0
+      HFMA2 R9, R99, R108.reuse.H0_H0, R9 ?W1;               // HFMA2 C_r6_c0, A_r6_k1, B_c0_k1.reuse.H0_H0, C_r6_c0
+      HFMA2 R6, R96.reuse, R109.reuse.H1_H1, R6 ?W1;         // HFMA2 C_r0_c3, A_r0_k1.reuse, B_c2_k1.reuse.H1_H1, C_r0_c3
+      HFMA2 R4, R98.reuse, R109.reuse.H1_H1, R4 ?W1;         // HFMA2 C_r4_c3, A_r4_k1.reuse, B_c2_k1.reuse.H1_H1, C_r4_c3
+      HFMA2 R7, R96, R108.reuse.H1_H1, R7 ?W1;               // HFMA2 C_r0_c1, A_r0_k1, B_c0_k1.reuse.H1_H1, C_r0_c1
+      HFMA2 R5, R98, R108.reuse.H1_H1, R5 ?W1;               // HFMA2 C_r4_c1, A_r4_k1, B_c0_k1.reuse.H1_H1, C_r4_c1
+      HFMA2 R14, R97.reuse, R109.reuse.H1_H1, R14 ?W1;       // HFMA2 C_r2_c3, A_r2_k1.reuse, B_c2_k1.reuse.H1_H1, C_r2_c3
+      HFMA2 R12, R99.reuse, R109.reuse.H1_H1, R12 ?W1;       // HFMA2 C_r6_c3, A_r6_k1.reuse, B_c2_k1.reuse.H1_H1, C_r6_c3
+      HFMA2 R15, R97, R108.reuse.H1_H1, R15 ?W1;             // HFMA2 C_r2_c1, A_r2_k1, B_c0_k1.reuse.H1_H1, C_r2_c1
+      HFMA2 R13, R99, R108.reuse.H1_H1, R13 ?W1;             // HFMA2 C_r6_c1, A_r6_k1, B_c0_k1.reuse.H1_H1, C_r6_c1
+      HFMA2 R34, R100.reuse, R109.reuse.H0_H0, R34 ?W1;      // HFMA2 C_r8_c2, A_r8_k1.reuse, B_c2_k1.reuse.H0_H0, C_r8_c2
+      HFMA2 R32, R102.reuse, R109.reuse.H0_H0, R32 ?W1;      // HFMA2 C_r12_c2, A_r12_k1.reuse, B_c2_k1.reuse.H0_H0, C_r12_c2
+      HFMA2 R35, R100, R108.reuse.H0_H0, R35 ?W1;            // HFMA2 C_r8_c0, A_r8_k1, B_c0_k1.reuse.H0_H0, C_r8_c0
+      HFMA2 R33, R102, R108.reuse.H0_H0, R33 ?W1;            // HFMA2 C_r12_c0, A_r12_k1, B_c0_k1.reuse.H0_H0, C_r12_c0
+      HFMA2 R42, R101.reuse, R109.reuse.H0_H0, R42 ?W1;      // HFMA2 C_r10_c2, A_r10_k1.reuse, B_c2_k1.reuse.H0_H0, C_r10_c2
+      HFMA2 R40, R103.reuse, R109.reuse.H0_H0, R40 ?W1;      // HFMA2 C_r14_c2, A_r14_k1.reuse, B_c2_k1.reuse.H0_H0, C_r14_c2
+      HFMA2 R43, R101, R108.reuse.H0_H0, R43 ?W1;            // HFMA2 C_r10_c0, A_r10_k1, B_c0_k1.reuse.H0_H0, C_r10_c0
+      HFMA2 R41, R103, R108.reuse.H0_H0, R41 ?W1;            // HFMA2 C_r14_c0, A_r14_k1, B_c0_k1.reuse.H0_H0, C_r14_c0
+      HFMA2 R38, R100.reuse, R109.reuse.H1_H1, R38 ?W1;      // HFMA2 C_r8_c3, A_r8_k1.reuse, B_c2_k1.reuse.H1_H1, C_r8_c3
+      HFMA2 R36, R102.reuse, R109.reuse.H1_H1, R36 ?W1;      // HFMA2 C_r12_c3, A_r12_k1.reuse, B_c2_k1.reuse.H1_H1, C_r12_c3
+      HFMA2 R39, R100, R108.reuse.H1_H1, R39 ?W1;            // HFMA2 C_r8_c1, A_r8_k1, B_c0_k1.reuse.H1_H1, C_r8_c1
+      HFMA2 R37, R102, R108.reuse.H1_H1, R37 ?W1;            // HFMA2 C_r12_c1, A_r12_k1, B_c0_k1.reuse.H1_H1, C_r12_c1
+      HFMA2 R46, R101.reuse, R109.reuse.H1_H1, R46 ?W1;      // HFMA2 C_r10_c3, A_r10_k1.reuse, B_c2_k1.reuse.H1_H1, C_r10_c3
+      HFMA2 R44, R103.reuse, R109.H1_H1, R44 ?W1;            // HFMA2 C_r14_c3, A_r14_k1.reuse, B_c2_k1.H1_H1, C_r14_c3
+      HFMA2 R47, R101.reuse, R108.reuse.H1_H1, R47 ?W1;      // HFMA2 C_r10_c1, A_r10_k1.reuse, B_c0_k1.reuse.H1_H1, C_r10_c1
+      HFMA2 R45, R103.reuse, R108.H1_H1, R45 ?W1;            // HFMA2 C_r14_c1, A_r14_k1.reuse, B_c0_k1.H1_H1, C_r14_c1
+      HFMA2 R58, R101.reuse, R111.reuse.H0_H0, R58 ?W1;      // HFMA2 C_r10_c6, A_r10_k1.reuse, B_c6_k1.reuse.H0_H0, C_r10_c6
+      HFMA2 R56, R103.reuse, R111.reuse.H0_H0, R56 ?W1;      // HFMA2 C_r14_c6, A_r14_k1.reuse, B_c6_k1.reuse.H0_H0, C_r14_c6
+      HFMA2 R59, R101, R110.reuse.H0_H0, R59 ?W1;            // HFMA2 C_r10_c4, A_r10_k1, B_c4_k1.reuse.H0_H0, C_r10_c4
+      HFMA2 R57, R103, R110.reuse.H0_H0, R57 ?W1;            // HFMA2 C_r14_c4, A_r14_k1, B_c4_k1.reuse.H0_H0, C_r14_c4
+      HFMA2 R50, R100.reuse, R111.reuse.H0_H0, R50 ?W1;      // HFMA2 C_r8_c6, A_r8_k1.reuse, B_c6_k1.reuse.H0_H0, C_r8_c6
+      HFMA2 R48, R102.reuse, R111.reuse.H0_H0, R48 ?W1;      // HFMA2 C_r12_c6, A_r12_k1.reuse, B_c6_k1.reuse.H0_H0, C_r12_c6
+      HFMA2 R51, R100, R110.reuse.H0_H0, R51 ?W1;            // HFMA2 C_r8_c4, A_r8_k1, B_c4_k1.reuse.H0_H0, C_r8_c4
+      HFMA2 R49, R102, R110.reuse.H0_H0, R49 ?W1;            // HFMA2 C_r12_c4, A_r12_k1, B_c4_k1.reuse.H0_H0, C_r12_c4
+      HFMA2 R62, R101.reuse, R111.reuse.H1_H1, R62 ?W1;      // HFMA2 C_r10_c7, A_r10_k1.reuse, B_c6_k1.reuse.H1_H1, C_r10_c7
+      HFMA2 R60, R103.reuse, R111.reuse.H1_H1, R60 ?W1;      // HFMA2 C_r14_c7, A_r14_k1.reuse, B_c6_k1.reuse.H1_H1, C_r14_c7
+      HFMA2 R63, R101, R110.reuse.H1_H1, R63 ?W1;            // HFMA2 C_r10_c5, A_r10_k1, B_c4_k1.reuse.H1_H1, C_r10_c5
+      HFMA2 R61, R103, R110.reuse.H1_H1, R61 ?W1;            // HFMA2 C_r14_c5, A_r14_k1, B_c4_k1.reuse.H1_H1, C_r14_c5
+      HFMA2 R54, R100.reuse, R111.reuse.H1_H1, R54 ?W1;      // HFMA2 C_r8_c7, A_r8_k1.reuse, B_c6_k1.reuse.H1_H1, C_r8_c7
+      HFMA2 R52, R102.reuse, R111.reuse.H1_H1, R52 ?W1;      // HFMA2 C_r12_c7, A_r12_k1.reuse, B_c6_k1.reuse.H1_H1, C_r12_c7
+      HFMA2 R55, R100, R110.reuse.H1_H1, R55 ?W1;            // HFMA2 C_r8_c5, A_r8_k1, B_c4_k1.reuse.H1_H1, C_r8_c5
+      HFMA2 R53, R102, R110.reuse.H1_H1, R53 ?W1;            // HFMA2 C_r12_c5, A_r12_k1, B_c4_k1.reuse.H1_H1, C_r12_c5
+      HFMA2 R26, R97.reuse, R111.reuse.H0_H0, R26 ?W1;       // HFMA2 C_r2_c6, A_r2_k1.reuse, B_c6_k1.reuse.H0_H0, C_r2_c6
+      HFMA2 R24, R99.reuse, R111.reuse.H0_H0, R24 ?W1;       // HFMA2 C_r6_c6, A_r6_k1.reuse, B_c6_k1.reuse.H0_H0, C_r6_c6
+      HFMA2 R27, R97, R110.reuse.H0_H0, R27 ?W1;             // HFMA2 C_r2_c4, A_r2_k1, B_c4_k1.reuse.H0_H0, C_r2_c4
+      HFMA2 R25, R99, R110.reuse.H0_H0, R25 ?W1;             // HFMA2 C_r6_c4, A_r6_k1, B_c4_k1.reuse.H0_H0, C_r6_c4
+      HFMA2 R18, R96.reuse, R111.reuse.H0_H0, R18 ?W1;       // HFMA2 C_r0_c6, A_r0_k1.reuse, B_c6_k1.reuse.H0_H0, C_r0_c6
+      HFMA2 R16, R98.reuse, R111.reuse.H0_H0, R16 ?W1;       // HFMA2 C_r4_c6, A_r4_k1.reuse, B_c6_k1.reuse.H0_H0, C_r4_c6
+      HFMA2 R19, R96, R110.reuse.H0_H0, R19 ?W1;             // HFMA2 C_r0_c4, A_r0_k1, B_c4_k1.reuse.H0_H0, C_r0_c4
+      HFMA2 R17, R98, R110.reuse.H0_H0, R17 ?W1;             // HFMA2 C_r4_c4, A_r4_k1, B_c4_k1.reuse.H0_H0, C_r4_c4
+      HFMA2 R30, R97.reuse, R111.reuse.H1_H1, R30 ?W1;       // HFMA2 C_r2_c7, A_r2_k1.reuse, B_c6_k1.reuse.H1_H1, C_r2_c7
+      HFMA2 R28, R99.reuse, R111.reuse.H1_H1, R28 ?W1;       // HFMA2 C_r6_c7, A_r6_k1.reuse, B_c6_k1.reuse.H1_H1, C_r6_c7
+      HFMA2 R31, R97, R110.reuse.H1_H1, R31 ?W1;             // HFMA2 C_r2_c5, A_r2_k1, B_c4_k1.reuse.H1_H1, C_r2_c5
+      HFMA2 R29, R99, R110.reuse.H1_H1, R29 ?W1;             // HFMA2 C_r6_c5, A_r6_k1, B_c4_k1.reuse.H1_H1, C_r6_c5
+      HFMA2 R22, R96.reuse, R111.reuse.H1_H1, R22 ?W1;       // HFMA2 C_r0_c7, A_r0_k1.reuse, B_c6_k1.reuse.H1_H1, C_r0_c7
+      HFMA2 R20, R98.reuse, R111.H1_H1, R20 ?W1;             // HFMA2 C_r4_c7, A_r4_k1.reuse, B_c6_k1.H1_H1, C_r4_c7
+      HFMA2 R23, R96, R110.reuse.H1_H1, R23 ?W1;             // HFMA2 C_r0_c5, A_r0_k1, B_c4_k1.reuse.H1_H1, C_r0_c5
+      HFMA2 R21, R98, R110.H1_H1, R21 &wr=4 ?PAIR;           // HFMA2 C_r4_c5, A_r4_k1, B_c4_k1.H1_H1, C_r4_c5
+(P1)  BRA.U maxwell_hgemm_256x128_mods_nt_LOOP ?W5G;         // @P1 BRA.U maxwell_hgemm_256x128_mods_nt_LOOP
+maxwell_hgemm_256x128_mods_nt_END_OF_LOOP:
+      LOP.AND.NZ P0, RZ, R81, 0x7 ?W13G;                     // LOP.AND.NZ P0, RZ, counterK, 0x7
+(!P0) BRA.U  maxwell_hgemm_256x128_mods_nt_EPILOG ?W5G;      // @!P0 BRA.U maxwell_hgemm_256x128_mods_nt_EPILOG
+maxwell_hgemm_256x128_mods_nt_K_RESIDUE:
+      NOP &req={0, 3, 4} ?W1;                                // NOP &req={SB_LDS_WR, SB_LDG_RD, SB_R_WR}
+      S2R  R96, SR_Tid.X &wr=4 ?W2G;                         // S2R wid, SR_Tid.X
+      BFE.U32 R97, R96, 0x305 &req=4 ?W6G;                   // BFE.U32 diff, wid, 0x305
+      IADD    R97, R97, -R81 ?W6G;                           // IADD diff, diff, -counterK
+      ISETP.LT    P0, R97, 0 ?W13G;                          // ISETP.LT P0, diff, 0
+(!P0) R2P PR, RZ.B0, 0x78 ?W1;                               // @!P0 R2P PR, RZ.B0, 0x78
+(P0)  R2P PR, R84.B0, 0x78 ?W13G;                            // @P0 R2P PR, raggedMnPreds0.B0, 0x78
+(P3)  LDG.E.CI.U16  R64, [R86 + 0x0] ?W1;                    // @P3 LDG.E.CI.U16 fetchRegA0, [readPtrA + 0x0]
+(!P3) MOV R64, RZ ?W1;                                       // @!P3 MOV fetchRegA0_0, RZ
+(P4)  LDG.E.CI.U16  R65, [R86 + 0x40] ?W1;                   // @P4 LDG.E.CI.U16 fetchRegA1, [readPtrA + 0x40]
+(!P4) MOV R65, RZ ?W1;                                       // @!P4 MOV fetchRegA1_0, RZ
+(P5)  LDG.E.CI.U16  R66, [R86 + 0x80] ?W1;                   // @P5 LDG.E.CI.U16 fetchRegA2, [readPtrA + 0x80]
+(!P5) MOV R66, RZ ?W1;                                       // @!P5 MOV fetchRegA2_0, RZ
+(P6)  LDG.E.CI.U16  R67, [R86 + 0xc0] ?W1;                   // @P6 LDG.E.CI.U16 fetchRegA3, [readPtrA + 0xc0]
+(!P6) MOV R67, RZ ?W1;                                       // @!P6 MOV fetchRegA3_0, RZ
+(P0)  R2P PR, R84.B1, 0x78 ?W13G;                            // @P0 R2P PR, raggedMnPreds0.B1, 0x78
+(P3)  LDG.E.CI.U16  R68, [R86 + 0x100] ?W1;                  // @P3 LDG.E.CI.U16 fetchRegA4, [readPtrA + 0x100]
+(!P3) MOV R68, RZ ?W1;                                       // @!P3 MOV fetchRegA4_0, RZ
+(P4)  LDG.E.CI.U16  R69, [R86 + 0x140] ?W1;                  // @P4 LDG.E.CI.U16 fetchRegA5, [readPtrA + 0x140]
+(!P4) MOV R69, RZ ?W1;                                       // @!P4 MOV fetchRegA5_0, RZ
+(P5)  LDG.E.CI.U16  R70, [R86 + 0x180] ?W1;                  // @P5 LDG.E.CI.U16 fetchRegA6, [readPtrA + 0x180]
+(!P5) MOV R70, RZ ?W1;                                       // @!P5 MOV fetchRegA6_0, RZ
+(P6)  LDG.E.CI.U16  R71, [R86 + 0x1c0] &rd=3 &wr=2 ?W1;      // @P6 LDG.E.CI.U16 fetchRegA7, [readPtrA + 0x1c0]
+(!P6) MOV R71, RZ ?W1;                                       // @!P6 MOV fetchRegA7_0, RZ
+      BFE.U32 R97, R96, 0x305 &req=4 ?W6G;                   // BFE.U32 diff, wid, 0x305
+      IADD    R97, R97, -R81 ?W6G;                           // IADD diff, diff, -counterK
+      ISETP.LT    P0, R97, 0 &req=3 ?W13G;                   // ISETP.LT P0, diff, 0
+(!P0) R2P PR, RZ.B0, 0x78 ?W1;                               // @!P0 R2P PR, RZ.B0, 0x78
+(P0)  R2P PR, R84.B2, 0x78 ?W13G;                            // @P0 R2P PR, raggedMnPreds0.B2, 0x78
+(P3)  LDG.E.CI.U16  R72, [R78 + 0x0] ?W1;                    // @P3 LDG.E.CI.U16 fetchRegB0, [readPtrB + 0x0]
+(!P3) MOV R72, RZ ?W1;                                       // @!P3 MOV fetchRegB0_0, RZ
+(P4)  LDG.E.CI.U16  R73, [R78 + 0x40] ?W1;                   // @P4 LDG.E.CI.U16 fetchRegB1, [readPtrB + 0x40]
+(!P4) MOV R73, RZ ?W1;                                       // @!P4 MOV fetchRegB1_0, RZ
+(P5)  LDG.E.CI.U16  R74, [R78 + 0x80] ?W1;                   // @P5 LDG.E.CI.U16 fetchRegB2, [readPtrB + 0x80]
+(!P5) MOV R74, RZ ?W1;                                       // @!P5 MOV fetchRegB2_0, RZ
+(P6)  LDG.E.CI.U16  R75, [R78 + 0xc0] &rd=3 &wr=2 ?W1;       // @P6 LDG.E.CI.U16 fetchRegB3, [readPtrB + 0xc0]
+(!P6) MOV R75, RZ ?W1;                                       // @!P6 MOV fetchRegB3_0, RZ
+      LOP32I.AND  R81, R81, 0xfffffff8 ?W1;                  // LOP32I.AND counterK, counterK, 0xfffffff8
+      BRA.U maxwell_hgemm_256x128_mods_nt_PRELOOP ?W5G;      // BRA.U maxwell_hgemm_256x128_mods_nt_PRELOOP
+maxwell_hgemm_256x128_mods_nt_EPILOG:
+      ISETP.NE    P0, RZ, c[0][0x1cc] &req={0,1,2,3,4,5} ?W1; // ISETP.NE P0, RZ, AbByRef
+      MOV         R78, c[0][0x1b8] ?W1;                      // MOV alphaPtr, AlphaRef
+      MOV         R79, c[0][0x1bc] ?W1;                      // MOV alphaPtr_HI, AlphaRef_HI
+      MOV         R74, c[0][0x1b4] ?W1;                      // MOV mode, Mode
+      S2R         R66, SR_Tid.X &wr=4 ?W1;                   // S2R tid, SR_Tid.X
+      S2R         R67, SR_CTAid.X &wr=4 ?W1;                 // S2R ctaRow, SR_CTAid.X
+      S2R         R68, SR_CTAid.Y &wr=4 ?W1;                 // S2R ctaCol, SR_CTAid.Y
+      S2R         R69, SR_CTAid.Z &wr=4 ?W6G;                // S2R batchIdx, SR_CTAid.Z
+(P0)  LDG.E.CI.U16 R77, [R78] &rd=3 &wr=0 ?W1;               // @P0 LDG.E.CI.U16 alpha, [alphaPtr]
+      HSETP2.NE   P1, PT, R80, RZ &wr=4 ?W1;                 // HSETP2.NE P1, PT, beta, RZ
+(!P0) LDC.U16    R77, c[0][0x1c8] &wr=0 ?W1;                 // @!P0 LDC.U16 alpha, AlphaVal
+      BAR.SYNC 0 &req=3 ?W5G;                                // BAR.SYNC 0
+      BFE.U32  R83, R74, 0x408 ?W1;                          // BFE.U32 log2GroupCols, mode, 0x408
+      MOV      R91, 1 ?W1;                                   // MOV one, 1
+      LOP.AND.NZ  P5, RZ, R74, 0x1000 ?W5G;                  // LOP.AND.NZ P5, RZ, mode, 0x1000
+      SHL     R84, R91, R83 ?W6G;                            // SHL groupCols, one, log2GroupCols
+      IADD     R85, R84, -1 ?W1;                             // IADD mask, groupCols, -1
+      PSETP.AND P4, !PT, !PT ?W5G;                           // PSETP.AND P4, !PT, !PT
+maxwell_hgemm_256x128_mods_nt_epilog_cta_swizzle_loop:
+      LOP.OR   R86, R68.reuse, R85.reuse &req=4 ?W1;         // LOP.OR testCol, ctaCol.reuse, mask.reuse
+      ISETP.EQ P3, R85, 3 ?W1;                               // ISETP.EQ P3, mask, 3
+      LOP.AND  R87,  R68.reuse,  R85.reuse ?W1;              // LOP.AND colMod, ctaCol.reuse, mask.reuse
+      LOP.AND  R88, R68.reuse, ~R85 ?W1;                     // LOP.AND colBase, ctaCol.reuse, ~mask
+      LOP.AND  R90,  R68,        R84 ?W3G;                   // LOP.AND colBit, ctaCol, groupCols
+      ISETP.LT P2, R86, c[0x0][0x018] ?W1;                   // ISETP.LT P2, testCol, GridDimY
+      XMAD     R89, R87.H0, c[0x0][0x014].H0, R67 ?W2G;      // XMAD linear, colMod.H0, GridDimX.H0, ctaRow
+(P5)  ISETP.EQ.XOR P4, PT, R90, R84, P4 ?W1;                 // @P5 ISETP.EQ.XOR P4, PT, colBit, groupCols, P4
+      SHR.U32 R84, R84, 1 ?W8G;                              // SHR.U32 groupCols, groupCols, 1
+      ISETP.EQ.AND P3, PT, R86, c[0x0][0x018], P3 ?W1;       // ISETP.EQ.AND P3, PT, testCol, GridDimY, P3
+      XMAD.PSL R89, R87.H0, c[0x0][0x014].H1, R89 ?W5G;      // XMAD.PSL linear, colMod.H0, GridDimX.H1, linear
+(P2)  BRA maxwell_hgemm_256x128_mods_nt_epilog_cta_swizzle_group_col_pow2 ?W7G; // @P2 BRA maxwell_hgemm_256x128_mods_nt_epilog_cta_swizzle_group_col_pow2
+(!P3) SHR.U32  R85, R85, 1 ?W1;                              // @!P3 SHR.U32 mask, mask, 1
+(!P3) IADD     R83, R83, -1 ?W1;                             // @!P3 IADD log2GroupCols, log2GroupCols, -1
+(!P3) BRA maxwell_hgemm_256x128_mods_nt_epilog_cta_swizzle_loop ?W5G; // @!P3 BRA maxwell_hgemm_256x128_mods_nt_epilog_cta_swizzle_loop
+      XMAD     R92,   R89.H0.reuse, 0x5556, RZ ?W1;          // XMAD xmad0, linear.H0.reuse, 0x5556, RZ
+      XMAD     R93,   R89.H0,       0x5555, RZ ?W1;          // XMAD xmad1, linear.H0, 0x5555, RZ
+      XMAD     R67,  R89.H1, 0x5555, RZ ?W4G;                // XMAD ctaRow, linear.H1.reuse, 0x5555, RZ
+      XMAD.CHI R92,   R89.H1,       0x5556, R92 ?W6G;        // XMAD.CHI xmad0, linear.H1, 0x5556, xmad0
+      IADD3.RS R67,  R92,           R93,  R67 ?W6G;          // IADD3.RS ctaRow, xmad0, xmad1, ctaRow
+      LEA.LO R94, R67, R67, 1 ?W1;                           // LEA.LO swizRow3, ctaRow, ctaRow, 1
+(P4)  IADD3 R67, -R67, c[0x0][0x014], -R91 ?W5G;             // @P4 IADD3 ctaRow, -ctaRow, GridDimX, -one
+      IADD3   R68, R88, R89, -R94 ?W1;                       // IADD3 ctaCol, colBase, linear, -swizRow3
+      BRA maxwell_hgemm_256x128_mods_nt_epilog_cta_swizzle_done ?W5G; // BRA maxwell_hgemm_256x128_mods_nt_epilog_cta_swizzle_done
+maxwell_hgemm_256x128_mods_nt_epilog_cta_swizzle_group_col_pow2:
+      SHR.U32 R67, R89, R83 ?W1;                             // SHR.U32 ctaRow, linear, log2GroupCols
+      LOP3.LUT  R68, R88, R89, R85, 0xf8 ?W5G;               // LOP3.LUT ctaCol, colBase, linear, mask, B_AND_C__OR_A ?WiL-iT
+(P4)  IADD3 R67, -R67, c[0x0][0x014], -R91 ?W6G;             // @P4 IADD3 ctaRow, -ctaRow, GridDimX, -one
+maxwell_hgemm_256x128_mods_nt_epilog_cta_swizzle_done:
+      SHL         R87, R66.reuse, 5 &req=4 ?W1;              // SHL scratch3, tid.reuse, 5
+      SHL         R86, R66.reuse, 8 ?W1;                     // SHL scratch2, tid.reuse, 8
+      SHL         R85, R66, 3 ?W4G;                          // SHL scratch1, tid.reuse, 3
+      LOP.AND     R64, R87, 0x1e00 ?W6G;                     // LOP.AND stsWritePtr, scratch3, 0x1e00
+      LOP3.LUT    R64, R64, 0x100, R86, 0xf8 ?W6G;           // LOP3.LUT stsWritePtr, stsWritePtr, 0x100, scratch2, 0xf8
+      LOP3.LUT    R64, R64, 0x70, R85, 0xf8 ?W1;             // LOP3.LUT stsWritePtr, stsWritePtr, 0x70, scratch1, 0xf8
+      SHL        R65, R66, 4 ?W6G;                           // SHL ldsReadPtr, tid.reuse, 4
+      LOP.AND    R65, R65, 0xe00 ?W6G;                       // LOP.AND ldsReadPtr, ldsReadPtr, 0xe00
+      LOP3.LUT   R65, R65, 0x1f, R66, 0xf8 ?W6G;             // LOP3.LUT ldsReadPtr, ldsReadPtr, 0x1f, tid, 0xf8
+      SHL        R65, R65, 1 ?W1;                            // SHL ldsReadPtr, ldsReadPtr, 1
+      LOP.AND  R83, R66, 0x1f ?W1;                           // LOP.AND intraWarpRow, tid, 0x1f
+      MOV32I   R84, 0 ?W1;                                   // MOV32I intraWarpCol, 0
+      BFE.U32 R86, R66, 0x205 ?W5G;                          // BFE.U32 warpCol, tid.reuse, 0x205
+      LEA  R79, R68, R84, 7 ?W1;                             // LEA col, ctaCol, intraWarpCol, 7
+      SHR  R85, R66.reuse, 7 ?W1;                            // SHR warpRow, tid.reuse, 7
+      MOV  R76, c[0][0x198] ?W3G;                            // MOV strideC, StrideC
+      LEA  R78, R67,  R83, 8 ?W1;                            // LEA row, ctaRow, intraWarpRow, 8
+      LEA  R79, R86, R79,          5 ?W5G;                   // LEA col, warpCol, col, 5
+      LEA  R78, R85, R78,          7 ?W6G;                   // LEA row, warpRow, row, 7
+      LOP.AND.NZ P2, RZ, R74, 8 ?W1;                         // LOP.AND.NZ P2, RZ, mode, 8
+      XMAD.CLO R84,    R79.reuse.H0, c[0][0x198].H0, R78.reuse ?W1; // XMAD.CLO readPtrMul, col.reuse.H0, StrideC.H0, row.reuse
+      XMAD.CHI R83,     R79.reuse.H0, c[0][0x198].H1, R78 ?W1; // XMAD.CHI scratch1, col.reuse.H0, StrideC.H1, row
+      XMAD     R85, R79.H1, c[0][0x198].H1, RZ ?W4G;         // XMAD readPtrMul_HI, col.reuse.H1, StrideC.H1, RZ
+      XMAD.CHI R88,     R79.H1,       c[0][0x198].H0, R84 ?W6G; // XMAD.CHI scratch2, col.H1, StrideC.H0, readPtrMul.reuse
+      VADD.U16.U16.MRG_16H R84, R83.H0, R88.H0, R84 ?W2G;    // VADD.U16.U16.MRG_16H readPtrMul, scratch1.H0, scratch2.H0, readPtrMul
+      IADD3.RS R85, R83,         R88,   R85 ?W5G;            // IADD3.RS readPtrMul_HI, scratch1, scratch2, readPtrMul_HI
+      LOP.AND.NZ P6, R83, R74, 3 ?W13G;                      // LOP.AND.NZ P6, scratch1, mode, 3
+(!P6) BRA.U   maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALC1_EPILOG ?W5G; // @!P6 BRA.U maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALC1_EPILOG
+      ISETP.EQ P3,    R83, 2 ?W13G;                          // ISETP.EQ P3, scratch1, 2
+(P3)  LEA.LO   R72.CC, R69, c[0][0x150], 3 &req=4 ?W6G;      // @P3 LEA.LO writePtr.CC, batchIdx.reuse, BaseC, 3
+(P3)  LEA.HI.X R73, R69, c[0][0x154], RZ, 3 ?W2G;            // @P3 LEA.HI.X writePtr_HI, batchIdx, BaseC_HI, RZ, 3
+(P3)  LDG.E.CI.64 R86, [R72 + 0x00] &wr=2 ?W2G;              // @P3 LDG.E.CI.64 batchPtrMul, [writePtr + 0x00]
+(P3)  LEA.LO   R72.CC, R84, R86, 1 &req=2 ?W6G;              // @P3 LEA.LO writePtr.CC, readPtrMul.reuse, batchPtrMul, 1
+(P3)  LEA.HI.X R73, R84, R87, R85, 1 ?W1;                    // @P3 LEA.HI.X writePtr_HI, readPtrMul, batchPtrMul_HI, readPtrMul_HI, 1
+(!P3) LEA.LO   R72.CC, R84, c[0][0x150], 1 ?W6G;             // @!P3 LEA.LO writePtr.CC, readPtrMul.reuse, BaseC, 1
+(!P3) LEA.HI.X R73, R84, c[0][0x154], R85, 1 ?W1;            // @!P3 LEA.HI.X writePtr_HI, readPtrMul, BaseC_HI, readPtrMul_HI, 1
+(!P3) XMAD     R83.CC,   R69.reuse.H0, c[0][0x188].H0, RZ &req=4 ?W1; // @!P3 XMAD scratch1.CC, batchIdx.reuse.H0, MatrixStrideC.H0, RZ
+(!P3) XMAD     R87,  R69.H0, c[0][0x18c].H0, RZ ?W5G;        // @!P3 XMAD batchPtrMul_HI, batchIdx.reuse.H0, MatrixStrideC_HI.H0, RZ
+(!P3) XMAD.PSL R86,     R69.reuse.H0, c[0][0x188].H1, R83 ?W1; // @!P3 XMAD.PSL batchPtrMul, batchIdx.reuse.H0, MatrixStrideC.H1, scratch1
+(!P3) XMAD.CHI R83,      R69.H0,       c[0][0x188].H1, R83 ?W6G; // @!P3 XMAD.CHI scratch1, batchIdx.H0, MatrixStrideC.H1, scratch1
+(!P3) XMAD.X   R87,  R83.H1,      1,        R87 ?W1;         // @!P3 XMAD.X batchPtrMul_HI, scratch1.H1, 1, batchPtrMul_HI
+(!P3) LEA.LO   R72.CC, R86, R72, 1 ?W6G;                     // @!P3 LEA.LO writePtr.CC, batchPtrMul.reuse, writePtr, 1
+(!P3) LEA.HI.X R73, R86, R73, R85, 1 ?W1;                    // @!P3 LEA.HI.X writePtr_HI, batchPtrMul, writePtr_HI, readPtrMul_HI, 1
+      BRA.U maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_SYNC1_EPILOG ?W5G; // BRA.U maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_SYNC1_EPILOG
+maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALC1_EPILOG:
+      LEA.LO   R72.CC, R84, c[0][0x150], 1 ?W6G;             // LEA.LO writePtr.CC, readPtrMul.reuse, BaseC, 1
+      LEA.HI.X R73, R84, c[0][0x154], R85, 1 ?W2G;           // LEA.HI.X writePtr_HI, readPtrMul, BaseC_HI, readPtrMul_HI, 1
+maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_SYNC1_EPILOG:
+      LOP.AND.NZ P3, RZ, R74, 32 ?W13G;                      // LOP.AND.NZ P3, RZ, mode, 32
+(P3)  XMAD     R83.CC,   R69.reuse.H0, c[0][0x188].H0, RZ &req=4 ?W1; // @P3 XMAD scratch1.CC, batchIdx.reuse.H0, MatrixStrideC.H0, RZ
+(P3)  XMAD     R87,  R69.H0, c[0][0x18c].H0, RZ ?W5G;        // @P3 XMAD batchPtrMul_HI, batchIdx.reuse.H0, MatrixStrideC_HI.H0, RZ
+(P3)  XMAD.PSL R86,     R69.reuse.H0, c[0][0x188].H1, R83 ?W1; // @P3 XMAD.PSL batchPtrMul, batchIdx.reuse.H0, MatrixStrideC.H1, scratch1
+(P3)  XMAD.CHI R83,      R69.H0,       c[0][0x188].H1, R83 ?W6G; // @P3 XMAD.CHI scratch1, batchIdx.H0, MatrixStrideC.H1, scratch1
+(P3)  XMAD.X   R87,  R83.H1,      1,        R87 ?W1;         // @P3 XMAD.X batchPtrMul_HI, scratch1.H1, 1, batchPtrMul_HI
+(P3)  LEA.LO   R72.CC, R86, R72, 1 ?W6G;                     // @P3 LEA.LO writePtr.CC, batchPtrMul.reuse, writePtr, 1
+(P3)  LEA.HI.X R73, R86, R73, R85, 1 ?W1;                    // @P3 LEA.HI.X writePtr_HI, batchPtrMul, writePtr_HI, readPtrMul_HI, 1
+      ISETP.NE.AND  P5, PT, R69, RZ, P2 ?W1;                 // ISETP.NE.AND P5, PT, batchIdx, RZ, P2
+      MOV  R70,    c[0][0x150] ?W1;                          // MOV readPtr, BaseC
+      MOV  R71, c[0][0x154] ?W5G;                            // MOV readPtr_HI, BaseC_HI
+      ISETP.EQ      P4, R70, c[0][0x1d0] ?W13G;              // ISETP.EQ P4, readPtr, BaseD
+      ISETP.EQ.AND  P4, PT, R71, c[0][0x1d4], P4 ?W13G;      // ISETP.EQ.AND P4, PT, readPtr_HI, BaseD_HI, P4
+      PSETP.OR      P4, P4, P5 ?W13G;                        // PSETP.OR P4, P4, P5
+(!P4) BRA.U maxwell_hgemm_256x128_mods_nt_BASED_NEQ_BASEC_CALC_EPILOG ?W5G; // @!P4 BRA.U maxwell_hgemm_256x128_mods_nt_BASED_NEQ_BASEC_CALC_EPILOG
+      MOV       R70, R72 &req=3 ?W5G;                        // MOV readPtr, writePtr
+      MOV       R71, R73 ?W1;                                // MOV readPtr_HI, writePtr_HI
+      BRA.U maxwell_hgemm_256x128_mods_nt_END_BASEC_CALC_EPILOG ?W5G; // BRA.U maxwell_hgemm_256x128_mods_nt_END_BASEC_CALC_EPILOG
+maxwell_hgemm_256x128_mods_nt_BASED_NEQ_BASEC_CALC_EPILOG:
+      LOP.AND.NZ P6, R83, R74, 3 ?W13G;                      // LOP.AND.NZ P6, scratch1, mode, 3
+(!P6) BRA.U   maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALC0_EPILOG ?W5G; // @!P6 BRA.U maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALC0_EPILOG
+      ISETP.EQ P3,    R83, 2 ?W13G;                          // ISETP.EQ P3, scratch1, 2
+(P3)  LEA.LO   R70.CC, R69, c[0][0x1d0], 3 &req=4 ?W6G;      // @P3 LEA.LO readPtr.CC, batchIdx.reuse, BaseD, 3
+(P3)  LEA.HI.X R71, R69, c[0][0x1d4], RZ, 3 ?W2G;            // @P3 LEA.HI.X readPtr_HI, batchIdx, BaseD_HI, RZ, 3
+(P3)  LDG.E.CI.64 R86, [R70 + 0x00] &wr=2 ?W2G;              // @P3 LDG.E.CI.64 batchPtrMul, [readPtr + 0x00]
+(P3)  LEA.LO   R70.CC, R84, R86, 1 &req=2 ?W6G;              // @P3 LEA.LO readPtr.CC, readPtrMul.reuse, batchPtrMul, 1
+(P3)  LEA.HI.X R71, R84, R87, R85, 1 ?W1;                    // @P3 LEA.HI.X readPtr_HI, readPtrMul, batchPtrMul_HI, readPtrMul_HI, 1
+(!P3) LEA.LO   R70.CC, R84, c[0][0x1d0], 1 ?W6G;             // @!P3 LEA.LO readPtr.CC, readPtrMul.reuse, BaseD, 1
+(!P3) LEA.HI.X R71, R84, c[0][0x1d4], R85, 1 ?W1;            // @!P3 LEA.HI.X readPtr_HI, readPtrMul, BaseD_HI, readPtrMul_HI, 1
+(!P3) XMAD     R83.CC,   R69.reuse.H0, c[0][0x188].H0, RZ &req=4 ?W1; // @!P3 XMAD scratch1.CC, batchIdx.reuse.H0, MatrixStrideC.H0, RZ
+(!P3) XMAD     R87,  R69.H0, c[0][0x18c].H0, RZ ?W5G;        // @!P3 XMAD batchPtrMul_HI, batchIdx.reuse.H0, MatrixStrideC_HI.H0, RZ
+(!P3) XMAD.PSL R86,     R69.reuse.H0, c[0][0x188].H1, R83 ?W1; // @!P3 XMAD.PSL batchPtrMul, batchIdx.reuse.H0, MatrixStrideC.H1, scratch1
+(!P3) XMAD.CHI R83,      R69.H0,       c[0][0x188].H1, R83 ?W6G; // @!P3 XMAD.CHI scratch1, batchIdx.H0, MatrixStrideC.H1, scratch1
+(!P3) XMAD.X   R87,  R83.H1,      1,        R87 ?W1;         // @!P3 XMAD.X batchPtrMul_HI, scratch1.H1, 1, batchPtrMul_HI
+(!P3) LEA.LO   R70.CC, R86, R70, 1 ?W6G;                     // @!P3 LEA.LO readPtr.CC, batchPtrMul.reuse, readPtr, 1
+(!P3) LEA.HI.X R71, R86, R71, R85, 1 ?W1;                    // @!P3 LEA.HI.X readPtr_HI, batchPtrMul, readPtr_HI, readPtrMul_HI, 1
+      BRA.U maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_SYNC0_EPILOG ?W5G; // BRA.U maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_SYNC0_EPILOG
+maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_CALC0_EPILOG:
+      LEA.LO   R70.CC, R84, c[0][0x1d0], 1 ?W6G;             // LEA.LO readPtr.CC, readPtrMul.reuse, BaseD, 1
+      LEA.HI.X R71, R84, c[0][0x1d4], R85, 1 ?W2G;           // LEA.HI.X readPtr_HI, readPtrMul, BaseD_HI, readPtrMul_HI, 1
+maxwell_hgemm_256x128_mods_nt_END_BATCH_PTR_SYNC0_EPILOG:
+      LOP.AND.NZ P3, RZ, R74, 32 ?W13G;                      // LOP.AND.NZ P3, RZ, mode, 32
+(P3)  XMAD     R83.CC,   R69.reuse.H0, c[0][0x188].H0, RZ &req=4 ?W1; // @P3 XMAD scratch1.CC, batchIdx.reuse.H0, MatrixStrideC.H0, RZ
+(P3)  XMAD     R87,  R69.H0, c[0][0x18c].H0, RZ ?W5G;        // @P3 XMAD batchPtrMul_HI, batchIdx.reuse.H0, MatrixStrideC_HI.H0, RZ
+(P3)  XMAD.PSL R86,     R69.reuse.H0, c[0][0x188].H1, R83 ?W1; // @P3 XMAD.PSL batchPtrMul, batchIdx.reuse.H0, MatrixStrideC.H1, scratch1
+(P3)  XMAD.CHI R83,      R69.H0,       c[0][0x188].H1, R83 ?W6G; // @P3 XMAD.CHI scratch1, batchIdx.H0, MatrixStrideC.H1, scratch1
+(P3)  XMAD.X   R87,  R83.H1,      1,        R87 ?W1;         // @P3 XMAD.X batchPtrMul_HI, scratch1.H1, 1, batchPtrMul_HI
+(P3)  LEA.LO   R70.CC, R86, R70, 1 ?W6G;                     // @P3 LEA.LO readPtr.CC, batchPtrMul.reuse, readPtr, 1
+(P3)  LEA.HI.X R71, R86, R71, R85, 1 ?W1;                    // @P3 LEA.HI.X readPtr_HI, batchPtrMul, readPtr_HI, readPtrMul_HI, 1
+maxwell_hgemm_256x128_mods_nt_END_BASEC_CALC_EPILOG:
+(P5)  MOV32I        R80, 0x3c003c00 &req=2 ?W1;              // @P5 MOV32I beta, 0x3c003c00
+(P5)  PSETP.AND P1, PT, PT ?W1;                              // @P5 PSETP.AND P1, PT, PT
+      XMAD.CLO R83, R76.reuse.H0, 23, RZ ?W1;                // XMAD.CLO scratch1, strideC.reuse.H0, 23, RZ
+      XMAD.CHI R85, R76.H1, 23, RZ ?W6G;                     // XMAD.CHI backStride_HI, strideC.H1, 23, RZ
+      IADD3.LS R84, R83.reuse.H1, R85.H0, R83.H0 ?W1;        // IADD3.LS backStride, scratch1.reuse.H1, backStride_HI.H0, scratch1.H0
+      IADD3.RS R85, R83.H1, R85.32, RZ.32 ?W6G;              // IADD3.RS backStride_HI, scratch1.H1, backStride_HI.32, RZ.32
+      IADD  R81, R78, -c[0][0x19c] ?W1;                      // IADD cRowMinusM, row, -CountM
+      IADD  R82, R79, -c[0][0x1a0] ?W12G;                    // IADD cColMinusN, col, -CountN
+(!P2) BRA  maxwell_hgemm_256x128_mods_nt_EPILOG_SPIN_WAIT_END ?W5G; // @!P2 BRA maxwell_hgemm_256x128_mods_nt_EPILOG_SPIN_WAIT_END
+      XMAD.MRG R121, R68.reuse.H0, c[0x0][0x014].H1, RZ ?W1; // XMAD.MRG splitkTemp, ctaCol.reuse.H0, GridDimX.H1, RZ
+      XMAD R120, R68.H0, c[0x0][0x014].H0, R67 ?W6G;         // XMAD spinLockOffset, ctaCol.reuse.H0, GridDimX.H0, ctaRow
+      XMAD.PSL.CBCC R120, R68.H1, R121.H1, R120 ?W6G;        // XMAD.PSL.CBCC spinLockOffset, ctaCol.H1, splitkTemp.H1, spinLockOffset
+      LEA.LO   R118.CC, R120, c[0][0x1a8], 2 &req=3 ?W6G;    // LEA.LO spinLockPtr.CC, spinLockOffset.reuse, Sync, 2
+      LEA.HI.X R119, R120, c[0][0x1ac], RZ, 2 ?W1;           // LEA.HI.X spinLockPtr_HI, spinLockOffset, Sync_HI, RZ, 2
+      MOV R117, RZ ?W6G;                                     // MOV spinLock, RZ
+maxwell_hgemm_256x128_mods_nt_EPILOG_SPIN_WAIT:
+      ISETP.NE    P2, R117, R69 &req=2 ?W13G;                // ISETP.NE P2, spinLock, batchIdx
+(P2)  LDG.E.CG.32 R117, [R118] &wr=2 ?W1;                    // @P2 LDG.E.CG.32 spinLock, [spinLockPtr]
+(P2)  BRA.U maxwell_hgemm_256x128_mods_nt_EPILOG_SPIN_WAIT ?W5G; // @P2 BRA.U maxwell_hgemm_256x128_mods_nt_EPILOG_SPIN_WAIT
+maxwell_hgemm_256x128_mods_nt_EPILOG_SPIN_WAIT_END:
+      ISETP.LT.AND  P3, PT, R81.reuse, 0, PT ?W1;            // ISETP.LT.AND P3, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P4, PT, R81.reuse, -32, PT ?W1;          // ISETP.LT.AND P4, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P5, PT, R81.reuse, -64, PT ?W1;          // ISETP.LT.AND P5, PT, cRowMinusM.reuse, -64, PT
+      ISETP.LT.AND  P6, PT, R81, -96, PT ?W10G;              // ISETP.LT.AND P6, PT, cRowMinusM.reuse, -96, PT
+      ISETP.LT.AND  P3, PT, R82.reuse, 0, P3 ?W1;            // ISETP.LT.AND P3, PT, cColMinusN.reuse, 0, P3
+      ISETP.LT.AND  P4, PT, R82.reuse, 0, P4 ?W1;            // ISETP.LT.AND P4, PT, cColMinusN.reuse, 0, P4
+      ISETP.LT.AND  P5, PT, R82.reuse, 0, P5 ?W1;            // ISETP.LT.AND P5, PT, cColMinusN.reuse, 0, P5
+      ISETP.LT.AND  P6, PT, R82      , 0, P6 ?W13G;          // ISETP.LT.AND P6, PT, cColMinusN , 0, P6
+      P2R.B0 R75, PR, RZ, 0x78 ?W6G;                         // P2R.B0 readPreds, PR, RZ, 0x78
+      ISETP.LT.AND  P3, PT, R81.reuse, 0, PT ?W1;            // ISETP.LT.AND P3, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P4, PT, R81.reuse, -32, PT ?W1;          // ISETP.LT.AND P4, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P5, PT, R81.reuse, -64, PT ?W1;          // ISETP.LT.AND P5, PT, cRowMinusM.reuse, -64, PT
+      ISETP.LT.AND  P6, PT, R81, -96, PT ?W10G;              // ISETP.LT.AND P6, PT, cRowMinusM.reuse, -96, PT
+      ISETP.LT.AND  P3, PT, R82.reuse, -8, P3 ?W1;           // ISETP.LT.AND P3, PT, cColMinusN.reuse, -8, P3
+      ISETP.LT.AND  P4, PT, R82.reuse, -8, P4 ?W1;           // ISETP.LT.AND P4, PT, cColMinusN.reuse, -8, P4
+      ISETP.LT.AND  P5, PT, R82.reuse, -8, P5 ?W1;           // ISETP.LT.AND P5, PT, cColMinusN.reuse, -8, P5
+      ISETP.LT.AND  P6, PT, R82      , -8, P6 ?W13G;         // ISETP.LT.AND P6, PT, cColMinusN , -8, P6
+      P2R.B1 R75, PR, R75, 0x78 ?W6G;                        // P2R.B1 readPreds, PR, readPreds, 0x78
+      ISETP.LT.AND  P3, PT, R81.reuse, 0, PT ?W1;            // ISETP.LT.AND P3, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P4, PT, R81.reuse, -32, PT ?W1;          // ISETP.LT.AND P4, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P5, PT, R81.reuse, -64, PT ?W1;          // ISETP.LT.AND P5, PT, cRowMinusM.reuse, -64, PT
+      ISETP.LT.AND  P6, PT, R81, -96, PT ?W10G;              // ISETP.LT.AND P6, PT, cRowMinusM.reuse, -96, PT
+      ISETP.LT.AND  P3, PT, R82.reuse, -16, P3 ?W1;          // ISETP.LT.AND P3, PT, cColMinusN.reuse, -16, P3
+      ISETP.LT.AND  P4, PT, R82.reuse, -16, P4 ?W1;          // ISETP.LT.AND P4, PT, cColMinusN.reuse, -16, P4
+      ISETP.LT.AND  P5, PT, R82.reuse, -16, P5 ?W1;          // ISETP.LT.AND P5, PT, cColMinusN.reuse, -16, P5
+      ISETP.LT.AND  P6, PT, R82      , -16, P6 ?W13G;        // ISETP.LT.AND P6, PT, cColMinusN , -16, P6
+      P2R.B2 R75, PR, R75, 0x78 ?W6G;                        // P2R.B2 readPreds, PR, readPreds, 0x78
+      ISETP.LT.AND  P3, PT, R81.reuse, 0, PT ?W1;            // ISETP.LT.AND P3, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P4, PT, R81.reuse, -32, PT ?W1;          // ISETP.LT.AND P4, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P5, PT, R81.reuse, -64, PT ?W1;          // ISETP.LT.AND P5, PT, cRowMinusM.reuse, -64, PT
+      ISETP.LT.AND  P6, PT, R81, -96, PT ?W10G;              // ISETP.LT.AND P6, PT, cRowMinusM.reuse, -96, PT
+      ISETP.LT.AND  P3, PT, R82.reuse, -24, P3 ?W1;          // ISETP.LT.AND P3, PT, cColMinusN.reuse, -24, P3
+      ISETP.LT.AND  P4, PT, R82.reuse, -24, P4 ?W1;          // ISETP.LT.AND P4, PT, cColMinusN.reuse, -24, P4
+      ISETP.LT.AND  P5, PT, R82.reuse, -24, P5 ?W1;          // ISETP.LT.AND P5, PT, cColMinusN.reuse, -24, P5
+      ISETP.LT.AND  P6, PT, R82      , -24, P6 ?W13G;        // ISETP.LT.AND P6, PT, cColMinusN , -24, P6
+      P2R.B3 R75, PR, R75, 0x78 ?W6G;                        // P2R.B3 readPreds, PR, readPreds, 0x78
+(!P1) R2P PR, RZ.B0, 0x78 ?W1;                               // @!P1 R2P PR, RZ.B0, 0x78
+(P1)  R2P PR, R75.B0, 0x78 ?W13G;                            // @P1 R2P PR, readPreds.B0, 0x78
+(P3)  LDG.E.CG.U16  R83, [R70 + 0x0000] ?W1;                 // @P3 LDG.E.CG.U16 fetchRegC0, [readPtr + 0x0000]
+(!P3) MOV R83, RZ ?W1;                                       // @!P3 MOV fetchRegC0, RZ
+(P4)  LDG.E.CG.U16  R86, [R70 + 0x0040] ?W1;                 // @P4 LDG.E.CG.U16 fetchRegC1, [readPtr + 0x0040]
+(!P4) MOV R86, RZ ?W1;                                       // @!P4 MOV fetchRegC1, RZ
+(P5)  LDG.E.CG.U16  R87, [R70 + 0x0080] ?W1;                 // @P5 LDG.E.CG.U16 fetchRegC2, [readPtr + 0x0080]
+(!P5) MOV R87, RZ ?W1;                                       // @!P5 MOV fetchRegC2, RZ
+(P6)  LDG.E.CG.U16  R88, [R70 + 0x00c0] &rd=3 ?W2G;          // @P6 LDG.E.CG.U16 fetchRegC3, [readPtr + 0x00c0]
+(!P6) MOV R88, RZ ?W1;                                       // @!P6 MOV fetchRegC3, RZ
+      LEA.LO   R70.CC, R76, R70, 4 &req=3 ?W6G;              // LEA.LO readPtr.CC, strideC.reuse, readPtr, 4
+      LEA.HI.X R71, R76, R71, RZ, 4 ?W2;                     // LEA.HI.X readPtr_HI, strideC, readPtr_HI, strideC_HI, 4
+(P1)  R2P PR, R75.B1, 0x78 ?W13G;                            // @P1 R2P PR, readPreds.B1, 0x78
+(P3)  LDG.E.CG.U16  R89, [R70 + 0x0000] ?W1;                 // @P3 LDG.E.CG.U16 fetchRegC4, [readPtr + 0x0000]
+(!P3) MOV R89, RZ ?W1;                                       // @!P3 MOV fetchRegC4, RZ
+(P4)  LDG.E.CG.U16  R90, [R70 + 0x0040] ?W1;                 // @P4 LDG.E.CG.U16 fetchRegC5, [readPtr + 0x0040]
+(!P4) MOV R90, RZ ?W1;                                       // @!P4 MOV fetchRegC5, RZ
+(P5)  LDG.E.CG.U16  R91, [R70 + 0x0080] ?W1;                 // @P5 LDG.E.CG.U16 fetchRegC6, [readPtr + 0x0080]
+(!P5) MOV R91, RZ ?W1;                                       // @!P5 MOV fetchRegC6, RZ
+(P6)  LDG.E.CG.U16  R92, [R70 + 0x00c0] &rd=3 ?W2G;          // @P6 LDG.E.CG.U16 fetchRegC7, [readPtr + 0x00c0]
+(!P6) MOV R92, RZ ?W1;                                       // @!P6 MOV fetchRegC7, RZ
+      LEA.LO   R70.CC, R76, R70, 4 &req=3 ?W6G;              // LEA.LO readPtr.CC, strideC.reuse, readPtr, 4
+      LEA.HI.X R71, R76, R71, RZ, 4 ?W2;                     // LEA.HI.X readPtr_HI, strideC, readPtr_HI, strideC_HI, 4
+(P1)  R2P PR, R75.B2, 0x78 ?W13G;                            // @P1 R2P PR, readPreds.B2, 0x78
+(P3)  LDG.E.CG.U16  R93, [R70 + 0x0000] ?W1;                 // @P3 LDG.E.CG.U16 fetchRegC8, [readPtr + 0x0000]
+(!P3) MOV R93, RZ ?W1;                                       // @!P3 MOV fetchRegC8, RZ
+(P4)  LDG.E.CG.U16  R94, [R70 + 0x0040] ?W1;                 // @P4 LDG.E.CG.U16 fetchRegC9, [readPtr + 0x0040]
+(!P4) MOV R94, RZ ?W1;                                       // @!P4 MOV fetchRegC9, RZ
+(P5)  LDG.E.CG.U16  R95, [R70 + 0x0080] ?W1;                 // @P5 LDG.E.CG.U16 fetchRegC10, [readPtr + 0x0080]
+(!P5) MOV R95, RZ ?W1;                                       // @!P5 MOV fetchRegC10, RZ
+(P6)  LDG.E.CG.U16  R96, [R70 + 0x00c0] &rd=3 ?W2G;          // @P6 LDG.E.CG.U16 fetchRegC11, [readPtr + 0x00c0]
+(!P6) MOV R96, RZ ?W1;                                       // @!P6 MOV fetchRegC11, RZ
+      LEA.LO   R70.CC, R76, R70, 4 &req=3 ?W6G;              // LEA.LO readPtr.CC, strideC.reuse, readPtr, 4
+      LEA.HI.X R71, R76, R71, RZ, 4 ?W2;                     // LEA.HI.X readPtr_HI, strideC, readPtr_HI, strideC_HI, 4
+(P1)  R2P PR, R75.B3, 0x78 ?W13G;                            // @P1 R2P PR, readPreds.B3, 0x78
+(P3)  LDG.E.CG.U16  R97, [R70 + 0x0000] ?W1;                 // @P3 LDG.E.CG.U16 fetchRegC12, [readPtr + 0x0000]
+(!P3) MOV R97, RZ ?W1;                                       // @!P3 MOV fetchRegC12, RZ
+(P4)  LDG.E.CG.U16  R98, [R70 + 0x0040] ?W1;                 // @P4 LDG.E.CG.U16 fetchRegC13, [readPtr + 0x0040]
+(!P4) MOV R98, RZ ?W1;                                       // @!P4 MOV fetchRegC13, RZ
+(P5)  LDG.E.CG.U16  R99, [R70 + 0x0080] ?W1;                 // @P5 LDG.E.CG.U16 fetchRegC14, [readPtr + 0x0080]
+(!P5) MOV R99, RZ ?W1;                                       // @!P5 MOV fetchRegC14, RZ
+(P6)  LDG.E.CG.U16  R100, [R70 + 0x00c0] &rd=3 &wr=2 ?W2G;   // @P6 LDG.E.CG.U16 fetchRegC15, [readPtr + 0x00c0]
+(!P6) MOV R100, RZ ?W1;                                      // @!P6 MOV fetchRegC15, RZ
+      LEA.LO   R70.CC, -R84, R70, 1 &req=3 ?W6G;             // LEA.LO readPtr.CC, -backStride.reuse, readPtr, 1
+      LEA.HI.X R71, -R84, R71, R85, 1 ?W1;                   // LEA.HI.X readPtr_HI, -backStride, readPtr_HI, backStride_HI, 1
+      PSETP.AND  P0, P1, P1 &req=4 ?W1;                      // PSETP.AND P0, P1, P1
+      HMUL2  R104, R77.reuse.H0_H0, R3 &req=0 ?W1;           // HMUL2 storeReg0, alpha.reuse.H0_H0, C_r0_c0
+      HMUL2  R105, R77.reuse.H0_H0, R11 ?W1;                 // HMUL2 storeReg2, alpha.reuse.H0_H0, C_r2_c0
+      HMUL2  R106, R77.reuse.H0_H0, R1 ?W1;                  // HMUL2 storeReg4, alpha.reuse.H0_H0, C_r4_c0
+      HMUL2  R107, R77.reuse.H0_H0, R9 ?W1;                  // HMUL2 storeReg6, alpha.reuse.H0_H0, C_r6_c0
+      HMUL2  R108, R77.reuse.H0_H0, R35 ?W1;                 // HMUL2 storeReg8, alpha.reuse.H0_H0, C_r8_c0
+      HMUL2  R109, R77.reuse.H0_H0, R43 ?W1;                 // HMUL2 storeReg10, alpha.reuse.H0_H0, C_r10_c0
+      HMUL2  R110, R77.reuse.H0_H0, R33 ?W1;                 // HMUL2 storeReg12, alpha.reuse.H0_H0, C_r12_c0
+      HMUL2  R111, R77.H0_H0, R41 &wr=4 ?W1;                 // HMUL2 storeReg14, alpha.H0_H0, C_r14_c0
+      IADD  R82,   R82,    1 ?W1;                            // IADD cColMinusN, cColMinusN, 1
+      CAL  maxwell_hgemm_256x128_mods_nt_STORE_COL ?W5G;     // CAL maxwell_hgemm_256x128_mods_nt_STORE_COL
+      LEA.LO   R72.CC, -R84, R72, 1 &req=3 ?W6G;             // LEA.LO writePtr.CC, -backStride.reuse, writePtr, 1
+      LEA.HI.X R73, -R84, R73, R85, 1 ?W1;                   // LEA.HI.X writePtr_HI, -backStride, writePtr_HI, backStride_HI, 1
+      LEA.LO   R70.CC, -R84, R70, 1 &req=3 ?W6G;             // LEA.LO readPtr.CC, -backStride.reuse, readPtr, 1
+      LEA.HI.X R71, -R84, R71, R85, 1 ?W1;                   // LEA.HI.X readPtr_HI, -backStride, readPtr_HI, backStride_HI, 1
+      HMUL2  R104, R77.reuse.H0_H0, R7 ?W1;                  // HMUL2 storeReg0, alpha.reuse.H0_H0, C_r0_c1
+      HMUL2  R105, R77.reuse.H0_H0, R15 ?W1;                 // HMUL2 storeReg2, alpha.reuse.H0_H0, C_r2_c1
+      HMUL2  R106, R77.reuse.H0_H0, R5 ?W1;                  // HMUL2 storeReg4, alpha.reuse.H0_H0, C_r4_c1
+      HMUL2  R107, R77.reuse.H0_H0, R13 ?W1;                 // HMUL2 storeReg6, alpha.reuse.H0_H0, C_r6_c1
+      HMUL2  R108, R77.reuse.H0_H0, R39 ?W1;                 // HMUL2 storeReg8, alpha.reuse.H0_H0, C_r8_c1
+      HMUL2  R109, R77.reuse.H0_H0, R47 ?W1;                 // HMUL2 storeReg10, alpha.reuse.H0_H0, C_r10_c1
+      HMUL2  R110, R77.reuse.H0_H0, R37 ?W1;                 // HMUL2 storeReg12, alpha.reuse.H0_H0, C_r12_c1
+      HMUL2  R111, R77.H0_H0, R45 &wr=4 ?W1;                 // HMUL2 storeReg14, alpha.H0_H0, C_r14_c1
+      IADD  R82,   R82,    1 ?W1;                            // IADD cColMinusN, cColMinusN, 1
+      CAL  maxwell_hgemm_256x128_mods_nt_STORE_COL ?W5G;     // CAL maxwell_hgemm_256x128_mods_nt_STORE_COL
+      LEA.LO   R72.CC, -R84, R72, 1 &req=3 ?W6G;             // LEA.LO writePtr.CC, -backStride.reuse, writePtr, 1
+      LEA.HI.X R73, -R84, R73, R85, 1 ?W1;                   // LEA.HI.X writePtr_HI, -backStride, writePtr_HI, backStride_HI, 1
+      LEA.LO   R70.CC, -R84, R70, 1 &req=3 ?W6G;             // LEA.LO readPtr.CC, -backStride.reuse, readPtr, 1
+      LEA.HI.X R71, -R84, R71, R85, 1 ?W1;                   // LEA.HI.X readPtr_HI, -backStride, readPtr_HI, backStride_HI, 1
+      HMUL2  R104, R77.reuse.H0_H0, R2 ?W1;                  // HMUL2 storeReg0, alpha.reuse.H0_H0, C_r0_c2
+      HMUL2  R105, R77.reuse.H0_H0, R10 ?W1;                 // HMUL2 storeReg2, alpha.reuse.H0_H0, C_r2_c2
+      HMUL2  R106, R77.reuse.H0_H0, R0 ?W1;                  // HMUL2 storeReg4, alpha.reuse.H0_H0, C_r4_c2
+      HMUL2  R107, R77.reuse.H0_H0, R8 ?W1;                  // HMUL2 storeReg6, alpha.reuse.H0_H0, C_r6_c2
+      HMUL2  R108, R77.reuse.H0_H0, R34 ?W1;                 // HMUL2 storeReg8, alpha.reuse.H0_H0, C_r8_c2
+      HMUL2  R109, R77.reuse.H0_H0, R42 ?W1;                 // HMUL2 storeReg10, alpha.reuse.H0_H0, C_r10_c2
+      HMUL2  R110, R77.reuse.H0_H0, R32 ?W1;                 // HMUL2 storeReg12, alpha.reuse.H0_H0, C_r12_c2
+      HMUL2  R111, R77.H0_H0, R40 &wr=4 ?W1;                 // HMUL2 storeReg14, alpha.H0_H0, C_r14_c2
+      IADD  R82,   R82,    1 ?W1;                            // IADD cColMinusN, cColMinusN, 1
+      CAL  maxwell_hgemm_256x128_mods_nt_STORE_COL ?W5G;     // CAL maxwell_hgemm_256x128_mods_nt_STORE_COL
+      LEA.LO   R72.CC, -R84, R72, 1 &req=3 ?W6G;             // LEA.LO writePtr.CC, -backStride.reuse, writePtr, 1
+      LEA.HI.X R73, -R84, R73, R85, 1 ?W1;                   // LEA.HI.X writePtr_HI, -backStride, writePtr_HI, backStride_HI, 1
+      LEA.LO   R70.CC, -R84, R70, 1 &req=3 ?W6G;             // LEA.LO readPtr.CC, -backStride.reuse, readPtr, 1
+      LEA.HI.X R71, -R84, R71, R85, 1 ?W1;                   // LEA.HI.X readPtr_HI, -backStride, readPtr_HI, backStride_HI, 1
+      HMUL2  R104, R77.reuse.H0_H0, R6 ?W1;                  // HMUL2 storeReg0, alpha.reuse.H0_H0, C_r0_c3
+      HMUL2  R105, R77.reuse.H0_H0, R14 ?W1;                 // HMUL2 storeReg2, alpha.reuse.H0_H0, C_r2_c3
+      HMUL2  R106, R77.reuse.H0_H0, R4 ?W1;                  // HMUL2 storeReg4, alpha.reuse.H0_H0, C_r4_c3
+      HMUL2  R107, R77.reuse.H0_H0, R12 ?W1;                 // HMUL2 storeReg6, alpha.reuse.H0_H0, C_r6_c3
+      HMUL2  R108, R77.reuse.H0_H0, R38 ?W1;                 // HMUL2 storeReg8, alpha.reuse.H0_H0, C_r8_c3
+      HMUL2  R109, R77.reuse.H0_H0, R46 ?W1;                 // HMUL2 storeReg10, alpha.reuse.H0_H0, C_r10_c3
+      HMUL2  R110, R77.reuse.H0_H0, R36 ?W1;                 // HMUL2 storeReg12, alpha.reuse.H0_H0, C_r12_c3
+      HMUL2  R111, R77.H0_H0, R44 &wr=4 ?W1;                 // HMUL2 storeReg14, alpha.H0_H0, C_r14_c3
+      IADD  R82,   R82,    1 ?W1;                            // IADD cColMinusN, cColMinusN, 1
+      CAL  maxwell_hgemm_256x128_mods_nt_STORE_COL ?W5G;     // CAL maxwell_hgemm_256x128_mods_nt_STORE_COL
+      LEA.LO   R72.CC, -R84, R72, 1 &req=3 ?W6G;             // LEA.LO writePtr.CC, -backStride.reuse, writePtr, 1
+      LEA.HI.X R73, -R84, R73, R85, 1 ?W1;                   // LEA.HI.X writePtr_HI, -backStride, writePtr_HI, backStride_HI, 1
+      LEA.LO   R70.CC, -R84, R70, 1 &req=3 ?W6G;             // LEA.LO readPtr.CC, -backStride.reuse, readPtr, 1
+      LEA.HI.X R71, -R84, R71, R85, 1 ?W1;                   // LEA.HI.X readPtr_HI, -backStride, readPtr_HI, backStride_HI, 1
+      HMUL2  R104, R77.reuse.H0_H0, R19 ?W1;                 // HMUL2 storeReg0, alpha.reuse.H0_H0, C_r0_c4
+      HMUL2  R105, R77.reuse.H0_H0, R27 ?W1;                 // HMUL2 storeReg2, alpha.reuse.H0_H0, C_r2_c4
+      HMUL2  R106, R77.reuse.H0_H0, R17 ?W1;                 // HMUL2 storeReg4, alpha.reuse.H0_H0, C_r4_c4
+      HMUL2  R107, R77.reuse.H0_H0, R25 ?W1;                 // HMUL2 storeReg6, alpha.reuse.H0_H0, C_r6_c4
+      HMUL2  R108, R77.reuse.H0_H0, R51 ?W1;                 // HMUL2 storeReg8, alpha.reuse.H0_H0, C_r8_c4
+      HMUL2  R109, R77.reuse.H0_H0, R59 ?W1;                 // HMUL2 storeReg10, alpha.reuse.H0_H0, C_r10_c4
+      HMUL2  R110, R77.reuse.H0_H0, R49 ?W1;                 // HMUL2 storeReg12, alpha.reuse.H0_H0, C_r12_c4
+      HMUL2  R111, R77.H0_H0, R57 &wr=4 ?W1;                 // HMUL2 storeReg14, alpha.H0_H0, C_r14_c4
+      IADD  R82,   R82,    1 ?W1;                            // IADD cColMinusN, cColMinusN, 1
+      CAL  maxwell_hgemm_256x128_mods_nt_STORE_COL ?W5G;     // CAL maxwell_hgemm_256x128_mods_nt_STORE_COL
+      LEA.LO   R72.CC, -R84, R72, 1 &req=3 ?W6G;             // LEA.LO writePtr.CC, -backStride.reuse, writePtr, 1
+      LEA.HI.X R73, -R84, R73, R85, 1 ?W1;                   // LEA.HI.X writePtr_HI, -backStride, writePtr_HI, backStride_HI, 1
+      LEA.LO   R70.CC, -R84, R70, 1 &req=3 ?W6G;             // LEA.LO readPtr.CC, -backStride.reuse, readPtr, 1
+      LEA.HI.X R71, -R84, R71, R85, 1 ?W1;                   // LEA.HI.X readPtr_HI, -backStride, readPtr_HI, backStride_HI, 1
+      HMUL2  R104, R77.reuse.H0_H0, R23 ?W1;                 // HMUL2 storeReg0, alpha.reuse.H0_H0, C_r0_c5
+      HMUL2  R105, R77.reuse.H0_H0, R31 ?W1;                 // HMUL2 storeReg2, alpha.reuse.H0_H0, C_r2_c5
+      HMUL2  R106, R77.reuse.H0_H0, R21 ?W1;                 // HMUL2 storeReg4, alpha.reuse.H0_H0, C_r4_c5
+      HMUL2  R107, R77.reuse.H0_H0, R29 ?W1;                 // HMUL2 storeReg6, alpha.reuse.H0_H0, C_r6_c5
+      HMUL2  R108, R77.reuse.H0_H0, R55 ?W1;                 // HMUL2 storeReg8, alpha.reuse.H0_H0, C_r8_c5
+      HMUL2  R109, R77.reuse.H0_H0, R63 ?W1;                 // HMUL2 storeReg10, alpha.reuse.H0_H0, C_r10_c5
+      HMUL2  R110, R77.reuse.H0_H0, R53 ?W1;                 // HMUL2 storeReg12, alpha.reuse.H0_H0, C_r12_c5
+      HMUL2  R111, R77.H0_H0, R61 &wr=4 ?W1;                 // HMUL2 storeReg14, alpha.H0_H0, C_r14_c5
+      IADD  R82,   R82,    1 ?W1;                            // IADD cColMinusN, cColMinusN, 1
+      CAL  maxwell_hgemm_256x128_mods_nt_STORE_COL ?W5G;     // CAL maxwell_hgemm_256x128_mods_nt_STORE_COL
+      LEA.LO   R72.CC, -R84, R72, 1 &req=3 ?W6G;             // LEA.LO writePtr.CC, -backStride.reuse, writePtr, 1
+      LEA.HI.X R73, -R84, R73, R85, 1 ?W1;                   // LEA.HI.X writePtr_HI, -backStride, writePtr_HI, backStride_HI, 1
+      LEA.LO   R70.CC, -R84, R70, 1 &req=3 ?W6G;             // LEA.LO readPtr.CC, -backStride.reuse, readPtr, 1
+      LEA.HI.X R71, -R84, R71, R85, 1 ?W1;                   // LEA.HI.X readPtr_HI, -backStride, readPtr_HI, backStride_HI, 1
+      HMUL2  R104, R77.reuse.H0_H0, R18 ?W1;                 // HMUL2 storeReg0, alpha.reuse.H0_H0, C_r0_c6
+      HMUL2  R105, R77.reuse.H0_H0, R26 ?W1;                 // HMUL2 storeReg2, alpha.reuse.H0_H0, C_r2_c6
+      HMUL2  R106, R77.reuse.H0_H0, R16 ?W1;                 // HMUL2 storeReg4, alpha.reuse.H0_H0, C_r4_c6
+      HMUL2  R107, R77.reuse.H0_H0, R24 ?W1;                 // HMUL2 storeReg6, alpha.reuse.H0_H0, C_r6_c6
+      HMUL2  R108, R77.reuse.H0_H0, R50 ?W1;                 // HMUL2 storeReg8, alpha.reuse.H0_H0, C_r8_c6
+      HMUL2  R109, R77.reuse.H0_H0, R58 ?W1;                 // HMUL2 storeReg10, alpha.reuse.H0_H0, C_r10_c6
+      HMUL2  R110, R77.reuse.H0_H0, R48 ?W1;                 // HMUL2 storeReg12, alpha.reuse.H0_H0, C_r12_c6
+      HMUL2  R111, R77.H0_H0, R56 &wr=4 ?W1;                 // HMUL2 storeReg14, alpha.H0_H0, C_r14_c6
+      IADD  R82,   R82,    1 ?W1;                            // IADD cColMinusN, cColMinusN, 1
+      CAL  maxwell_hgemm_256x128_mods_nt_STORE_COL ?W5G;     // CAL maxwell_hgemm_256x128_mods_nt_STORE_COL
+      LEA.LO   R72.CC, -R84, R72, 1 &req=3 ?W6G;             // LEA.LO writePtr.CC, -backStride.reuse, writePtr, 1
+      LEA.HI.X R73, -R84, R73, R85, 1 ?W1;                   // LEA.HI.X writePtr_HI, -backStride, writePtr_HI, backStride_HI, 1
+      PSETP.AND P0, PT, !PT ?W1;                             // PSETP.AND P0, PT, !PT
+      HMUL2  R104, R77.reuse.H0_H0, R22 ?W1;                 // HMUL2 storeReg0, alpha.reuse.H0_H0, C_r0_c7
+      HMUL2  R105, R77.reuse.H0_H0, R30 ?W1;                 // HMUL2 storeReg2, alpha.reuse.H0_H0, C_r2_c7
+      HMUL2  R106, R77.reuse.H0_H0, R20 ?W1;                 // HMUL2 storeReg4, alpha.reuse.H0_H0, C_r4_c7
+      HMUL2  R107, R77.reuse.H0_H0, R28 ?W1;                 // HMUL2 storeReg6, alpha.reuse.H0_H0, C_r6_c7
+      HMUL2  R108, R77.reuse.H0_H0, R54 ?W1;                 // HMUL2 storeReg8, alpha.reuse.H0_H0, C_r8_c7
+      HMUL2  R109, R77.reuse.H0_H0, R62 ?W1;                 // HMUL2 storeReg10, alpha.reuse.H0_H0, C_r10_c7
+      HMUL2  R110, R77.reuse.H0_H0, R52 ?W1;                 // HMUL2 storeReg12, alpha.reuse.H0_H0, C_r12_c7
+      HMUL2  R111, R77.H0_H0, R60 &wr=4 ?W1;                 // HMUL2 storeReg14, alpha.H0_H0, C_r14_c7
+      CAL  maxwell_hgemm_256x128_mods_nt_STORE_COL ?W5G;     // CAL maxwell_hgemm_256x128_mods_nt_STORE_COL
+      LOP.AND.NZ P1, RZ, R74, 8 ?W13G;                       // LOP.AND.NZ P1, RZ, mode, 8
+      ISETP.EQ.AND P5, PT, R66, 0, P1 &req=4 ?W1;            // ISETP.EQ.AND P5, PT, tid, 0, P1
+(P1)  IADD32I  R69, R69, 1 &req=4 ?W1;                       // @P1 IADD32I batchIdx, batchIdx, 1
+(P1)  BAR.SYNC 0 ?W12G;                                      // @P1 BAR.SYNC 0
+(P5)  MEMBAR.GL ?W5G;                                        // @P5 MEMBAR.GL
+(P5)  STG.E.CG.32 [R118], R69 ?W1;                           // @P5 STG.E.CG.32 [spinLockPtr], batchIdx
+      EXIT ?W5G;                                             // EXIT
+maxwell_hgemm_256x128_mods_nt_STORE_COL:
+      STS.128   [R64 + 0x0000], R104 &req=4 ?W1;             // STS.128 [stsWritePtr + 0x0000], storeReg0
+      STS.128   [R64 + 0x0080], R108 ?W1;                    // STS.128 [stsWritePtr + 0x0080], storeReg8
+      BAR.SYNC 0 ?W5G;                                       // BAR.SYNC 0
+      MOV R117, R75 ?W1;                                     // MOV writePreds, readPreds
+      ISETP.LT.AND  P3, PT, R81.reuse, 0, PT ?W1;            // ISETP.LT.AND P3, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P4, PT, R81.reuse, -32, PT ?W1;          // ISETP.LT.AND P4, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P5, PT, R81.reuse, -64, PT ?W1;          // ISETP.LT.AND P5, PT, cRowMinusM.reuse, -64, PT
+      ISETP.LT.AND  P6, PT, R81, -96, PT ?W10G;              // ISETP.LT.AND P6, PT, cRowMinusM.reuse, -96, PT
+      ISETP.LT.AND  P3, PT, R82.reuse, 0, P3 ?W1;            // ISETP.LT.AND P3, PT, cColMinusN.reuse, 0, P3
+      ISETP.LT.AND  P4, PT, R82.reuse, 0, P4 ?W1;            // ISETP.LT.AND P4, PT, cColMinusN.reuse, 0, P4
+      ISETP.LT.AND  P5, PT, R82.reuse, 0, P5 ?W1;            // ISETP.LT.AND P5, PT, cColMinusN.reuse, 0, P5
+      ISETP.LT.AND  P6, PT, R82      , 0, P6 ?W13G;          // ISETP.LT.AND P6, PT, cColMinusN , 0, P6
+      P2R.B0 R75, PR, RZ, 0x78 ?W6G;                         // P2R.B0 readPreds, PR, RZ, 0x78
+      ISETP.LT.AND  P3, PT, R81.reuse, 0, PT ?W1;            // ISETP.LT.AND P3, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P4, PT, R81.reuse, -32, PT ?W1;          // ISETP.LT.AND P4, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P5, PT, R81.reuse, -64, PT ?W1;          // ISETP.LT.AND P5, PT, cRowMinusM.reuse, -64, PT
+      ISETP.LT.AND  P6, PT, R81, -96, PT ?W10G;              // ISETP.LT.AND P6, PT, cRowMinusM.reuse, -96, PT
+      ISETP.LT.AND  P3, PT, R82.reuse, -8, P3 ?W1;           // ISETP.LT.AND P3, PT, cColMinusN.reuse, -8, P3
+      ISETP.LT.AND  P4, PT, R82.reuse, -8, P4 ?W1;           // ISETP.LT.AND P4, PT, cColMinusN.reuse, -8, P4
+      ISETP.LT.AND  P5, PT, R82.reuse, -8, P5 ?W1;           // ISETP.LT.AND P5, PT, cColMinusN.reuse, -8, P5
+      ISETP.LT.AND  P6, PT, R82      , -8, P6 ?W13G;         // ISETP.LT.AND P6, PT, cColMinusN , -8, P6
+      P2R.B1 R75, PR, R75, 0x78 ?W6G;                        // P2R.B1 readPreds, PR, readPreds, 0x78
+      ISETP.LT.AND  P3, PT, R81.reuse, 0, PT ?W1;            // ISETP.LT.AND P3, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P4, PT, R81.reuse, -32, PT ?W1;          // ISETP.LT.AND P4, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P5, PT, R81.reuse, -64, PT ?W1;          // ISETP.LT.AND P5, PT, cRowMinusM.reuse, -64, PT
+      ISETP.LT.AND  P6, PT, R81, -96, PT ?W10G;              // ISETP.LT.AND P6, PT, cRowMinusM.reuse, -96, PT
+      ISETP.LT.AND  P3, PT, R82.reuse, -16, P3 ?W1;          // ISETP.LT.AND P3, PT, cColMinusN.reuse, -16, P3
+      ISETP.LT.AND  P4, PT, R82.reuse, -16, P4 ?W1;          // ISETP.LT.AND P4, PT, cColMinusN.reuse, -16, P4
+      ISETP.LT.AND  P5, PT, R82.reuse, -16, P5 ?W1;          // ISETP.LT.AND P5, PT, cColMinusN.reuse, -16, P5
+      ISETP.LT.AND  P6, PT, R82      , -16, P6 ?W13G;        // ISETP.LT.AND P6, PT, cColMinusN , -16, P6
+      P2R.B2 R75, PR, R75, 0x78 ?W6G;                        // P2R.B2 readPreds, PR, readPreds, 0x78
+      ISETP.LT.AND  P3, PT, R81.reuse, 0, PT ?W1;            // ISETP.LT.AND P3, PT, cRowMinusM.reuse, 0, PT
+      ISETP.LT.AND  P4, PT, R81.reuse, -32, PT ?W1;          // ISETP.LT.AND P4, PT, cRowMinusM.reuse, -32, PT
+      ISETP.LT.AND  P5, PT, R81.reuse, -64, PT ?W1;          // ISETP.LT.AND P5, PT, cRowMinusM.reuse, -64, PT
+      ISETP.LT.AND  P6, PT, R81, -96, PT ?W10G;              // ISETP.LT.AND P6, PT, cRowMinusM.reuse, -96, PT
+      ISETP.LT.AND  P3, PT, R82.reuse, -24, P3 ?W1;          // ISETP.LT.AND P3, PT, cColMinusN.reuse, -24, P3
+      ISETP.LT.AND  P4, PT, R82.reuse, -24, P4 ?W1;          // ISETP.LT.AND P4, PT, cColMinusN.reuse, -24, P4
+      ISETP.LT.AND  P5, PT, R82.reuse, -24, P5 ?W1;          // ISETP.LT.AND P5, PT, cColMinusN.reuse, -24, P5
+      ISETP.LT.AND  P6, PT, R82      , -24, P6 ?W13G;        // ISETP.LT.AND P6, PT, cColMinusN , -24, P6
+      P2R.B3 R75, PR, R75, 0x78 ?W6G;                        // P2R.B3 readPreds, PR, readPreds, 0x78
+      LDS.U16   R104, [R65 + 0x0000] ?W1;                    // LDS.U16 storeReg0, [ldsReadPtr + 0x0000]
+      LDS.U16   R101, [R65 + 0x0040] ?W1;                    // LDS.U16 storeReg1, [ldsReadPtr + 0x0040]
+      LDS.U16   R105, [R65 + 0x0080] ?W1;                    // LDS.U16 storeReg2, [ldsReadPtr + 0x0080]
+      LDS.U16   R102, [R65 + 0x00c0] ?W1;                    // LDS.U16 storeReg3, [ldsReadPtr + 0x00c0]
+      LDS.U16   R106, [R65 + 0x0100] ?W1;                    // LDS.U16 storeReg4, [ldsReadPtr + 0x0100]
+      LDS.U16   R103, [R65 + 0x0140] ?W1;                    // LDS.U16 storeReg5, [ldsReadPtr + 0x0140]
+      LDS.U16   R107, [R65 + 0x0180] ?W1;                    // LDS.U16 storeReg6, [ldsReadPtr + 0x0180]
+      LDS.U16   R112, [R65 + 0x01c0] ?W1;                    // LDS.U16 storeReg7, [ldsReadPtr + 0x01c0]
+      LDS.U16   R108, [R65 + 0x0200] ?W1;                    // LDS.U16 storeReg8, [ldsReadPtr + 0x0200]
+      LDS.U16   R113, [R65 + 0x0240] ?W1;                    // LDS.U16 storeReg9, [ldsReadPtr + 0x0240]
+      LDS.U16   R109, [R65 + 0x0280] ?W1;                    // LDS.U16 storeReg10, [ldsReadPtr + 0x0280]
+      LDS.U16   R114, [R65 + 0x02c0] ?W1;                    // LDS.U16 storeReg11, [ldsReadPtr + 0x02c0]
+      LDS.U16   R110, [R65 + 0x0300] ?W1;                    // LDS.U16 storeReg12, [ldsReadPtr + 0x0300]
+      LDS.U16   R115, [R65 + 0x0340] ?W1;                    // LDS.U16 storeReg13, [ldsReadPtr + 0x0340]
+      LDS.U16   R111, [R65 + 0x0380] ?W1;                    // LDS.U16 storeReg14, [ldsReadPtr + 0x0380]
+      LDS.U16   R116, [R65 + 0x03c0] &wr=0 ?W1;              // LDS.U16 storeReg15, [ldsReadPtr + 0x03c0]
+      BAR.SYNC 0 ?W5G;                                       // BAR.SYNC 0
+      LOP.AND.NZ P2, RZ, R74, 32 ?W13G;                      // LOP.AND.NZ P2, RZ, mode, 32
+      ISETP.GT.AND P2, PT, R69, 0, P2 ?W13G;                 // ISETP.GT.AND P2, PT, batchIdx, 0, P2
+(P2)  BRA.U maxwell_hgemm_256x128_mods_nt_END_BIAS ?W5G;     // @P2 BRA.U maxwell_hgemm_256x128_mods_nt_END_BIAS
+maxwell_hgemm_256x128_mods_nt_END_BIAS:
+(!P1) BRA  maxwell_hgemm_256x128_mods_nt_STORE_COL_WRITE ?W5G; // @!P1 BRA maxwell_hgemm_256x128_mods_nt_STORE_COL_WRITE
+(P2)  BRA.U   maxwell_hgemm_256x128_mods_nt_STORE_COL_WRITE ?W5G; // @P2 BRA.U maxwell_hgemm_256x128_mods_nt_STORE_COL_WRITE
+(!P0) R2P PR, RZ.B0, 0x78 ?W1;                               // @!P0 R2P PR, RZ.B0, 0x78
+(P0)  R2P PR, R75.B0, 0x78 ?W13G;                            // @P0 R2P PR, readPreds.B0, 0x78
+      HFMA2    R104, R80, R83, R104 &req={2,0} &rd=4 ?W2G;   // HFMA2 storeReg0, beta.reuse, fetchRegC0, storeReg0
+(P3)  LDG.E.CG.U16    R83, [R70 + 0x0000] &req=4 ?W2G;       // @P3 LDG.E.CG.U16 fetchRegC0, [readPtr + 0x0000]
+      HFMA2    R101, R80, R86, R101 &rd=4 ?W2G;              // HFMA2 storeReg1, beta.reuse, fetchRegC1, storeReg1
+(P4)  LDG.E.CG.U16    R86, [R70 + 0x0040] &req=4 ?W2G;       // @P4 LDG.E.CG.U16 fetchRegC1, [readPtr + 0x0040]
+      HFMA2    R105, R80, R87, R105 &rd=4 ?W2G;              // HFMA2 storeReg2, beta.reuse, fetchRegC2, storeReg2
+(P5)  LDG.E.CG.U16    R87, [R70 + 0x0080] &req=4 ?W2G;       // @P5 LDG.E.CG.U16 fetchRegC2, [readPtr + 0x0080]
+      HFMA2    R102, R80, R88, R102 &rd=4 ?W2G;              // HFMA2 storeReg3, beta.reuse, fetchRegC3, storeReg3
+(P6)  LDG.E.CG.U16    R88, [R70 + 0x00c0] &req=4 &rd=3 ?W2G; // @P6 LDG.E.CG.U16 fetchRegC3, [readPtr + 0x00c0]
+      LEA.LO   R70.CC, R76, R70, 4 &req=3 ?W6G;              // LEA.LO readPtr.CC, strideC.reuse, readPtr, 4
+      LEA.HI.X R71, R76, R71, RZ, 4 ?W1;                     // LEA.HI.X readPtr_HI, strideC, readPtr_HI, strideC_HI, 4
+(P0)  R2P PR, R75.B1, 0x78 ?W13G;                            // @P0 R2P PR, readPreds.B1, 0x78
+      HFMA2    R106, R80, R89, R106 &rd=4 ?W2G;              // HFMA2 storeReg4, beta.reuse, fetchRegC4, storeReg4
+(P3)  LDG.E.CG.U16    R89, [R70 + 0x0000] &req=4 ?W2G;       // @P3 LDG.E.CG.U16 fetchRegC4, [readPtr + 0x0000]
+      HFMA2    R103, R80, R90, R103 &rd=4 ?W2G;              // HFMA2 storeReg5, beta.reuse, fetchRegC5, storeReg5
+(P4)  LDG.E.CG.U16    R90, [R70 + 0x0040] &req=4 ?W2G;       // @P4 LDG.E.CG.U16 fetchRegC5, [readPtr + 0x0040]
+      HFMA2    R107, R80, R91, R107 &rd=4 ?W2G;              // HFMA2 storeReg6, beta.reuse, fetchRegC6, storeReg6
+(P5)  LDG.E.CG.U16    R91, [R70 + 0x0080] &req=4 ?W2G;       // @P5 LDG.E.CG.U16 fetchRegC6, [readPtr + 0x0080]
+      HFMA2    R112, R80, R92, R112 &rd=4 ?W2G;              // HFMA2 storeReg7, beta.reuse, fetchRegC7, storeReg7
+(P6)  LDG.E.CG.U16    R92, [R70 + 0x00c0] &req=4 &rd=3 ?W2G; // @P6 LDG.E.CG.U16 fetchRegC7, [readPtr + 0x00c0]
+      LEA.LO   R70.CC, R76, R70, 4 &req=3 ?W6G;              // LEA.LO readPtr.CC, strideC.reuse, readPtr, 4
+      LEA.HI.X R71, R76, R71, RZ, 4 ?W1;                     // LEA.HI.X readPtr_HI, strideC, readPtr_HI, strideC_HI, 4
+(P0)  R2P PR, R75.B2, 0x78 ?W13G;                            // @P0 R2P PR, readPreds.B2, 0x78
+      HFMA2    R108, R80, R93, R108 &rd=4 ?W2G;              // HFMA2 storeReg8, beta.reuse, fetchRegC8, storeReg8
+(P3)  LDG.E.CG.U16    R93, [R70 + 0x0000] &req=4 ?W2G;       // @P3 LDG.E.CG.U16 fetchRegC8, [readPtr + 0x0000]
+      HFMA2    R113, R80, R94, R113 &rd=4 ?W2G;              // HFMA2 storeReg9, beta.reuse, fetchRegC9, storeReg9
+(P4)  LDG.E.CG.U16    R94, [R70 + 0x0040] &req=4 ?W2G;       // @P4 LDG.E.CG.U16 fetchRegC9, [readPtr + 0x0040]
+      HFMA2    R109, R80, R95, R109 &rd=4 ?W2G;              // HFMA2 storeReg10, beta.reuse, fetchRegC10, storeReg10
+(P5)  LDG.E.CG.U16    R95, [R70 + 0x0080] &req=4 ?W2G;       // @P5 LDG.E.CG.U16 fetchRegC10, [readPtr + 0x0080]
+      HFMA2    R114, R80, R96, R114 &rd=4 ?W2G;              // HFMA2 storeReg11, beta.reuse, fetchRegC11, storeReg11
+(P6)  LDG.E.CG.U16    R96, [R70 + 0x00c0] &req=4 &rd=3 ?W2G; // @P6 LDG.E.CG.U16 fetchRegC11, [readPtr + 0x00c0]
+      LEA.LO   R70.CC, R76, R70, 4 &req=3 ?W6G;              // LEA.LO readPtr.CC, strideC.reuse, readPtr, 4
+      LEA.HI.X R71, R76, R71, RZ, 4 ?W1;                     // LEA.HI.X readPtr_HI, strideC, readPtr_HI, strideC_HI, 4
+(P0)  R2P PR, R75.B3, 0x78 ?W13G;                            // @P0 R2P PR, readPreds.B3, 0x78
+      HFMA2    R110, R80, R97, R110 &rd=4 ?W2G;              // HFMA2 storeReg12, beta.reuse, fetchRegC12, storeReg12
+(P3)  LDG.E.CG.U16    R97, [R70 + 0x0000] &req=4 ?W2G;       // @P3 LDG.E.CG.U16 fetchRegC12, [readPtr + 0x0000]
+      HFMA2    R115, R80, R98, R115 &rd=4 ?W2G;              // HFMA2 storeReg13, beta.reuse, fetchRegC13, storeReg13
+(P4)  LDG.E.CG.U16    R98, [R70 + 0x0040] &req=4 ?W2G;       // @P4 LDG.E.CG.U16 fetchRegC13, [readPtr + 0x0040]
+      HFMA2    R111, R80, R99, R111 &rd=4 ?W2G;              // HFMA2 storeReg14, beta.reuse, fetchRegC14, storeReg14
+(P5)  LDG.E.CG.U16    R99, [R70 + 0x0080] &req=4 ?W2G;       // @P5 LDG.E.CG.U16 fetchRegC14, [readPtr + 0x0080]
+      HFMA2    R116, R80      , R100, R116 &wr=4 ?W2G;       // HFMA2 storeReg15, beta , fetchRegC15, storeReg15
+(P6)  LDG.E.CG.U16    R100, [R70 + 0x00c0] &req=4 &rd=3  &wr=2 ?W2G; // @P6 LDG.E.CG.U16 fetchRegC15, [readPtr + 0x00c0]
+maxwell_hgemm_256x128_mods_nt_STORE_COL_WRITE:
+      LOP.AND.NZ P2, RZ, R74, 32 ?W13G;                      // LOP.AND.NZ P2, RZ, mode, 32
+(P2)  BRA.U   maxwell_hgemm_256x128_mods_nt_END_RELU_EPILOG ?W5G; // @P2 BRA.U maxwell_hgemm_256x128_mods_nt_END_RELU_EPILOG
+maxwell_hgemm_256x128_mods_nt_END_RELU_EPILOG:
+      R2P PR, R117.B0, 0x78 ?W13G;                           // R2P PR, writePreds.B0, 0x78
+(P3)  STG.E.CG.U16 [R72 + 0x0000], R104 &req={0,4} ?W1;      // @P3 STG.E.CG.U16 [writePtr + 0x0000], storeReg0
+(P4)  STG.E.CG.U16 [R72 + 0x0040], R101 ?W1;                 // @P4 STG.E.CG.U16 [writePtr + 0x0040], storeReg1
+(P5)  STG.E.CG.U16 [R72 + 0x0080], R105 ?W1;                 // @P5 STG.E.CG.U16 [writePtr + 0x0080], storeReg2
+(P6)  STG.E.CG.U16 [R72 + 0x00c0], R102 &rd=3 ?W2G;          // @P6 STG.E.CG.U16 [writePtr + 0x00c0], storeReg3
+      LEA.LO   R72.CC, R76, R72, 4 &req=3 ?W6G;              // LEA.LO writePtr.CC, strideC.reuse, writePtr, 4
+      LEA.HI.X R73, R76, R73, RZ, 4 ?W2;                     // LEA.HI.X writePtr_HI, strideC, writePtr_HI, strideC_HI, 4
+      R2P PR, R117.B1, 0x78 ?W13G;                           // R2P PR, writePreds.B1, 0x78
+(P3)  STG.E.CG.U16 [R72 + 0x0000], R106 ?W1;                 // @P3 STG.E.CG.U16 [writePtr + 0x0000], storeReg4
+(P4)  STG.E.CG.U16 [R72 + 0x0040], R103 ?W1;                 // @P4 STG.E.CG.U16 [writePtr + 0x0040], storeReg5
+(P5)  STG.E.CG.U16 [R72 + 0x0080], R107 ?W1;                 // @P5 STG.E.CG.U16 [writePtr + 0x0080], storeReg6
+(P6)  STG.E.CG.U16 [R72 + 0x00c0], R112 &rd=3 ?W2G;          // @P6 STG.E.CG.U16 [writePtr + 0x00c0], storeReg7
+      LEA.LO   R72.CC, R76, R72, 4 &req=3 ?W6G;              // LEA.LO writePtr.CC, strideC.reuse, writePtr, 4
+      LEA.HI.X R73, R76, R73, RZ, 4 ?W2;                     // LEA.HI.X writePtr_HI, strideC, writePtr_HI, strideC_HI, 4
+      R2P PR, R117.B2, 0x78 ?W13G;                           // R2P PR, writePreds.B2, 0x78
+(P3)  STG.E.CG.U16 [R72 + 0x0000], R108 ?W1;                 // @P3 STG.E.CG.U16 [writePtr + 0x0000], storeReg8
+(P4)  STG.E.CG.U16 [R72 + 0x0040], R113 ?W1;                 // @P4 STG.E.CG.U16 [writePtr + 0x0040], storeReg9
+(P5)  STG.E.CG.U16 [R72 + 0x0080], R109 ?W1;                 // @P5 STG.E.CG.U16 [writePtr + 0x0080], storeReg10
+(P6)  STG.E.CG.U16 [R72 + 0x00c0], R114 &rd=3 ?W2G;          // @P6 STG.E.CG.U16 [writePtr + 0x00c0], storeReg11
+      LEA.LO   R72.CC, R76, R72, 4 &req=3 ?W6G;              // LEA.LO writePtr.CC, strideC.reuse, writePtr, 4
+      LEA.HI.X R73, R76, R73, RZ, 4 ?W2;                     // LEA.HI.X writePtr_HI, strideC, writePtr_HI, strideC_HI, 4
+      R2P PR, R117.B3, 0x78 ?W13G;                           // R2P PR, writePreds.B3, 0x78
+(P3)  STG.E.CG.U16 [R72 + 0x0000], R110 ?W1;                 // @P3 STG.E.CG.U16 [writePtr + 0x0000], storeReg12
+(P4)  STG.E.CG.U16 [R72 + 0x0040], R115 ?W1;                 // @P4 STG.E.CG.U16 [writePtr + 0x0040], storeReg13
+(P5)  STG.E.CG.U16 [R72 + 0x0080], R111 ?W1;                 // @P5 STG.E.CG.U16 [writePtr + 0x0080], storeReg14
+(P6)  STG.E.CG.U16 [R72 + 0x00c0], R116 &rd=3 ?W2G;          // @P6 STG.E.CG.U16 [writePtr + 0x00c0], storeReg15
+      RET ?W5G;                                              // RET
+maxwell_hgemm_256x128_mods_nt_END:
+	.sectioninfo	@"SHI_REGISTERS=122"
+//--------------------- .lw.info.maxwell_hgemm_256x128_mods_nt
+
+	.section	.lw.info.maxwell_hgemm_256x128_mods_nt,"",@SHT_LWDA_INFO
+	// ---- lwinfo : EIATTR_PARAM_CBANK
+	.align 4
+maxwell_hgemm_256x128_mods_nt_1:
+	.byte  0x04, 0xa
+	.short  (maxwell_hgemm_256x128_mods_nt_3 - maxwell_hgemm_256x128_mods_nt_2)
+	.align 4
+maxwell_hgemm_256x128_mods_nt_2:
+	.word	index@(.lw.constant0.maxwell_hgemm_256x128_mods_nt)
+	.short  0x0140
+	.short  0x98
+
+	// ---- lwinfo : EIATTR_CBANK_PARAM_SIZE
+	.align 4
+maxwell_hgemm_256x128_mods_nt_3:
+	.byte	0x03, 0x19
+	.short  0x98
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+maxwell_hgemm_256x128_mods_nt_4:
+	.byte  0x04, 0x17
+	.short (maxwell_hgemm_256x128_mods_nt_6 - maxwell_hgemm_256x128_mods_nt_5)
+maxwell_hgemm_256x128_mods_nt_5:
+	.word	0x00000000
+	.short  0x0
+	.short  0x0
+	.byte  0x00, 0xf0, 0x61, 0x02
+
+maxwell_hgemm_256x128_mods_nt_6:
+	// ---- lwinfo : EIATTR_SW1850030_WAR
+	.align 4
+	.byte 0x01, 0x2a
+	.zero 2
+	// ---- lwinfo : EIATTR_SW2393858_WAR
+	.align 4
+	.byte 0x01, 0x30
+	.zero 2
+//--------------------- .lw.shared.maxwell_hgemm_256x128_mods_nt
+
+	.section	.lw.shared.maxwell_hgemm_256x128_mods_nt,"aw",@nobits
+	.align 4
+	.zero 12284
+	.word shmem_reloc_maxwell_hgemm_256x128_mods_nt
+//--------------------- .lw.callgraph             --------------------------
+	.section	.lw.callgraph,"",@"SHT_CALLGRAPH"
+	.sectionentsize	8
+	.align 4
+	.byte	0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff
+	.align 4
+	.byte	0x00, 0x00, 0x00, 0x00, 0xfe, 0xff, 0xff, 0xff
+	.byte	0x00, 0x00, 0x00, 0x00, 0xfd, 0xff, 0xff, 0xff
+
+// ------------------- lwinfo        --------
+	.section	.lw.info,"",@SHT_LWDA_INFO
+
+	// ---- lwinfo : EIATTR_MIN_STACK_SIZE
+	.align 4
+.maxwell_hgemm_256x128_mods_nt_L1:
+	.byte  0x04, 0x12
+	.short  (.maxwell_hgemm_256x128_mods_nt_L3 - .maxwell_hgemm_256x128_mods_nt_L2)
+	.align 4
+.maxwell_hgemm_256x128_mods_nt_L2:
+	.word	index@(maxwell_hgemm_256x128_mods_nt)
+	.word  0x0
+
+	// ---- lwinfo : EIATTR_FRAME_SIZE
+	.align 4
+.maxwell_hgemm_256x128_mods_nt_L3:
+	.byte  0x04, 0x11
+	.short  (.maxwell_hgemm_256x128_mods_nt_L5 - .maxwell_hgemm_256x128_mods_nt_L4)
+	.align 4
+.maxwell_hgemm_256x128_mods_nt_L4:
+	.word	index@(maxwell_hgemm_256x128_mods_nt)
+	.word  0x0
+
+.maxwell_hgemm_256x128_mods_nt_L5:
+
+//--------------------- .lw.constant0.maxwell_hgemm_256x128_mods_nt
+	.section	.lw.constant0.maxwell_hgemm_256x128_mods_nt,"a",@progbits
+	.align 4
+.maxwell_hgemm_256x128_mods_nt_L6:
+	.zero     472
+
+// ------------------- Symbol --------
+
+// const ShaderParams maxwell_hgemm_256x128_mods_nt_params = {
+//     /* version             */ 1,
+//     /* name                */ "maxwell_hgemm_256x128_mods_nt",
+//     /* kernel              */ (void*)maxwell_hgemm_256x128_mods_nt,
+//     /* chipFamily          */ GEMM_CHIP_PASCAL,
+//     /* gemmType            */ HGEMM,
+//     /* typeA               */ R_16F,
+//     /* typeAm              */ R_16F,
+//     /* packCountA             1, */
+//     /* typeB               */ R_16F,
+//     /* packCountB             1, */
+//     /* typeC               */ R_16F,
+//     /* packCountC             1, */
+//     /* typeEpilog          */ R_16F,
+//     /* packCountEpilog        1, */
+//     /* shapeC              */ RECT,
+//     /* layoutA             */ N,
+//     /* layoutB             */ T,
+//     /* log2ElementsPerLdgA */ 0,
+//     /* log2ElementsPerLdgB */ 0,
+//     /* reLuAndBias         */ 0,
+//     /* isReleaseKernel     */ 1,
+//     /* numRegisters        */ 122,
+//     /* usedRegisters          122, */
+//     /* sharedMemSize       */ 12288,  /* 12.000 KB */
+//     /* elementRowsPerCta   */ 256,
+//     /* elementRowsPerWarp     128, */
+//     /* elementColsperCta   */ 128,
+//     /* elementColsPerWarp     32, */
+//     /* threadsPerCta       */ 256,
+//     /* raggedMn            */ true,
+//     /* warpStrideK         */ 8,
+//     /* shiftFastA          */ 1,
+//     /* multiplierSlowA     */ 16,
+//     /* offsetSlowA         */ 0,
+//     /* shiftFastB          */ 1,
+//     /* multiplierSlowB     */ 16,
+//     /* offsetSlowB         */ 0,
+//     /* shiftFastAm         */ 0,
+//     /* multiplierSlowAm    */ 0,
+//     /* offsetSlowAm        */ 0,
+//     /* kBlock              */ 8,
+//     /* lwDnnEdges          */ LWDNN_NONE,
+//     /* lwDnnLayout         */ NCHW,
+//     /* lwDnnStridedB       */ false,
+//     /* lwDnnSplitK         */ false,
+//     /* lwDnnDgrad          */ false,
+//     /* lwDnnWgrad          */ false,
+//     /* sliceRows           */ 1,
+//     /* sliceCols           */ 1,
+//     /* abiVersion          */ ABI_PREAMPERE_G
+// };
+// raggedMnNumPreds 12, R2P's in loop 4

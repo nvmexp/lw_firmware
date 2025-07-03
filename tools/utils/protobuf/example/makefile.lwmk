@@ -1,0 +1,99 @@
+#
+# LWIDIA_COPYRIGHT_BEGIN
+#
+# Copyright 2020-2022 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# LWIDIA_COPYRIGHT_END
+#
+
+BUILD_EXAMPLE2 ?= false
+BUILD_REPEATED_MSG_EXAMPLE ?= false
+
+ifeq "$(BUILD_REPEATED_MSG_EXAMPLE)" "true"
+    LW_MODS_MODULE := repeatedmsg bin
+else ifeq "$(BUILD_EXAMPLE2)" "true"
+    LW_MODS_MODULE := example2 bin
+else
+    LW_MODS_MODULE := example bin
+endif
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+ifeq "$(BUILD_REPEATED_MSG_EXAMPLE)" "true"
+    SOURCES += repeatedmsg.cpp
+    SOURCES += $(OUTPUTDIR_ABSOLUTE)/example_handler.cpp
+    PROTOFILE = repeatedmsg.proto
+else ifeq "$(BUILD_EXAMPLE2)" "true"
+    SOURCES += example2.cpp
+    SOURCES += $(OUTPUTDIR_ABSOLUTE)/example_handler.cpp
+    PROTOFILE = example2.proto
+else
+    SOURCES += example.cpp
+    PROTOFILE = example.proto
+endif
+
+LW_INCLUDES += $(OUTPUTDIR_ABSOLUTE)
+LW_INCLUDES += ../..
+LW_INCLUDES += $(LW_SOURCE)/diag/mods
+LW_INCLUDES += $(LW_SOURCE)/sdk/lwpu/inc
+
+ifeq ($(LW_TARGET_OS), Linux)
+    LDFLAGS += -ldl -lpthread
+endif
+
+ifeq ($(LW_TARGET_OS_FAMILY), Windows)
+    BIN_LDFLAGS += -LIBPATH:$(OUTPUTDIR)
+else
+    BIN_LDFLAGS += -L$(OUTPUTDIR)
+endif
+
+ifeq ($(LW_OUTPUT_ROOT),)
+    LWDIAG_LOCATION = ../../$(OUTPUTDIR)
+else
+    LWDIAG_LOCATION = $(OUTPUTDIR_ABSOLUTE)/../..
+endif
+
+LW_MODS_LIBS += pbexample_utils
+
+$(MODS_FULL_TARGET_PATH): $(OUTPUTDIR)/libpbexample_utils$(LIBSUFFIX)
+
+$(OUTPUTDIR)/libpbexample_utils$(LIBSUFFIX): $(LWDIAG_LOCATION)/liblwdiag_utils$(LIBSUFFIX)
+	$(COPY) $< $@
+
+$(LWDIAG_LOCATION)/liblwdiag_utils$(LIBSUFFIX):
+	$(MAKE) -C ../.. -f makefile.lwmk $*
+
+protobuf_gen_files  = $(OUTPUTDIR_ABSOLUTE)/example_reader.h
+protobuf_gen_files += $(OUTPUTDIR_ABSOLUTE)/example_writer.h
+protobuf_gen_files += $(OUTPUTDIR_ABSOLUTE)/example_structs.h
+protobuf_gen_files += $(OUTPUTDIR_ABSOLUTE)/messages_gen.h
+protobuf_gen_files += $(OUTPUTDIR_ABSOLUTE)/example_handler.h
+protobuf_gen_files += $(OUTPUTDIR_ABSOLUTE)/example_handler.cpp
+
+$(OBJECTS) : $(protobuf_gen_files)
+
+$(protobuf_gen_files): $(PROTOFILE) ../protobuf.py
+	@$(ECHO) $@
+	@$(PYTHON) ../protobuf.py                                            \
+            --reader_filename=$(OUTPUTDIR_ABSOLUTE)/example_reader.h         \
+            --reader_namespace=ExampleReader                                 \
+            --writer_filename=$(OUTPUTDIR_ABSOLUTE)/example_writer.h         \
+            --writer_namespace=ExampleWriter                                 \
+            --struct_filename=$(OUTPUTDIR_ABSOLUTE)/example_structs.h        \
+            --struct_namespace=ExampleStructs                                \
+            --header_filename=$(OUTPUTDIR_ABSOLUTE)/messages_gen.h           \
+            --handler_basename=$(OUTPUTDIR_ABSOLUTE)/example_handler         \
+            --handler_namespace=ExampleHandler                               \
+            $(PROTOFILE)
+
+LW_WARNINGS_AS_ERRORS  := 1
+LW_AGGRESSIVE_WARNINGS := 1
+
+ifeq ($(LW_TARGET_OS_FAMILY), Unix)
+    CFLAGS += -Wno-switch
+endif
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk

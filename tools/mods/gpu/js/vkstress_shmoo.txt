@@ -1,0 +1,229 @@
+/* -*- mode: Javascript -*-
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2010-2020 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+/**
+ * @file  vkstress_shmoo.txt
+ * @brief VkStress shmoo configuration file
+ *
+ * Please see the wiki page MODS/Shmoo for documentation:
+ * http://wiki.lwpu.com/engwiki/index.php/MODS/Shmoo
+ *
+ * Typical usage:
+ * ./mods gshmoo.js -cfg vkstress_shmoo.txt
+ * In case the test is interrupted or hangs, rerun and add -continue.
+ */
+#include "mods.h"
+
+//------------------------------------------------------------------------------
+// Add extra command-line arguments here, if you want.
+
+function AddArgs(s)
+{
+    Argv = Argv.concat(s.split(/\s+/));
+}
+
+// Enable comma-separated-variable report file.
+AddArgs("-out_csv");
+
+// Leave display alone.
+AddArgs("-null_display");
+
+// Golden values are not needed for the tests being shmoo'd
+AddArgs("-no_gold");
+
+// Don't retry tests.
+AddArgs("-regress_miscompare_count 0");
+
+// Get a clean state before running tests
+AddArgs("-reset_device");
+
+// Don't fail due to wrong branch
+AddArgs("-ignore_branch_check");
+
+// Maximize fan speed
+AddArgs("-fan_speed 100");
+
+//------------------------------------------------------------------------------
+// The ShmooConfig function sets the Axis (control) and Meas (results) objects
+// for the shmoo.
+
+function ShmooConfig(shmoo)
+{
+    VkStressPropShmoo(shmoo);
+
+    // Write a partial .csv or .jso report file just before each meas/test pass.
+    shmoo.PerPassCallback = Shmoo_WriteReports;
+}
+
+//------------------------------------------------------------------------------
+function VkStressPropShmoo(shmoo)
+{
+    // Set to true when reproducing crashes for quick turnaround
+    const quickRepro = false;
+    // How long to run the test for
+    const testRuntime = quickRepro ? 40 : 4000;
+    // Temp should not exceed this at the beginning of each test
+    const testTempC = 45;
+    // Minimum Watts accepted as a useful measurement
+    const minPowerThresholdW = 100;
+    // Sleep interval between measurements
+    const captureIntervalMs = 200;
+
+    // Set PState
+    {
+        let setPState = CreateGpuTest("SetPState", g_RmDev, { InfPts: { PStateNum: 0, LocationStr: "max" } });
+        let rc = RC.OK;
+        CHECK_RC(setPState.RunFunction());
+    }
+
+    // Prepare the test for running
+    let testMeas = new ShmooMeasGpuTest("VkStress",
+        {
+            LoopMs:        testRuntime,
+            BufferCheckMs: 0xFFFFFFFF // Disable periodic surface check
+        });
+    shmoo.AddMeas(testMeas);
+
+    // Establish temperature needed before each test
+    let subdev = testMeas.BoundGpuSubdevice;
+    let ambientTempC = ShmooGetGpuTemp(subdev); // measure ambient temp
+    ShmooStatus("Initial temperature %d C\n", ambientTempC);
+    if (ambientTempC > testTempC)
+    {
+        Out.Printf(Out.PriError, "Temperature %d exceeds %d!\n", ambientTempC, testTempC);
+        return RC.TEMP_TOO_HIGH;
+    }
+
+    // Heat up the GPU
+    {
+        let vkStress = CreateGpuTest("VkStress", g_RmDev, { LoopMs: 10000 });
+        let rc = RC.OK;
+        Out.Printf(Out.PriNormal, "Warming up the GPU...\n");
+        CHECK_RC(vkStress.RunFunction());
+    }
+
+    // Measure various metrics
+    if (!quickRepro)
+    {
+        let multiSampler = new GpuMultiSampler(shmoo, testMeas, captureIntervalMs, testTempC);
+        multiSampler.AddMeas(new PowerSampler(subdev, minPowerThresholdW));
+        multiSampler.AddMeas(new ClockSampler("GPC Clock", Gpu.ClkGpc, subdev));
+        multiSampler.AddMeas(new TemperatureSampler(subdev));
+    }
+
+    // Measure test FPS
+    shmoo.AddMeas(new ShmooMeasOK("Perf", "FPS", function() { return testMeas.TestObj.Fps; }));
+
+    function AddAxis(name, values)
+    {
+        shmoo.AddAxis(new ShmooAxisProp(testMeas.TestArgs, name, values));
+    }
+
+    // List of test's properties to shmoo
+    AddAxis("TestConfiguration.DisplayWidth", { Start: 128, Stop: 2048, StepFactor: 2 });
+    AddAxis("TestConfiguration.DisplayHeight", { Start: 128, Stop: 2048, StepFactor: 2 });
+    AddAxis("FramesPerSubmit", [0, 4, 100, 1000]);
+    AddAxis("SendColor", [true, false]);
+    AddAxis("Ztest", [true, false]);
+    AddAxis("Stencil", [true, false]);
+    AddAxis("SampleCount", { Start: 1, Stop: 8, StepFactor: 2 });
+    AddAxis("NumLights", { Start: 0, Stop: 8, Step: 1 });
+    AddAxis("PpV", { Start: 5, Stop: 1e6, StepFactor: 1.25 });
+    AddAxis("BoringXform", [true, false]);
+    shmoo.AddAxis(new ShmooMultiAxisProp(testMeas.TestArgs, "Geometry", {
+        Fixed:        { UseTessellation: false, UseMeshlets: false },
+        Tessellation: { UseTessellation: true,  UseMeshlets: false },
+        Meshlets:     { UseTessellation: false, UseMeshlets: true }
+    }));
+
+    AddAxis("ApplyFog", [true, false]);
+    AddAxis("ExponentialFog", [true, false]);
+
+    AddAxis("NumTextures", { Start: 1, Stop: 32, Step: 1 });
+    AddAxis("UseMipMapping", [true, false]);
+    AddAxis("TxD", { Start: 0, Stop: -2, Step: -1 });
+    AddAxis("AnisotropicFiltering", [true, false]);
+    AddAxis("TexReadsPerDraw", { Start: 0, Stop: 4, Step: 1 });
+    AddAxis("MaxTextureSize", { Start: 1, Stop: 1024, StepFactor: 2 });
+    AddAxis("TexIdxFarOffset", { Start: 0, Stop: 4, Step: 1});
+    AddAxis("TexIdxStride", { Start: 1, Stop: 4, Step: 1});
+
+    AddAxis("UseCompute", [true, false]);
+    AddAxis("ComputeDisableIMMA", [true, false]);
+    AddAxis("NumComputeQueues", { Start: 1, Stop: 4, Step: 1 });
+
+    AddAxis("UseRaytracing", [true, false]);
+    AddAxis("Raytracer.FramesPerSubmit", [2, 16, 128, 1024, 2048]);
+
+    // Our "fitness" function for the genetic search: 
+    // 1. Multiply average power [W] by average clock [MHz].
+    //    This penalizes the settings where the clock has been significantly
+    //    slowed down, even if average power was high.
+    // 2. Divide by 2000 to scale back the clock.  GPC clocks tend to be around
+    //    2000 MHz these days.  This gives us a value with the same
+    //    magnitude as power.
+    // 3. Callwlate exp(x / 50).  This promotes higher values
+    //    significantly and penalizes lower values, such that:
+    //      100 W -> 7
+    //      200 W -> 54
+    //      300 W -> 403
+    //      400 W -> 2980
+    //
+    // Returns the fitness score as above if all measurements were taken OK
+    // or returns 0 if the RC from measurements was not OK.
+    //
+    //   rec[0] is is RC of attempt to measure at this axis location.
+    //   rec[1] is RC from running the test, or invalid if rec[0]!=OK
+    //   rec[2] is max power [W], or invalid if rec[0]!=OK
+    //   rec[3] is average power [W], or invalid if rec[0]!=OK
+    //   rec[4] is stddev of power [W], or invalid if rec[0]!=OK
+    //   rec[5] is max clock [MHz], or invalid if rec[0]!=OK
+    //   rec[6] is min clock [MHz], or invalid if rec[0]!=OK
+    //   rec[7] is average clock [MHz], or invalid if rec[0]!=OK
+    //   rec[8] is stddev of clock [MHz], or invalid if rec[0]!=OK
+    //   rec[9] is initial temperature [C], or invalid if rec[0]!=OK
+    //   rec[10] is max temperature [C], or invalid if rec[0]!=OK
+    //   rec[11] is FPS, or invalid if rec[0]!=OK
+
+    let fitness = function(rec)
+    {
+        if (quickRepro)
+            return 1;
+
+        if (!(rec instanceof Array) || (rec.length < 12))
+            return 0;
+
+        let rc = rec[0];
+        if (rc !== RC.OK)
+            return 0;
+
+        let avgPower = rec[3];
+        let avgClock = rec[7];
+        let f = Math.exp(avgPower * avgClock / (2000 * 50));
+        Out.Printf(Out.PriNormal, " Avg power %d W, avg clock %d MHz, fitness %d\n", avgPower, avgClock, f);
+        return f;
+    };
+
+    // Use a genetic search of this very large search-space.
+    shmoo.ConfigGeneticSearch(
+        fitness,
+        1000,                 // size of first generation created randomly
+        250,                  // generation size
+        100,                  // surviving size per generation
+        0.04,                 // mutate probability per gene per new chromosome
+        10,                   // max generations
+        100000                // stop if we reach this (we actually don't want to stop, so use high value)
+    );
+
+    return RC.OK;
+}
+
+// vim:ft=javascript

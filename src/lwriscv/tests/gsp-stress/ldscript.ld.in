@@ -1,0 +1,82 @@
+OUTPUT_ARCH( "riscv" )
+ENTRY(app_entry)
+
+__imem_fmc_reserved = 1K;
+__imem_reserved = 7K + 0x4000;
+__imem_test_buffer_size = 4k;
+MEMORY {
+    // this will be also identity mapped
+    imem_pa (rwx) : ORIGIN = 0x100000 + 0x400, LENGTH = __imem_reserved
+    code_va (rwx) : ORIGIN = 0xA00000, LENGTH = LWRISCV_IMEM_SIZE - __imem_fmc_reserved - __imem_reserved
+    data_va (rw)  : ORIGIN = 0xB00000, LENGTH = LWRISCV_DMEM_SIZE
+    data_fb (rw)  : ORIGIN = 0xC00000, LENGTH = 0x1000000
+    fake_fb (rw)  : ORIGIN = 0xFF00000000000000, LENGTH = 0x1000000
+}
+
+SECTIONS
+{
+  .identity :
+  {
+     __identity_copy_start = .;
+      KEEP(*entry*(.text.app_entry))
+      *entry*(.text* .rodata* .srodata*)
+      *utils_identity*(.text* .rodata* .srodata*)
+      *utils_identity*(.data* .sdata* .bss* .sbss*)
+      *(COMMON)
+      . = ALIGN(16);
+      // MK TODO: all stacks are here so we can switch m<->s freely
+      __stack_bottom = . ;
+      . += 2048 ;
+      __stack_top = . ;
+      . = ALIGN(16);
+      __exception_stack_bottom = . ;
+      . += 1024 ;
+      __exception_stack_top  = . ;
+      __imem_test_buffer_start = .;
+      . += __imem_test_buffer_size;
+      __imem_test_buffer_end = .;
+      . = ALIGN(1024);
+      __identity_carveout_end = .;
+  } > imem_pa
+  __identity_size = SIZEOF(.identity);
+
+  .code :
+  {
+      *(.loop)
+      . = ALIGN(256);
+      *(.text.startup)
+      *(.text* )
+      *(.rodata* .srodata* )
+      . = ALIGN(1024);
+  } > code_va
+  __code_size = SIZEOF(.code);
+
+  .data :
+  {
+    *(.data*)
+    *(.sdata* )
+    *(.got*)
+    . = ALIGN(8);
+    *(.bss* .sbss*)
+    . = ALIGN(1024);
+  } > data_va
+  __data_size = SIZEOF(.data);
+
+    .data_fb :
+    {
+    *(.crc_table*)
+    . = ALIGN(1024);
+    __data_fb_buffer = . ;
+    . += 128 * 1024;
+    . = ALIGN(1024);
+    } > data_fb
+    __data_fb_size = SIZEOF(.data_fb);
+
+    // This hack is for image generator to reserve enough FB for ucode
+    .fake_fb_alloc :
+    {
+    __fake_fb_start = . ;
+    . += 256*1024;
+    __fake_fb_end = . ;
+    } > fake_fb
+}

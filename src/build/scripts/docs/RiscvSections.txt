@@ -1,0 +1,149 @@
+#************************ BEGIN COPYRIGHT NOTICE ***************************#
+#                                                                           #
+#          Copyright (c) LWPU Corporation.  All rights reserved.          #
+#                                                                           #
+# All information contained herein is proprietary and confidential to       #
+# LWPU Corporation.  Any use, reproduction, or disclosure without the     #
+# written permission of LWPU Corporation is prohibited.                   #
+#                                                                           #
+#************************** END COPYRIGHT NOTICE ***************************#
+
+Defines all known code RISC-V sections (including ODP-enabled sections).
+
+DO NOT copy this document into your RiscvSections*.pm! If additions are made
+to the scripts, PLEASE document them here. Your scripts should instead
+have the following block copied into it, to refer here.
+
+#
+# For details on the contents of this file, please refer to:
+#     <branch>/uproc/build/scripts/docs/RiscvSections.txt
+#
+
+Sections:
+    Any sections not specifically added here will be put into a single
+    catch-all section for its type (that is, data+bss goes in a data section,
+    and code goes in a code section). Effectively, one can create a simple
+    section layout by leaving this file's contents empty.
+
+    NOTE: The ordering of the section definitions in this module is
+          significant. Sections will be placed into each memory in the
+          order that they are defined in this file. This also affects their
+          placement in the RISC-V virtual memory space.
+          Data sections are placed before code sections.
+
+    SECTION_NAME =>
+    {
+       DESCRIPTION     => 'Description of section',
+       INPUT_SECTIONS  =>
+       [
+           ['*/foo/lw/objfoo*.o'    , '.data.*'],
+       ],
+       LOCATION        => [
+                              'fb' => DEFAULT,
+                              'dmem_odp' => [ 'pmu-gp10x...', ],
+                          ],
+       HEAP_SIZE       => [
+                              0x400 => [ 'pmu-gp10x...' ],
+                          ],
+       PROFILES        => [ 'pmu-gp10x...', ],
+   },
+
+Section Attributes:
+    DESCRIPTION
+        Optional description of the section.
+
+    NAME
+        Defines the name of the output-section that is created for the
+        section. By default, the section name comes from the hash key used
+        below when defining the section. The key name is colwerted to
+        camel-case with the leading character in lower-case. This attribute
+        may be used as an override if the resulting name is undesirable.
+
+    MAP_AT_INIT
+        If non-zero, the section will be mapped into memory when the ucode is
+        started. Otherwise, it will need to be mapped during run-time.
+        Sections located in resident TCM (IMEM or DMEM) are mapped at init
+        by default.
+
+    NO_LOAD
+        If non-zero, the section will be included in the output file (and will
+        be mapped into memory, if applicable) but its contents will not be
+        loaded at run-time. This can be useful for uninitialized data sections,
+        partilwlarly when building PRE_EXTRACTED profiles.
+
+    PREFIX
+        A raw linker script line to insert before the rest of the body. This
+        effectively goes before the first input section.
+
+    INPUT_SECTIONS
+        Defines a two-dimensional array where each top-level array element
+        defines a filename,section pair. The filename may refer to a specific
+        object file or a file glob.  If the specified file was a library without
+        any specifier for the files within, the entire library will be used.
+        Combined with the section, the pair represents an input code-section
+        that will be mapped into the output-section by the linker.
+        If an element is a string instead of an array, it will be included
+        directly, adding an end-of-line character to the end. This can be used
+        to save addresses inside of sections, or insert extra padding.
+        It is strongly recommended to place BSS sections at the end, to
+        improve the size of the final binary and loading time.
+
+    CHILD_SECTIONS
+        Defines an array of section definitions that will be included in the
+        current section. Only one level of nesting is supported.
+        Child sections don't have their own MPU entries or heaps.
+        They inherit attributes from their parent section, but can define
+        their own. Their metadata can be accessed from code, same as with
+        normal sections. Note that child sections can have their own PROFILES
+        field which supersedes the parent!
+        This feature is intended for closely packing profile-dependent
+        input section sets.
+        Right now child sections are supported only for code sections.
+
+    SUFFIX
+        A raw linker script line to insert after the rest of the body. This
+        effectively goes after the last input section.
+
+    LOCATION
+        Controls where the section is placed. Permitted values are:
+            'dmem_odp'    -- Paged data section that gets loaded to DMEM.
+            'imem_odp'    -- Paged code section that gets loaded to IMEM.
+            'dmem_res'    -- Section resident in DMEM.
+            'imem_res'    -- Section resident in IMEM.
+            'emem'        -- Section resident in EMEM.
+            'fb'          -- Section resident in FB.
+        When this field is missing, an error is thrown.
+        Paged sections are backed by FB (or sysmem when inst_in_sys is used).
+
+    PERMISSIONS
+        Sets the permissions for the section. This is a string built from
+        individual permission characters:
+            'r'   -- Read
+            'w'   -- Write
+            'x'   -- Execute
+            'R'   -- Kernel-only read
+            'W'   -- Kernel-only write
+            'X'   -- Kernel-only execute
+        This attribute must be set. Execute permissions are not allowed on
+        sections used in DMEM. It is _strongly_ recommended to not allow
+        write and execute permissions on the same section.
+
+    ALIGNMENT
+        Defines the starting alignment of the section. By default, sections
+        are aligned to MPU granularity. This attribute may be used if a
+        greater alignment is required (e.g. 65536-byte alignment). If this is
+        less than the default, this is ignored. Otherwise, it is aligned up
+        to the MPU granularity.
+
+    HEAP_SIZE
+        The size of this section's heap in bytes. This is the guaranteed
+        minimum size of the heap, it is possible for more to be allocated due
+        to section size alignment. This field is only used for data sections.
+        This field can be an integer or a linker script symbol.
+
+    PROFILES
+        Defines the list of profiles on which the section is enabled. If a
+        section is not used on a particular profile, that chip must be
+        excluded from this list. It is important to make sure that we only
+        enable sections on profiles where they are used, to save memory.
+        This is mandatory.

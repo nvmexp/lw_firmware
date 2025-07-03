@@ -1,0 +1,181 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2015-2016 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+// This test implementation is similar to of eccl1.ptx. 
+// Before pascal Shared memory was derived from L1 cache. From pascal L1 cache is 
+// removed. InjectError function is modified to work with SM60
+
+.version 5.0   //ptx isa
+#if SM_VER == 60
+.target sm_60
+#elif SM_VER == 62
+.target sm_62
+#elif SM_VER == 70
+.target sm_70
+#else
+#error "Unsupported SM version!"
+#endif
+
+#include "eccdefs.h"
+#include "ecctestutils.h"
+
+#define SHARED_MEM_SIZE              0xc000     // 48KB
+#define SHARED_MEM_DWORDS            0x3000
+#define SHARED_MEM_DWORDS_PER_THREAD 0x600
+
+.global.u32 Seed;
+.global.u32 WarpSize;
+.global.u32 NumThreadLoops;
+.global.u32 Arg;
+.global.u64 HostCommand;
+
+//--------------------------------------------------------------------
+// SendHostCommand()
+//
+.func SendHostCommand (.reg.u32 %comm, .reg.u32 %arg, .reg.u64 %cmdptr)
+{
+    /*Store the argument*/
+    st.global.wt.u32 [%cmdptr +4], %arg;
+    /* Ensure the argument is written to memory before the command */
+    membar.sys;
+    /*Store the command*/
+    st.global.wt.u32 [%cmdptr], %comm;
+
+    /* After host mods program reads the command it writes back HOST_DONE */
+    .reg.u32 %val;
+    mov.u32 %val, %comm;
+    While (SH, ne, %val, HOST_DONE)
+        ld.global.volatile.u32 %val, [%cmdptr];
+    EndWhile(SH)
+    /* Ensure no other load or store gets in front of the above load */
+    membar.sys;
+}
+
+.func InsertSharedMemErr(.reg.u32 %r1, .reg.u32 %rng, .reg.u64 %cmdOffset)
+{
+    /* Select the block in shared memory to test */
+    .reg.u32 %itr3;
+    mov.u32  %itr3, 0;
+    .reg.u32 %offset;
+    mov.u32 %offset, 0;
+    .reg.u32 %myid;
+    mov.u32 %myid, %laneid;
+    mul.lo.u32 %offset, %myid, 512;
+
+    /* Select a random offset in the block */
+    .reg.u32 %block_offset;
+    Rand(%block_offset,%rng,SHARED_MEM_DWORDS_PER_THREAD)
+    shl.b32 %block_offset, %block_offset, 2;
+
+    add.u32 %offset, %offset, %block_offset;
+
+    add.u32 %offset, %offset, %r1;
+
+    /* Randomly select type of error */
+    .reg.u32 %sbe;
+    Rand(%sbe,%rng,2)
+
+    /* ask host to store the type of error */
+    call SendHostCommand, (HOST_STORE_ERR_TYPE, %sbe, %cmdOffset);
+
+    /*Generate original value to write*/
+    .reg.u32 %val;
+    Rand32(%val,%rng)
+
+    /* Store the original value */
+    st.shared.volatile.u32 [%offset], %val;
+
+    /* ask host to store the original value */
+    call SendHostCommand, (HOST_STORE_VAL, %val, %cmdOffset);
+
+    /* Toggle 1/2 bits */
+    If(ISMEIF, eq,%sbe,0)
+        Toggle1Bit(%val,%rng)
+    Else(ISMEIF)
+        Toggle2Bits(ISMET2B,%val,%rng)
+    EndElseIf(ISMEIF)
+
+    /* ask host to disable ecc */
+    call SendHostCommand, (HOST_DISABLE_CHECKBITS, %val, %cmdOffset);
+
+    /* Store the corrupted value */
+    st.shared.volatile.u32 [%offset], %val;
+
+    /* ask host to enable ecc */
+    call SendHostCommand, (HOST_ENABLE_CHECKBITS, %val, %cmdOffset);
+
+    /* Read back the value */
+    ld.shared.volatile.u32 %val, [%offset];
+
+    /* ask host to verify the read value */
+    call SendHostCommand, (HOST_CHECK_VAL, %val, %cmdOffset);
+
+    /* ask host to check the ECC error counts. */
+    call SendHostCommand, (HOST_CHECK_COUNTS, %val, %cmdOffset);
+}
+
+
+//--------------------------------------------------------------------
+// InjectErrors
+// Brief: There are multiple threads that are running that the same time
+// but we need to find out which SM might have the ECC working incorrectly
+// hence running this test one thread at a time. Synchronizing between threads
+// by using bar.sync
+// In each innerloop of InjectErrors, host program expects that number of errors
+// must be equal to number of SMs
+//
+
+.entry InjectErrors
+{
+    .shared .align 4 .b8 SharedMem[SHARED_MEM_SIZE];  // 48KB
+    .reg.u32 %rng;
+    .reg.u32 %myid;
+    .reg.u64 %cmdptr;
+    .reg.u32 %itr1;
+    .reg.u32 %itr2;
+    .reg.u32 %warp_size;
+    .reg.u32 %thread_loops;
+
+    // Store the values passed by host
+    ld.global.cg.u32 %rng, [Seed];
+    ld.global.cg.u32 %warp_size, [WarpSize];
+    ld.global.cg.u32 %thread_loops, [NumThreadLoops];
+    ld.global.cg.u64 %cmdptr, [HostCommand];
+
+    // Select a location in the array based on the CTA ID
+    {
+        .reg.u64            %idx;
+        cvt.u64.u32         %idx, %ctaid.x;
+        shl.b64             %idx, %idx, 3;
+        add.u64             %cmdptr, %cmdptr, %idx;
+    }
+    // Store my thread ID
+    mov.u32 %myid, %laneid;
+    //trap;
+    For(INJEFOR1, %itr1,0,%warp_size,1)
+        UpdateRng(%rng)
+
+        If(INJEIF, eq,%itr1,%myid)
+        // ask host to store the thread ID
+            call SendHostCommand, (HOST_STORE_THREAD_ID, %myid, %cmdptr);
+
+            For(INJEFOR2, %itr2,0,%thread_loops,1)
+                 // ask host to store the thread loop
+                call SendHostCommand, (HOST_STORE_THREAD_LOOP, %itr2, %cmdptr);
+                .reg.u32 %sharedmem;
+                mov.u32 %sharedmem, SharedMem;
+                call InsertSharedMemErr, (%sharedmem, %rng, %cmdptr);
+            EndFor(INJEFOR2)
+         EndIf(INJEIF)
+         bar.sync 0;
+    EndFor(INJEFOR1)
+    call SendHostCommand, (GPU_DONE, 0, %cmdptr);
+}

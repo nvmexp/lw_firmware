@@ -1,0 +1,308 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2021 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+# Pull profile
+include $(FW_ROOT)/profiles/profiles.mk
+
+ifeq ($(filter $(MAKECMDGOALS),clobber),)
+# It relies on (given) variables and prebuilt liblwriscv
+include $(LWRISCVX_SDK_ROOT)/build/build_elw.mk
+# Preconfigure chip (mini chip-config)
+include $(LIBLWRISCV_CONFIG_MK)
+
+# It relies on (given) variables and prebuilt liblwriscv
+include $(LWRISCVX_SDK_ROOT)/build/build_flags.mk
+endif
+
+###############################################################################
+# Default build options
+###############################################################################
+CAT                       := /bin/cat
+RM                        := /bin/rm
+TARGET                    := $(TARGET_PARTITIONS_PREFIX)
+
+LDSCRIPT_IN               := $(FW_ROOT)/build/ldscript.ld.in
+LDSCRIPT                  := $(INSTALL_DIR)/ldscript.ld
+
+TARGET_PARTITIONS_ELF     := $(TARGET_PARTITIONS_PREFIX).elf
+TARGET_PARTITIONS_OBJDUMP := $(TARGET_PARTITIONS_PREFIX).objdump
+TARGET_PARTITIONS_READELF := $(TARGET_PARTITIONS_PREFIX).readelf
+TARGET_PARTITIONS_NM      := $(TARGET_PARTITIONS_PREFIX).nm
+
+BUILD_FILES               := $(TARGET_PARTITIONS_ELF) $(TARGET_PARTITIONS_TEXT) $(TARGET_PARTITIONS_DATA) $(TARGET_PARTITIONS_READELF)
+
+LIBCCC_CFLAGS             ?=
+EXTRA_CFLAGS              ?=
+EXTRA_OBJECTS             ?=
+PARTITION_VISIBILITY      ?= hidden
+LIBDIRS                   :=
+LIBS                      :=
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+ifeq ($(LW_TARGET_OS),falcon)
+    CONFIG_FLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+    CONFIG_FLAGS += -DUPROC_RISCV
+endif
+
+###############################################################################
+# Submake settings
+###############################################################################
+# Same to gsp project that link libraries.
+SUBMAKE_NAMESPACE   := gsp
+SUBMAKE_OUTPUTDIR   := _out/$(SUBMAKE_NAMESPACE)/$(LW_PROJ)_$(UPROC_ARCH)_$(LW_BUILD_TYPE)
+
+SUBMAKE_ONLY_CFLAGS :=
+SUBMAKE_CFLAGS      :=
+SUBMAKE_DEPS        :=
+
+###############################################################################
+# GSP
+###############################################################################
+GSPCFG_PROFILE      := $(GSP_PROJ)
+LWUPROC             := $(LW_SOURCE)/uproc
+RTOS_SRC            := $(LWUPROC)/os/$(subst SafeRTOSv,SafeRTOS/v,$(RTOS_VERSION))
+GSP_SW              := $(LWUPROC)/gsp
+GSP_SRC             := $(GSP_SW)/src
+GSP_IMG_PREFIX      := g_$(PROFILE)
+GSP_IMG_TARGET      := $(GSP_SRC)/$(SUBMAKE_OUTPUTDIR)/$(GSP_IMG_PREFIX)
+GSP_ELF_TARGET      := $(GSP_IMG_TARGET)
+GSP_ELF_FILE        := $(GSP_ELF_TARGET).elf
+PARTITION_RTOS_ELF  := $(GSP_ELF_FILE)
+GSP_MAKE_ARGS       := GSPCFG_PROFILE=$(GSP_PROJ)
+
+SUBMAKE_TARGETS     += GSP
+$(GSP_ELF_FILE): build.submake.GSP ;
+SUBMAKE_DEPS        += $(GSP_ELF_FILE)
+
+HDCP22WIRED_SRC     := $(LWUPROC)/libs/hdcp/hdcp22wired/src
+LIBDIRS             += $(HDCP22WIRED_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBS                += HDCP22WIRED
+
+SHA_SRC             := $(LWUPROC)/libs/crypto/sha
+LIBDIRS             += $(SHA_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBS                += SHA
+
+BIGINT_SRC          := $(LWUPROC)/libs/crypto/bigint
+LIBDIRS             += $(BIGINT_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBS                += BigInt
+
+###############################################################################
+# Include path
+###############################################################################
+# Add liblwriscv to include path
+INCLUDES          += $(LIBLWRISCV_INSTALL_DIR)
+INCLUDES          += $(LIBLWRISCV_INSTALL_DIR)/inc
+INCLUDES          += $(LIBLWRISCV_ROOT)/inc
+
+# Add LWRISCV SDK to include path
+INCLUDES          += $(LWRISCVX_SDK_ROOT)/inc
+INCLUDES          += $(LWUPROC)/lwriscv/inc
+INCLUDES          += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc/gsp
+
+# Add chip headers to include path
+INCLUDES          += $(LW_ENGINE_MANUALS)
+INCLUDES          += $(LWRISCVX_SDK_ROOT)/inc/lwpu-sdk
+INCLUDES          += $(FW_ROOT)/inc
+
+# Global, GSP includes
+INCLUDES          += $(FW_ROOT)/../inc
+
+# riscvifriscv.h and other common interfaces
+INCLUDES          += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc
+
+# Classess
+INCLUDES          += $(LW_SOURCE)/sdk/lwpu/inc
+
+# Manuals
+INCLUDES          += $(LW_ENGINE_MANUALS)
+
+# Applications
+INCLUDES          += $(LW_SOURCE)/uproc/libs/cmn/inc
+INCLUDES          += $(HDCP22WIRED_SRC)/../inc
+
+# CCC enabled?
+ifeq ($(USE_LIBCCC),true)
+  INCLUDES        += $(LIBCCC_INC_DIR) $(LWRISCVX_PREBUILT_INC_DIR)/common_crypto $(LWRISCVX_PREBUILT_INC_DIR)/common_crypto/include $(LWRISCVX_PREBUILT_INC_DIR)/common_crypto_private/lwpka $(LWRISCVX_PREBUILT_INC_DIR)/common_crypto_private
+  LIBCCC_CFLAGS   := -DUSE_LIBCCC -DUPROC_ARCH_RISCV -DCCC_USE_LIBLWRISCV -DHW_CC_ENABLED
+endif
+
+INCLUDES := $(addprefix -I,$(INCLUDES))
+
+# MK TODO: unify that with other riscv cflags (From lw settings and from SUBMODULE.. maybe pass it from profile?)
+CFLAGS            += -Og
+CFLAGS            += $(INCLUDES)
+CFLAGS            += -fvisibility=$(PARTITION_VISIBILITY)
+
+# Don't put uninitialized global variables in common place, keep them in partition's bss
+CFLAGS            += -fno-common
+CFLAGS            += -Wno-error=sign-colwersion
+CFLAGS            += $(LIBCCC_CFLAGS) $(EXTRA_CFLAGS)
+CFLAGS            += -DSEPKERN_IMEM_LIMIT=$(SEPKERN_IMEM_LIMIT)
+CFLAGS            += -DSEPKERN_DMEM_LIMIT=$(SEPKERN_DMEM_LIMIT)
+CFLAGS            += -DLWRISCV_APP_DMEM_LIMIT=$(LWRISCV_APP_DMEM_LIMIT)
+CFLAGS            += -DLWRISCV_APP_IMEM_LIMIT=$(LWRISCV_APP_IMEM_LIMIT)
+CFLAGS            += -DLWRISCV_PARTITION_SWITCH=1
+ifeq ($(PARTITION_SWITCH_TEST), true)
+  CFLAGS          += -DPARTITION_SWITCH_TEST=1
+else
+  CFLAGS          += -DPARTITION_SWITCH_TEST=0
+endif
+CFLAGS            += -include $(LIBLWRISCV_CONFIG_H)
+CFLAGS            += $(CONFIG_FLAGS)
+
+ASFLAGS           += $(INCLUDES)
+
+LDSCRIPT_DEFINES  :=
+LDSCRIPT_DEFINES  += -DLWRISCV_APP_DMEM_LIMIT=$(LWRISCV_APP_DMEM_LIMIT)
+LDSCRIPT_DEFINES  += -DLWRISCV_APP_IMEM_LIMIT=$(LWRISCV_APP_IMEM_LIMIT)
+
+LDFLAGS           :=
+LIB_FLAGS         :=
+
+LIBDIRS           += $(LIBLWRISCV_LIB_DIR)
+LIBS              += lwriscv
+LIB_FLAGS         += $(addprefix -L,$(LIBDIRS))
+LIB_FLAGS         += $(addprefix -l,$(LIBS))
+
+EXTRA_LDFLAGS     ?=
+LDFLAGS           += -Wl,-melf64lriscv
+LDFLAGS           += -Wl,--gc-sections
+#LDFLAGS           += -Wl,--print-gc-sections           # list unused sections to be removed and show as warning.
+LDFLAGS           += -Wl,--print-memory-usage
+LDFLAGS           += -Wl,-Map=$(INSTALL_DIR)/link.log
+LDFLAGS           += -Wl,--sort-common=descending
+LDFLAGS           += -Wl,--sort-section=alignment
+LDFLAGS           += -Wl,--whole-archive                # important for KEEP(symbol-in-archive)
+LDFLAGS           += -Wl,--orphan-handling=error        # necessary for ld script validation!
+LDFLAGS           += -Wl,--start-group $(LIB_FLAGS) -Wl,--end-group
+LDFLAGS           += -nostdlib -nostartfiles -T$(LDSCRIPT)
+LDFLAGS           += $(EXTRA_LDFLAGS)
+
+# Some partitions may need to build stuff.. export part of CFLAGS
+SUBMAKE_CFLAGS    := $(INCLUDES) -include $(LIBLWRISCV_CONFIG_H) -fvisibility=$(PARTITION_VISIBILITY) $(LIBCCC_CFLAGS) $(EXTRA_CFLAGS)
+SUBMAKE_ASFLAGS   := $(INCLUDES)
+export SUBMAKE_CFLAGS
+export SUBMAKE_ASFLAGS
+
+# Include sources. TODO: support sub-dir relwrsive build.
+DIRS              := $(PARTITIONS)
+OBJS              :=
+
+define add-objs =
+include $(1)/sources.mk
+endef
+$(foreach c,$(DIRS),$(eval $(call add-objs,$(c))))
+
+# Rules
+$(LDSCRIPT): $(LDSCRIPT_IN) $(INSTALL_DIR)
+	$(CPP) -x c -P -o $@ $(LDSCRIPT_DEFINES) $(INCLUDES) -include $(LIBLWRISCV_CONFIG_H) $(LDSCRIPT_IN)
+
+$(TARGET_PARTITIONS_TEXT) : $(TARGET_PARTITIONS_ELF)
+	$(OBJCOPY) -O binary -j .partition_shared_code -j .partition_hs_code -j .partition_rtos_code $^ $@
+
+$(TARGET_PARTITIONS_DATA) : $(TARGET_PARTITIONS_ELF)
+	$(OBJCOPY) -O binary -j .partition_shared_data -j .partition_hs_data -j .partition_rtos_data $^ $@
+
+# Object dependencies are generated
+$(TARGET_PARTITIONS_ELF): $(LDSCRIPT) $(LIBLWRISCV_LIB) $(SUBMAKE_DEPS)
+	$(CC) $(CFLAGS) $(addprefix $(BUILD_DIR)/,$(OBJS)) -o $(TARGET_PARTITIONS_ELF) $(LDFLAGS)
+
+$(TARGET_PARTITIONS_READELF): $(TARGET_PARTITIONS_ELF)
+	$(ECHO) "Process elf to get OBJDUMP READELF NM."
+	$(OBJDUMP) -d    $(TARGET_PARTITIONS_ELF) >> $(TARGET_PARTITIONS_OBJDUMP)
+	$(OBJDUMP) -S -d $(TARGET_PARTITIONS_ELF) >> $(TARGET_PARTITIONS_OBJDUMP).source
+	$(NM)      -S -n $(TARGET_PARTITIONS_ELF) >> $(TARGET_PARTITIONS_NM)
+	$(READELF) --all $(TARGET_PARTITIONS_ELF) >> $(TARGET_PARTITIONS_READELF)
+
+%.o: $(LIBLWRISCV_CONFIG_H)
+
+install: build
+	$(INSTALL) -t $(INSTALL_DIR_PART) $(TARGET)
+
+build: $(BUILD_FILES)
+
+clobber:
+	# $(RM) -f $(INSTALL_DIR_PART) $(TARGET) $(OBJS)
+
+###############################################################################
+# Define a utility macro for ilwoking make (submake) on any external libraries
+# or utilities that this build depends upon. The macro will establish the
+# targets and dependencies between the builds, override the output directory
+# of the submake build, and pass any other (optional) make arguments to the
+# submake build.
+#
+# Arguments:
+#     $(1) - name of the submake build
+###############################################################################
+
+define SUBMAKE_DEFINITION
+  .PHONY: build.submake.$(1) clobber.submake.$(1)
+
+  build: build.submake.$(1)
+  clobber: clobber.submake.$(1)
+
+  $(1)_MAKE_ARGS ?=
+
+  build.submake.$(1) clobber.submake.$(1):
+	  @$$(MAKE) -C $$($(1)_SRC) -f makefile.lwmk \
+        OUTPUTDIR=$$(SUBMAKE_OUTPUTDIR)               \
+        LW_TARGET_ARCH=$$(LW_TARGET_ARCH)             \
+        $$($(1)_MAKE_ARGS)                            \
+        $$(MAKECMDGOALS)
+endef
+
+###############################################################################
+# Create the target/rule definitions for each submake target
+###############################################################################
+
+$(foreach target, $(SUBMAKE_TARGETS), \
+  $(eval $(call SUBMAKE_DEFINITION,$(strip $(target)))))
+
+###############################################################################
+# generate rule for directories
+###############################################################################
+define add-dir =
+$(info adding dir rule: $(BUILD_DIR)/$(1)/)
+$(BUILD_DIR)/$(1)/:
+	$(MKDIR) -p $(BUILD_DIR)/$(1)
+OUTPUT_DIRS += $(BUILD_DIR)/$(1)
+endef
+$(foreach c,$(DIRS),$(eval $(call add-dir,$(c))))
+
+###############################################################################
+# generate rule for files
+###############################################################################
+define add-rule-c =
+$(info adding C file rule: $(BUILD_DIR)/$(1) depends on $(BUILD_DIR)/$(dir $(1)) $(LIBLWRISCV_CONFIG_H) $(basename $(1)).c)
+$(TARGET_PARTITIONS_ELF): $(BUILD_DIR)/$(1)
+$(BUILD_DIR)/$(1): $(BUILD_DIR)/$(dir $(1)) $(basename $(1)).c $(LIBLWRISCV_CONFIG_H)
+	$$(ECHO) CC $(basename $(1)).c
+	$$(CC) $$(CFLAGS) -c $(basename $(1)).c -o $$@
+endef
+
+define add-rule-as =
+$(info adding ASM file rule: $(BUILD_DIR)/$(1) depends on $(BUILD_DIR)/$(dir $(1)) $(LIBLWRISCV_CONFIG_H) $(basename $(1)).S)
+$(TARGET_PARTITIONS_ELF): $(BUILD_DIR)/$(1)
+$(BUILD_DIR)/$(1): $(BUILD_DIR)/$(dir $(1)) $(basename $(1)).S $(LIBLWRISCV_CONFIG_H)
+	$$(ECHO) AS $(basename $(1)).S
+	$$(CC) $$(ASFLAGS) -c $(basename $(1)).S -o $$@
+endef
+
+define add-file =
+$(if $(wildcard $(basename $(1)).c),$(eval $(call add-rule-c,$(1))))
+$(if $(wildcard $(basename $(1)).S),$(eval $(call add-rule-as,$(1))))
+$(TARGET): $(BUILD_DIR)/$(1)
+endef
+$(foreach c,$(OBJS),$(eval $(call add-file,$(c))))

@@ -1,0 +1,17 @@
+Loaded firmware at address 6180000000101000
+LIBOS Loading...
+   ELF @ 6180000000101000
+    Heap: base 0x6180000000001000 0x100000 bytes
+    Pagetables allocated 0x6180000000100000 length 4096 bytes
+    Software MMU enabled.
+
+External memory regions wired.
+		Exelwting: ../../init.c:136 libosPortSyncSend(LIBOS_SHUTTLE_DEFAULT, TASK_TEST_PORT, 0, 0, 0, 0) == LIBOS_OK
+2. Send/Recv, ensure remote receives but doesn't reply in time
+		Exelwting: ../../init.c:45 libosPortSyncSend(LIBOS_SHUTTLE_DEFAULT, TASK_TEST_PORT_START, 0, 0, 0, LIBOS_TIMEOUT_INFINITE) == LIBOS_OK
+		Exelwting: ../../test.c:20 libosPortSyncRecv(LIBOS_SHUTTLE_DEFAULT, TASK_TEST_PORT_START, 0, 0, 0, LIBOS_TIMEOUT_INFINITE) == LIBOS_OK
+		Exelwting: ../../test.c:27 libosPortSyncRecv( LIBOS_SHUTTLE_DEFAULT, TASK_TEST_PORT, &payload, sizeof(payload), 0, LIBOS_TIMEOUT_INFINITE) == LIBOS_OK
+		Exelwting: ../../init.c:54 libosPortSyncSendRecv( LIBOS_SHUTTLE_DEFAULT, TASK_TEST_PORT, &msg, sizeof(msg), LIBOS_SHUTTLE_DEFAULT_ALT, TASK_INIT_PORT_PRIVATE, &msg, sizeof(msg), &s, 0) == LIBOS_ERROR_TIMEOUT
+Complete 0000C0DE
+		Exelwting: ../../test.c:34 libosPortReply(LIBOS_SHUTTLE_DEFAULT, &payload, sizeof(payload), 0) == LIBOS_ERROR_ILWALID_ACCESS
+Reply sent.

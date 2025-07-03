@@ -1,0 +1,89 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Engines.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    SEC2SRC_CORE => [
+
+        FLAGS => ':CORE',             # following are all part of core (non-hal)
+
+        TASKS => [
+            'syslib/ic/lw/sec2_objic.c',
+            'tasks/msgmgmt/msgmgmt.c',
+            'tasks/chnlmgmt/chnlmgmt.c',  
+            'tasks/cmdmgmt/cmdmgmt.c',
+       ],
+
+
+         OS =>
+         [
+             CHIPS_SUPPORTED => [ HOPPER_and_later, ],
+                 'kernel/init.c',
+                 'kernel/start.S',
+ 
+                 'syslib/ostmrcallback.c',
+                 'syslib/rpc.c',
+         ],
+
+
+    ],  # SEC2SRC_CORE
+
+
+    SEC2SRC_ENGINES => [
+
+        IC =>
+        [
+            CHIPS_SUPPORTED => [ GH100_and_later, ],
+                'syslib/ic/hopper/sec2_icgh100.c',
+                'syslib/sec2/lw/sec2_objsec2.c',
+                'syslib/sec2/hopper/sec2_sec2gh100.c',
+        ],
+
+        LSF =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'syslib/lsf/lw/sec2_objlsf.c',
+
+            CHIPS_SUPPORTED => [ GH100_and_later, ],
+                'syslib/lsf/hopper/lsfgh100.c',
+        ],
+
+    ],  # SEC2SRC_ENGINES
+
+    SEC2SRC_TASKS => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        CHIPS_SUPPORTED => [ ALL, ],
+
+    ],  # SEC2SRC_TASKS
+
+    SEC2SRC_JOBS => [
+
+   ],
+
+];   # filesRef
+
+
+my $platformsRef = [
+
+    # the SEC2 platform
+    PLATFORM_SEC2  => [
+        SEC2SRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

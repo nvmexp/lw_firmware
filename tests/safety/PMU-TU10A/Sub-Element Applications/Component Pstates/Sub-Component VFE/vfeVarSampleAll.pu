@@ -1,0 +1,40 @@
+@startuml
+title vfeVarSampleAll
+activate VFE
+VFE -> VFE_VAR : sampleAll()
+activate VFE_VAR
+    VFE_VAR -> VFE_VAR : bChanged = false
+    loop for each VFE_VAR
+        alt type = SINGLE_SENSED_TEMP
+            VFE_VAR -> VFE_VAR : sample_SINGLE_SENSED_TEMP()
+            activate VFE_VAR
+                VFE_VAR -> OS : attachOverlays()
+                activate OS
+                deactivate OS
+
+                VFE_VAR -> THERM_CHANNEL : getChannel(idx)
+                activate THERM_CHANNEL
+                    VFE_VAR -> THERM_CHANNEL : readChannelTemperature()
+                    THERM_CHANNEL --> VFE_VAR : temperature
+                deactivate THERM_CHANNEL
+
+                VFE_VAR -> OS : detachOverlays()
+                activate OS
+                deactivate OS
+                return bVarChanged
+        else type != SINGLE_SENSED_TEMP
+            VFE_VAR -> VFE_VAR : sample_SUPER()
+            activate VFE_VAR
+            return bVarChanged
+        end
+
+        alt bVarChanged = true
+            VFE_VAR -> VFE_VAR : ilwalidateDependents()
+            activate VFE_VAR
+            deactivate VFE_VAR
+            VFE_VAR -> VFE_VAR : bChanged = bVarChanged
+        end
+    end
+    return bChanged
+deactivate VFE
+@enduml

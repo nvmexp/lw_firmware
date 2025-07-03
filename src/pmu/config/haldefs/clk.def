@@ -1,0 +1,815 @@
+# -*- mode: perl; -*-
+
+# Clock Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $clkHal = [
+
+    DEFAULTS => [
+
+        FLAGS       => ":DIRECT_HAL_CALLS",
+
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        NDIV_SLIDING_SLIDE => [
+            DESCRIPTION     => "Slide GPCPLL NDIV to its target coefficient",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU8 ndivTarget",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_therm", "__FUNC__")',
+
+            _GMXXX          => [ dMAXWELL_and_later, ],
+        ],
+
+        DIST_1X_DOM_MASK_GET => [
+            DESCRIPTION     => "Get the mask of clock domains having 1x distribution mode",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            # TODO: FLAGS   => ":STUB_ASSERT",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GP100          => [ PASCAL, ],
+            _STUB           => [ GV11B, MAXWELL, dVOLTA_and_later, ],
+        ],
+
+        FREQ_COUNTED_AVG_CONSTRUCT => [
+            DESCRIPTION     => "Construct and initialize the SW state for CLK_FREQ_COUNTED_AVG feature.",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GP100          => [ PASCAL, ],
+            _GV10X          => [ dVOLTA_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        CNTR_WIDTH_GET => [
+            DESCRIPTION     => "Returns HW clock counter bit-width",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GMXXX          => [ MAXWELL, ],
+            _GP100          => [ PASCAL_and_later, ],
+        ],
+
+        CNTR_INIT_SW => [
+            DESCRIPTION     => "Initialize SW state for clock counter features",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            LIKE_INTERFACE  => CNTR_WIDTH_GET,
+        ],
+
+        CNTR_INIT_HW  => [
+            DESCRIPTION     => "Initialize all the supported HW clock counters",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GMXXX          => [ MAXWELL, ],
+            _GP100          => [ PASCAL_and_later, ],
+        ],
+
+        CNTR_ENABLE  => [
+            DESCRIPTION     => "Enable the given clock counter- this function should only be called during preInit",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_CNTR *pCntr",
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GP100          => [ PASCAL_and_later, -GV10X, ],
+            _GV10X          => [ GV10X, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        #
+        # To-do akshatam: Fix this with moving clock counter init to clkPostInit
+        # instead of clkPreInit so that we can have the CNTR_ENABLE function in an
+        # overlay other than init in order to make use of it runtime as well.
+        # We're lwrrently forking two different HALs for runtime/init time usage but
+        # the code is inlined hence doesn't cause much size hit. This can eventually
+        # be fixed with the solution mentioned above.
+        #
+        CNTR_ENABLE_RUNTIME  => [
+            DESCRIPTION     => "Enable the given clock counter - this function can be called runtime",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_CNTR *pCntr",
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_clkLibCntr", "__FUNC__")',
+
+            _GP100          => [ PASCAL_and_later, -GV10X, ],
+            _GV10X          => [ GV10X, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        CNTR_READ  => [
+            DESCRIPTION     => "Read HW clock counter",
+            RETURN_TYPE     => LwU64,
+            ARGUMENTS       => "CLK_CNTR *pCntr",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_clkLibCntrSwSync", "__FUNC__")',
+
+            _GMXXX          => [ MAXWELL, ],
+            _GP100          => [ PASCAL_and_later, ],
+        ],
+
+        CNTR_ARRAY_GET => [
+            DESCRIPTION     => "Returns pointer to the static clock counter array.",
+            RETURN_TYPE     => "CLK_CNTR *",
+            ARGUMENTS       => void,
+            STUB_RETURNS    => NULL,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GP100          => [ PASCAL, ],
+            _GV10X          => [ VOLTA, ],
+            _TU10X          => [ TURING_thru_AMPERE, ],
+            _AD10X          => [ ADA, ],
+            _GH10X          => [ HOPPER_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        CNTR_DOM_MASK_GET => [
+            DESCRIPTION     => "Get the mask of supported clock domains for clock counters",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GP100          => [ PASCAL, ],
+            _GV10X          => [ VOLTA_thru_AD10X, ],
+            _GH10X          => [ HOPPER_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        CNTR_DOM_INFO_GET => [
+            DESCRIPTION     => "Get the clock counter information for a clock domain",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_CNTR *pCntr",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GPXXX          => [ PASCAL, ],
+            _GV10X          => [ VOLTA_thru_AD10X, ],
+            _GH10X          => [ HOPPER_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        CNTR_GPC_MASK_GET => [
+            DESCRIPTION     => "Get the mask of enabled GPCs",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GP100          => [ PASCAL_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        CNTR_ENABLE_CONTINUOUS_UPDATE  => [
+            DESCRIPTION     => "Enable/disable the given clock counter logic from continuously updating counter registers",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_CNTR *pCntr, LwBool bEnable",
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_clkLibCntrSwSync", "__FUNC__")',
+
+            _GP100          => [ PASCAL_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        NAFLL_LUT_PARAMS_INIT => [
+            DESCRIPTION     => "Initialize the various LUT device parameters",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev",
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfsInit", "__FUNC__")',
+
+            _GP100          => [ GP100, ],
+            _GP10X          => [ PASCAL, VOLTA, -GP100, ],
+            _STUB           => [ MAXWELL, TURING_and_later, ],
+        ],
+
+        NAFLLS_CACHE_GPCS_NAFLL_INIT_SETTINGS => [
+            DESCRIPTION     => "Helper interface to cache the GPCs NAFLL settings.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_clkLpwr", "__FUNC__")',
+
+            _GA10X        => [ TURING, GA10X, AD10X, GH20X, ],
+            _STUB         => [ ALL, -TURING, -GA10X, -AD10X, -GH20X, ],
+        ],
+
+        NAFLLS_PROGRAM_GPCS_NAFLL_INIT_SETTINGS => [
+            DESCRIPTION     => "Helper interface to program the GPCs NAFLL settings.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_clkLpwr", "__FUNC__")',
+
+            _GA10X        => [ TURING, GA10X, AD10X, GH20X, ],
+            _STUB         => [ ALL, -TURING, -GA10X, -AD10X, -GH20X, ],
+        ],
+
+        NAFLLS_PROGRAM_GPCS_NAFLL_EXTENDED_SETTINGS => [
+            DESCRIPTION     => "Helper interface to program the GPCs NAFLL extended settings.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_clkLpwr", "__FUNC__")',
+
+            _GA10X        => [ TURING, GA10X, AD10X, GH20X, ],
+            _STUB         => [ ALL, -TURING, -GA10X, -AD10X, -GH20X, ],
+        ],
+
+        NAFLLS_GET_CACHED_NDIV_VALUE => [
+            DESCRIPTION     => "Get a particular index from the cached settings",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_clkLpwr", "__FUNC__")',
+
+            _GA10X        => [ TURING, GA10X, AD10X, GH20X, ],
+            _STUB         => [ ALL, -TURING, -GA10X, -AD10X, -GH20X, ],
+        ],
+
+        NAFLL_TEMP_IDX_UPDATE => [
+            DESCRIPTION     => "Update the temperature index for the LUT",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev, LwU8 temperatureIdx",
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GP100          => [ GP100, ],
+            _GP10X          => [ dPASCAL_and_later, -GP100, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        NAFLL_LUT_ADDR_REG_WRITE => [
+            DESCRIPTION     => "Update the LUT address write register at the given temperature index",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev, LwU8 temperatureIdx",
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GP100          => [ GP100, ],
+            _GP10X          => [ dPASCAL_and_later, -GP100, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        NAFLL_LUT_10_DATA_REG_WRITE => [
+            DESCRIPTION     => "Update the LUT table entries",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev, LW2080_CTRL_CLK_LUT_VF_ENTRY_DATA *pLutEntries, LwU8 numLutEntries",
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GP100          => [ GP100, ],
+            _GP10X          => [ PASCAL, VOLTA, -GP100, ],
+            _STUB           => [ MAXWELL, TURING_and_later, ],
+        ],
+
+        NAFLL_LUT_10_OVERRIDE_GET => [
+            DESCRIPTION     => "Get the LUT Overrides for mode, ndiv, vfgain",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev, LwU8 *pOverrideMode, LwU16 *pNdiv, LwU16 *vfGain",
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GP100          => [ GP100, ],
+            _GP10X          => [ PASCAL, VOLTA, -GP100, ],
+            _STUB           => [ MAXWELL, TURING_and_later, ],
+        ],
+
+        NAFLL_LUT_10_OVERRIDE_SET => [
+            DESCRIPTION     => "Set the LUT Overrides for mode, ndiv, vfgain",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev, LwU8 overrideMode, LwU16 ndiv, LwU16 vfgain",
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GP100          => [ GP100, ],
+            _GP10X          => [ PASCAL, VOLTA, -GP100, ],
+            _STUB           => [ MAXWELL, TURING_and_later, ],
+        ],
+
+        NAFLL_ALL_MASK_GET => [
+            DESCRIPTION     => "Get the bitmask of all NAFLLs supported on this chip",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pMask",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfsInit", "__FUNC__")',
+
+            _GP100          => [ GP100, ],
+            _GP10X          => [ PASCAL, -GP100, ],
+            _GV100          => [ VOLTA, TURING, ],
+            _GA100          => [ dAMPERE_and_later, -ADA, ],
+            _AD10X          => [ ADA, ],
+            _STUB           => [ MAXWELL, ],
+
+        ],
+
+        NAFLL_PLDIV_SET => [
+            DESCRIPTION     => "Set the PLDIV value for the NAFLL",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev, LwU8 pldiv",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            LIKE_INTERFACE  => NAFLL_TEMP_IDX_UPDATE,
+        ],
+
+        NAFLL_PLDIV_GET => [
+            DESCRIPTION     => "GET the PLDIV value for the NAFLL",
+            RETURN_TYPE     => LwU8,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev",
+            STUB_RETURNS    => 1,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            LIKE_INTERFACE  => NAFLL_TEMP_IDX_UPDATE,
+        ],
+
+        NAFLL_REG_MAP_INIT => [
+            DESCRIPTION     => "Initialize register mapping within NAFLL device",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfsInit", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERROR,
+
+            LIKE_INTERFACE  => NAFLL_TEMP_IDX_UPDATE,
+        ],
+
+        NAFLL_GET_GPC_PROGRAMMED_NDIV => [
+            DESCRIPTION     => "Get the _NDIV value from LUT_STATUS (LUT_DEBUG2) register",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GA10X          => [ AMPERE_and_later, -GA100, ],
+            _STUB           => [ TURING_and_earlier, GA100, ],
+        ],
+
+        # Deprecated from Turing and onwards
+        NAFLL_LUT_10_ENTRIES_PACK => [
+            DESCRIPTION     => "Pack 2 V/F entries in a single DWORD",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => "LwU16 ndiv1, LwU16 vfgain1, LwU16 ndiv2, LwU16 vfgain2",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GP100          => [ GP100, ],
+            _GP10X          => [ PASCAL, VOLTA, -GP100, ],
+            _STUB           => [ MAXWELL, TURING_and_later, ],
+        ],
+
+        NAFLL_LUT_UPDATE_RAM_READ_EN => [
+            DESCRIPTION     => "Update the RAM READ EN bit depending on whether the LUT is being initialized/reset",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev, LwBool bEnable",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GP10X          => [ dPASCAL_thru_GA10X, -GP100, ],
+            _AD10X          => [ dADA_and_later, ],
+            _STUB           => [ pre_GP102, ],
+        ],
+
+        NAFLL_LUT_GET_RAM_READ_EN => [
+            DESCRIPTION     => "Get the RAM READ EN bit for the LUT",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev",
+            STUB_RETURNS    => LW_FALSE,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GA10X          => [ AMPERE_and_later, -GA100, ],
+            _STUB           => [ TURING_and_earlier, GA100, ],
+        ],
+
+        NAFLL_LUT_UPDATE_QUICK_SLOWDOWN => [
+            DESCRIPTION     => "Update the register that controls operation of the quick_slowdown
+                                once the LUT is programmed",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _TU10X          => [ TURING_thru_GA10X,  ],
+            _AD10X          => [ dADA_and_later,  ],
+            _STUB           => [ pre_TURING, ],
+        ],
+
+        NAFLL_LUT_QUICK_SLOWDOWN_FORCE_ENGAGE => [
+            DESCRIPTION     => "Interface to provide force engage/disengage of
+                                the quick slowdown feature",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev, LwBool bQuickSlowdownForceEngage[], LwU8 numVfLwrves",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _AD10X          => [ dADA_and_later,  ],
+            _STUB           => [ pre_ADA, ],
+        ],
+
+        NAFLL_LUT_DATA_REG_WRITE => [
+            DESCRIPTION     => "Update the LUT table entries",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev, LW2080_CTRL_CLK_LUT_VF_ENTRY_DATA *pLutEntries, LwU8 numLutEntries",
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _TU10X          => [ TURING, ],                    # For NAFLL device version 20
+            _GA100          => [ AMPERE_and_later ],           # For NAFLL device version 30
+            _STUB           => [ pre_TURING, ],
+        ],
+
+        NAFLL_LUT_OVERRIDE_GET => [
+            DESCRIPTION     => "Get the LUT Overrides for mode and CLK_LUT_ENTRY data",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev, LwU8 *pOverrideMode, LW2080_CTRL_CLK_LUT_VF_ENTRY_DATA *pLutEntry",
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _TU10X          => [ TURING, ],                    # For NAFLL device version 20
+            _GA100          => [ AMPERE_and_later ],           # For NAFLL device version 30
+            _STUB           => [ pre_TURING, ],
+        ],
+
+        NAFLL_LUT_OVERRIDE_SET => [
+            DESCRIPTION     => "Set the LUT Overrides for mode and CLK_LUT_ENTRY data",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev, LwU8 overrideMode, LW2080_CTRL_CLK_LUT_VF_ENTRY_DATA *pLutEntry",
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            LIKE_INTERFACE  => NAFLL_LUT_OVERRIDE_GET,
+        ],
+
+        # Deprecated from Ampere and onwards
+        NAFLL_LUT_20_ENTRIES_PACK => [
+            DESCRIPTION     => "Pack 2 CLK_LUT_ENTRY entries in a single DWORD",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev, LW2080_CTRL_CLK_LUT_VF_ENTRY_DATA *pLutEntries, LwU8 numLutEntriesToPack",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _TU10X          => [ TURING, ],
+            _STUB           => [ pre_TURING, AMPERE_and_later, ],
+        ],
+
+        NAFLL_CPM_NDIV_OFFSET_OVERRIDE => [
+            DESCRIPTION     => "Override CPM NDIV Offset output to ZERO or clear the override",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev, LwBool bOverride",
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GA100          => [ AMPERE_and_later, ],
+            _STUB           => [ pre_AMPERE, ],
+        ],
+
+        NAFLL_ADC_MUX_OVERRIDE_SET => [
+            DESCRIPTION     => "Override ADC_MAX that controls the LUT entry selection for this NAFLL.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_NAFLL_DEVICE *pNafllDev, LwU8 overrideCode, LwU8 overrideMode",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GA100          => [ AMPERE_and_later, ],
+            _STUB           => [ TURING_and_earlier, ],
+        ],
+
+        ADC_ENABLE => [
+            DESCRIPTION     => "Enable/disable a given ADC device",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev, LwBool bEnable",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GP100          => [ GP100, ],
+            _GP10X          => [ PASCAL, -GP100, ],
+            _GV10X          => [ dVOLTA_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        ADC_POWER_ON => [
+            DESCRIPTION     => "Power on/off a given ADC device",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev, LwBool bPowerOn",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            LIKE_INTERFACE  => ADC_ENABLE,
+        ],
+
+        ADC_IS_HW_ENABLED => [
+            DESCRIPTION     => "Return the current HW enable/disable state of the given ADC device",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev",
+            STUB_RETURNS    => LW_FALSE,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GA10X          => [ AMPERE_and_later, -GA100, ],
+            _STUB           => [ TURING_and_earlier, GA100, ],
+        ],
+
+        ADC_IS_HW_POWERED_ON => [
+            DESCRIPTION     => "Return the current HW power-on/power-off state of the given ADC device",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev",
+            STUB_RETURNS    => LW_FALSE,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            LIKE_INTERFACE  => ADC_IS_HW_ENABLED,
+        ],
+
+        ADC_ACC_IS_INITIALIZED => [
+            DESCRIPTION     => "Return if the ADC ACC is correctly initialized for the given ADC device",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev",
+            STUB_RETURNS    => LW_FALSE,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            LIKE_INTERFACE  => ADC_IS_HW_ENABLED,
+        ],
+
+        ADC_ALL_MASK_GET => [
+            DESCRIPTION     => "Get the bitmask of all ADCs supported on this chip",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 *pMask",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfsInit", "__FUNC__")',
+
+            _GP100          => [ GP100, ],
+            _GP10X          => [ PASCAL, -GP100, ],
+            _GV10X          => [ VOLTA_thru_TURING, ],
+            _GA100          => [ dAMPERE_and_later, -ADA, ],
+            _AD10X          => [ ADA, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        ADC_CODE_OVERRIDE_SET => [
+            DESCRIPTION     => "Update the adc code and mode of operation overrides.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev, LwU8 overrideCode, LwU8 overrideMode",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GP100          => [ GP100, ],
+            _GP10X          => [ PASCAL_thru_TURING, -GP100, ],
+            _GA100          => [ AMPERE_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        ADC_REG_MAP_INIT => [
+            DESCRIPTION     => "Initialize register mapping within ADC device",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfsInit", "__FUNC__")',
+            STUB_RETURNS    => FLCN_ERROR,
+
+            _GP100          => [ GP100, ],
+            _GP10X          => [ dPASCAL_and_later, -GP100, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        ADC_VOLTAGE_PARAMS_READ => [
+            DESCRIPTION     => "Read ADC voltage related params",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev, CLK_ADC_ACC_SAMPLE *pAdcAccSample",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libClkVolt", "__FUNC__")',
+
+            _GP100          => [ GP100, ],
+            _GP10X          => [ PASCAL_thru_TURING, -GP100, ],
+            _GA100          => [ dAMPERE_and_later, ],
+            _STUB           => [ MAXWELL, ],
+        ],
+
+        ADC_STEP_SIZE_UV_GET => [
+            DESCRIPTION     => "Get the ADC step size of the given ADC device",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libClkVolt", "__FUNC__")',
+
+            _GP10X          => [ PASCAL_thru_AMPERE, HOPPER, ],
+            _AD10X          => [ dADA_and_later, -HOPPER, ],
+            _STUB           => [ pre_PASCAL, ],
+        ],
+
+        ADC_MIN_VOLTAGE_UV_GET => [
+            DESCRIPTION     => "Get the minimum voltage supported by the given ADC device",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libClkVolt", "__FUNC__")',
+
+            LIKE_INTERFACE  => ADC_STEP_SIZE_UV_GET,
+        ],
+
+        ADC_ACC_CAPTURE => [
+            DESCRIPTION     => "Program CAPTURE_ACC to capture/latch aclwmulator values before reading them",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev, LwBool bLatchAcc",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libClkVolt", "__FUNC__")',
+
+            _GP10X          => [ PASCAL_thru_TURING, -GP100, ],
+            _GA100          => [ dAMPERE_and_later, ],
+            _STUB           => [ pre_GP102, ],
+        ],
+
+        ADC_ACC_INIT => [
+            DESCRIPTION     => "Program CAPTURE_ACC to capture/latch aclwmulator values before reading them",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev, CLK_ADC_ACC_SAMPLE *pAdcAccSample",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libClkVolt", "__FUNC__")',
+
+            _GA100          => [ dAMPERE_and_later, ],
+            _STUB           => [ pre_AMPERE, ],
+        ],
+
+        ADC_CAL_PROGRAM => [
+            DESCRIPTION     => "Callwlates and programs ADC calibration gain/offset values",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev, LwBool bEnable",
+            STUB_RETURNS    => FLCN_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GP10X          => [ PASCAL, -GP100, ],
+            _GV10X          => [ VOLTA_thru_TURING, ],
+            _GA100          => [ dAMPERE, ],
+            _AD10X          => [ dADA_and_later, ],
+            _STUB           => [ pre_GP102, ],
+        ],
+
+        ADC_CAL_PROGRAM_COARSE_CONTROL => [
+            DESCRIPTION     => "programs ADC calibration coarse control values",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev, LW2080_CTRL_CLK_ADC_CAL_V20 *pCalV20, LwBool bEnable, LwU32 adcCtrlReg",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _TU10X          => [ TURING, ],
+            _STUB           => [ ALL, -TURING, ],
+        ],
+
+        ADC_CAL_OFFSET_PROGRAM => [
+            DESCRIPTION     => "Programs the ADC calibration offset into NAFLL_ADC_CAL register to account for runtime variations in calibration",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _TU10X          => [ TURING, ],
+            _GA100          => [ dAMPERE_and_later, ],
+            _STUB           => [ pre_TURING, ],
+        ],
+
+        ADC_INST_CODE_GET => [
+            DESCRIPTION     => "Gets the instantaneous ADC code value from the ADC_MONITOR register",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev, LwU8 *pInstCode",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_perfClkAvfs", "__FUNC__")',
+
+            _GP10X          => [ PASCAL_thru_TURING, -GP100, ],
+            _GA100          => [ AMPERE_and_later, ],
+            _STUB           => [ pre_GP102, ],
+        ],
+
+        ADC_DEVICE_RAM_ASSIST_CTRL_ENABLE => [
+            DESCRIPTION     => "Enable/disable RAM assist control for the given ADC device",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev, LwBool bEnable",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libClkVolt", "__FUNC__")',
+
+            _AD10X          => [ AD10X, GH100, GB100, ],
+            _STUB           => [ ALL, -AD10X, -GH100, -GB100, ],
+        ],
+
+        ADC_DEVICE_RAM_ASSIST_IS_ENGAGED => [
+            DESCRIPTION     => "Check whether RAM Assist linked with given ADC device is engaged or not",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev, LwBool *pBEngaged",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libClkVolt", "__FUNC__")',
+
+            _AD10X          => [ AD10X, GH100, GB100, ],
+            _STUB           => [ ALL, -AD10X, -GH100, -GB100, ],
+        ],
+
+        ADC_DEVICE_PROGRAM_VCRIT_THRESHOLDS => [
+            DESCRIPTION     => "Program the RAM assist VCrit threshold values for a given ADC device",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "CLK_ADC_DEVICE *pAdcDev, LwU32 vcritThreshLowuV, LwU32 vcritThreshHighuV",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libClkVolt", "__FUNC__")',
+
+            _AD10X          => [ AD10X, GH100, GB100, ],
+            _STUB           => [ ALL, -AD10X, -GH100, -GB100, ],
+        ],
+
+        # Clock monitors
+
+        CLOCK_MON_PROGRAM => [
+            DESCRIPTION     => "Programs the clock monitor params for a given domain",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LW2080_CTRL_CLK_DOMAIN_CLK_MON_LIST_ITEM *pClkDomainMonListItem",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libClockMon", "__FUNC__")',
+
+            _TU10X          => [ TURING, GA100, ],
+            _STUB           => [ ALL, -TURING, -GA100, ],
+        ],
+
+        CLOCK_MON_ENABLE => [
+            DESCRIPTION     => "Enables/disables the clock monitor for a given domain",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 clkApiDomain, LwBool bEnable",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libClockMon", "__FUNC__")',
+
+            LIKE_INTERFACE  => CLOCK_MON_PROGRAM,
+        ],
+
+        CLOCK_MON_CHECK_FAULT_STATUS => [
+            DESCRIPTION     => "Checks Clock Monitor Fault status",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libClockMon", "__FUNC__")',
+
+            LIKE_INTERFACE  => CLOCK_MON_PROGRAM,
+        ],
+
+        CLOCK_MON_REF_FREQ_GET => [
+            DESCRIPTION     => "Obtains the reference frequency for clock monitors",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU32 clkApiDomain, LwU32 *pClkFreqMHz",
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libClockMon", "__FUNC__")',
+
+            _TU10X          => [ TURING, ],
+            _GA100          => [ GA100, ],
+            _STUB           => [ ALL, -TURING, -GA100, ],
+        ],
+
+        FBFLCN_TRRD_SET => [
+            DESCRIPTION     => "Interface to set tRRD settings.",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => "LwU8 tFAW, LwU32 mclkFreqKHz",
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfDaemon", "__FUNC__")',
+
+            _GA10X          => [ GA10X, AD10X, ],
+            _STUB           => [ ALL, -GA10X, -AD10X, ],
+        ],
+
+        FBFLCN_TRRD_GET => [
+            DESCRIPTION     => "Interface to get tRRD settings.",
+            RETURN_TYPE     => LwU16,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfDaemon", "__FUNC__")',
+
+            _GA10X          => [ GA10X, AD10X, ],
+            _STUB           => [ ALL, -GA10X, -AD10X, ],
+        ],
+
+        FREQ_DOMAIN_PROGRAM_DISABLED => [
+            DESCRIPTION     => "Interface to check whether the frequency domain program bypass path is disabled.",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => LW_TRUE,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_clkLibClk3", "__FUNC__")',
+
+            _GA10X          => [ GA10X, AD10X, ],
+            _STUB           => [ ALL, -GA10X, -AD10X, ],
+        ],
+
+        SCRUB_DOMAIN_LIST => [
+            DESCRIPTION     => "Function to handle removal of missing CLK domains",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => FLCN_ERR_NOT_SUPPORTED,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_clkLibClk3", "__FUNC__")',
+
+            _GA100          => [ GA100, GH100, GB100, ],
+            _GA10X          => [ GA10X, AD10X, GH202, -GA100, ],
+            _STUB           => [ ALL, -dAMPERE, -dADA, -dHOPPER, -dBLACKWELL, ],
+        ],
+
+    ],   # HAL_INTERFACES
+
+];
+
+# return a reference to the Hal definition
+return $clkHal;
+

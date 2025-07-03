@@ -1,0 +1,317 @@
+/* -*- mode: Javascript -*-
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2010-2019 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+/**
+ * @file    shmoo.txt
+ * @brief   gpu manufacturing shmoo configuration file
+ *
+ * Please see the wiki page MODS/Shmoo for documentation:
+ * http://wiki.lwpu.com/engwiki/index.php/MODS/Shmoo
+ */
+#include "mods.h"
+
+//------------------------------------------------------------------------------
+// Add extra command-line arguments here, if you want.
+
+function AddArgs(s)
+{
+    Argv = Argv.concat(s.split(/\s+/));
+}
+
+AddArgs("-out_csv");  // Enable comma-separated-variable report file.
+AddArgs("-engr");     // Strict versions of all tests.
+AddArgs("-pstate 0"); // Leave pstate alone when shmooing clocks!
+
+// Don't retry tests.
+AddArgs("-regress_miscompare_count 0");
+
+// Inst-in-sys is needed with mclk shmoos to prevent gpu hangs.
+//AddArgs(" -inst_in_sys -null_display");
+
+// for ShmooMeasRunGpuTests
+AddArgs("-test 2 -test 41 -test 58");
+
+//------------------------------------------------------------------------------
+// The ShmooConfig function sets the Axis (control) and Meas (results) objects
+// for the shmoo.
+
+function ShmooConfig(shmoo)
+{
+    ExampleRunGpuTestsClockShmoo(shmoo);
+    //ExampleMemErrorShmoo(shmoo);
+    //ExampleOverclockShmoo(shmoo);
+    //ExampleGLStressPropShmoo(shmoo);
+    //TestPowerShmoo(shmoo);
+    //GLStressZPropShmoo(shmoo);
+
+    //Import("mods_eng.js");
+    //Import("gf100.js");
+    //Import("setfreq.js");
+    //Import("setreg.js");
+    //ExampleLegacyVrefDatShmoo(shmoo);
+    //ExampleNewVrefDatShmoo(shmoo);
+
+    // Add arbitrary fields to the report header.
+    //shmoo.AddHdrItem("loneliest number", 1);
+
+    // Write a partial .csv or .jso report file just before each meas/test pass.
+    shmoo.PerPassCallback = Shmoo_WriteReports;
+}
+
+//------------------------------------------------------------------------------
+function ExampleRunGpuTestsClockShmoo(shmoo)
+{
+    // Shmoo clock using defaults (100% to 150% of default in 2% steps).
+    shmoo.AddAxis(new ShmooAxisGpuClock(Gpu.ClkH));
+
+    // Measure RC of the full test list (RC of first failing test).
+    shmoo.AddMeas(new ShmooMeasRunGpuTests());
+
+    // Measure only the passing region, i.e. stop increasing clock when
+    // the first Meas gets a !OK return value.
+    shmoo.Next = shmoo.NextToFailure;
+}
+
+//------------------------------------------------------------------------------
+function ExampleMemErrorShmoo(shmoo)
+{
+    // Shmoo dram clock: domain, startMhz, stepMhz, stopMhz
+    shmoo.AddAxis(new ShmooAxisGpuClock(Gpu.ClkM, 2300, 40, 2450));
+
+    // Measure RC of test 94.
+    var t94Meas = new ShmooMeasFermiMemqualTest(94);
+    shmoo.AddMeas(t94Meas);
+
+    // Also measure error-counts at each FBIO data-pin.
+    // This just pulls data from the other Meas' test object.
+    // We don't need to run wfmats twice.
+    shmoo.AddMeas(CreateMemErrorMeas(t94Meas, 1/*each pin*/));
+    //shmoo.AddMeas(CreateMemErrorMeas(t94Meas, 8/*each byte-lane*/));
+    //shmoo.AddMeas(CreateMemErrorMeas(t94Meas, 32/*each channel*/));
+    //shmoo.AddMeas(CreateMemErrorMeas(t94Meas, 64/*each partition*/));
+}
+
+//------------------------------------------------------------------------------
+function ExampleOverclockShmoo(shmoo)
+{
+    // Overclock shmoo: measure glstress perf at all passing overclock settings.
+
+    // Two control axes: Dram and shader-clock (dram is outer, changes fastest).
+    //
+    // Arguments are: domain (required), startMhz, stepMhz, stopMhz
+    //   Start/step/stop are optional, default to lwr, 2% of lwr, 150% of lwr.
+    shmoo.AddAxis(new ShmooAxisGpuClock(Gpu.ClkM, 2005, 20, 2400));
+    shmoo.AddAxis(new ShmooAxisGpuClock(Gpu.ClkGpc2));
+
+    // Measure RC of test 23.
+    var t23Meas = new ShmooMeasGpuTest("GLStressDots", {LoopMs : 200});
+    shmoo.AddMeas(t23Meas);
+
+    // Also measure frames-per-second.
+    // This just pulls the data from the other Meas' test object.
+    // We don't need to run glstress twice.
+    shmoo.AddMeas(new ShmooMeasOK("glsPerf", "FPS", 
+                                function() { return t23Meas.TestObj.Fps; }));
+
+    // Measure only the passing region, i.e. stop increasing clock when
+    // the first Meas gets a !OK return value.
+    shmoo.Next = shmoo.NextToFailure;
+
+    return OK;
+}
+
+//------------------------------------------------------------------------------
+function CreatePowerMeas(measObj)
+{
+    var ctor = measObj.BoundGpuSubdevice.IsSOC() ? ShmooMeasSocPower : ShmooMeasPmuPower;
+    return new ctor(measObj);
+}
+
+//------------------------------------------------------------------------------
+function ExampleGLStressPropShmoo(shmoo)
+{
+    // Measure RC and frames-per-second of test 2.
+    var t2Meas = new ShmooMeasGpuTest(
+        "GLStress", {LoopMs : 2000, Golden : {Action : Golden.Skip }});
+    shmoo.AddMeas(t2Meas);
+    shmoo.AddMeas(CreatePowerMeas(t2Meas));
+    // shmoo.AddMeas(new ShmooMeasOK("glsPerf", "FPS", 
+    //                               function() { return t2Meas.TestObj.Fps; }));
+
+    // Shmoo properties of test 2.
+    shmoo.AddAxis(new ShmooAxisProp(
+        t2Meas.TestArgs, "PpV", { Start: 5, Stop: 1e6, StepFactor: 1.25 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t2Meas.TestArgs, "NumTextures", { Start: 0, Stop: 32, Step: 1 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t2Meas.TestArgs, "TxSize", { Start: 1024, Stop: 0, Step: -8 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t2Meas.TestArgs, "Ztest", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t2Meas.TestArgs, "Stencil", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t2Meas.TestArgs, "TwoTex", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t2Meas.TestArgs, "UseTessellation", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t2Meas.TestArgs, "MadCount", { Start: 0, Stop: 25, Step: 1}));
+
+    // Our "fitness" function for the genetic search: 
+    // Returns Watts if we were able to run glstress, or 0 otherwise.
+    //   rec[0] is is RC of attempt to measure at this axis location.
+    //   rec[1] is RC from running test 2, or invalid if rec[0]!=OK
+    //   rec[2] is Watts from running test 2, or invalid if rec[0]!=OK
+
+    var fitness = function(rec) { return (rec[0] == OK) ? rec[2] : 0; };
+
+    // Use a genetic search of this very large search-space.
+    shmoo.ConfigGeneticSearch(
+        fitness,
+        250,                  // size of first generation created randomly
+        250,                  // generation size
+        100,                  // surviving size per generation
+        0.01,                 // mutate probability per gene per new chromosome
+        45,                   // max generations
+        400                   // stop if we reach this
+    );
+}
+
+//------------------------------------------------------------------------------
+function TestPowerShmoo(shmoo)
+{
+    // Measure RC and total power of several tests at varying pstate.
+
+    var tnums = [2, 153, 166, 23, 152, 172];
+    for (var i = 0; i < tnums.length; i++)
+    {
+        var t = new ShmooMeasGpuTest(tnums[i], {LoopMs : 30000, Magnitude : 360});
+        shmoo.AddMeas(t);
+        shmoo.AddMeas(CreatePowerMeas(t));
+    }
+    shmoo.AddAxis(new ShmooAxisGpuTest("SetPState", {}, "PState", [0/*, 8, 12*/]));
+}
+
+//------------------------------------------------------------------------------
+// Adapt existing gf100.js iterate utility objects to shmoo.js.
+
+function ExampleLegacyVrefDatShmoo(shmoo)
+{
+    // Equivalent to this iterate.txt setup:
+    //  TestRanges = [ new VarIter ("VREFDAT", [0x0e,0x0f,...])
+    //  TestsToRun = [ new MODSTest ("WfMatsBitReport.VrefDat(VREFDAT)") ];
+
+    AddLegacyBitReportShmooAndMeas(
+        shmoo
+        ,"WfMatsBitReport"
+        ,"VrefDat"
+        ,[0x0e,0x0f,0x0d,0x10,0x0c,0x11,0x0b,0x12,0x0a,0x13,0x09,0x14,0x08,0x15,0x07,0x16,0x08,0x17,0x06,0x18,0x05,0x19,0x04,0x1a,0x03,0x1b,0x02,0x1c,0x01,0x1d,0x0,0x1e,0x1f]
+    );
+
+    // Make output .CSV file look the way Dalyzer.exe expects.
+    // We hide the "Sample" column (OK if sample has valid meas data, RC for hang).
+    // Also, hide the "WfMatsBitReport" column (rc from nwfmats).
+    shmoo.SuppressColumn("Sample", "WfMatsBitReport");
+
+    function someBitPassing(pt)
+    {
+        // We return true if any bit had error-count 0, meaning we need to keep
+        // testing to find the edge of the passing region.
+        //   r[0] is 0 if SetAxis succeeded
+        //   r[1] is RC from NewWfMats
+        //   r[2] to r[r.length-1] are error counts per-bit.
+
+        var r = shmoo.GetRecord(pt);
+        for (var i = 2; i < r.length; i++)
+        {
+            if (r[i] === 0)
+                return true;
+        }
+        return false;
+    }
+    
+    // Measure out from the center.
+    // Stop when the central passing region bounded by failing points is found.
+    shmoo.ConfigSearchCentralPassingRegion(someBitPassing);
+}
+
+//------------------------------------------------------------------------------
+// Here's how we'd do the same shmoo using the new design.
+// You could move class ShmooAxisFermiVrefDat into gf100.js.
+
+function ExampleNewVrefDatShmoo(shmoo)
+{
+    // Measure RC & per-byte-lane error counts with test 118.
+    var t118Meas = new ShmooMeasFermiMemqualTest(118);
+    shmoo.AddMeas(t118Meas);
+    shmoo.AddMeas(CreateMemErrorMeas(t118Meas, 8/*each byte-lane*/));
+
+    // Vary vrefdat in parallel on all partitions & byte-lanes.
+    shmoo.AddAxis(new ShmooAxisFermiVrefDat(
+        t118Meas.BoundGpuSubdevice
+        ,[0x0e,0x0f,0x0d,0x10,0x0c,0x11,0x0b,0x12,0x0a,0x13,0x09,0x14,0x08,0x15,0x07,0x16,0x08,0x17,0x06,0x18,0x05,0x19,0x04,0x1a,0x03,0x1b,0x02,0x1c,0x01,0x1d,0x0,0x1e,0x1f]));
+}
+
+//------------------------------------------------------------------------------
+function GLStressZPropShmoo(shmoo)
+{
+    // Measure RC and frames-per-second of test 166.
+    var t166Meas = new ShmooMeasGpuTest(
+        "GLStressZ", {   LoopMs : 4000
+                        ,Golden : {Action : Golden.Skip }
+                        ,DoGpuCompare : false
+                     });
+    shmoo.AddMeas(t166Meas);
+    shmoo.AddMeas(CreatePowerMeas(t166Meas));
+
+    // Shmoo properties of test.
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "PpV", { Start: 3, Stop: 1e6, StepFactor: 1.25 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "NumTextures", { Start: 0, Stop: 32, Step: 1 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "TxSize", { Start: 1024, Stop: 0, Step: -8 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "Ztest", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "TxD", { Start: -2, Stop: 2, Step: 0.125 }));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "Stencil", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "TwoTex", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "LwllBack", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "TorusMajor", [true, false]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "TorusDiameter", { Start: 2.0, Stop: 40.0, StepFactor: 1.1}));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t166Meas.TestArgs, "TorusHoleDiameter", { Start: .5, Stop: 8.0, StepFactor: 1.1}));
+
+    // Our "fitness" function for the genetic search: 
+    // Returns Watts if we were able to run glstress, or 0 otherwise.
+    //   rec[0] is is RC of attempt to measure at this axis location.
+    //   rec[1] is RC from running test, or invalid if rec[0]!=OK
+    //   rec[2] is Watts from running test, or invalid if rec[0]!=OK
+
+    var fitness = function(rec) { return (rec[0] == OK) ? rec[2] : 0; };
+
+    // Use a genetic search of this very large search-space.
+    shmoo.ConfigGeneticSearch(
+        fitness,
+        150,                  // generation size
+         75,                  // surviving size per generation
+        0.01,                 // mutate probability per gene per new chromosome
+        25,                   // max generations
+        400                   // stop if we reach this
+    );
+}
+
+// vim:ft=javascript

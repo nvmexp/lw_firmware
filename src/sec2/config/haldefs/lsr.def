@@ -1,0 +1,58 @@
+# -*- mode: perl; -*-
+
+# LS RISCV Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $lsrHal = [
+
+    DEFAULTS => [
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        ACR_SETUP_LS_RISCV => [
+            DESCRIPTION    => "Setup RISCV in LS mode",
+            ARGUMENTS      => "PRM_FLCN_U64, LwU32, PACR_FLCN_CONFIG, PLSF_LSB_HEADER",
+            RETURN_TYPE    => ACR_STATUS,
+            STUB_RETURNS   => ACR_ERROR_ILWALID_OPERATION,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            INTERFACE_TAG  => 'lsrAcrSetupLSRiscv',
+
+            _GA100         => [ GA100, ],
+            _GA102         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA100, ],
+        ],
+
+        ACR_SETUP_LS_RISCV_EXT => [
+            DESCRIPTION    => "Setup RISCV in LS mode with new wpr blob",
+            ARGUMENTS      => "PRM_FLCN_U64, LwU32, PACR_FLCN_CONFIG, PLSF_LSB_HEADER_WRAPPER",
+            RETURN_TYPE    => ACR_STATUS,
+            STUB_RETURNS   => ACR_ERROR_ILWALID_OPERATION,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            INTERFACE_TAG  => 'lsrAcrSetupLSRiscvExt',
+
+            _GA102         => [ GA102_and_later, ],
+            _STUB          => [ pre_GA100, GA100, ],
+        ],
+
+        ACR_SETUP_LS_RISCV_EXTERNAL_BOOT => [
+            DESCRIPTION    => "Setup RISCV with external boot mechanism in LS mode",
+            ARGUMENTS      => "PRM_FLCN_U64, LwU32, PACR_FLCN_CONFIG, PLSF_LSB_HEADER_WRAPPER",
+            RETURN_TYPE    => ACR_STATUS,
+            STUB_RETURNS   => ACR_ERROR_ILWALID_OPERATION,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_acr", "__FUNC__")',
+            INTERFACE_TAG  => 'lsrAcrSetupLSRiscvExternalBoot',
+
+            _GH100         => [ GH100_and_later, ],
+            _STUB          => [ ALL, -GH100_and_later, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $lsrHal;

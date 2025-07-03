@@ -1,0 +1,64 @@
+# CC
+
+- Syscalls 2.0
+  Marks port/dma sections of kernel as "core".
+  Code is core kernel was implemented using continuations for real time reasons.
+
+  All other code is now interruptable and schedulable.  This allows implementing the
+  port proxy for remote partitions in the kernel in a straightforward fashion
+
+- Port Proxy
+- Conlwrrent Page Allocator
+- Port Proxies
+- Port of ELF from LIBOS 2.0
+- Port of Trap Printing from LIBOS 2.0
+
+## Port Proxy
+
+## Syscalls 2.0
+
+Once in the kernel, most syscalls should be implemented by dropping 
+down to a kernel task.  
+
+Requirements::
+ - Each task should have a designated kernel task if
+   we need to avoid blocking. Suggest storing pointer in Task struct.
+ - Should be diffilwlt to add new syscalls that don't drop into 
+   a kernel Task
+ - The "light" profile should not implement this mechanism 
+   to keep size down
+ - If the kernel thread is quiscient we should not fall into the port code
+   beyond inheriting the registers.  
+ - Blocking syscalls must follow a strict convention of inputs and outputs
+   being in adjacent blocks of registers (per RISC-V numbering) to allow
+   passing the register context area as port arguments
+ - Consider macro generated sycall
+    SYSCALL_SCHEDULED(enum-name, targetFunction, inputs, outputs)
+    inputs is number of registers from a0 as input
+    outputs is TBD
+    This macro has different implementations on context and is used to generate
+    the enums, the dispatch table (in kernel-data.ld), as well as the tables
+    for input/output counts
+
+```
+    if (task->syscallTask is ready)
+    {
+        mv tp, &task->syscallTask
+        mv sp, task->syscallTask.Stack
+        jal ra, syscallImplementation
+
+        // Restore tp and return to task
+
+    }
+    else
+    {
+        // send a blocking port send/recv from the user task to the kernel task
+        // (since it's busy) and have it copy directly into the register area
+        // @note: We'll need a data structure to encode the payload size
+        port-send-recv(&task->context->registers[RISCV_A0], ...);
+    }
+```
+
+# FSP
+
+# Future

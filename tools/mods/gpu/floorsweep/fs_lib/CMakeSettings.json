@@ -1,0 +1,37 @@
+{
+  "configurations": [
+    {
+      "name": "x64-Release",
+      "generator": "Ninja",
+      "configurationType": "Release",
+      "inheritElwironments": [ "msvc_x64_x64" ],
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "-DPRODUCTION_OPTIMIZE=ON -DDOXYGEN_DOCS=OFF -DCMAKE_BUILD_TYPE=Release -DDUMP_FS=OFF -Dgtest_force_shared_crt=ON",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": ""
+    },
+    {
+      "name": "x64-Debug",
+      "generator": "Ninja",
+      "configurationType": "Debug",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "-DDOXYGEN_DOCS=OFF -DCMAKE_BUILD_TYPE=Debug -DDUMP_FS=OFF -Dgtest_force_shared_crt=ON",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritElwironments": [ "msvc_x64_x64" ]
+    },
+	{
+      "name": "x64-Release-Symbols",
+      "generator": "Visual Studio 16 2019 Win64",
+      "configurationType": "RelWithDebInfo",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "-DPRODUCTION_OPTIMIZE=ON -DDOXYGEN_DOCS=OFF -DCMAKE_BUILD_TYPE=Release -DDUMP_FS=OFF -Dgtest_force_shared_crt=ON",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritElwironments": [ "msvc_x64_x64" ]
+    }
+  ]
+}

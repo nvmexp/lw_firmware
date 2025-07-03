@@ -1,0 +1,627 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2020-2022 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+override LW_TARGET_OS := riscv
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+include $(CC_ROOT)/config/profiles.mk
+include  $(CC_ROOT)/build/memory_layout.mk
+
+# Permitted release types:
+# debug - (default) debug signed binaries only (local signing). Only one permitted for fmodel
+# dryrun - dry run of partition builds (only partition code is built)
+# prod - prod signing, leaves package to be uploaded to FWS
+# prodcsg - prod signing, with csg automation
+# prodcsgtest - prod signing on debug server, with csg automation 
+RELEASE_TYPE ?= prod
+
+# For fmodel we only generate debug builds, so override whatever was passed
+ifneq ($(findstring fmodel,$(PROJ)),)
+override RELEASE_TYPE := debug
+endif
+
+ifeq ($(RELEASE_TYPE),debug)
+    PROD_SIGN                   := 0
+    PROD_SIGN_TEST              := 0
+    AUTOMATE_CSG_SUBMIT         := 0
+    PARTITIONS_DRY_RUN_BUILD    := 0
+else ifeq ($(RELEASE_TYPE),dryrun)
+    PROD_SIGN                   := 0
+    PROD_SIGN_TEST              := 0
+    AUTOMATE_CSG_SUBMIT         := 0
+    PARTITIONS_DRY_RUN_BUILD    := 1
+else ifeq ($(RELEASE_TYPE),prod)
+    PROD_SIGN                   := 1
+    PROD_SIGN_TEST              := 0
+    AUTOMATE_CSG_SUBMIT         := 0
+    PARTITIONS_DRY_RUN_BUILD    := 0
+else ifeq ($(RELEASE_TYPE),prodcsg)
+    PROD_SIGN                   := 1
+    PROD_SIGN_TEST              := 0
+    AUTOMATE_CSG_SUBMIT         := 1
+    PARTITIONS_DRY_RUN_BUILD    := 0
+else ifeq ($(RELEASE_TYPE),prodcsgtest)
+    PROD_SIGN                   := 1
+    PROD_SIGN_TEST              := 1
+    AUTOMATE_CSG_SUBMIT         := 1
+    PARTITIONS_DRY_RUN_BUILD    := 0
+else
+    $(error Incorrect RELEASE_TYPE)
+endif
+
+ifneq ($(LW_DVS_BLD),1)
+    APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(..)); delete $$ELW{PWD}; \
+                  print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+    APP_P4_CL = $(CHANGELIST)
+endif
+
+LW_ENGINE_MANUALS := $(MANUAL_PATHS)
+
+LWRISCVX_SDK_ROOT ?= $(LW_SOURCE)/uproc/lwriscv/sdk/$(LWRISCV_SDK_VERSION)
+LWRISCVX_SDK_PREBUILT :=$(LWRISCVX_SDK_ROOT)/prebuilt/$(LWRISCV_SDK_PROFILE)
+export LWRISCV_SDK_VERSION
+export LWRISCVX_SDK_ROOT
+export LWRISCVX_SDK_PREBUILT
+
+#libSPDM specific paths
+SPDM_LIB_SRC_DIR:= $(LW_SOURCE)/uproc/spdm/libspdm
+
+SIGGEN          := $(LWRISCVX_SDK_ROOT)/tools/siggen_manifest
+XXD             ?= /usr/bin/xxd
+TAR             ?= PATH=/bin/:$$PATH /bin/tar
+# MMINTS-TODO: this python will only work on LSF! Change this once automation supports python3.3, which is the latest version in //sw/tools/linux/python/
+PYTHON3         ?= PATH=/usr/bin:$$PATH /home/utils/Python/3.9/3.9.5-20210517/bin/python3
+
+UNZIP           ?= /usr/bin/unzip
+BASH            ?= /bin/bash
+
+# MMINTS-TODO: the automation path may change soon!
+CSG_AUTOMATION_SCRIPT ?= $(P4ROOT)/sw/pvt/dknobloch/automation/fwsSubmitPeregrine.py
+
+CC_PROFILE_NAME   := $(ENGINE)_$(PROJ)
+
+# it must be built at this time
+BUILD_DIR       := $(CC_ROOT)/_out/$(CC_PROFILE_NAME)
+BUILD_DIR_SK    := $(BUILD_DIR)/sk
+BUILD_DIR_PART  := $(BUILD_DIR)/partitions
+INSTALL_DIR     := $(BUILD_DIR)/staging
+
+RELEASE_DIR      := $(LW_SOURCE)/drivers/resman/kernel/inc/gspcc/bin
+BUILD_SCRIPTS    := $(LW_SOURCE)/uproc/build/scripts
+
+export BUILD_DIR_PART
+export INSTALL_DIR
+
+# LIBLWRISCV/libCCC configuration
+LWRISCVX_PREBUILT_INC_DIR :=$(LWRISCVX_SDK_PREBUILT)/inc
+LWRISCVX_PREBUILT_LIB_DIR :=$(LWRISCVX_SDK_PREBUILT)/lib
+LIBLWRISCV_CONFIG_H     :=$(LWRISCVX_PREBUILT_INC_DIR)/liblwriscv/g_lwriscv_config.h
+LIBLWRISCV_CONFIG_MK    :=$(LWRISCVX_SDK_PREBUILT)/g_lwriscv_config.mk
+ifeq ($(MANIFEST_OVERRIDE),)
+    MANIFEST_SRC := $(CC_ROOT)/manifests/manifest_$(CC_PROFILE_NAME).c
+else
+    MANIFEST_SRC := $(CC_ROOT)/manifests/manifest_$(ENGINE)_$(MANIFEST_OVERRIDE).c
+endif
+
+TARGET_PARTITIONS_PREFIX := $(INSTALL_DIR)/g_partitions_$(ENGINE)_$(PROJ)_riscv
+# Target file names
+TARGET_SK_PREFIX := $(INSTALL_DIR)/g_sepkern_$(CC_PROFILE_NAME)_riscv
+TARGET_MANIFEST_PREFIX := $(INSTALL_DIR)/g_manifest_$(CC_PROFILE_NAME)_riscv
+
+TARGET_MANIFEST_BIN := $(TARGET_MANIFEST_PREFIX).bin
+TARGET_MANIFEST_HEX := $(TARGET_MANIFEST_PREFIX).hex
+TARGET_MANIFEST_OBJ := $(TARGET_MANIFEST_PREFIX).o
+
+TARGET_SK_ELF     := $(TARGET_SK_PREFIX).elf
+TARGET_SK_OBJDUMP := $(TARGET_SK_PREFIX).objdump
+TARGET_SK_READELF := $(TARGET_SK_PREFIX).readelf
+TARGET_SK_TEXT    := $(TARGET_SK_PREFIX)_image.text
+TARGET_SK_DATA    := $(TARGET_SK_PREFIX)_image.data
+
+TARGET_PARTITIONS_ELF       := $(TARGET_PARTITIONS_PREFIX).elf
+TARGET_PARTITIONS_OBJDUMP   := $(TARGET_PARTITIONS_PREFIX).objdump
+TARGET_PARTITIONS_READELF   := $(TARGET_PARTITIONS_PREFIX).readelf
+TARGET_PARTITIONS_TEXT      := $(TARGET_PARTITIONS_PREFIX).text
+TARGET_PARTITIONS_DATA      := $(TARGET_PARTITIONS_PREFIX).data
+TARGET_PARTITIONS_COMB_BIN  := $(TARGET_PARTITIONS_PREFIX).bin
+
+TARGET_FINAL_PREFIX         := g_cc_$(CC_PROFILE_NAME)
+TARGET_FINAL_PREFIX_DEBUG   := $(TARGET_FINAL_PREFIX)_dbg
+TARGET_FINAL_PREFIX_PROD    := $(TARGET_FINAL_PREFIX)_prd
+TARGET_FINAL_PREFIX_PATH    := $(INSTALL_DIR)/$(TARGET_FINAL_PREFIX)
+TARGET_FINAL_TEXT_NAME      := $(TARGET_FINAL_PREFIX).text
+TARGET_FINAL_DATA_NAME      := $(TARGET_FINAL_PREFIX).data
+TARGET_FINAL_MANIFEST_NAME  := $(TARGET_FINAL_PREFIX).manifest
+TARGET_FINAL_TEXT           := $(INSTALL_DIR)/$(TARGET_FINAL_TEXT_NAME)
+TARGET_FINAL_DATA           := $(INSTALL_DIR)/$(TARGET_FINAL_DATA_NAME)
+TARGET_FINAL_MANIFEST       := $(INSTALL_DIR)/$(TARGET_FINAL_MANIFEST_NAME)
+
+TARGET_ENC_TEXT_DEBUG     := $(TARGET_FINAL_TEXT)_dbg.encrypt.bin
+TARGET_ENC_DATA_DEBUG     := $(TARGET_FINAL_DATA)_dbg.encrypt.bin
+TARGET_ENC_MANIFEST_DEBUG := $(TARGET_FINAL_MANIFEST)_dbg.encrypt.bin
+
+TARGET_ENC_TEXT_PROD     := $(TARGET_FINAL_TEXT)_prd.encrypt.bin
+TARGET_ENC_DATA_PROD     := $(TARGET_FINAL_DATA)_prd.encrypt.bin
+TARGET_ENC_MANIFEST_PROD := $(TARGET_FINAL_MANIFEST)_prd.encrypt.bin
+
+TARGET_IMAGE_DEBUG        := $(TARGET_FINAL_PREFIX_PATH)_dbg_image.bin
+TARGET_IMAGE_PROD         := $(TARGET_FINAL_PREFIX_PATH)_prd_image.bin
+TARGET_DESC_DEBUG         := $(TARGET_FINAL_PREFIX_PATH)_dbg_desc.bin
+TARGET_DESC_PROD          := $(TARGET_FINAL_PREFIX_PATH)_prd_desc.bin
+
+#libSPDM is enabled
+ifeq ($(USE_LIBSPDM), true)
+    BUILD_DIR_LIBSPDM   := $(BUILD_DIR)/libSPDM
+    TARGET_LIBSPDM      := $(INSTALL_DIR)/g_$(CC_PROFILE_NAME)_libSPDM.a
+endif
+
+# CSG settings for prod signing
+CSG_REQUEST_PACKAGE     ?= $(INSTALL_DIR)/$(PROFILE)_CSG_REQ.tgz
+CSG_RESULT_PACKAGE      ?= $(INSTALL_DIR)/$(PROFILE)_CSG_RES.zip
+CSG_POST_SIGN_SCRIPT    ?= $(INSTALL_DIR)/csg_post_sign.sh
+
+#libSPDM is enabled
+ifeq ($(USE_LIBSPDM), true)
+    TARGET_IMAGES += $(TARGET_LIBSPDM)
+endif
+
+ifeq ($(PARTITIONS_DRY_RUN_BUILD),0)
+    TARGET_IMAGES += $(TARGET_SK_ELF) $(TARGET_SK_OBJDUMP) $(TARGET_SK_READELF)
+    TARGET_IMAGES += $(TARGET_ENC_TEXT_DEBUG) $(TARGET_ENC_DATA_DEBUG) $(TARGET_ENC_MANIFEST_DEBUG)
+    TARGET_IMAGES += $(TARGET_IMAGE_DEBUG) $(TARGET_DESC_DEBUG)
+endif
+TARGET_IMAGES += $(TARGET_PARTITIONS_ELF) $(TARGET_PARTITIONS_OBJDUMP) $(TARGET_PARTITIONS_READELF)
+TARGET_IMAGES += $(TARGET_MANIFEST_HEX)
+TARGET_IMAGES += $(TARGET_PARTITIONS_COMB_BIN)
+
+CSG_TARGET_IMAGES := $(TARGET_ENC_TEXT_PROD) $(TARGET_ENC_DATA_PROD) $(TARGET_ENC_MANIFEST_PROD)
+CSG_TARGET_IMAGES += $(TARGET_IMAGE_PROD) $(TARGET_DESC_PROD)
+
+ifeq ($(AUTOMATE_CSG_SUBMIT),1)
+    ifeq ($(PROD_SIGN),1)
+        TARGET_IMAGES += $(CSG_TARGET_IMAGES)
+    endif
+endif
+
+export PROJ
+export ARCH
+export CC_ROOT
+export LWRISCVX_SDK_ROOT
+export LWRISCVX_PREBUILT_INC_DIR
+export LWRISCVX_PREBUILT_LIB_DIR
+export LIBLWRISCV_CONFIG_H
+export LIBLWRISCV_CONFIG_MK
+
+export LW_ENGINE_MANUALS
+export LW_MANUALS_ROOT
+
+# some unneeded rules to satisfy lwCommon.lwmk
+show_config: 
+
+default: release
+.PHONY: default release build clean clobber
+
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(BUILD_SCRIPTS)/release-imgs-if-changed.pl
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+ifeq ($(PARTITIONS_DRY_RUN_BUILD),0)
+    # Since encryption uses random IV, this essentially forces release always.
+    RELEASE_IMG_CHECK := --image $(TARGET_ENC_TEXT_DEBUG)
+#   # Also force installation just in case
+#   RELEASE_IMG_ARGS += --force
+else
+    RELEASE_IMG_CHECK := --image $(TARGET_PARTITIONS_COMB_BIN)
+endif
+
+RELEASE_CSG_IMG_CHECK := --image $(TARGET_ENC_TEXT_PROD)
+
+RELEASE_IMG_ARGS += --p4            $(P4)
+RELEASE_IMG_ARGS += --release-path $(RELEASE_DIR)
+RELEASE_IMG_ARGS += --output-prefix $(TARGET_FINAL_PREFIX)
+
+# Force installation always
+RELEASE_IMG_ARGS += --force
+
+
+RELEASE_IMG_TARGET_ARGS += --release-files            \
+    $(subst $(SPACE),$(COMMA),$(TARGET_IMAGES))
+
+RELEASE_IMG_CSG_TARGET_ARGS := --release-files        \
+    $(subst $(SPACE),$(COMMA),$(strip $(CSG_TARGET_IMAGES)))
+
+release: $(TARGET_IMAGES)
+	$(ECHO) $(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS)
+	$(PERL) $(RELEASE_SCRIPT)  $(RELEASE_IMG_CHECK) $(RELEASE_IMG_ARGS) $(RELEASE_IMG_TARGET_ARGS)
+
+ifeq ($(PROD_SIGN),1)
+    ifeq ($(AUTOMATE_CSG_SUBMIT),0)
+        release: $(CSG_REQUEST_PACKAGE) $(CSG_POST_SIGN_SCRIPT)
+    endif
+endif
+
+
+ifeq ($(CC_IS_RESIDENT),false)
+release: release.proxy
+
+release.proxy: 
+	$(MAKE) -f make-proxy.lwmk release
+
+build: build.proxy
+
+build.proxy: 
+	$(MAKE) -f make-proxy.lwmk build
+endif
+
+clobber:
+	$(RM) -r $(BUILD_DIR)
+
+RVMKIMG_PARAMS_DEBUG := \
+    --monitorCode       $(TARGET_ENC_TEXT_DEBUG)        \
+    --monitorData       $(TARGET_ENC_DATA_DEBUG)        \
+    --manifest          $(TARGET_ENC_MANIFEST_DEBUG)    \
+    --readelf           $(TARGET_PARTITIONS_READELF)    \
+    --outFilePrefix     $(TARGET_FINAL_PREFIX_DEBUG)    \
+    --outDir            $(INSTALL_DIR)                  \
+    --useMonitor
+
+RVMKIMG_DEPS_DEBUG := $(TARGET_ENC_TEXT_DEBUG) $(TARGET_ENC_DATA_DEBUG) $(TARGET_ENC_MANIFEST_DEBUG) 
+RVMKIMG_DEPS_DEBUG += $(TARGET_PARTITIONS_READELF)
+
+RVMKIMG_PARAMS_PROD := \
+    --monitorCode       $(TARGET_ENC_TEXT_PROD)         \
+    --monitorData       $(TARGET_ENC_DATA_PROD)         \
+    --manifest          $(TARGET_ENC_MANIFEST_PROD)     \
+    --readelf           $(TARGET_PARTITIONS_READELF)    \
+    --outFilePrefix     $(TARGET_FINAL_PREFIX_PROD)     \
+    --outDir            $(INSTALL_DIR)                  \
+    --useMonitor
+
+RVMKIMG_DEPS_PROD := $(TARGET_ENC_TEXT_PROD) $(TARGET_ENC_DATA_PROD) $(TARGET_ENC_MANIFEST_PROD) 
+
+ifeq ($(PARTITIONS_DRY_RUN_BUILD),0)
+    $(TARGET_IMAGE_DEBUG) $(TARGET_DESC_DEBUG) &: $(RVMKIMG_DEPS_DEBUG)
+	$(ECHO) generating $(notdir $(TARGET_IMAGE_DEBUG))
+	$(TOUCH) $(INSTALL_DIR)/.keep
+	$(PERL) $(BUILD_SCRIPTS)/mkimage/rvmkimg.pl  $(RVMKIMG_PARAMS_DEBUG)
+endif
+
+ifeq ($(AUTOMATE_CSG_SUBMIT),1)
+    CSG_ELW := dev
+
+    ifeq ($(PROD_SIGN),1)
+        ifeq ($(PROD_SIGN_TEST),0)
+            CSG_ELW := prod
+        endif
+    endif
+
+    CSG_AUTOMATION_ARGS := --elw $(CSG_ELW) --description GSP --changelist $(APP_P4_CL) 
+    CSG_AUTOMATION_ARGS += --package $(CSG_REQUEST_PACKAGE) --waitForRes $(CSG_RESULT_PACKAGE)
+    $(CSG_RESULT_PACKAGE): $(CSG_REQUEST_PACKAGE)
+	$(PYTHON3) $(CSG_AUTOMATION_SCRIPT) $(CSG_AUTOMATION_ARGS)
+
+    $(RVMKIMG_DEPS_PROD) &: $(CSG_RESULT_PACKAGE) $(CSG_POST_SIGN_SCRIPT)
+	$(UNZIP) -d $(INSTALL_DIR) -o $(CSG_RESULT_PACKAGE)
+	$(BASH) $(CSG_POST_SIGN_SCRIPT)
+    # Empty rule
+    $(TARGET_IMAGE_PROD) $(TARGET_DESC_PROD) &: $(RVMKIMG_DEPS_PROD)
+	$(ECHO) generating $(notdir $(TARGET_IMAGE_PROD))
+
+    CSG_RELEASE_CMD :=
+else
+    RELEASE_CSG_IMG_CHECK := --image $(TARGET_ENC_TEXT_PROD)
+
+    RELEASE_IMG_CSG_TARGET_ARGS := --release-files        \
+        $(subst $(SPACE),$(COMMA),$(strip $(CSG_TARGET_IMAGES)))
+
+    CSG_RELEASE_CMD := $(PERL) $(RELEASE_SCRIPT) $(RELEASE_CSG_IMG_CHECK) $(RELEASE_IMG_ARGS) $(RELEASE_IMG_CSG_TARGET_ARGS)
+endif
+
+
+# Rules to create partitions
+define add-part =
+$(info adding partition rule: $(1))
+build.partitions: build.part_$(1)
+install.partitions: install.part_$(1)
+clear.partitions: clear.part_$(1)
+build.part_$(1): $(INSTALL_DIR)
+	$$(MAKE) -f make-partition.lwmk PART_DIR=$(1) build
+install.part_$(1): build.part_$(1)
+	$$(MAKE) -f make-partition.lwmk PART_DIR=$(1) install
+clear.part_$(1): 
+	$$(MAKE) -f make-partition.lwmk PART_DIR=$(1) clean
+.PHONY:  build.part_$(1) install.part_$(1) clean.part_$(1)
+endef
+$(foreach c,$(sort $(PARTITIONS)),$(eval $(call add-part,$(c))))
+.PHONY: build.partitions install.partitions clean.partitions
+
+### SK - Spark SK + policies
+SEPKERN_ROOT:=$(LWRISCVX_SDK_ROOT)/monitor/sepkern
+SEPKERN_INSTALL_DIR:=$(INSTALL_DIR)
+
+$(TARGET_SK_OBJDUMP) $(TARGET_SK_READELF) $(TARGET_SK_TEXT) $(TARGET_SK_DATA): $(TARGET_SK_ELF)
+
+$(TARGET_SK_ELF) : install.sk
+
+install.sk: build.sk
+
+SK_BUILD_ARGS=POLICY_PATH=$(SEPKERN_INSTALL_DIR) 
+ifeq ($(POLICY_OVERRIDE),)
+    SK_POLICY_NAME=policy_$(CC_PROFILE_NAME).ads
+else
+    SK_POLICY_NAME=policy_$(ENGINE)_$(POLICY_OVERRIDE).ads
+endif
+SEPKERN_POLICY_IN:=$(CC_ROOT)/policies/$(SK_POLICY_NAME).in
+SEPKERN_POLICY_OUT:=$(SEPKERN_INSTALL_DIR)/$(SK_POLICY_NAME)
+SEPKERN_PROFILE:=$(CC_ROOT)/config/mpsk-profile-$(ENGINE)-$(CHIP).mk
+
+SK_BUILD_ARGS+=POLICY_FILE_NAME=$(SK_POLICY_NAME) PARTITION_COUNT=$(SK_PARTITION_COUNT)
+SK_BUILD_ARGS+=TARGET_NAME=g_sepkern_$(CC_PROFILE_NAME)_riscv
+SK_BUILD_ARGS+=PROFILE_MPSK_CONFIG=$(SEPKERN_PROFILE)
+# MK TODO: move to build_elw
+GNAT_PATH := $(LW_TOOLS)/adacore/gnat_pro_ada/linux/gnat_pro_ent_ada/target_riscv/20200209
+GNATPREP := $(GNAT_PATH)/bin/riscv64-elf-gnatprep
+GNATPREP_ARG :=$(addprefix -D,$(CC_PARTITION_MEMORY_SIZES_SPARK))
+
+# Permit partitions to access print buffer
+ifeq ($(CC_PERMIT_DEBUG), true)
+    GNATPREP_ARG += -DSHARED_PRINT_ACCESS_MODE=Core_Pmp_Access_Mode_RW
+else
+    GNATPREP_ARG += -DSHARED_PRINT_ACCESS_MODE=Core_Pmp_Access_Mode_None
+endif
+
+ifeq ($(CC_IS_RESIDENT), true)
+    GNATPREP_ARG += -DRM_FB_ACCESS_MODE=Core_Pmp_Access_Mode_None
+else
+    GNATPREP_ARG += -DRM_FB_ACCESS_MODE=Core_Pmp_Access_Mode_RWX
+endif
+
+# Recipe for policy
+$(SEPKERN_POLICY_OUT) : $(SEPKERN_POLICY_IN)  $(SEPKERN_INSTALL_DIR) $(LD_DEPS)
+	$(ECHO) Generating policies
+	$(GNATPREP) -c $(GNATPREP_ARG) $< $@
+
+build.sk: $(BUILD_DIR_SK) $(INSTALL_DIR_SK) $(SEPKERN_POLICY_OUT)
+	$(ECHO) Building SK...
+	$(MAKE) -C $(SEPKERN_ROOT) ENGINE=$(ENGINE) CHIP=$(CHIP) INSTALL_PATH=$(INSTALL_DIR) BUILD_PATH=$(BUILD_DIR_SK) OUTPUT_PATH=$(BUILD_DIR_SK) $(SK_BUILD_ARGS) install
+.PHONY: build.sk install.sk
+
+### LibSPDM 
+ifeq ($(USE_LIBSPDM), true)
+LWOS_VERSION     := dev
+CP               := /bin/cp
+GSP_CC           := 1
+
+export GSP_CC
+export LWOS_VERSION
+export MANUAL_PATHS
+export LW_TARGET_OS
+
+# Include any LWPU authored headers first.
+SUBMAKE_CFLAGS += -mabi=lp64f -march=rv64imfc
+SUBMAKE_CFLAGS += -I$(LW_SOURCE)/uproc/lwriscv/inc
+SUBMAKE_CFLAGS += -I$(LWRISCVX_SDK_ROOT)/inc
+SUBMAKE_CFLAGS += -I$(LWRISCVX_PREBUILT_INC_DIR)
+SUBMAKE_CFLAGS += -I$(LW_SOURCE)/uproc/gsp/inc
+SUBMAKE_CFLAGS += -I$(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc/gsp/
+SUBMAKE_CFLAGS += -include $(LIBLWRISCV_CONFIG_H)
+
+ifeq ($(USE_LIBCCC), true)
+SUBMAKE_CFLAGS += -I$(LWRISCVX_PREBUILT_INC_DIR)/libCCC
+SUBMAKE_CFLAGS += -I$(LWRISCVX_PREBUILT_INC_DIR)/libCCC/hwref
+SUBMAKE_CFLAGS += -I$(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common
+SUBMAKE_CFLAGS += -I$(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common_crypto
+SUBMAKE_CFLAGS += -I$(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common_crypto/include
+SUBMAKE_CFLAGS += -I$(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common_crypto_private
+SUBMAKE_CFLAGS += -I$(LWRISCVX_PREBUILT_INC_DIR)/libCCC/common_crypto_private/lwpka
+SUBMAKE_CFLAGS += -DUSE_LIBCCC -DUPROC_ARCH_RISCV -DCCC_USE_LIBLWRISCV -DHW_CC_ENABLED
+endif
+
+export SUBMAKE_CFLAGS
+
+build.libSPDM: $(INSTALL_DIR)
+	$(ECHO) Building SPDM Lib...
+	$(MAKE)  -C $(SPDM_LIB_SRC_DIR) -f makefile.lwmk LW_BUILD_TYPE=release OUTPUTDIR=$(INSTALL_DIR) build
+	$(CP) -f $(INSTALL_DIR)/libSPDM.a $(TARGET_LIBSPDM)
+
+install.libSPDM: build.libSPDM
+
+clean.libSPDM:
+	$(MAKE) -C $(SPDM_LIB_SRC_DIR) -f makefile.lwmk LW_BUILD_TYPE=release OUTPUTDIR=$(INSTALL_DIR) clobber
+	$(RM) -f $(TARGET_LIBSPDM)
+	$(RM) -r $(BUILD_DIR_LIBSPDM)
+
+$(TARGET_LIBSPDM) : install.libSPDM
+
+.PHONY: build.libSPDM install.libSPDM
+endif
+
+
+# Rules to create directories
+DIRS_TO_CREATE:= $(filter BUILD_DIR_%,$(.VARIABLES)) INSTALL_DIR RELEASE_DIR
+define add-dir =
+$(info adding dir rule: $(1))
+$(1):
+	$(MKDIR) -p $(1)
+endef
+$(foreach c,$(sort $(DIRS_TO_CREATE)),$(eval $(call add-dir,$($(c)))))
+
+##################### Signing and final image generation
+$(TARGET_FINAL_TEXT): $(TARGET_SK_TEXT) $(TARGET_PARTITIONS_TEXT) $(INSTALL_DIR)
+	$(CAT) $(TARGET_SK_TEXT) $(TARGET_PARTITIONS_TEXT) > $@
+
+$(TARGET_FINAL_DATA): $(TARGET_SK_DATA) $(TARGET_PARTITIONS_DATA) $(INSTALL_DIR)
+	$(CAT) $(TARGET_SK_DATA) $(TARGET_PARTITIONS_DATA) > $@
+
+$(TARGET_FINAL_MANIFEST): $(TARGET_MANIFEST_BIN) $(INSTALL_DIR)
+	$(CAT) $(TARGET_MANIFEST_BIN) > $@
+
+ifeq ($(PARTITIONS_DRY_RUN_BUILD),0)
+    $(TARGET_ENC_TEXT_DEBUG) $(TARGET_ENC_DATA_DEBUG) $(TARGET_ENC_MANIFEST_DEBUG) &: $(TARGET_FINAL_TEXT) $(TARGET_FINAL_DATA) $(TARGET_FINAL_MANIFEST)	
+	$(ECHO) "Generating debug-signed/encrypted build"
+	$(SIGGEN) -manifest $(TARGET_FINAL_MANIFEST) -code $(TARGET_FINAL_TEXT) -data $(TARGET_FINAL_DATA) -chip $(SIGGEN_CHIP) -mode 0
+	$(MOVE) $(addsuffix .encrypt.bin.out.bin,$(TARGET_FINAL_MANIFEST)) $(TARGET_ENC_MANIFEST_DEBUG)
+	$(RM) $(addsuffix .encrypt.bin.sig.bin,$(TARGET_FINAL_MANIFEST))
+	$(RM) $(addsuffix .encrypt.bin,$(TARGET_FINAL_MANIFEST))
+	$(MOVE) $(addsuffix .encrypt.bin,$(TARGET_FINAL_TEXT)) $(TARGET_ENC_TEXT_DEBUG)
+	$(MOVE) $(addsuffix .encrypt.bin,$(TARGET_FINAL_DATA)) $(TARGET_ENC_DATA_DEBUG)
+endif
+
+CSG_FILES := $(INSTALL_DIR)/profile.txt
+CSG_FILES += $(INSTALL_DIR)/siggen_params.txt
+CSG_FILES += $(TARGET_FINAL_TEXT) $(TARGET_FINAL_DATA) $(TARGET_FINAL_MANIFEST)
+
+$(CSG_REQUEST_PACKAGE) $(CSG_POST_SIGN_SCRIPT) &: $(TARGET_FINAL_TEXT) $(TARGET_FINAL_DATA) $(TARGET_FINAL_MANIFEST) $(TARGET_PARTITIONS_READELF)
+	$(ECHO) "Generating files for prod-signed/encrypted build"
+	$(ECHO) "-manifest $(TARGET_FINAL_MANIFEST_NAME) -code $(TARGET_FINAL_TEXT_NAME) -data $(TARGET_FINAL_DATA_NAME) -chip $(SIGGEN_CHIP) -mode $(PROD_SIGN)" > $(INSTALL_DIR)/siggen_params.txt
+	$(ECHO) $(FWS_SIGN_PROFILE) > $(INSTALL_DIR)/profile.txt
+	$(TAR) -C $(INSTALL_DIR) -czf $(CSG_REQUEST_PACKAGE) $(notdir $(CSG_FILES))
+	$(ECHO) '#!/bin/bash' > $(CSG_POST_SIGN_SCRIPT)
+	$(ECHO) 'cd $(INSTALL_DIR)' > $(CSG_POST_SIGN_SCRIPT)
+	$(ECHO) "$(MOVE) $(addsuffix .encrypt.bin.out.bin,$(TARGET_FINAL_MANIFEST_NAME)) $(TARGET_ENC_MANIFEST_PROD);" >> $(CSG_POST_SIGN_SCRIPT)
+	$(ECHO) "$(MOVE) $(addsuffix .encrypt.bin,$(TARGET_FINAL_TEXT_NAME)) $(TARGET_ENC_TEXT_PROD);" >> $(CSG_POST_SIGN_SCRIPT)
+	$(ECHO) "$(MOVE) $(addsuffix .encrypt.bin,$(TARGET_FINAL_DATA_NAME)) $(TARGET_ENC_DATA_PROD);" >> $(CSG_POST_SIGN_SCRIPT)
+	$(ECHO) "$(PERL) $(BUILD_SCRIPTS)/mkimage/rvmkimg.pl $(RVMKIMG_PARAMS_PROD);" >> $(CSG_POST_SIGN_SCRIPT)
+	$(ECHO) "$(CSG_RELEASE_CMD)" >> $(CSG_POST_SIGN_SCRIPT)
+	$(ECHO) "Saved CSG package as $(CSG_REQUEST_PACKAGE), post-sign script is $(CSG_POST_SIGN_SCRIPT)"
+	$(ECHO) ""
+
+#####################  Manifest
+
+manifest: $(TARGET_MANIFEST_BIN) $(TARGET_MANIFEST_HEX)
+.PHONY: manifest
+
+$(TARGET_MANIFEST_BIN) $(TARGET_MANIFEST_HEX) &: $(MANIFEST_SRC) $(BUILD_DIR)
+	# Limits are for SK image *only* (not partitions)
+	$(CC) $(CFLAGS) $(MANIFEST_SRC) $(INCLUDES) $(DEFINES)  $(addprefix -D,$(CC_PARTITION_MEMORY_SIZES)) -Wno-sign-colwersion -include $(LIBLWRISCV_CONFIG_H) -c -o $(TARGET_MANIFEST_OBJ)
+	$(OBJCOPY) -O binary -j .rodata.manifest $(TARGET_MANIFEST_OBJ) $(TARGET_MANIFEST_BIN)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(TARGET_MANIFEST_HEX)
+ifeq ($(PARTITIONS_DRY_RUN_BUILD),1)
+	$(ECHO) "(PARTITIONS DRY RUN BUILD)" >> $(TARGET_MANIFEST_HEX)
+endif
+	$(XXD) $(TARGET_MANIFEST_BIN) >> $(TARGET_MANIFEST_HEX)
+
+##################### final linking
+LIBS := -L$(LWRISCVX_PREBUILT_LIB_DIR) -L$(INSTALL_DIR) 
+
+# MK TODO: add externally build libraries
+# add partition libraries
+LIBS += $(addprefix -lpart_,$(PARTITIONS))
+# Add risc-v sdk
+LIBS +=  -llwriscv
+
+ifeq ($(USE_LIBRTS),true)
+LIBS +=  -lRTS
+endif
+
+ifeq ($(USE_LIBCCC),true)
+LIBS += -lCCC
+endif
+
+ifeq ($(USE_LIBSPDM),true)
+LIBS += -lSPDM
+endif
+
+ifeq ($(CC_GSPRM_BUILD),true)
+DEFINES += -DCC_GSPRM_BUILD
+endif
+
+ifeq ($(CC_PERMIT_DEBUG), true)
+    DEFINES  += -DCC_PERMIT_DEBUG=1
+else
+    DEFINES  += -DCC_PERMIT_DEBUG=0
+endif
+
+
+LDSCRIPT_IN := $(CC_ROOT)/build/ldscript.ld.in
+LDSCRIPT    := $(INSTALL_DIR)/ldscript.ld
+
+### Those flags and includes are for manifest processing only
+
+# Add liblwriscv to include path
+INCLUDES += $(LWRISCVX_PREBUILT_INC_DIR)
+# Add LWRISCV SDK to include path
+INCLUDES += $(LWRISCVX_SDK_ROOT)/inc
+# Add chip cheaders to include path
+INCLUDES += $(LW_ENGINE_MANUALS)
+INCLUDES += $(LWRISCVX_SDK_ROOT)/inc/lwpu-sdk
+INCLUDES := $(addprefix -I,$(INCLUDES))
+
+# MK TODO: unify that with other riscv cflags (From lw settings and from submodule.. maybe pass it from profile?)
+CFLAGS += -Og -g -std=c11
+CFLAGS += -Werror -Wall -Wstrict-prototypes -ffunction-sections -fdata-sections
+CFLAGS += -pipe -Wtype-limits -Wcolwersion -Wsign-colwersion  -Wsign-compare -Wint-in-bool-context
+CFLAGS += -fdiagnostics-color=always
+CFLAGS += -fomit-frame-pointer -fno-strict-aliasing -mcmodel=medany
+CFLAGS += -nostartfiles -nostdlib -ffreestanding
+CFLAGS += $(INCLUDES)
+# WARNING : this is imporant, it includes liblwriscv configuration file in every compiled file (that way we don't need to explicitly include it)
+CFLAGS += -include $(LIBLWRISCV_CONFIG_H)
+# MK TODO: unhack abi/arch 
+CFLAGS += -mabi=lp64f -march=rv64imfc
+# Don't put uninitialized global variables in common place, keep them in partition's bss
+CFLAGS += -fno-common 
+CFLAGS += $(EXTRA_CFLAGS)
+
+LDFLAGS += -Wl,-melf64lriscv
+LDFLAGS += -Wl,--gc-sections
+LDFLAGS += -Wl,--print-gc-sections
+LDFLAGS += -Wl,--print-memory-usage
+LDFLAGS += -Wl,-Map=$(INSTALL_DIR)/link.log
+LDFLAGS += -Wl,--sort-common=descending
+LDFLAGS += -Wl,--sort-section=alignment
+LDFLAGS += -Wl,--start-group $(LIBS) -Wl,--end-group
+LDFLAGS += -nostdlib -nostartfiles -T$(LDSCRIPT)
+LDFLAGS += $(EXTRA_LDFLAGS)
+LD_INCLUDES += $(INCLUDES)
+LD_DEPS += $(LDSCRIPT_IN)
+
+$(LDSCRIPT): $(LD_DEPS) $(INSTALL_DIR)
+	$(CPP) -x c -P -o $@ $(DEFINES) $(INCLUDES)  $(addprefix -D,$(CC_PARTITION_MEMORY_SIZES)) -include $(LIBLWRISCV_CONFIG_H) $(LDSCRIPT_IN)
+
+$(TARGET_PARTITIONS_ELF): install.partitions $(LDSCRIPT)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $(TARGET_PARTITIONS_ELF)
+
+link.partitions: $(TARGET_PARTITIONS_ELF)
+.PHONY: link.partitions
+
+$(TARGET_PARTITIONS_TEXT) : $(TARGET_PARTITIONS_ELF)
+	$(OBJCOPY) -O binary -j '.partition_*_code' $^ $@
+
+$(TARGET_PARTITIONS_DATA) : $(TARGET_PARTITIONS_ELF)
+	$(OBJCOPY) -O binary -j '.partition_*_data' $^ $@
+
+# Generate combined image - not actually used for anything except for dry run
+# build release checks.
+$(TARGET_PARTITIONS_COMB_BIN) : $(TARGET_MANIFEST_BIN) $(TARGET_PARTITIONS_TEXT) $(TARGET_PARTITIONS_DATA)
+	$(CAT) $(TARGET_MANIFEST_BIN) $(TARGET_PARTITIONS_TEXT) $(TARGET_PARTITIONS_DATA) > $@
+
+# Generic objdump etc rules
+%.readelf: %.elf
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $@
+ifeq ($(PARTITIONS_DRY_RUN_BUILD),1)
+	$(ECHO) "(PARTITIONS DRY RUN BUILD)" >> $@
+endif
+	$(READELF) --all $^ > $@
+
+%.objdump: %.elf
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $@
+ifeq ($(PARTITIONS_DRY_RUN_BUILD),1)
+	$(ECHO) "(PARTITIONS DRY RUN BUILD)" >> $@
+endif
+	$(OBJDUMP) -S $^ > $@

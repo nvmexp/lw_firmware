@@ -1,0 +1,57 @@
+# -*- mode: perl; -*-
+
+# HDCP Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $hdcpHal = [
+
+    # per-GPU defaults for HDCP for all interfaces below
+    DEFAULTS => [
+        FLAGS   => ":DIRECT_HAL_CALLS",
+    ],
+
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        READ_M0 => [
+            DESCRIPTION     => "Reads the value of M0 off the private bus",
+            RETURN_TYPE     => HDCP_BUS_STATUS,
+            ARGUMENTS       => "LwU64 *pM0",
+            STUB_RETURNS    => BUS_READ_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libHdcpbus", "__FUNC__")',
+
+            _v02_05         => [ GM20X_thru_dPASCAL, -DISPLAYLESS, ],
+            _v03_00         => [ GV10X_and_later, -DISPLAYLESS, ],
+            _v04_02         => [ T234D_and_later, -DISPLAYLESS, ],
+            _STUB           => [ pre_GM20X, DISPLAYLESS, ],
+        ],
+
+        WRITE_STATUS => [
+            DESCRIPTION     => "Writes data to the specified status register",
+            RETURN_TYPE     => HDCP_BUS_STATUS,
+            ARGUMENTS       => "LwU32 idx, LwU32 data",
+            STUB_RETURNS    => BUS_WRITE_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libHdcpbus", "__FUNC__")',
+
+            LIKE_INTERFACE  => READ_M0,
+        ],
+
+        READ_STATUS => [
+            DESCRIPTION     => "Reads the status register value",
+            RETURN_TYPE     => HDCP_BUS_STATUS,
+            ARGUMENTS       => "LwU32 idx, LwU32 *pData",
+            STUB_RETURNS    => BUS_READ_ERROR,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libHdcpbus", "__FUNC__")',
+
+            LIKE_INTERFACE  => READ_M0,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $hdcpHal;
+

@@ -1,0 +1,164 @@
+# -*- mode: perl; -*-
+
+# Interrupt Controller Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $icHal = [
+
+    # per-GPU defaults for IC for all interfaces below
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PRE_INIT => [
+            DESCRIPTION    => "Initialization",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_and_later, ],
+            _STUB          => [ pre_GP10X, ],
+
+        ],
+
+        SERVICE => [
+            DESCRIPTION    => "Service",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GM20X         => [ ALL, ],
+        ],
+
+        SERVICE_CMD => [
+            DESCRIPTION    => "Service Command Queue interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GM20X         => [ ALL, -AMPERE_and_later, GA100, ],
+            _GA10X         => [ AMPERE_and_later, -GA100, ],
+        ],
+
+        HALT_INTR_UNMASK => [
+            DESCRIPTION    => "Unmask the halt interrupt to host",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            LIKE_INTERFACE => SERVICE,
+        ],
+
+        HALT_INTR_MASK => [
+            DESCRIPTION    => "Mask the halt interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_cmdmgmt", "__FUNC__")',
+
+            LIKE_INTERFACE => SERVICE,
+        ],
+
+        CMD_QUEUE_INTR_UNMASK => [
+            DESCRIPTION    => "Unmask command queue interrupt for given queue id",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 queueId",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GP10X         => [ GP10X_thru_GA100, ],
+            _GA10X         => [ AMPERE_and_later, -GA100, ],
+            _STUB          => [ pre_GP10X, ],
+        ],
+
+        CMD_QUEUE_INTR_MASK => [
+            DESCRIPTION    => "Mask command queue interrupt for given queue id",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 queueId",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => CMD_QUEUE_INTR_UNMASK,
+        ],
+
+        CMD_QUEUE_INTR_CLEAR => [
+            DESCRIPTION    => "Clear the command queue interrupt for given queue id",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 queueId",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            LIKE_INTERFACE => CMD_QUEUE_INTR_UNMASK,
+        ],
+
+        HOST_IF_INTR_UNMASK => [
+            DESCRIPTION    => "Unmask host interface interrupts (ctxsw and mthd interrupts)",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => SERVICE,
+        ],
+
+        IS_CTX_SW_INTR_PENDING => [
+            DESCRIPTION    => "Returns whether a ctxsw interrupt is pending for use within RC error recovery",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => LW_FALSE,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_chnmgmt", "__FUNC__")',
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+        OS_TICK_INTR_MASK_GET => [
+            DESCRIPTION    => "Return the IRQSTAT mask for the OS timer",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+        SEMAPHORE_D_TRAP_INTR_TRIGGER => [
+            DESCRIPTION    => "Trigger a SEMAPHORE_D trap interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_chnmgmt", "__FUNC__")',
+
+            LIKE_INTERFACE => PRE_INIT,
+        ],
+
+        SET_NONSTALL_INTR_CTRL_GFID => [
+            DESCRIPTION    => "Set the GFID in the nonstall interrupt control",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => 'LwU32 gfid',
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_chnmgmt", "__FUNC__")',
+
+            _GA100         => [ AMPERE , AD10X, ],
+            _GH100         => [ HOPPER_and_later, ],
+            _STUB          => [ pre_GA100, ],
+        ],
+
+        HOST_IF_INTR_CTXSW_UNMASK => [
+            DESCRIPTION    => "Unmask host interface ctxsw interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+ 
+            _GH100         => [ HOPPER_and_later, ],
+            _STUB          => [ pre_GH100, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $icHal;

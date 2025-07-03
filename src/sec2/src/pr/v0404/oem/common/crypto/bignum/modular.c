@@ -1,0 +1,567 @@
+/**@@@+++@@@@******************************************************************
+**
+** Microsoft (r) PlayReady (r)
+** Copyright (c) Microsoft Corporation. All rights reserved.
+**
+***@@@---@@@@******************************************************************
+*/
+#define DRM_BUILDING_MODULAR_C
+#include "bignum.h"
+#include "bigpriv.h"
+#include <drmlastinclude.h>
+
+ENTER_PK_NAMESPACE_CODE;
+#ifdef NONE
+/*
+**              create_modulus(a, lnga, reddir, *pmodulo)
+**                      Initialize pmodulo for the modulus a,
+**                      of length lnga.  reddir can be FROM_LEFT
+**                      or FROM_RIGHT to specify whether
+**                      products are reduced from the left or
+**                      from the right.
+**
+**              from_modular(a, b, pmodulo) --
+**                      The number a (mod pmodulo) is colwerted to
+**                      standard form and stored in b.
+**
+**              mod_mul(a, b, c, pmodulo, temps) --
+**                      Compute c = a * b (mod pmodulo).
+**
+**              mod_shift(a, shiftamt, b, pmodulo) --
+**                      Compute b = a * 2^shiftamt (mod pmodulo).
+**                      The shift count shiftamt can have either
+**                      sign, but the modulus must be
+**                      odd if the shift count is negative.
+**                      Cost is O(shiftamt) (for fixed pmodulo),
+**                      so huge values of shiftamt should be avoided.
+**
+**             to_modular(a, lnga, b, pmodulo)  --
+**                      Colwert a (of length lnga) to
+**                      its modular representation b.
+**
+**             uncreate_modulus(pmodulo)
+**                      Release storage allocated by create_modulus
+*/
+
+
+/*
+**    (December, 1995, note)
+**
+**         Here is the best way I have found so far to reduce 2048 bits
+**  to 1024 bits.  If the (odd) modulus is N, the method uses two big constants
+**
+**          Nilw512 = 1/N (mod 2^512)
+**
+**          N1536 = N * Nilw512 (so N1536 == 1 mod 2^512).
+**
+**  Let the original 2048-bit number be x0.
+**
+**  Step 1)  Reduce to 1536 bits.  Replace x0 by
+**
+**           x1 = (x0 - N1536 * (lower 512 bits of x0))/2^512.
+**
+**           (N.B. x1 may be negative).
+**           Cost: One 512 x 1024-bit multiplication.
+**
+**  Step 2)  Compute q == x1 * Nilw512 (mod 2^512)
+**
+**           Cost: One 512 x 512-bit multiplication (low half only)
+**
+**  Step 3)  Compute x2 = (x1 - q * N)/2^512.  If negative, add N.
+**
+**           Cost: One 512 x 1024-bit multiplication,
+**                 where the low 512 bits of the product are known.
+**
+**  In 1) and 3), the 1024-bit operand depends only on N,
+**           so any additions/subtractions needed to precondition
+**           the operand for Karatsuba need be done only once.
+**           The same 512-bit multiplier (bottom of x0, or q)
+**           is being used for two 512 x 512-bit multiplications,
+**           and need be preconditioned only once.
+**
+**  In 3), we can do the lower 512 x 512 multiplication with
+**  two 256 x 256 multiplications since the low 512 bits of the product
+**  are known.  Specifically, if we want (a1:a0)*(b1:b0)
+**  where a1, a0, b1, b0 are 256 bits each, then it suffices
+**  to compute a1*b1 and (a1 - a0)*(b1 - b0) if we know the bottom
+**  512 bits of (a1:a0)*(b1:b0).
+**
+**          The total reduction cost is 6 + 3 + 5 = 14
+**  256 x 256-bit products, whereas the present scheme uses
+**  the equivalent of 16 such products (computed by the classical algorithm).
+**  I estimate the time for a 256 x 256-bit product to be 650 cycles
+**  (on the Pentium), so the total reduction time
+**  (after adding overhead for the additions) will be around 10000 cycles.
+**
+**          We can do the 512 x 512 low product required by 2)
+**  using 5 full 128 x 128 multiplication and 3 low
+**  128 x 128 multiplications for a slight improvement.
+**  Specifically, we can get the lower half of
+**  (a3:a2:a1:a0) * (b3:b2:b1:b0) if we know
+**  a0*b0, a1*b1, a2*b2, (a1 - a0)*(b1 - b0), (a2 - a0)*(b2 - b0),
+**  and the lower halves of (a2 - a1)*(b2 - b1), a0*b3, a3*b0.
+**
+**          Or we may skip the first reduction from 2048 to
+**  1536 bits, and compute one 1024-bit q such that
+**  q == x0/N (mod 2^1024) (lower half of 1024 x 1024-bit product).
+**  Then take (x0 - q*N)/2^1024 where the lower half of q*N is known.
+**  The computation of q can be done with eight 256 x 256-bit multiplications,
+**  and q*N with two 512 x 512-bit multiplications, again
+**  for fourteen 256 x 256-bit multiplications.
+**
+**          If we try to reduce from the left rather than from the right, then
+**  we can do something like 1) (using N1536 = 2^1536 + (number below N)
+**  where N1536 is a multiple of N).  Then we have a 1536-bit remainder,
+**  which we want to further-reduce to 1024 bits.
+**  Define N1280 (slightly above 2^1280) similarly; one 256 x 1024
+**  multiplication will reduce the remainder to 1280 bits.
+**  We can estimate the final quotient at any time, if we
+**  know the reciprocal of the divisor, but this seems to take
+**  more work than working from the right.  It is still desirable to optimize
+**  this case, to avoid the need to colwert to/from Montgomery form
+**  when the original exponent is small (e.g., when lwbing a number).
+**
+**          The length 1024 is in the padding table (see kara.c),
+**  as is 512, so nothing is wasted when we pad those operands during
+**  the multiplication.  For an irregular length, such as 608 bits,
+**  the second reduction must be at least 608/2 = 304 bits,
+**  and the first such entry is for 384 bits.  The first reduction
+**  must then be at least 608 - 384 = 224 bits, and we could then
+**  use the entry for 256 bits.  This would require taking
+**  384 x 608 and 256 x 608 products, hence two 384 x 384 products
+**  and three 256 x 256 products.  That is not presently implemented.
+**  Instead, we use 384 bits for both reductions.
+**  When the first padding length is an odd number of words
+**  (namely 1 or 3), the total reduction will exceed the first padding length.
+**
+**          Question:  Can we do two 2048-bit to 1024-bit
+**  reductions any faster than a single reduction?
+**  If so, we might want to design the exponentiation routine
+**  to allow multiple conlwrrent exponentiations with same
+**  exponent and modulus.  I am looking for a trick similar to
+**  that used to compute two modular ilwerses using one
+**  modular ilwersion and three multiplications:
+**  1/x = y*(1/xy) and 1/y = x*(1/xy).
+**
+*/
+
+/*
+** This routine computes modulus-dependent constants
+** for the modulus -a-, and stores them in a
+** mp_modulus_t structure.  See the struct declaration
+** (in bignum.h) for a description of each field.
+**
+** Argument reddir should be FROM_RIGHT if one wants to use
+** Montgomery-type reductions (from the right)
+** rather than traditional reductions (from the left).
+** The FROM_RIGHT option is available only if -a- is odd.
+*/
+DRM_NO_INLINE DRM_API DRM_BOOL DRM_CALL create_modulus(
+    __in_ecount( lnga ) const digit_t           *a,
+    __in                const DRM_DWORD          lnga,
+    __in                const reddir_t           reddir,
+    __out_ecount( 1 )         mp_modulus_t      *pmodulo,
+    __inout                   struct bigctx_t   *f_pBigCtx,
+    __inout                   struct bigctx_t   *pbigctxGlobal )
+{
+    DRM_BOOL OK = TRUE;
+    const DRM_DWORD lngred2 = ( lnga + 1 ) / 2;
+
+    digit_t *dtemps_longterm  = digit_allocate( 3 * lnga + lngred2, pbigctxGlobal );
+    digit_t *dtemps_shortterm = digit_allocate( 2 * lnga + 2 * lngred2 + 1, f_pBigCtx );
+
+    if( dtemps_shortterm == NULL || dtemps_longterm == NULL )
+    {
+        OK =  FALSE;
+    }
+    else if( lnga == 0 || a[ lnga - 1 ] == 0 )
+    {
+        OK = FALSE;
+        SetMpErrno_clue( MP_ERRNO_ILWALID_DATA, "create_modulus leading zero" );
+    }
+    else
+    {
+        digit_t *mptmp1    = dtemps_shortterm;                              /* Length lnga + lngred2 */
+        digit_t *quotient  = dtemps_shortterm + lnga + lngred2;             /* Length lngred2 + 1 */
+        digit_t *remainder = dtemps_shortterm + 1 + lnga + 2 * lngred2;     /* Length lnga */
+        digit_t mod0ilw;
+        DRM_DWORD i;
+
+        pmodulo->modulus           = dtemps_longterm;               /* Length lnga */
+        /* N.B. uncreate_modulus assumes modulus comes first */
+        pmodulo->one               = dtemps_longterm + lnga;        /* Length lnga */
+        pmodulo->multiplier_first  = dtemps_longterm + 2 * lnga;    /* Length lnga */
+        pmodulo->multiplier_second = dtemps_longterm + 3 * lnga;    /* Length lngred2 */
+
+        pmodulo->length = lnga;
+        pmodulo->lngred2 = lngred2;
+        pmodulo->reddir = reddir;
+        OEM_SELWRE_DIGITTCPY( pmodulo->modulus, a, lnga );
+
+        OK = OK && divide_precondition_1( a, lnga, &pmodulo->left_reciprocal_1 );
+
+        mod0ilw = 0;
+        if( DRM_IS_ODD( a[ 0 ] ) )
+        {
+            OK = OK && two_adic_ilwerse( a[ 0 ], &mod0ilw );
+        }
+        pmodulo->right_reciprocal_1 = mod0ilw;      /* For use by mod_shift if modulus is odd */
+
+        if( reddir == FROM_LEFT )
+        {
+            const DRM_DWORD shiftamt = pmodulo->left_reciprocal_1.shiftamt;
+            const DRM_DWORD ldividend = lnga + lngred2;
+
+            pmodulo->scaling_power2 = 0;
+
+            /*
+            **  Compute constants multiplier_first, multiplier_second so that
+            **
+            **     0 <= multiplier_first < modulus
+            **     0 <= multiplier_second < RADIX^lngred2
+            **
+            **        modulus * (multiplier_second + RADIX^lngred2 + 1)
+            **      = RADIX^(length + lngred2) / 2^shiftamt + multiplier_first
+            **
+            **  That is, if we divide
+            **
+            **        (RADIX^dividend / 2^shiftamt) - 1
+            **
+            **  by modulus, the results will be
+            **
+            **         quotient = multiplier_second + RADIX^lngred2
+            **         remainder = modulus - 1 - multiplier_first
+            */
+            for( i = 0; i != ldividend; i++ )
+            {
+                mptmp1[ i ] = DRM_RADIXM1;
+            }
+            mptmp1[ ldividend - 1 ] = DRM_RADIXM1 >> shiftamt;
+
+            OK = OK && divide( mptmp1, ldividend, a, lnga, &pmodulo->left_reciprocal_1, quotient, remainder );
+
+            if( quotient[ lngred2 ] != 1 )
+            {
+                /* quotient should start with 1 */
+                OK = FALSE;
+                SetMpErrno_clue( MP_ERRNO_INTERNAL_ERROR, "create_modulus -- divide error" );
+            }
+
+            (DRM_VOID)add_immediate( remainder, DRM_DIGIT_ONE, remainder, lnga );
+            (DRM_VOID)sub_same( pmodulo->modulus, remainder, remainder, lnga );
+            /* modulus - 1 - remainder */
+        }
+        else if( reddir == FROM_RIGHT )
+        {
+            pmodulo->scaling_power2 = (DRM_LONG)( DRM_RADIX_BITS*lnga );
+
+            if( mod0ilw == 0 )
+            {
+                OK = FALSE;
+                SetMpErrno_clue( MP_ERRNO_ILWALID_DATA, "create_modulus FROM_RIGHT even" );
+            }
+            else
+            {
+                /*
+                **  Compute multiplier_first, multiplier_second, such that
+                **
+                **      0 <= multipler_first < modulus
+                **      0 <= multiplier_second < RADIX^lngred2
+                **
+                **         multiplier_second * modulus
+                **   = 1 + multiplier_first * RADIX^lngred2
+                */
+                pmodulo->multiplier_second[ 0 ] = mod0ilw;
+                mptmp1[ lnga ] = multiply_immediate( pmodulo->modulus, mod0ilw, mptmp1, lnga );
+                /* 1 mod RADIX,  0 mod pmodulo->modulus */
+                DRMASSERT( mptmp1[ 0 ] == 1 );
+
+                for( i = 1; i != lngred2; i++ )
+                {
+                    const digit_t mul = 0 - mod0ilw * mptmp1[ i ];     /* mod RADIX */
+
+                    pmodulo->multiplier_second[ i ] = mul;
+                    mptmp1[ i + lnga ] = accumulate( pmodulo->modulus, mul, &mptmp1[ i ], lnga );
+                    /* New mptmp1[i] = 0 */
+                    /* Sum is 1 mod RADIX^(i+1),  0 mod pmodulo->modulus */
+                    DRMASSERT( mptmp1[ i ] == 0 );
+                }
+                OEM_SELWRE_DIGITTCPY( pmodulo->multiplier_first, mptmp1 + lngred2, lnga );
+                /* -1/RADIX^lngred2 mod modulus */
+            }
+        }
+        else
+        {
+            OK = FALSE;
+            SetMpErrno_clue( MP_ERRNO_ILWALID_DATA, "create_modulus -- neither FROM_LEFT nor FROM_RIGHT" );
+        }
+
+        {
+            const digit_t d1 = 1;
+            DRM_LONG modmul_algorithm_index = 0;
+
+            OK = OK && modmul_choices1( pmodulo, &modmul_algorithm_index );
+            if( !OK )
+            {
+            }
+            else if( modmul_algorithm_index == 0 )
+            {
+                OK = FALSE;
+                SetMpErrno_clue( MP_ERRNO_INTERNAL_ERROR, "create_modulus -- no modmul routine found" );
+                /* No qualifying routine found */
+            }
+            else
+            {
+                modmul_algorithm_index = -modmul_algorithm_index;
+                OK = OK && modmul_choices1( pmodulo, &modmul_algorithm_index );
+                DRMASSERT( modmul_algorithm_index == 0 );
+            }
+
+            /*
+            **  Generate the constant one.
+            **  Its numerical value is 2^scaling_power2 mod modulus.
+            */
+            OK = OK && to_modular( &d1, 1, pmodulo->one, pmodulo, f_pBigCtx );
+        }
+    }
+
+    if( dtemps_shortterm != NULL )
+    {
+        Free_Temporaries( dtemps_shortterm, f_pBigCtx );
+    }
+    if( !OK )
+    {
+        pmodulo->modulus = NULL;
+
+        if( dtemps_longterm != NULL )
+        {
+            Free_Temporaries( dtemps_longterm, pbigctxGlobal );
+        }
+    }
+    return OK;
+}
+#endif
+
+#if defined(SEC_COMPILE)
+DRM_NO_INLINE DRM_API DRM_BOOL DRM_CALL from_modular(
+    __in_ecount( pmodulo->length )  const digit_t       *a,
+    __out_ecount( pmodulo->length )       digit_t       *b,
+    __in_ecount( 1 )                const mp_modulus_t  *pmodulo )
+{
+    DRM_BOOL OK = TRUE;
+
+    OK = OK && validate_modular_data( a, pmodulo->modulus, pmodulo->length );
+    OK = OK && mod_shift( a, -pmodulo->scaling_power2, b, pmodulo );
+    return OK;
+}
+
+/*
+**  Compute c = a * b / 2^scaling_power2 (mod pmodulo->modulus).
+**  Operands should satisfy 0 <= a, b < pmodulo->modulus.
+**
+**  supplied_temps should have pmodulo->modmul_algorithm_temps
+**  temporaries of type digit_t, or be NULL.
+*/
+DRM_NO_INLINE DRM_API DRM_BOOL DRM_CALL mod_mul(
+    __in_ecount( pmodulo->length )                           const digit_t           *a,
+    __in_ecount( pmodulo->length )                           const digit_t           *b,
+    __out_ecount( pmodulo->length )                                digit_t           *c,
+    __in_ecount( 1 )                                         const mp_modulus_t      *pmodulo,
+    __inout_ecount_opt( pmodulo->modmul_algorithm_temps )          digit_t           *supplied_temps,
+    __inout                                                        struct bigctx_t   *f_pBigCtx )
+{
+    DRM_BOOL OK = TRUE;
+    digit_tempinfo_t tempinfo;
+
+    tempinfo.address = supplied_temps;
+    tempinfo.nelmt = pmodulo->modmul_algorithm_temps;
+    tempinfo.need_to_free = FALSE;
+
+    OK = OK && validate_modular_data( a, pmodulo->modulus, pmodulo->length );
+    if( a != b )
+    {
+        OK = OK && validate_modular_data( b, pmodulo->modulus, pmodulo->length );
+    }
+    OK = OK && possible_digit_allocate( &tempinfo, f_pBigCtx );
+
+#ifdef USE_FN_PTRS
+    OK = OK && (*pmodulo->modmul_algorithm)(a, b, c, pmodulo,
+                                            tempinfo.address);
+#else
+    //
+    // LWE (nkuo) - we want to avoid usage of function pointers to help the static analysis
+    // and that MSFT has signed off on calling the exact functions directly.
+    //
+    OK = OK && modmul_from_right_default_modulo8_P256(a, b, c, pmodulo,
+                                            tempinfo.address);
+#endif
+
+    if( tempinfo.need_to_free )
+    {
+        Free_Temporaries( tempinfo.address, f_pBigCtx );
+    }
+    return OK;
+}
+
+/*
+**  Compute b = a * 2^shiftamt (mod pmodulo).
+**  The shift count, shiftamt, may be positive, negative, or zero.
+**  If shiftamt < 0, then the modulus must be odd.
+**  The lengths of a and b should match those of the modulus.
+*/
+DRM_NO_INLINE DRM_API DRM_BOOL DRM_CALL mod_shift(
+    __in_ecount( pmodulo->length )  const digit_t       *a,
+    __in                            const DRM_LONG       shiftamt,
+    __out_ecount( pmodulo->length )       digit_t       *b,
+    __in_ecount( 1 )                const mp_modulus_t  *pmodulo )
+{
+    DRM_BOOL OK = TRUE;
+    const DRM_DWORD lng = pmodulo->length;
+    DRM_LONG shift_remaining = shiftamt;
+
+    if( a != b )
+    {
+        OEM_SELWRE_DIGITTCPY( b, a, lng );
+    }
+
+    OK = OK && validate_modular_data( a, pmodulo->modulus, lng );
+
+    if( OK && shift_remaining < 0 && DRM_IS_EVEN( pmodulo->modulus[ 0 ] ) )
+    {
+        OK = FALSE;
+        SetMpErrno_clue( MP_ERRNO_ILWALID_DATA, "mod_shift -- negative count, even modulus" );
+    }
+
+    while( OK && shift_remaining > 0 )
+    {
+        /* Do left shift, if any */
+        const DRM_LONG shift_now = DRM_MIN( shift_remaining, DRM_RADIX_BITS );        /* 1 <= shift_now <= DRM_RADIX_BITS */
+
+        /*
+        ** Multiply b by 2^shift_now and reduce pmodulo pmodulo->modulus.
+        */
+        digit_t carry_out = 0;
+
+        OK = OK && mp_shift_lost( b, shift_now, b, lng, &carry_out );
+        if( OK )
+        {
+            const digit_t qest = estimated_quotient_1(
+                carry_out, b[ lng - 1 ],
+                ( lng >= 2 ? b[ lng - 2 ] : 0 ),
+                &pmodulo->left_reciprocal_1 );
+            carry_out -= delwmulate( pmodulo->modulus, qest, b, lng );
+
+            if( carry_out != 0 || compare_same( b, pmodulo->modulus, lng ) >= 0 )
+            {
+                carry_out -= sub_same( b, pmodulo->modulus, b, lng );
+            }
+            if( carry_out != 0 )
+            {
+                OK = FALSE;
+                SetMpErrno_clue( MP_ERRNO_INTERNAL_ERROR, "mod_shift left carry nonzero" );
+            }
+        }
+        shift_remaining -= shift_now;
+    }
+
+    while( OK && shift_remaining < 0 )
+    {
+        const DRM_LONG shift_now = DRM_MIN( -shift_remaining, DRM_RADIX_BITS );       /* 1 <= shift_now <= DRM_RADIX_BITS */
+        const digit_t mul = ( 0 - pmodulo->right_reciprocal_1 * b[ 0 ] ) & ( DRM_RADIXM1 >> ( DRM_RADIX_BITS - shift_now ) );
+        digit_t carry;
+        digit_t low_bits_lost = 0;
+
+        /*
+        ** mul has been chosen so that  b + mul * pmodulo->modulus
+        ** is a multiple of 2^shift_now.
+        ** Replace b by (b + mul * mudulo->modulus)/2^shift_now.
+        */
+        carry = accumulate( pmodulo->modulus, mul, b, lng );
+        OK = OK && mp_shift_lost( b, -shift_now, b, lng, &low_bits_lost );
+        b[ lng - 1 ] |= carry << ( DRM_RADIX_BITS - shift_now );
+
+        if( OK && low_bits_lost != 0 )
+        {
+            OK = FALSE;
+            SetMpErrno_clue( MP_ERRNO_INTERNAL_ERROR, "mod_shift -- low bits lost" );
+        }
+        shift_remaining += shift_now;
+    }
+    return OK;
+}
+
+DRM_NO_INLINE DRM_API DRM_BOOL DRM_CALL to_modular(
+    __in_ecount( lnga )             const digit_t            *a,
+    __in                            const DRM_DWORD           lnga,
+    __out_ecount( pmodulo->length )       digit_t            *b,
+    __in_ecount( 1 )                const mp_modulus_t       *pmodulo,
+    __inout_opt                           struct bigctx_t    *f_pBigCtx )
+{
+    DRM_BOOL OK = TRUE;
+    const digit_t *arem;
+    DRM_DWORD lngarem;
+    const DRM_DWORD lngmod = pmodulo->length;
+    digit_t *remainder = NULL;   /* Length lngmod */
+
+    if( compare_diff( a, lnga, pmodulo->modulus, lngmod ) >= 0 )
+    {
+        if( f_pBigCtx == NULL )
+        {
+            OK = FALSE;
+        }
+        else
+        {
+            remainder = digit_allocate( lngmod, f_pBigCtx );
+            if( remainder == NULL )
+            {
+                OK = FALSE;
+            }
+        }
+
+        OK = OK && divide( a, lnga, pmodulo->modulus, lngmod, &pmodulo->left_reciprocal_1, NULL, remainder );
+        arem = remainder;
+        lngarem = lngmod;
+    }
+    else
+    {
+        arem = a;
+        lngarem = lnga;
+    }
+
+    if( lngarem > lnga )
+    {
+        OK = FALSE;
+    }
+
+    if( OK )
+    {
+        lngarem = significant_digit_count( a, lngarem );
+        mp_extend( arem, lngarem, b, lngmod );
+        /* Copy remainder to b */
+        OK = OK && mod_shift( b, pmodulo->scaling_power2, b, pmodulo );   /* Scale by power of 2 */
+    }
+    if( remainder != NULL )
+    {
+        Free_Temporaries( remainder, f_pBigCtx );
+    }
+    return OK;
+}
+#endif
+
+#ifdef NONE
+/*
+** Release storage allocated by create_modulus
+*/
+DRM_NO_INLINE DRM_API_VOID DRM_VOID DRM_CALL uncreate_modulus(
+    __inout mp_modulus_t    *pmodulo,
+    __inout struct bigctx_t *f_pBigCtx )
+{
+    if( pmodulo->modulus != NULL )
+    {
+        Free_Temporaries( pmodulo->modulus, f_pBigCtx );
+        pmodulo->modulus = NULL;
+    }
+}
+#endif
+EXIT_PK_NAMESPACE_CODE;
+

@@ -1,0 +1,136 @@
+# -*- mode: perl; -*-
+
+# Fuse Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $fuseHal = [
+
+    DEFAULTS => [
+
+        FLAGS            => ":DIRECT_HAL_CALLS",
+        GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        ACCESS => [
+            DESCRIPTION      => "Access (R/W) fuse register",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 fuseReg, LwU32 *pFuseVal, LwBool bRead",
+            FLAGS            => ":STUB_ASSERT",
+
+            _GM200           => [ GM20X_and_later, ],
+            _STUB            => [ GM10X, ],
+        ],
+
+        JTAG_INTFC_CLK_UNGATE => [
+            DESCRIPTION      => "Ungate the JTAG intfc clk and return the value read from LW_PTRIM_SYS_JTAGINTFC",
+            RETURN_TYPE      => LwU32,
+            ARGUMENTS        => "void",
+            STUB_RETURNS     => ZERO,
+
+            _GM200           => [ GM20X_thru_TURING, ],
+            _STUB            => [ GM10X, AMPERE_and_later, ],
+        ],
+
+        JTAG_INTFC_CLK_GATE_RESTORE => [
+            DESCRIPTION      => "If required, restore the JTAG clk to it's original gating setting",
+            RETURN_TYPE      => void,
+            ARGUMENTS        => "LwU32 jtagIntfc",
+
+            LIKE_INTERFACE   => JTAG_INTFC_CLK_UNGATE,
+        ],
+
+        NUM_TPC_GET => [
+            DESCRIPTION      => "Get the total number of enabled TPC's.",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU16 *pNumTpc",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => ERROR,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libDevInfo", "__FUNCTION__")',
+
+            _TU10X           => [ TURING_and_later, ],
+            _STUB            => [ pre_TURING, ],
+        ],
+
+        NUM_FBP_GET => [
+            DESCRIPTION      => "Get the total number of enabled FBP's.",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 *pNumFbp",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => ERROR,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libDevInfo", "__FUNCTION__")',
+
+            LIKE_INTERFACE   => NUM_TPC_GET,
+        ],
+
+        NUM_FBPA_GET => [
+            DESCRIPTION      => "Get the total number of enabled FBPA's.",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 *pNumFbpa",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => ERROR,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libDevInfo", "__FUNCTION__")',
+
+            _AD10X         => [ dADA_thru_GH100, ],
+            _STUB          => [ pre_ADA, GH20X_and_later, ],
+        ],
+
+        NUM_LTCS_GET => [
+            DESCRIPTION      => "Get the total number of enabled LTC slices.",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU16 *pNumLtcs",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => ERROR,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libDevInfo", "__FUNCTION__")',
+
+            _GA10X           => [ AMPERE_and_later, -GA100, ],
+            _TU10X           => [ TURING, ],
+            _STUB            => [ pre_TURING, GA100, ],
+        ],
+
+         NUM_GPCS_GET => [
+            DESCRIPTION      => "Get the total number of enabled GPCS.",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU16 *pNumGpcs",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => ERROR,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libDevInfo", "__FUNCTION__")',
+
+            _GA10X           => [ AMPERE_and_later, -GA100, ],
+            _STUB            => [ pre_AMPERE, GA100, ],
+        ],
+
+        NUM_MXBAR_GET => [
+            DESCRIPTION      => "Get the total number of MXBAR units based on whether UGPU is supported in HW.",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 *pNumMxbar",
+            FLAGS            => ":STUB_ASSERT",
+            STUB_RETURNS     => ERROR,
+            GCC_ATTRIBUTES   => 'GCC_ATTRIB_SECTION("imem_libDevInfo", "__FUNCTION__")',
+
+            _AD10X         => [ dADA_thru_GH100, ],
+            _STUB          => [ pre_ADA, GH20X_and_later, ],
+        ],
+
+        STATE_GET => [
+            DESCRIPTION    => "Read fuse value/size for a given fuse id",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 fuseId, LwU8 *pFuseSize, LwU32 *pFuseVal",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfVfeBoardObj", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _AD10X         => [ dADA_and_later, -GH20X, -GB100, -G00X, ],
+            _STUB          => [ pre_ADA, GH20X, GB100, G00X, ],
+        ],
+
+    ],   # HAL_INTERFACES
+
+];
+
+# return a reference to the Hal definition
+return $fuseHal;

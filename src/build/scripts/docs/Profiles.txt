@@ -1,0 +1,185 @@
+#************************ BEGIN COPYRIGHT NOTICE ***************************#
+#                                                                           #
+#          Copyright (c) LWPU Corporation.  All rights reserved.          #
+#                                                                           #
+# All information contained herein is proprietary and confidential to       #
+# LWPU Corporation.  Any use, reproduction, or disclosure without the     #
+# written permission of LWPU Corporation is prohibited.                   #
+#                                                                           #
+#************************** END COPYRIGHT NOTICE ***************************#
+
+Defines all known builds for a given ucode. Each build has a mapped profile
+defined in the ucode's *-config.cfg
+
+DO NOT copy this document into your Profiles.pm! If additions are made to
+Profiles.pm, PLEASE document them here. Your Profiles.pm should instead have
+the following block copied into it, to refer here.
+
+#
+# For details on the contents of this file, please refer to:
+#     <branch>/uproc/build/scripts/docs/Profiles.txt
+#
+
+Example script:
+
+    PROFILE_NAME =>
+    {
+        COMMON => [
+            IMEM                     => 0x10000,     # (bytes) [64 kB] Size of physical IMEM
+            DMEM                     => 0x10000,     # (bytes) [64 kB] Size of physical DMEM
+            DESC                     => 0xC00,       # (bytes) [3 kB] Size of descriptor area
+
+            RM_SHARE                 => 0x100,       # (bytes) RM share size
+            RM_MANAGED_HEAP          => 0x800,       # (bytes) RM managed heap size
+        ],
+
+        RISCV => [
+            SYS_STACK                => 0x400,       # (bytes) [1 kB] Size of interrupt+exception+syscall stack
+
+            MPU_GRANULARITY          => 0x1000,      # (bytes) [4 kB] precision of MPU mappings
+
+            MPU_ENTRY_COUNT          => 128,         # Number of software MPU entries
+
+            # ODP configuration
+            ODP_MPU_PAGE_FIRST       => 0,           # First reserved MPU entry for ODP
+
+            ODP_DATA_PAGE_MAX_COUNT  => 16,          # Maximum number of data ODP pages
+            ODP_DATA_PAGE_SIZE       => 0x1000,      # (bytes) [4 kB] Size of data ODP pages
+            ODP_CODE_PAGE_MAX_COUNT  => 16,          # Maximum number of code ODP pages
+            ODP_CODE_PAGE_SIZE       => 0x1000,      # (bytes) [4 kB] Size of code ODP pages
+        ],
+
+        FALCON => [
+            IMEM_VA                  => 0x1000000,   # (bytes) [16384 kB] Size of virtually-addressed IMEM
+            DMEM_VA                  => 0x1000000,   # (bytes) [16384 kB] Size of virtually-addressed DMEM
+            DMEM_VA_BOUND            => 0x6100,      # (bytes) Start address of virtually addressable DMEM
+            ISR_STACK                => 0x100,       # (bytes) Interrupt stack size
+            ESR_STACK                => 0x100,       # (bytes) Exception stack size
+        ],
+    },
+
+Profile attributes:
+    Each profile's section is divided into sections for FALCON, RISCV,
+    and a COMMON section that applies to both. In the above example, each
+    entry in COMMON applies to both Falcon and RISC-V architectures.
+    Entries in RISCV and FALCON only apply to the section that they are
+    specified in. Any values in RISCV or FALCON override the values in
+    COMMON.
+
+    In the case of architecture-specific options being specified in COMMON,
+    they will only apply to the architecture(s) they are valid for. In
+    addition, any values outside of the architecture sections are interpreted
+    as being within COMMON. These should aid in backwards compatiblity.
+
+Common attributes:
+    PROFILE_NAME
+        Name of the profile, usually a chip family such as TU10X.
+
+    IMEM
+        Size of physical IMEM, specified in bytes.
+
+    DMEM
+        Size of physical DMEM, specified in bytes.
+
+    EMEM
+        Size of physical EMEM, specified in bytes.
+
+    DESC
+        Size of descriptor area, specified in bytes.
+
+    RM_SHARE
+        Size in bytes of the space shared between RM and the core for
+        communication. It is resident in physically addressable DMEM.
+
+    RM_MANAGED_HEAP
+        Size of RM managed heap, in bytes.
+
+    FREEABLE_HEAP
+        Size of freeable heap in resident DMEM, in bytes.
+
+    CMD_QUEUE_LENGTH
+        Size of each command queue in bytes.
+
+    MSG_QUEUE_LENGTH
+        Size of each message queue in bytes.
+
+    APP_METHOD_ARRAY_SIZE (SEC2 only)
+        Distinct app method count.
+
+    APP_METHOD_MIN (SEC2 only)
+        App method index minimum, shifted right by 2.
+
+    APP_METHOD_MAX (SEC2 only)
+        App method index maximum, shifted right by 2.
+
+RISCV-only attributes:
+
+    SYS_STACK
+        Size of the system (interrupt + exception + syscall) stack in bytes.
+
+    MPU_GRANULARITY
+        The MPU's information precision, in bytes.
+
+    MPU_ENTRY_COUNT
+        The number of software MPU entries. This value should be enough to
+        contain all kernel MPU entries, and all task MPU entries combined. A
+        smaller number uses less DMEM, so trying to optimize this value maybe
+        worthwhile.
+
+    VMA_HOLE_SIZE
+        Size of unmapped virtual memory holes between sections, in bytes. If this
+        is not specified, or the size is 0, virtual memory holes will not be
+        created.
+
+    ODP_CODE_PAGE_MAX_COUNT
+        Maximum number of ODP code pages. It may be possible that there is not
+        enough free IMEM for this many pages, in which case only the amount
+        that fit will be used.
+
+    ODP_CODE_PAGE_SIZE
+        ODP page size for code in bytes. This must be a power of 2, and greater
+        or equal to MPU granularity.
+
+    ODP_DATA_PAGE_MAX_COUNT
+        Maximum number of ODP data pages. It may be possible that there is not
+        enough free DMEM for this many pages, in which case only the amount
+        that fit will be used.
+
+    ODP_DATA_PAGE_SIZE
+        ODP page size for data in bytes. This must be a power of 2, and greater
+        or equal to MPU granularity.
+
+    IMEM_START_CARVEOUT_SIZE
+        Size of the carveout at the start of IMEM, used by SK (and non-RTOS
+        partitions if present).
+
+    DMEM_START_CARVEOUT_SIZE
+        Size of the carveout at the start of DMEM, used by SK (and non-RTOS
+        partitions if present).
+
+    PRE_EXTRACTED
+        If non-zero, generates a build that is suitable for offline extraction
+        by forcing all loadable program segments to reside in IMEM or DMEM.
+
+Falcon-only attributes:
+
+    IMEM_VA
+        Size of virtually addressed IMEM, specified in bytes.
+
+    DMEM_VA
+        Size of virtually addressed DMEM, specified in bytes. When this
+        attribute is not specified, DMEM-VA is not enabled.
+
+    DMEM_VA_BOUND
+        Start of DMEM virtual address space, or end of DMEM physical address
+        space. Only applicable if DMEM-VA is enabled.
+
+    ISR_STACK
+        Size in bytes of ISR stack allocated.
+
+    ESR_STACK
+        Size in bytes of ESR stack allocated.
+
+    HS_UCODE_ENCRYPTION_LINKER_SYMBOLS
+        If non-zero, linker symbols are generated to allow for HS ucode
+        encryption.

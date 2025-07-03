@@ -1,0 +1,30 @@
+
+syntax = "proto3";
+
+message Example
+{
+    // mods_keyword container;
+    ExampleMessage example_msg = 0;
+}
+message ExampleHeader {
+    enum ExampleType
+    {
+        et_submessage = 1;
+    }
+    ExampleType  example_type = 1;
+    string       print        = 2;
+}
+
+message ExampleMessage {
+    // mods_keyword handler;
+    enum Submessage {
+        sm_foo    = 1;
+        sm_bar    = 2;
+    }
+
+    ExampleHeader example_header = 1;
+    Submessage    example_enum   = 2;
+    sint64        example_int    = 3;
+    string        example_string = 4;
+}
+

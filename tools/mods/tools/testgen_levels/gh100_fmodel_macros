@@ -1,0 +1,29 @@
+# LWIDIA_COPYRIGHT_BEGIN
+#
+# Copyright 2019 by LWPU Corporation.  All rights reserved.
+# All information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# LWIDIA_COPYRIGHT_END
+
+# GH100 specific macros used in MODS testgen levels
+# Note: -skip_pci_error_detect is required WAR because RM has not properly implemented the PEX error counters for Hopper. see http://lwbugs/200674417 
+DEFAULT_ARGS           -chiplib_deepbind -devid_check_ignore -skip_pex_checks
+NO_PMU                 -pmu_bootstrap_mode 1 -exelwte_rm_devinit_on_pmu 0
+DEFAULT_ROM            -gpubios 0 gh100_sim_hbm.rom
+ECC_ROM                -gpubios 0 gh100_sim_hbm_ecc.rom
+NODISP_ROM             -gpubios 0 gh100_sim_hbm.rom
+DISPLAYFUL_ROM         -gpubios 0 gh100_sim_hbm.rom
+NO_VIDEO_ENGINES       -chipargs -noinstance_lwdec -chipargs -noinstance_lwenc -chipargs -noinstance_lwjpg -chipargs -noinstance_ofa
+FBP_CONFIG             -chipargs -use_floorsweep -chipargs -useVirtualization -chipargs -num_ropltcs=2 -chipargs -num_fbps=1 -chipargs -num_fbio=2 -chipargs -ltc_en_mask=0x0003 -chipargs -fbp_en_mask=0x01 -floorsweep fbp_enable:0x1 -adjust_fs_args
+GPC_CONFIG             -chipargs -use_floorsweep -chipargs -useVirtualization -chipargs -num_tpcs=3 -chipargs -noinstance_devices=gr1,gr2,gr3,gr4,gr5,gr6,gr7 -floorsweep gpc_enable:0x1:gpc_tpc_enable:0:0x7
+NO_LWLINK              -lwlink_force_disable
+LWLINK_ALL_PEER        -chipargs -lwlink0=PEER0 -chipargs -lwlink1=PEER0 -chipargs -lwlink2=PEER0 -chipargs -lwlink3=PEER0 -chipargs -lwlink4=PEER0 -chipargs -lwlink5=PEER0 -chipargs -lwlink6=PEER0 -chipargs -lwlink7=PEER0 -chipargs -lwlink8=PEER0 -chipargs -lwlink9=PEER0 -chipargs -lwlink10=PEER0 -chipargs -lwlink11=PEER0 -chipargs -lwlink12=PEER0 -chipargs -lwlink13=PEER0 -chipargs -lwlink14=PEER0 -chipargs -lwlink15=PEER0 -chipargs -lwlink16=PEER0 -chipargs -lwlink17=PEER0
+LWLINK_EYE_THRESHOLDS  -testarg 248 XPassThreshold 0 -testarg 248 XFailThreshold 0 -testarg 248 YPassThreshold 0 -testarg 248 YFailThreshold 0
+LWLINK_NO_LWDA         UseLwda false
+LWLINK_NO_DMA_INIT     UseDmaInit false
+# see bug 3272956
+IGNORE_PRMT_FAILURES -chipargs -smDisableUninitializedRegAssertOnInstr=:PRMT_Imm_Rc: -chipargs -smDontUseSplinterOverride
+
+

@@ -1,0 +1,159 @@
+/* -*- mode: Javascript -*-
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2011-2012 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+/**
+ * @file    t149shmoo.txt
+ * @brief   Shmoo config file for tuning GlrReplay test.
+ *
+ * Please see the wiki page MODS/Shmoo for documentation:
+ * http://wiki.lwpu.com/engwiki/index.php/MODS/Shmoo
+ */
+#include "mods.h"
+#include "glr_comm.h"
+
+//------------------------------------------------------------------------------
+// Extra command-line arguments.
+function AddArgs(s)
+{
+    Argv = Argv.concat(s.split(/\s+/));
+}
+AddArgs("-out_csv");  // Enable comma-separated-variable report file.
+AddArgs("-engr");     // Strict versions of all tests.
+AddArgs("-pstate 0"); // Leave pstate alone when shmooing clocks!
+AddArgs("-regress_miscompare_count 0");
+AddArgs("-shmoo_debug");
+
+Log.Never("Global.anonymous");
+Log.Never("Object.anonymous");
+
+//------------------------------------------------------------------------------
+// The ShmooConfig function sets the Axis (control) and Meas (results) objects
+// for the shmoo.
+function ShmooConfig(shmoo)
+{
+    // Measure RC and Watts of test 149.
+    var t149Meas = new ShmooMeasGpuTest("GlrReplay", 
+        { Golden : {Action : Golden.Skip}
+          ,FrameReplayMs: 15000
+        } );
+    shmoo.AddMeas(t149Meas);
+    shmoo.AddMeas(new ShmooMeasOK("Power", "Watts", 
+           function() { return t149Meas.TestObj.AvgWatts || 0; }));
+
+    // Shmoo every GLRandom control that seems like it might affect power.
+
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_TSTCTRL_LOGMODE", RND_TSTCTRL_LOGMODE,
+        [GL_FALSE]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t149Meas.TestArgs, "TestConfiguration.FSAAMode",
+        [FSAADisabled, FSAA2xQuinlwnx, FSAA4xGaussian, FSAA8v8]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t149Meas.TestArgs, "ColorSurfaceFormat",
+        [GL_RGBA8, GL_RGB5, GL_INTENSITY8, GL_RGBA16F_ARB]));
+    shmoo.AddAxis(new ShmooAxisProp(
+        t149Meas.TestArgs, "ForceFbo",
+        [false, true]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_GPU_PROG_VX_NUM_OPS", RND_GPU_PROG_VX_NUM_OPS,
+        [1,5,8,10,12,15,20,25,30,37,42,50]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_GPU_PROG_FR_NUM_OPS", RND_GPU_PROG_FR_NUM_OPS,
+        [5,8,10,12,15,20,25,30,37,42,50]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_GPU_PROG_TC_TESSRATE_OUTER", RND_GPU_PROG_TC_TESSRATE_OUTER,
+        [1,2,3,4,5,6,7,8,10,12,16]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_GPU_PROG_TC_TESSRATE_INNER", RND_GPU_PROG_TC_TESSRATE_INNER,
+        [1,2,3,4,5,6,7,8,10,12,16]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_GPU_PROG_FR_TEMPLATE", RND_GPU_PROG_FR_TEMPLATE,
+        [RND_GPU_PROG_TEMPLATE_Simple
+         ,RND_GPU_PROG_TEMPLATE_Call
+         ,RND_GPU_PROG_TEMPLATE_Flow
+         ,RND_GPU_PROG_TEMPLATE_CallIndexed ]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_GPU_PROG_FR_END_STRATEGY", RND_GPU_PROG_FR_END_STRATEGY,
+        [RND_GPU_PROG_FR_END_STRATEGY_frc
+         ,RND_GPU_PROG_FR_END_STRATEGY_mov
+         ,RND_GPU_PROG_FR_END_STRATEGY_mod]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_TX_WIDTH", RND_TX_WIDTH,
+        [1,2,4,8,16,32,64,128]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_TX_HEIGHT", RND_TX_HEIGHT,
+        [1,2,4,8,16,32,64,128]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_TX_DEPTH", RND_TX_DEPTH,
+        [1,2,4,8,16,32,64,128]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_TXU_MIN_FILTER", RND_TXU_MIN_FILTER,
+        [GL_NEAREST, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_TXU_MAG_FILTER", RND_TXU_MAG_FILTER,
+        [GL_NEAREST, GL_LINEAR]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_GEOM_LWLL_FACE", RND_GEOM_LWLL_FACE,
+        [GL_FALSE, GL_BACK]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_FRAG_ALPHA_FUNC", RND_FRAG_ALPHA_FUNC,
+        [GL_FALSE, GL_LESS, GL_GREATER]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_FRAG_BLEND_ENABLE", RND_FRAG_BLEND_ENABLE,
+        [GL_TRUE, GL_FALSE]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_FRAG_DEPTH_FUNC", RND_FRAG_DEPTH_FUNC,
+        [GL_FALSE, GL_LESS, GL_NOTEQUAL, GL_GEQUAL]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_FRAG_LOGIC_OP", RND_FRAG_LOGIC_OP,
+        [GL_FALSE, GL_XOR]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_FRAG_STENCIL_FUNC", RND_FRAG_STENCIL_FUNC,
+        [GL_FALSE, GL_LESS, GL_NOTEQUAL, GL_GEQUAL]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_FRAG_DEPTH_BOUNDS_TEST", RND_FRAG_DEPTH_BOUNDS_TEST,
+        [GL_TRUE, GL_FALSE]));
+    shmoo.AddAxis(new ShmooAxisPicker(
+        t149Meas.TestArgs, "RND_VX_SEND_METHOD", RND_VX_SEND_METHOD,
+        [    RND_VX_SEND_METHOD_Immediate
+            ,RND_VX_SEND_METHOD_Vector
+            ,RND_VX_SEND_METHOD_Array
+            ,RND_VX_SEND_METHOD_DrawArrays
+            ,RND_VX_SEND_METHOD_DrawElements
+            ,RND_VX_SEND_METHOD_DrawRangeElements
+            ,RND_VX_SEND_METHOD_DrawElementArray
+        ]));
+
+    // Our "fitness" function for the genetic search: 
+    // Returns AvgWatts if we were able to run test, or 0 otherwise.
+    //   rec[0] is is RC of attempt to measure at this axis location.
+    //   rec[1] is RC from running test, or invalid if rec[0]!=OK
+    //   rec[2] is AvgWatts from running test, or invalid if rec[0]!=OK
+
+    var fitness = function(rec) { return (rec[0] == OK) ? rec[2] : 0; };
+
+    // Use a genetic search of this very large search-space.
+    shmoo.ConfigGeneticSearch(
+        fitness,
+        500,                  // size of first generation created randomly
+        500,                  // generation size
+        250,                  // surviving size per generation
+        0.001,                // mutate probability per gene per new chromosome
+        75,                   // max generations
+        400                   // stop if we reach 400 Watts
+    );
+    // Max measurements will be: 
+    //    gen_size + (max gens - 1) * (gen_size - survive_size)
+    // or 18500 runs of glrandom at about 7m per run.
+    // Expect it to take many days.
+}
+
+// vim:ft=javascript

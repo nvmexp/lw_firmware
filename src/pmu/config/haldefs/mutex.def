@@ -1,0 +1,34 @@
+# -*- mode: perl; -*-
+
+# Mutex Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $mutexHal = [
+
+    DEFAULTS => [
+        FLAGS => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        ESTABLISH_MAPPING => [
+            DESCRIPTION     => "Establish the mapping between the logical mutex ID and the HW engine",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "void",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM10X          => [ GV11B, GM10X, ],
+            _GM20X          => [ GM20X, ],
+            _GP100          => [ GP100, ],
+            _GP10X          => [ GP10X_and_later, -GP100, -GV11B, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $mutexHal;
+

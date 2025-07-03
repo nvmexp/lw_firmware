@@ -1,0 +1,217 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2016-2017 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+#include "lwdaeccl2.h"
+#include "../tools/tools.h"
+#include "../tools/newrandom.h"
+
+extern __shared__ UINT32 shared[];
+
+#if (SM_VER < 75)
+    #define HOST_PROCEED       HOST_PROCEED_64x8
+    #define SM_READY           SM_READY_64x8
+    #define SM_DISABLE_CHKBITS SM_DISABLE_CHKBITS_64x8
+    #define SM_ENABLE_CHKBITS  SM_ENABLE_CHKBITS_64x8
+    #define SM_RESET_ERRS      SM_RESET_ERRS_64x8
+    #define SM_DONE            SM_DONE_64x8
+#else
+    #define HOST_PROCEED       HOST_PROCEED_256x16
+    #define SM_READY           SM_READY_256x16
+    #define SM_DISABLE_CHKBITS SM_DISABLE_CHKBITS_256x16
+    #define SM_ENABLE_CHKBITS  SM_ENABLE_CHKBITS_256x16
+    #define SM_RESET_ERRS      SM_RESET_ERRS_256x16
+    #define SM_DONE            SM_DONE_256x16
+#endif
+
+//
+// Zero out the global memory before running the test.
+// Not strictly necessary, but good for looking at memory dumps.
+//
+extern "C" __global__ void LwdaInitEccL2
+(
+    device_ptr devPtr,
+    UINT32 l2CacheSizeDwords
+)
+{
+    UINT32* ptr = GetPtr<UINT32*>(devPtr);
+    for (UINT32 offset = threadIdx.x + blockIdx.x * blockDim.x;
+         offset < l2CacheSizeDwords;
+         offset += blockDim.x * gridDim.x)
+    {
+        ptr[offset] = 0;
+    }
+}
+
+//
+// This function is written in SASS code and linked against the LWCA code of this file.
+//
+// Since the LWCA code is compiled as a relocatable binary we have to use
+// __forceinline__ for the LWCA functions to ensure that performance doesn't degrade.
+//
+extern "C" __device__ UINT64 critical_section(UINT32* cmd,
+                                              UINT32* sectorbase,
+                                              UINT32* offset,
+                                              UINT32* sectortop,
+                                              UINT32  val,
+                                              UINT32  error,
+                                              UINT32  threadIdx);
+
+//
+// Have thread 0 send a message to host.
+// Synchronize the threads before sending the command.
+//
+__device__ __forceinline__ void SendMsg(volatile UINT32* send, UINT32 msg)
+{
+    __syncthreads();
+    if (threadIdx.x == 0)
+    {
+        *send = msg;
+    }
+}
+
+//
+// Have thread 0 spin for a specific command from host.
+// Synchronize the threads once the command is received.
+//
+__device__ __forceinline__ void WaitOnMsg(volatile UINT32* recv, UINT32 msg)
+{
+    if (threadIdx.x == 0)
+    {
+        while (*recv != msg);
+    }
+    __syncthreads();
+}
+
+//
+// The L2 cache is divided into chunks. Chunks countains an ECC sector for each error injection thread.
+//
+// Each thread randomly (and independently) selects a chunk to inject an error into.
+// Within the chunk, threads use the sector corresponding to their threadIdx.
+//
+// For non-power-of-two numbers of injected errors there will be a partial chunk that is used by
+// a subset of the threads.
+//
+__device__ __forceinline__ UINT64 GetSectorOffset
+(
+        UINT64 r,
+        const UINT32 sectorsToTest
+)
+{
+    const UINT32 chunkSizeSectors = blockDim.x;
+    const UINT32 sectorOffsetInChunk = threadIdx.x;
+    const UINT32 numChunks = sectorsToTest / chunkSizeSectors;
+
+    // There is probably a partial-chunk residual, since the number of errors injected
+    // is usually not a power of two.
+    const UINT32 residualSectors = sectorsToTest % chunkSizeSectors;
+
+    // If there is a residual chunk and our sector fits within it, make use of the residual chunk
+    if (residualSectors && (sectorOffsetInChunk < residualSectors))
+    {
+        return (r % (numChunks + 1)) * chunkSizeSectors + sectorOffsetInChunk;
+    }
+    // Otherwise don't consider the residual
+    else
+    {
+        return (r % numChunks) * chunkSizeSectors + sectorOffsetInChunk;
+    }
+}
+
+extern "C" __global__ void LwdaEccL2
+(
+    const device_ptr testPtr,
+    const device_ptr infoPtr,
+    const UINT32 l2SliceSizeDwords,
+    const UINT32 eccSectorSizeDwords,
+    const UINT32 innerIterations,
+    const UINT64 randseed
+)
+{
+    UINT64 s[2];
+    InitRand<2>(s, randseed + threadIdx.x + blockIdx.x * blockDim.x);
+
+    UINT32* ptr  = GetPtr<UINT32*>(testPtr);
+    UINT32* chan = GetPtr<UINT32*>(testPtr) + blockIdx.x * eccSectorSizeDwords;
+    const UINT32* sectorMap = GetPtr<UINT32*>(infoPtr);
+
+    // Copy sector mappings to shared memory so that they don't pollute the L2 cache
+    const UINT32 sectorsToTest = l2SliceSizeDwords / eccSectorSizeDwords;
+    for (UINT32 sector = threadIdx.x; sector < sectorsToTest; sector += blockDim.x)
+    {
+        shared[sector] = sectorMap[sector + blockIdx.x * sectorsToTest];
+    }
+
+    SendMsg(chan, SM_READY);
+    for (UINT32 i = 0; i < innerIterations; i++)
+    {
+        UINT64 r;
+        UINT64 offsetSector;
+
+        // Get error injection location
+        //
+        // Calls GetSectorOffset to get the offset into this block's assigned sectors,
+        // then passes the result through the block mappings to get the sector offset
+        // in the framebuffer memory.
+        //
+        // Don't use sectors which are used by for communicating with host.
+        do
+        {
+            r = FastRand(s);
+            offsetSector = shared[GetSectorOffset(r, sectorsToTest)];
+        } while (offsetSector < gridDim.x);
+
+        const UINT32 lower = static_cast<UINT32>(r);
+        const UINT32 upper = static_cast<UINT32>(r >> 32);
+
+        const UINT32 offsetDwords = offsetSector * eccSectorSizeDwords +
+                                        upper % eccSectorSizeDwords;
+
+        // First error bit is randomly chosen using lower 32 random bits
+        const UINT32 err1Index = lower % 32;
+
+        // Second error bit is randomly chosen using upper 32 random bits
+        // It is guaranteed to be unique from the first error bit
+        const UINT32 err2Index = (err1Index + 1 + upper % 31) % 32;
+
+        // Always inject the first error
+        //
+        // Only have every other thread inject the second error.
+        // The threads switch between single and double bit injection each iteration.
+        const UINT32 error = (1 << err1Index) |
+                                 (((threadIdx.x & 1) ^ (i & 1)) << err2Index);
+
+        UINT32* sectorBase = ptr + (offsetDwords & ~(eccSectorSizeDwords - 1));
+        UINT32* sectorTop = sectorBase + eccSectorSizeDwords;
+
+        WaitOnMsg(chan, HOST_PROCEED);
+        // Call assembly function to ensure the correct instructions are issued while
+        // checkbits are disabled
+        //
+        // 1: Write value to ECC sector
+        // 2: Disable checkbits
+        // 3: Inject errors
+        // 4: Re-enable checkbits
+        // 5: Reset sector to original value
+        critical_section(chan,
+                         sectorBase,
+                         sectorTop,
+                         ptr + offsetDwords,
+                         lower,
+                         error,
+                         threadIdx.x);
+
+        // 6: Get error counts and reset error count registers
+        SendMsg(chan, SM_RESET_ERRS);
+    }
+    WaitOnMsg(chan, HOST_PROCEED);
+    SendMsg(chan, SM_DONE);
+}
+// vim:ft=cpp

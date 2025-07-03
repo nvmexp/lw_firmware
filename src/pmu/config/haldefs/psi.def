@@ -1,0 +1,62 @@
+# -*- mode: perl; -*-
+
+# PSI Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $psiHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libPsi", "__FUNC__") GCC_ATTRIB_NOINLINE()',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        ENGAGE_PSI => [
+            DESCRIPTION      => "Engage PSI",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 featureId, LwU32 railMask, LwU32 stepMask",
+            STUB_RETURNS     => FLCN_ERROR,
+
+            _GMXXX           => [ MAXWELL, ],
+            _GP10X           => [ dPASCAL_and_later, ],
+        ],
+
+        DISENGAGE_PSI => [
+            DESCRIPTION      => "Dis-engage PSI",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 featureId, LwU32 railMask, LwU32 stepMask",
+            STUB_RETURNS     => FLCN_ERROR,
+
+            LIKE_INTERFACE   => ENGAGE_PSI,
+        ],
+
+        GPIO_TRIGGER => [
+            DESCRIPTION      => "Trigger PSI GPIO",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 ctrlId, LwU32 railMask, LwU32 stepMask, LwBool bEnable",
+            STUB_RETURNS     => FLCN_ERROR,
+
+            _GP10X           => [ PASCAL_thru_TURING, ],
+            _GA10X           => [ GA10X_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB            => [ ALL, -dPASCAL_and_later, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, -T194, ],
+        ],
+
+        I2C_COMMAND_TRIGGER => [
+            DESCRIPTION      => "Trigger PSI I2C",
+            RETURN_TYPE      => FLCN_STATUS,
+            ARGUMENTS        => "LwU8 ctrlId, LwU32 railMask, LwBool bEnable",
+            STUB_RETURNS     => FLCN_ERROR,
+
+            _GA10X           => [ GA10X_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB            => [ ALL, -GA10X_and_later, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $psiHal;

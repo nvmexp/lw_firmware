@@ -1,0 +1,80 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2020 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default Build Options
+###############################################################################
+PROMOTION_FILE         = ucode_promotion_flag
+UPDATE_PROFILES        = ucode_auto_promotion_files
+UCODE_TYPE             =
+UCODE_RELEASE_FILES    =
+
+ifeq ("$(SEC2_RTOS)","1")
+    UCODE_TYPE = sec2
+endif
+
+ifeq ("$(DPU_RTOS)","1")
+    UCODE_TYPE = dpu
+endif
+ifeq ("$(GSPLITE_RTOS)", "1")
+    UCODE_TYPE = dpu
+endif
+
+###############################################################################
+# Rules for checking and handling promotion
+###############################################################################
+.PHONY: check_profile
+.PHONY: ucode_release_sec2 ucode_release_dpu
+
+all: check_profile
+
+###############################################################################
+# Rules for checking and handling promotion
+###############################################################################
+check_profile:
+	$(ECHO) "$(BUILD_PROJECT_NAME) Check if profile needs to be released"
+
+ifneq ("$(UCODE_TYPE)","")
+all: ucode_release_$(UCODE_TYPE)
+endif
+
+###############################################################################
+# uCode Specific
+###############################################################################
+ucode_release_sec2:
+	$(ECHO) "$(IMG_PREFIX)" >> $(UPDATE_PROFILES)
+ifeq ("$(AS2_SEC2_SKIP_SIGN_RELEASE)","true")
+ifeq ("$(NO_RELEASE)","true")
+	$(ECHO) "$(BUILD_PROJECT_NAME) Add profile to promotion"
+	$(ECHO) "+$(IMG_PREFIX)" >> $(UPDATE_PROFILES)
+endif
+endif
+
+ucode_release_dpu:
+ifeq ("$(GSPLITE)","true")
+	$(ECHO) "$(IMG_PREFIX)" >> $(UPDATE_PROFILES)
+ifeq ("$(AS2_DPU_SKIP_SIGN_RELEASE)","true")
+ifeq ("$(NO_RELEASE)","true")
+	$(ECHO) "$(BUILD_PROJECT_NAME) Add profile to promotion"
+	$(ECHO) "+$(IMG_PREFIX)" >> $(UPDATE_PROFILES)
+endif
+endif
+else
+	$(ECHO) "g_dpuuc$(IPMAJORVER)$(IPMINORVER)" >> $(UPDATE_PROFILES)
+ifeq ("$(AS2_DPU_SKIP_SIGN_RELEASE)","true")
+ifeq ("$(NO_RELEASE)","true")
+	$(ECHO) "$(BUILD_PROJECT_NAME) Add profile to promotion"
+	$(ECHO) "+g_dpuuc$(IPMAJORVER)$(IPMINORVER)" >> $(UPDATE_PROFILES)
+endif
+endif
+endif
+
+

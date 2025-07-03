@@ -1,0 +1,41 @@
+# This file specifies memory layout for CC partitions
+# It is used by linker script, partition policies and manifest.
+
+CC_PARTITION_MEMORY_SIZES :=
+# IMEM - in order of placement in memory
+# SK - 4K
+CC_PARTITION_MEMORY_SIZES += IMEM_SK_SIZE=0x1000
+# Shared - 38K  // less vs spec :(
+CC_PARTITION_MEMORY_SIZES += IMEM_SHR_SIZE=0x9800
+# ACR - 30K
+CC_PARTITION_MEMORY_SIZES += IMEM_ACR_SIZE=0x7800
+# Attestation - 8K
+CC_PARTITION_MEMORY_SIZES += IMEM_ATT_SIZE=0x2000
+# RM - 6K
+CC_PARTITION_MEMORY_SIZES += IMEM_RM_SIZE=0x1800
+# Init - 4K
+CC_PARTITION_MEMORY_SIZES += IMEM_INIT_SIZE=0x1000
+# SPDM - 30K  // 1K less vs spec
+CC_PARTITION_MEMORY_SIZES += IMEM_SPDM_SIZE=0x7800
+
+# DMEM - in order of placement in memory
+# SK - 4K
+CC_PARTITION_MEMORY_SIZES += DMEM_SK_SIZE=0x1000
+# Shared - 5K
+CC_PARTITION_MEMORY_SIZES += DMEM_SHR_SIZE=0x1400
+# ACR - 25K  // Less vs spec :(
+CC_PARTITION_MEMORY_SIZES += DMEM_ACR_SIZE=0x6400
+# Attestation - 5K
+CC_PARTITION_MEMORY_SIZES += DMEM_ATT_SIZE=0x1400
+# RM - 2K
+CC_PARTITION_MEMORY_SIZES += DMEM_RM_SIZE=0x800
+# Init - 2K
+CC_PARTITION_MEMORY_SIZES += DMEM_INIT_SIZE=0x800
+# SPDM - 19K  // 2K less vs spec
+CC_PARTITION_MEMORY_SIZES += DMEM_SPDM_SIZE=0x4C00
+# Print buffer - 2K (RM only for prod)
+CC_PARTITION_MEMORY_SIZES += DMEM_PRINT_SIZE=0x800
+
+CC_PARTITION_MEMORY_SIZES_SPARK := $(subst 0x,,$(CC_PARTITION_MEMORY_SIZES))
+
+LD_DEPS += $(CC_ROOT)/build/memory_layout.mk $(CC_ROOT)/build/memory_layout.ld.in

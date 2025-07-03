@@ -1,0 +1,64 @@
+--*_LWRM_COPYRIGHT_BEGIN_
+--*
+--* Copyright 2021 by LWPU Corporation.  All rights reserved.  All
+--* information contained herein is proprietary and confidential to LWPU
+--* Corporation.  Any use, reproduction, or disclosure without the written
+--* permission of LWPU Corporation is prohibited.
+--*
+--*_LWRM_COPYRIGHT_END_
+
+library project sbi_interface is
+   for Create_Missing_Dirs use "True";
+   for Source_Dirs use (".", "../common/");
+   for Object_Dir use "build";
+   for Target use "riscv64-elf";
+   for Runtime ("ada") use "zfp-spike";
+   for Languages use ("Ada");
+
+   -- ada style checking default with gnatyy is equivalent to
+   -- "gnaty3aAbcefhiklmnprst", which includes:
+   -- gnaty3 - indent of 3
+   -- gnatya - attribute casing, name initial char being uppercase, rest lower case
+   -- gnatyA - omit array index number when using array attributes (First,Last,Range,Length,etc)
+   -- gnatyb - trailing blanks not allowed at end of statement
+   -- gnatyc - check commenting rules
+   -- gnatye - ensure end/exit have lables
+   -- gnatyf - no form feeds or vertical tabs
+   -- gnatyh - no horizontal tabs
+   -- gnatyi - check if-then layout
+   -- gnatyk - all keywords in lower case, except ones used as attribute names
+   -- gnatyl - check layout
+   -- gnatym - check maximum source line length
+   -- gnatyn - check casing of entites in standard
+   -- gnatyp - check pragma casing
+   -- gnatyr - check references casing
+   -- gnatys - check separate specs
+   -- gnatyt - check token spacing
+
+   package Compiler is
+      for Default_Switches ("Ada") use (
+                                        "-Os",
+                                        "-g", -- Debug symbol
+                                        "-gnat12", -- Ada 2012 features enabled
+                                        "-gnatyy", -- Ada standard stype checking
+                                        "-gnaty4", -- Overwrite indent to 4
+                                        "-gnatyB", -- Check boolean operators
+                                        "-gnatyx", -- Avoids unnecessary parentheses
+                                        "-gnatyu", -- Avoids unnecessary blank lines
+                                        "-gnatyS", -- Check no statements after then/else
+                                        "-gnatyM100", -- Maximum 100 line length
+                                        "-gnatyL6" -- Maximum 6 level deep nesting
+                                        );
+   end Compiler;
+
+   for Library_Name use "sbi_interface";
+   for Library_Kind use "static";
+   for Library_Interface use ("sbi_interface",
+                              "lw_types",
+                              "lw_types_intrinsic",
+                              "lw_types_generic",
+                              "sbi_types");
+   for Library_Dir use "lib";
+
+end sbi_interface;
+

@@ -1,0 +1,183 @@
+$Id: //sw/integ/gpu_drv/stage_rel/diag/mods/docs/doxygen.txt#3 $
+
+== Doxygen Commenting Style Etiquette ==
+
+After a democratic poll of MODS-Dev team, a set of Doxygen commenting guidelines were decided.
+
+All source files (*.h and *.cpp) in the MODS tree are automatically put into the documentation, so when you write a new file you don't need to do anything external to get it dolwmented.
+
+What you do have to do is comment your source following the below dislwssed guidelines.
+You can check the result of your comments on the nightly generated MODS documentation at http://mods/
+
+You are supposed to:
+
+  1) Put a "file" comment near the top of the file.
+  2) Comment C++ code using the following guidelines.
+  3) Comment JavaScript object, property, and method declarations as described below.
+
+== File Comment ==
+
+Near the top of any source file, perhaps just beneath the LWPU copyright notice and the tag:
+
+<pre>
+$Id: //sw/integ/gpu_drv/stage_rel/diag/mods/docs/doxygen.txt#3 $
+</pre>
+
+you should have a doxygen comment of the form:
+
+<pre>
+//!
+//! \file doxygen_example.cpp
+//! \brief this file does something
+//!
+//! This file does something *very* complicated
+//! and this and that
+//! ...
+</pre>
+
+You have to leave the \\! empty line to separate the brief description (after the \brief tag) and the long description.
+The brief description - like all the brief descriptions must be one line.
+The long description is optional - like all the long descriptions.
+
+Please note that even if in the body of the code we decided not to use the /* */ commenting style,
+to avoid to change all the copyright notices we decided that /* */ is allowed only there.
+
+== Comment C++ Body ==
+
+You can comment your C++ code following the example found on the MODS webserver at:
+
+<pre>
+http://mods/doxygen_example.cpp
+</pre>
+
+The resulting Doxygen documentation is posted on the MODS webserver at:
+
+<pre>
+http://mods/etiquette/class_test.html
+</pre>
+
+In brief this is what is allowed:
+
+- Use always //! and never the C-like syntax /* */ (except for the LWPU Copyright).
+
+- If you have to comment (temporarily) chunk of code use #if 0 ... #endif
+
+- All the objects (structs, enums classes, global vars, static stuff and so on) should be commented for the future generations of MODS coders.
+
+- You are allowed to use one of these 2 syntax for commenting the parameters of a function. Here there is flexibility, because the two doxygen syntax are better suited to different coding styles.
+
+'''Style1:'''
+<pre>
+    //! \brief Style1: A normal member taking 2 args and returning an integer value (brief description).
+    //!
+    //! A long description of it
+    //! \param a an integer argument.
+    //! \param s a constant character pointer.
+    //! \return The test results
+    //! \sa Test(), ~Test(), testMeToo() and publicVar()
+    int testMe
+    (
+        int a, 
+        const char *s
+        );
+</pre>
+
+'''Style 2:'''
+<pre>
+    //! \brief Style 2: A normal member taking 2 args and returning an integer value (brief descrition).
+    //!
+    //! A long description of it (long description).
+    int testMeAgain
+    (
+        int a,                  //!< description
+        const char *s           //!< description
+        );
+</pre>
+
+Is that easy? Yes it is that easy.
+
+The complete documentation for doxygen-style is at
+
+<pre>
+http://www.stack.nl/~dimitri/doxygen/docblocks.html 
+</pre>
+
+== Comment your JavaScript ==
+
+'''WARNING: what is going on with the new automatic documentation system and the JS is under ilwestigation. Please send an email to GP (gsaggese@lwpu.com) if you see something weird.'''
+
+We're fitting a square peg into a round hole here, so this part is a bit more touchy.  Make your object,
+property, and method declarations look like the follwing example, and things should work:
+
+<pre>
+//! \brief Short description of Simple.
+//!
+//! Longer description of Simple.
+//! ...
+static SObject Simple_Object
+(
+   "Simple",
+   SimpleClass,
+   0,
+   0,
+   "Simple is blah de blah."
+);
+</pre>
+
+<pre>
+//! \brief Short description of Multiply.
+//!
+//! Longer description of Multiply.
+//! \param arg1 Description of first multiply parameter.
+//! \param arg2 Description of second multiply parameter.
+//! \return Description of multiply return value
+static SMethod Simple_Multiply
+(
+   Simple_Object,
+   "Multiply",
+   C_Simple_Multiply,
+   2,
+   "Returns the product of its two arguments."
+);
+</pre>
+
+<pre>
+//! \brief Short description of Property1.
+//!
+//! Longer description of Property1.
+static SProperty Simple_Property1
+(
+   Simple_Object,
+   "Num1",
+   0,
+   3,
+   0,
+   0,
+   0,
+   "This is the Property1 property."
+);
+</pre>
+
+Special things to note:
+
+- The declaration of the SObject *MUST* have both short-style and long-style doxygen comments. (methods, tests, and properties may have short-style, long-style, both, or neither).
+
+- The argument lists should look like these examples, with each argument on a separate line, and the closing ");"
+ on a line by itself.
+
+- SObjects must have the form:
+<pre>ClassName_Object</pre>
+
+or:
+
+<pre>g_ClassName_Object</pre>
+
+Anything else will not parse correctly.
+
+- SMethods, STests, and SProperties must all have the form:
+<pre>ClassName_Name</pre>
+
+Anything else will not parse correctly.
+
+Good luck, and happy commenting!
+

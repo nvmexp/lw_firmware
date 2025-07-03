@@ -1,0 +1,215 @@
+# -*- mode: perl; -*-
+
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+
+my $filesRef = [
+
+    DPUSRC_CORE => [
+
+        FLAGS => ':CORE',                     # following are all part of core (non-hal)
+
+        'start.S'                      ,
+        'main.c'                       ,
+        'hal/lw/dpu_objhal.c'          ,
+        'hal/lw/dpu_halstub.c'         ,
+        'ic/lw/dpu_objic.c'            ,
+        'os/lw/dpu_os.c'               ,
+        'os/lw/dpu_ostmrcallback.c'    ,
+
+        CHIPS_SUPPORTED => [ VOLTA_and_later, ],
+            'dpu/lw/dpu_selwreaction_hs.c',
+            'dpu/lw/dpu_common_hs.c',
+
+        CHIPS_SUPPORTED => [ ADA_and_later, ],
+            'dpu/lw/dpu_libccc_hs.c',
+
+    ],  # DPUSRC_CORE
+
+    DPUSRC_ENGINES => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        DPU =>
+        [
+            CHIPS_SUPPORTED => [ ALL, ],
+                'dpu/lw/dpu_objdpu.c',
+                'dpu/v02/dpu_dpu0200.c',
+                'dpu/v02/dpu_queue0200.c',
+
+            CHIPS_SUPPORTED => [ KEPLER_and_later, ],
+                'dpu/v02/dpu_dpu0201.c',
+
+            CHIPS_SUPPORTED => [ GM20X_and_later, ],
+                'dpu/v02/dpu_dpu0205.c',
+
+            CHIPS_SUPPORTED => [ GM20X_thru_PASCAL, ],
+                'dpu/v02/dpu_mutex0205.c',
+
+            CHIPS_SUPPORTED => [ GP10X, ],
+                'dpu/v02/dpu_mutex0207.c',
+                'dpu/v02/dpu_dpu0207.c',
+
+            CHIPS_SUPPORTED => [ VOLTA_and_later, ],
+                'dpu/volta/dispflcngv10x.c',
+                'dpu/volta/dispflcn_prierrgv10x.c',
+                'dpu/volta/dispflcn_mutexgv10x.c',
+
+            CHIPS_SUPPORTED => [ TURING_and_later, ],
+                'dpu/turing/dispflcntu10x.c',
+
+            CHIPS_SUPPORTED => [ TU116, TU117, ],
+                'dpu/turing/dispflcntu116.c',
+
+            CHIPS_SUPPORTED => [ AMPERE_and_later, ],
+                'dpu/ampere/dispflcnga10x.c',
+            
+            CHIPS_SUPPORTED => [ ADA_and_later, ],
+                'dpu/ada/dispflcnad10x.c',    
+
+        ],
+
+        HAL =>
+        [
+            # These are the files that install the hal support for a given gpu.
+            # The files may be shared across multiple gpus, but every gpu must
+            # be represented by exactly 1 file.
+
+            FLAGS => ':HAL_IMPLEMENTATION'    # mark these files as the hal implementation
+                   . ':HAL_SETUP'
+                   . '',
+
+            CHIPS_SUPPORTED => [ GF11X, ],
+                'hal/v02/dpu_hal0200.c',
+
+            CHIPS_SUPPORTED => [ KEPLER, GM10X, ],
+                'hal/v02/dpu_hal0201.c',
+
+            CHIPS_SUPPORTED => [ GM20X, ],
+                'hal/v02/dpu_hal0205.c',
+
+            CHIPS_SUPPORTED => [ PASCAL, ],
+                'hal/v02/dpu_hal0207.c',
+
+            CHIPS_SUPPORTED => [ VOLTA, ],
+                'hal/volta/dispflcn_halgv100.c',
+
+            CHIPS_SUPPORTED => [ TURING, ],
+                'hal/turing/dispflcn_haltu10x.c',
+
+            CHIPS_SUPPORTED => [ AMPERE, ],
+                'hal/ampere/dispflcn_halga10x.c',
+            
+            CHIPS_SUPPORTED => [ ADA_and_later, ],
+                'hal/ada/dispflcn_halad10x.c',    
+        ],
+
+        HDCP =>
+        [
+            CHIPS_SUPPORTED => [ GM20X_and_later, ],
+                'hdcp/dpu_libintfchdcp.c',
+        ],
+
+        HDCP22WIRED =>
+        [
+            CHIPS_SUPPORTED => [ GM20X_and_later, ],
+                'hdcp22/dpu_libintfchdcp22wired.c',
+        ],
+
+        IC =>
+        [
+            CHIPS_SUPPORTED => [ GF11X_thru_PASCAL, ],
+                'ic/v02/dpu_ic0200.c',
+
+            CHIPS_SUPPORTED => [ GK10X_thru_PASCAL, ],
+                # Bug 1461766 - this file should only be compiled on MAXWELL_and_later,
+                # but in order to merge the v0204 ucode into v0201, this file is
+                # now compiled for KEPLER_and_later
+                'ic/v02/dpu_ic0204.c',
+
+            CHIPS_SUPPORTED => [ GM20X_thru_PASCAL, ],
+                'ic/v02/dpu_ic0205.c',
+
+            CHIPS_SUPPORTED => [ GP10X_thru_PASCAL, ],
+                'ic/v02/dpu_ic0207.c',
+
+            CHIPS_SUPPORTED => [ VOLTA_and_later, ],
+                'ic/volta/dispflcn_icgv10x.c',
+        ],
+
+        LSF =>
+        [
+            CHIPS_SUPPORTED => [ GM20X_and_later, ],
+                'lsf/lw/dpu_objlsf.c',
+                'lsf/v02/dpu_lsf0205.c',
+
+            CHIPS_SUPPORTED => [ VOLTA_and_later, ],
+                'lsf/volta/dpu_lsfgv10x.c',
+
+            CHIPS_SUPPORTED => [ GA102_and_later, ],
+                'lsf/ampere/dpu_lsfga10x.c',
+        ],
+
+        I2C =>
+        [
+            CHIPS_SUPPORTED => [ GM20X_and_later, ],
+                'i2c/dpu_libintfci2c.c',
+        ],
+
+        ISOHUB =>
+        [
+            CHIPS_SUPPORTED => [ GM20X_and_later, ],
+                "isohub/lw/dpu_objisohub.c",
+                "isohub/v02/dpu_isohub0205.c",
+        ],
+
+        VRR =>
+        [
+            CHIPS_SUPPORTED => [ GP10X_and_later, ],
+                "vrr/lw/dpu_objvrr.c",
+                "vrr/v02/dpu_vrr0207.c",
+        ],
+
+    ],  # DPUSRC_ENGINES
+
+    DPUSRC_TASKS => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        CHIPS_SUPPORTED => [ ALL, ],
+            'task1_mgmt.c',
+            'task8_scanoutlogging.c',
+
+        CHIPS_SUPPORTED => [ GM20X_and_later, ],
+            'task5_hdcp.c',
+            'task6_hdcp22.c',
+            'task9_mscgwithfrl.c',
+
+        CHIPS_SUPPORTED => [ GP10X_and_later, ],
+            'task4_vrr.c',
+
+        CHIPS_SUPPORTED => [ GV10X_and_later, ],
+            'task_wkrthd.c',
+
+    ],  # DPUSRC_TASKS
+
+];   # filesRef
+
+
+my $platformsRef = [
+
+    # the DPU platform
+    PLATFORM_DPU  => [
+        DPUSRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

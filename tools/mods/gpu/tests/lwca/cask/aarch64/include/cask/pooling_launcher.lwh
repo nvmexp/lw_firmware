@@ -1,0 +1,90 @@
+//
+// Copyright (c) 2019, LWPU CORPORATION.  All rights reserved.
+//
+// LWPU CORPORATION and its licensors retain all intellectual property
+// and proprietary rights in and to this software, related documentation
+// and any modifications thereto.  Any use, reproduction, disclosure or
+// distribution of this software and related documentation without an express
+// license agreement from LWPU CORPORATION is strictly prohibited.
+//
+
+#ifndef POOLING_LAUNCHER_LWH
+#define POOLING_LAUNCHER_LWH
+
+#include <lwda_runtime.h>
+
+#include "pooling.h"
+
+namespace cask {
+
+/// \brief A launcher function for a LwDNN pooling scalar kernel.
+/// \param pDesc Describes the pooling operation.
+/// \param srcData A device pointer to the input tensor.
+/// \param destData A device pointer to the output tensor.
+/// \param stream The stream on which the kernel is to be launched.
+template
+<typename T_ELEM, typename T_MATH, class pooling, int32_t pooling_mode>
+static Error pooling_scalar_fwd_launcher(struct PoolingOperation::poolingDescription& pDesc,
+                                         const void *srcData,
+                                         void *destData,
+                                         lwdaStream_t stream,
+                                         lwdaError_t &lastError);
+
+/// \brief A launcher function for the TRT fp16x8_nhwc (HMMA datatype) kernel.
+/// \param pDesc Describes the pooling operation.
+/// \param srcData A device pointer to the input tensor.
+/// \param destData A device pointer to the output tensor.
+/// \param stream The stream on which the kernel is to be launched.
+/// \param lastError Saves the error message returned by the launcher.
+template
+<int32_t pooling_mode>
+static Error pooling_fwd_fp16x8_nhwc_launcher(struct PoolingOperation::poolingDescription& pDesc,
+                                  	          const void *srcData,
+                                  	          void *destData,
+                                  	          lwdaStream_t stream,
+                                              lwdaError_t &lastError);
+
+/// \brief A launcher function for the TRT int8x32 (IMMA) Pooling kernel.
+/// \param pDesc Describes the pooling operation.
+/// \param srcData A device pointer to the input tensor.
+/// \param destData A device pointer to the output tensor.
+/// \param stream The stream on which the kernel is to be launched.
+/// \param lastError Saves the error message returned by the launcher.
+template
+<int32_t pooling_mode>
+static Error pooling_fwd_int8x32_launcher(struct PoolingOperation::poolingDescription& pDesc,
+                                  	      const void *srcData,
+                                  	      void *destData,
+                                  	      lwdaStream_t stream,
+                                          lwdaError_t &lastError);
+
+/// \brief A launcher function for the TRT int8quad pooling kernel.
+/// \param pDesc Describes the pooling operation.
+/// \param srcData A device pointer to the input tensor.
+/// \param destData A device pointer to the output tensor.
+/// \param stream The stream on which the kernel is to be launched.
+/// \param lastError Saves the error message returned by the launcher.
+template
+<int32_t pooling_mode>
+static Error pooling_fwd_int8x4_launcher(struct PoolingOperation::poolingDescription& pDesc,
+                                  	     const void *srcData,
+                                  	     void *destData,
+                                  	     lwdaStream_t stream,
+                                         lwdaError_t &lastError);
+
+/// \brief A launcher function for the TRT halfx2 pooling kernel.
+/// \param pDesc Describes the pooling operation.
+/// \param srcData A device pointer to the input tensor.
+/// \param destData A device pointer to the output tensor.
+/// \param stream The stream on which the kernel is to be launched.
+/// \param lastError Saves the error message returned by the launcher.
+template
+<int32_t pooling_mode>
+static Error pooling_fwd_fp16x2_launcher(struct PoolingOperation::poolingDescription& pDesc,
+                                  	     const void *srcData,
+                                  	     void *destData,
+                                  	     lwdaStream_t stream,
+                                         lwdaError_t &lastError);
+} // namespace cask
+
+#endif  // POOLING_LAUNCHER_LWH

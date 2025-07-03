@@ -1,0 +1,272 @@
+project Separation_Kernel is
+   for Create_Missing_Dirs use "True";
+
+   -- '2' is just a default partition count for SK build testing only. 
+   -- PARTITION_COUNT should always be passed externally along with POLICY_PATH
+   Partition_Count := external("PARTITION_COUNT", "2");
+
+   -- Configurable fields in partition policy, for backward compatibility
+   type Policy_Config_Type is ("True", "False");
+
+   -- Partition policy configurable fields
+   Policy_Config_Priv_lockdown : Policy_Config_Type := external("POLICY_CONFIG_PRIV_LOCKDOWN", "False");
+   Policy_Config_Sbi : Policy_Config_Type := external("POLICY_CONFIG_SBI", "False");
+
+   -- Source from where the exelwtation is transfered to SK
+   type Initiator_Type is ("bootrom", "bootplugin", "none");
+   Initiator : Initiator_Type := external("INITIATOR", "bootrom");
+
+   type Chip_Type is ("ga10x", "gh100", "orin", "ls10", "ad10x");
+   Chip : Chip_Type := external ("Chip", "ga10x");
+
+   type Engine_Type is ("gsp", "pmu", "sec", "soe", "lwdec", "tsec", "fsp");
+   Engine : Engine_Type := external ("Engine", "gsp");
+
+   -- Path to the policy file(s)
+   Policy_Path := external("POLICY_PATH", "");
+
+   -- File name in Policy_Path where package Policies and External_Policies array are defined.
+   -- "policies_ENGINE_CHIP.ads" is the default/expected file name if no Policy_File_Name is provided
+   Policy_File_Name := external("POLICY_FILE_NAME", "dummy_policies_" & Engine & "_" & Chip & ".ads");
+
+   Policies_Source_Path := (Policy_Path);
+
+   -- Path to the .ads file with PLM A/D pairs SK should program
+   PLM_List_Path := external("PLM_LIST_PATH", "");
+
+   -- File name in PLM_List_Path where PLM A/D pair list is defined
+   -- default list is empty
+   PLM_List_File_Name := external("PLM_LIST_FILE_NAME", "default_plm_list.ads");
+
+   PLM_Source_Path := (PLM_List_Path, "./src/plm");
+
+   -- Lwpu extension SBI handling optional input
+   Ilwalid_Extension_File_Name := external("ILWALID_EXT_FILE", "sbi_ilwalid_extension.adb");
+   Extern_Source_Path := external("EXTERN_SOURCE_PATH", "");
+
+   Common_Sources := ("../common", "./src", "./src/asm", "./src/types", "./src/types/" & Chip);
+
+   Engine_Sources := ();
+   case Engine is
+      when "gsp" =>
+         Engine_Sources := ("./src/engine/gsp/" & Chip);
+      when "sec" =>
+         Engine_Sources := ("./src/engine/sec/" & Chip);
+      when "pmu" =>
+         Engine_Sources := ("./src/engine/pmu/" & Chip);
+      when "lwdec" =>
+         Engine_Sources := ("./src/engine/lwdec/" & Chip);
+      when "tsec" =>
+         Engine_Sources := ("./src/engine/tsec/" & Chip);
+      when "fsp" =>
+         Engine_Sources := ("./src/engine/fsp/" & Chip);
+      when "soe" =>
+         Engine_Sources := ("./src/engine/soe/" & Chip);
+   end case;
+   
+   Hwref_Dirs := ();
+   Chip_Sources := ();
+   case Chip is
+      when "ga10x" =>
+        case Engine is
+            when "pmu" =>
+               Hwref_Dirs := ("./src/hwref/ga10x/pwr");
+            when "gsp" | "sec" =>
+               Hwref_Dirs := ("./src/hwref/ga10x/sec");
+            when others =>
+               Hwref_Dirs := ("");
+         end case;
+        
+      when "gh100" =>
+         case Engine is
+            when "pmu" =>
+               Hwref_Dirs := ("./src/hwref/gh100/ghlit1_pwr");
+            when "gsp" | "sec" =>
+               Hwref_Dirs := ("./src/hwref/gh100/ghlit1_sec");
+            when "fsp" =>
+               Hwref_Dirs := ("./src/hwref/gh100/ghlit1_fsp");
+            when "lwdec" =>
+               Hwref_Dirs := ("./src/hwref/gh100/ghlit1_lwdec");
+            when others =>
+               Hwref_Dirs := ("");
+         end case;
+
+      when "orin" =>
+         Chip_Sources := ("./src/types/" & Chip & "/" & Engine);
+
+         case Engine is
+            when "lwdec" =>
+               Hwref_Dirs := ("./src/hwref/orin/tlit6_lwdec");
+            when "tsec" =>
+               Hwref_Dirs := ("./src/hwref/orin/tlit6_sec");
+            when "pmu" =>
+               Hwref_Dirs := ("./src/hwref/orin/galit5_pwr");
+            when "gsp" =>
+               Hwref_Dirs := ("./src/hwref/orin/galit5_sec");
+            when others =>
+               -- Invalid scenario var combination. This will produce an error
+               Hwref_Dirs := ("");
+         end case;
+
+      when "ls10" =>
+         case Engine is
+            when "soe" =>
+               Hwref_Dirs := ("./src/hwref/ls10/lslit2_sec");
+            when "fsp" =>
+               Hwref_Dirs := ("./src/hwref/ls10/lslit2_fsp");
+            when others =>
+               Hwref_Dirs := ("");
+         end case;
+
+      when "ad10x" =>
+        case Engine is
+            when "pmu" =>
+               Hwref_Dirs := ("./src/hwref/ad10x/adlit1_pwr");
+            when "gsp" | "sec" =>
+               Hwref_Dirs := ("./src/hwref/ad10x/adlit1_sec");
+            when others =>
+               Hwref_Dirs := ("");
+         end case;
+   end case;
+
+   -- Dir contains compile flag alterable code. Here we have the build choose
+   -- correct implenmentation, to avoid using ifdef's in the source code
+
+   -- For configurable SBI's
+   -- If the feature is turned on, there will be a
+   -- dedicated field in partition policy to control whether a sbi is callable
+   -- If the feature is turned off, assume all SBI's are allowed
+   Configurable_Dirs := ();
+   case Policy_Config_Sbi is
+       when "True" =>
+           Configurable_Dirs := ("./src/configurable/sbi/configurable");
+       when "False" =>
+           Configurable_Dirs := ("./src/configurable/sbi/allow");
+       when others =>
+           null;
+   end case;
+
+   -- For configurable partition priv lockdown
+   -- If the feature is turned on, there will be a dedicated field in partition
+   -- policy to control what priv lockdown state the partition wants upon entry
+   -- If the feature is turned off, assume no enforcement (no change)
+   case Policy_Config_Priv_lockdown is
+       when "True" =>
+           Configurable_Dirs := Configurable_Dirs & ("./src/configurable/partition_entry_priv_lockdown/configurable");
+       when "False" =>
+           Configurable_Dirs := Configurable_Dirs & ("./src/configurable/partition_entry_priv_lockdown/noenforce");
+       when others =>
+           null;
+   end case;
+
+   IMEM_START_ADDRESS := external("IMEM_START_ADDRESS", "0x0000000000100000");
+   DMEM_START_ADDRESS := external("DMEM_START_ADDRESS", "0x0000000000180000");
+
+   IMEM_LIMIT := external("IMEM_LIMIT", "0x1000");
+   DMEM_LIMIT := external("DMEM_LIMIT", "0x2000");
+
+   BUILD_PATH := external("BUILD_PATH", "");
+   case BUILD_PATH is
+      when "" =>
+         for Object_Dir use "obj/" & Engine & "_" & Chip;
+      when others =>
+         for Object_Dir use BUILD_PATH;
+   end case;
+
+   for Source_Dirs use Common_Sources & Policies_Source_Path & PLM_Source_Path & Engine_Sources & Hwref_Dirs & Chip_Sources & Configurable_Dirs & (BUILD_PATH & "/prebuild") & Extern_Source_Path;
+
+   for Main use ("./src/sk_init.adb");
+   for Target use "riscv64-elf";
+   for Runtime ("ada") use "zfp-spike";
+   for Languages use ("Ada", "Asm_Cpp");
+
+    -- The following scenario variable might seem like an unused one but that is not the case. There is a case
+    -- statement in runtime.xml located at <GNAT_INSTALL>/riscv64-elf/lib/gnat/zfp-spike/ which picks
+    -- the default linker scripts when Loader variable is "RAM". We just need to set it to "USER"
+   type Loaders is ("RAM", "USER");
+   Loader : Loaders := external ("LOADER", "USER");
+
+   package Builder is
+      for Global_Configuration_Pragmas use "./config/global_config_pragmas.adc";
+      for Global_Compilation_Switches ("ada") use ("-gnateT=" & project'Project_Dir & "./config/riscv64.atp");
+   end Builder;
+
+   package Compiler is
+      for Local_Configuration_Pragmas use "./config/local_config_pragmas.adc";
+      for Default_Switches ("Ada") use (
+                                        -- Preprocessor
+                                        "-gnateDPARTITION_COUNT=" & Partition_Count,
+                                        "-gnateDINITIATOR=" & Initiator,
+                                        "-gnateDPOLICY_CONFIG_SBI=" & Policy_Config_Sbi,
+                                        "-gnateDPOLICY_CONFIG_PRIV_LOCKDOWN=" & Policy_Config_Priv_Lockdown,
+
+                                        -- Debug options, don't open these unless you are debugging the code
+                                        --"-save-temps", -- Store the normally temporary intermediate files( *.s, *.i, *.o) permanently.
+                                        --"-fno-inline", -- Suppresses all back-end inlining, the gnatn and gnatN takes no effect
+                                        --"-gnatR", -- Show representation of every object.
+                                        --"-gnatG", -- The compiler generates a low-level version of the source program in an Ada-like format.
+
+                                        "-g", -- Debug symbol
+                                        "-fcallgraph-info=su,da", -- Make the compiler output callgraph information on a per file basis.
+
+                                        -- Normal options, shall be always enabled
+                                        "-Os",
+                                        "-ffunction-sections", "-fdata-sections",  -- Allocate individial sections for each function and data
+                                        "-fno-jump-tables", "-fno-tree-switch-colwersion", -- Eliminate rodata for case-when statement
+                                        "-gnat12", -- Ada 2012 features enabled
+                                        "-gnato", -- Equivalent to -gnato11, causing all intermediate overflows to be handled in strict mode.
+                                        "-gnatn2", -- Frontend Inline
+
+                                        --Gnat styles control
+                                        "-gnatyB", -- Check boolean operators to force short circuit given the C background everyone has
+                                        "-gnatyM240", -- 180 columns permitted.
+                                        "-gnatye", -- Ensure that end/exit have labels
+                                        "-gnatyf", -- No form feeds or vertical tabs
+                                        "-gnatyh", -- No horizontal tabs
+                                        "-gnatyi", -- Enforce standardization on if-then layout
+                                        "-gnatyI", -- Do not use "in" mode KW
+                                        "-gnatyk", -- All keywords must be in lower case
+                                        "-gnatyl", -- Check layout
+                                        "-gnatyL6", -- Max 6 level deep nesting
+                                        "-gnatyn", -- Check casing of entities in Standard
+                                        "-gnaty4", -- Specify indentation level (4 spaces)
+                                        "-gnatyp", -- Check pragma casing
+                                        "-gnatyr", -- All identifier references must be cased in the same way as the corresponding declaration
+                                        "-gnatyx", -- Avoid unnecessary parentheses
+                                        "-gnatyu", -- Check unnecessary blank lines.
+                                        "-gnatyb", -- Blanks not allowed at statement end
+                                        "-gnatyS"); -- Check no statements after then/else
+   end Compiler;
+
+   package Naming is
+      for Spec ("Policies") use Policy_File_Name;
+      for Spec ("PLM_List") use PLM_List_File_Name;
+      for Body ("SBI_Ilwalid_Extension") use Ilwalid_Extension_File_Name;
+   end Naming;
+   
+   package Linker is
+      for Default_Switches ("ada") use ("-Wl,--gc-sections",
+                                        "-nostdlib",
+                                        "-nostartfiles",
+                                        "-T", "separation_kernel.ld",
+                                        "-Wl,-M",
+                                        "-Wl,--cref",
+                                        "-Wl,-Map=link.log",
+                                        "-Wl,--print-memory-usage",
+                                        "-Wl,--defsym=_IMEM_LIMIT=" & IMEM_LIMIT,
+                                        "-Wl,--defsym=_DMEM_LIMIT=" & DMEM_LIMIT,
+                                        "-Wl,--defsym=_IMEM_START_ADDRESS=" & IMEM_START_ADDRESS,
+                                        "-Wl,--defsym=_DMEM_START_ADDRESS=" & DMEM_START_ADDRESS
+                                       );
+   end Linker;
+
+   package Binder is
+      for Default_Switches ("ada") use ("-minimal");
+   end Binder;
+
+   package Stack is
+      for Switches use ("Object_Dir/**");
+   end Stack;
+
+end Separation_Kernel;
+

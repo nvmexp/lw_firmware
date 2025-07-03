@@ -1,0 +1,583 @@
+#
+# Copyright 2011-2021 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+
+#
+# The primary usage of this makefile is as a sub-makefile for a larger falcon
+# build (such as the PMU/DPU/SEC2/SOE builds). It relies on the user (or top-level
+# makefile) to establish the following make-vars before it is ilwoked:
+#     * FALCON_ARCH
+#     * LW_PROJ
+#     * MANUAL_PATHS
+#
+# If building directly, it is highly recommended that you explicitly state (on
+# the build command-line) which falcon architecture and chip project you're
+# targeting. If unspecified, falcon4 and gf11x is assumed. The target
+# architecture may be specified by setting FALCON_ARCH on the command-line.
+#
+# LW_PROJ is only used to uniquely name the output directory where the built libraries
+# will be located. This facilitates parallel building of falcon ucode for multiple
+# projects.
+#
+# Examples:
+#
+# % make FALCON_ARCH=falcon4 LW_PROJ=gf11x
+# % make FALCON_ARCH=falcon3 LW_PROJ=gf10x
+#
+# Additionally, based on the target arch, you need to also specify where the
+# falcon manuals are for the architecture.  This is specified using
+# MANUAL_PATHS.
+#
+# Examples:
+#
+# % make FALCON_ARCH=falcon4 MANUAL_PATHS=$LW_SOURCE/drivers/common/inc/hwref/fermi/gf119
+# % make FALCON_ARCH=falcon3 MANUAL_PATHS=$LW_SOURCE/drivers/common/inc/hwref/gt218
+#
+
+LW_PROJ                     ?= gf11x
+RESMAN_ROOT                 ?= ../../../../../drivers/resman
+MANUAL_PATHS                ?= "$(LW_SOURCE)/drivers/common/inc/swref/fermi/gf119 $(LW_SOURCE)/drivers/common/inc/hwref/fermi/gf119 $(RESMAN_ROOT)/kernel/inc/fermi/gf119"
+DMA_SUSPENSION              ?= false
+LS_FALCON                   ?= false
+PA_47_BIT_SUPPORTED         ?= false
+DMA_NACK_SUPPORTED          ?= false
+OS_CALLBACKS                ?= false
+OS_CALLBACKS_WSTATS         ?= false
+OS_CALLBACKS_SINGLE_MODE    ?= false
+OS_CALLBACKS_RELAXED_MODE   ?= false
+OS_TRACE                    ?= false
+MRU_OVERLAYS                ?= false
+DMEM_VA_SUPPORTED           ?= false
+DMREAD_WAR_200142015        ?= false
+DMTAG_WAR_1845883           ?= false
+TASK_RESTART                ?= false
+HS_OVERLAYS_ENABLED         ?= false
+HS_UCODE_ENCRYPTION         ?= false
+FB_QUEUES                   ?= false
+QUEUE_HALT_ON_FULL          ?= false
+RTOS_VERSION                ?= OpenRTOSv4.1.3
+TASK_SYNC                   ?= false
+SCHEDULER_2X                ?= false
+SCHEDULER_2X_AUTO           ?= false
+HEAP_BLOCKING               ?= false
+WATCHDOG_ENABLE             ?= false
+ON_DEMAND_PAGING_OVL_IMEM   ?= false
+ON_DEMAND_PAGING_BLK        ?= false
+TASK_QUEUE_MAP              ?= false
+EXCLUDE_LWOSDEBUG           ?= false
+PEDANTIC_BUILD              ?= false
+UINT_OVERFLOW_CHECK         ?= false
+INSTRUMENTATION             ?= false
+INSTRUMENTATION_PTIMER      ?= false
+INSTRUMENTATION_PROTECT     ?= true
+USTREAMER                   ?= false
+USTREAMER_PROTECT           ?= true
+USTREAMER_PTIMER            ?= false
+IS_PKC_ENABLED              ?= false
+SIG_SIZE_IN_BITS            ?= 128   # default value for AES 128bits
+DMEM_OVL_SIZE_LONG          ?= false
+FAULT_RECOVERY              ?= false
+NUM_SIG_PER_UCODE           ?= 1
+IS_SSP_ENABLED_WITH_SCP     ?= false
+LWRISCV_MPU_FBHUB_SUSPEND   ?= false
+IS_SSP_ENABLED_PER_TASK     ?= false
+BOOT_FROM_HS                ?= false
+RUNTIME_HS_OVL_SIG_PATCHING ?= false
+USE_TRUE_BREAKPOINT         ?= false
+
+include $(LW_SOURCE)/uproc/build/common/lwRtosVersion.lwmk
+
+RTOS_SRC = $(LW_RTOS_SRC)
+LIBS     = $(LW_RTOS_LIB)
+
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+build: all
+
+##############################################################################
+# Additional configuration flags for compiler
+##############################################################################
+
+CFLAGS += -DSIG_SIZE_IN_BITS=$(SIG_SIZE_IN_BITS)
+CFLAGS += -DNUM_SIG_PER_UCODE=$(NUM_SIG_PER_UCODE)
+
+ifeq ($(DMA_SUSPENSION),true)
+CFLAGS += -DDMA_SUSPENSION
+endif
+
+ifeq ($(LS_FALCON),true)
+CFLAGS += -DDYNAMIC_FLCN_PRIV_LEVEL
+CFLAGS += -DDMA_REGION_CHECK
+endif
+
+ifeq ($(PA_47_BIT_SUPPORTED),true)
+CFLAGS += -DPA_47_BIT_SUPPORTED
+endif
+
+ifeq ($(DMA_NACK_SUPPORTED),true)
+CFLAGS += -DDMA_NACK_SUPPORTED
+endif
+
+ifeq ($(OS_CALLBACKS),true)
+CFLAGS += -DOS_CALLBACKS
+endif
+
+ifeq ($(OS_CALLBACKS_WSTATS),true)
+CFLAGS += -DOS_CALLBACKS_WSTATS
+endif
+
+ifeq ($(OS_CALLBACKS_SINGLE_MODE),true)
+CFLAGS += -DOS_CALLBACKS_SINGLE_MODE
+endif
+
+ifeq ($(OS_CALLBACKS_RELAXED_MODE),true)
+CFLAGS += -DOS_CALLBACKS_RELAXED_MODE
+endif
+
+ifeq ($(MRU_OVERLAYS),true)
+CFLAGS += -DMRU_OVERLAYS
+endif
+
+ifeq ($(DMEM_VA_SUPPORTED),true)
+CFLAGS += -DDMEM_VA_SUPPORTED
+endif
+
+ifeq ($(DMREAD_WAR_200142015),true)
+CFLAGS += -DDMREAD_WAR_200142015
+endif
+
+ifeq ($(DMTAG_WAR_1845883),true)
+CFLAGS += -DDMTAG_WAR_1845883
+endif
+
+ifdef DPU_RTOS
+CFLAGS += -DDPU_RTOS=$(DPU_RTOS)
+endif
+
+ifdef GSPLITE_RTOS
+CFLAGS += -DGSPLITE_RTOS=$(GSPLITE_RTOS)
+CFLAGS += -DGSPLITE_CSB_ACCESS=$(GSPLITE_RTOS)
+endif
+
+ifdef GSP_RTOS
+CFLAGS += -DGSP_RTOS=$(GSP_RTOS)
+CFLAGS += -DGSP_CSB_ACCESS=$(GSP_RTOS)
+  ifeq ($(RUN_ON_SEC), true)
+    CFLAGS += -DRUN_ON_SEC
+  endif
+endif
+
+ifdef SEC2_RTOS
+CFLAGS += -DSEC2_RTOS=$(SEC2_RTOS)
+CFLAGS += -DSEC2_CSB_ACCESS=$(SEC2_RTOS)
+endif
+
+ifdef PMU_RTOS
+  CFLAGS += -DPMU_RTOS=$(PMU_RTOS)
+
+  CFLAGS += -DLW_MISRA_COMPLIANCE_REQUIRED
+
+  ifeq ($(LW_TARGET_OS),riscv)
+    CFLAGS += -fno-jump-tables
+  endif
+
+  ifeq ($(IS_SSP_ENABLED),true)
+    # TODO: Enable on all engines.
+    CFLAGS += -DIS_SSP_ENABLED
+
+    ifeq ($(IS_SSP_ENABLED_WITH_SCP),true)
+      CFLAGS += -DIS_SSP_ENABLED_WITH_SCP
+    endif
+
+    ifeq ($(IS_SSP_ENABLED_PER_TASK),true)
+      CFLAGS += -DIS_SSP_ENABLED_PER_TASK
+    endif
+  endif
+endif
+
+ifdef SEC2_RTOS
+CFLAGS += -DSEC2_RTOS=$(SEC2_RTOS)
+CFLAGS += -DSEC2_CSB_ACCESS=$(SEC2_RTOS)
+endif
+
+ifdef SOE_RTOS
+CFLAGS += -DSOE_RTOS=$(SOE_RTOS)
+CFLAGS += -DSOE_CSB_ACCESS=$(SOE_RTOS)
+endif
+
+ifeq ($(HS_OVERLAYS_ENABLED),true)
+CFLAGS += -DHS_OVERLAYS_ENABLED
+endif
+
+ifeq ($(HS_UCODE_ENCRYPTION),true)
+CFLAGS += -DHS_UCODE_ENCRYPTION
+endif
+
+ifeq ($(IS_PKC_ENABLED),true)
+CFLAGS += -DIS_PKC_ENABLED
+CFLAGS += -DENGINE_ID=$(ENGINE_ID)
+endif
+
+ifdef BASEADDR_NEEDED_FOR_CSB_ACCESS
+CFLAGS += -DBASEADDR_NEEDED=$(BASEADDR_NEEDED_FOR_CSB_ACCESS)
+endif
+
+ifeq ($(ON_DEMAND_PAGING_OVL_IMEM),true)
+CFLAGS += -DON_DEMAND_PAGING_OVL_IMEM
+endif
+
+ifeq ($(BOOT_FROM_HS),true)
+CFLAGS += -DBOOT_FROM_HS
+endif
+
+ifeq ($(RUNTIME_HS_OVL_SIG_PATCHING),true)
+CFLAGS += -DRUNTIME_HS_OVL_SIG_PATCHING
+endif
+
+ifeq ($(TASK_RESTART),true)
+CFLAGS += -DTASK_RESTART
+endif
+
+ifeq ($(FB_QUEUES),true)
+CFLAGS += -DFB_QUEUES
+endif
+
+ifeq ($(QUEUE_HALT_ON_FULL),true)
+CFLAGS += -DQUEUE_HALT_ON_FULL
+endif
+
+ifeq ($(TASK_SYNC),true)
+CFLAGS += -DTASK_SYNC
+endif
+
+ifeq ($(SCHEDULER_2X),true)
+CFLAGS += -DSCHEDULER_2X
+endif
+
+ifeq ($(SCHEDULER_2X_AUTO),true)
+CFLAGS += -DSCHEDULER_2X_AUTO
+endif
+
+ifeq ($(HEAP_BLOCKING),true)
+CFLAGS += -DHEAP_BLOCKING
+endif
+
+ifeq ($(WATCHDOG_ENABLE),true)
+CFLAGS += -DWATCHDOG_ENABLE
+endif
+
+ifeq ($(EXCLUDE_LWOSDEBUG), true)
+CFLAGS += -DEXCLUDE_LWOSDEBUG
+endif
+
+ifeq ($(INSTRUMENTATION),true)
+CFLAGS += -DINSTRUMENTATION
+endif
+
+ifeq ($(INSTRUMENTATION_PTIMER),true)
+CFLAGS += -DINSTRUMENTATION_PTIMER
+endif
+
+ifeq ($(INSTRUMENTATION_PROTECT),true)
+CFLAGS += -DINSTRUMENTATION_PROTECT
+endif
+
+ifeq ($(USTREAMER_PTIMER),true)
+CFLAGS += -DUSTREAMER_PTIMER
+endif
+
+ifeq ($(USTREAMER),true)
+CFLAGS += -DUSTREAMER
+endif
+
+ifeq ($(USTREAMER_PROTECT),true)
+CFLAGS += -DUSTREAMER_PROTECT
+endif
+
+ifeq ($(DMEM_OVL_SIZE_LONG),true)
+CFLAGS += -DDMEM_OVL_SIZE_LONG
+endif
+
+ifeq ($(LWRISCV_MPU_FBHUB_SUSPEND),true)
+CFLAGS += -DLWRISCV_MPU_FBHUB_SUSPEND
+endif
+
+# Note that we will only enable HW stack limit monitoring for Falcon6 and later.
+# We compare the result of findstring with an empty string, so the ifeq check
+# below looks odd, but does what is it is intended to do.
+ifeq ($(LW_TARGET_OS),falcon)
+  ifeq (,$(findstring $(FALCON_ARCH), "falcon4 or falcon5"))
+    CFLAGS += -DHW_STACK_LIMIT_MONITORING
+  endif
+endif
+
+ifneq (,$(findstring SafeRTOS, $(RTOS_VERSION)))
+CFLAGS += -DSAFERTOS
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+CFLAGS += -DUPROC_RISCV
+endif
+
+ifeq ($(ON_DEMAND_PAGING_BLK),true)
+CFLAGS += -DON_DEMAND_PAGING_BLK
+endif
+
+ifeq ($(TASK_QUEUE_MAP),true)
+CFLAGS += -DTASK_QUEUE_MAP
+endif
+
+ifeq ($(PEDANTIC_BUILD),true)
+CFLAGS += -pedantic -msafety
+endif
+
+ifeq ($(UINT_OVERFLOW_CHECK),true)
+CFLAGS += -DUINT_OVERFLOW_CHECK
+endif
+
+ifeq ($(FREEABLE_HEAP),true)
+CFLAGS += -DFREEABLE_HEAP
+endif
+
+ifeq ($(FAULT_RECOVERY),true)
+CFLAGS += -DFAULT_RECOVERY
+endif
+
+ifdef SUBMAKE_CFLAGS
+  # stack protector is broken for lwos so I'm disabling it here
+  CFLAGS += $(filter-out -fstack-protector-strong,$(SUBMAKE_CFLAGS))
+endif
+
+ifeq ($(USE_TRUE_BREAKPOINT),true)
+CFLAGS += -DUSE_TRUE_BREAKPOINT
+endif
+
+###############################################################################
+# Additional defines to provide to the compiler and assembler.
+###############################################################################
+
+ifeq ($(LW_TARGET_OS),falcon)
+LW_DEFINES += __$(FALCON_ARCH)__
+endif
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += ./inc
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(LW_SOURCE)/sdk/lwpu/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+
+# if building an lwswitch engine, lwswitch headers take precedence over resman headers
+ifdef SOE_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/drivers/lwswitch/common/inc
+endif
+LW_INCLUDES += $(LW_SOURCE)/drivers/resman/arch/lwalloc/common/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/se/inc
+LW_INCLUDES += $(LW_RTOS_INCLUDES)
+ifeq ($(LW_TARGET_OS), riscv)
+  LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/inc
+  LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/drivers/inc
+  LW_INCLUDES += $(LWRISCV_TOOLS)/include/spike/
+  LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/syslib/inc
+  ifdef LWRISCV_SDK
+    LW_INCLUDES += $(LWRISCV_SDK)/inc
+    LW_INCLUDES += $(LWRISCV_SDK_PROFILE)/inc
+  endif
+  ifeq ($(IS_SSP_ENABLED), true)
+    LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/shlib/inc
+  endif
+  LW_INCLUDES += $(MEMMAP_PATH)
+  ifdef GSP_RTOS
+    LW_INCLUDES += $(LW_SOURCE)/uproc/gsp/src/$(GSP_OUTPUTDIR)
+  endif
+  ifdef PMU_RTOS
+    LW_INCLUDES += $(LW_SOURCE)/pmu_sw/prod_app/$(PMU_OUTPUTDIR)
+  endif
+  ifdef SEC2_RTOS
+    ifeq ($(LW_TARGET_OS),falcon)
+      LW_INCLUDES += $(LW_SOURCE)/uproc/sec2/src/$(SEC2_OUTPUTDIR)
+    else ifeq ($(LW_TARGET_OS),riscv)
+      LW_INCLUDES += $(LW_SOURCE)/uproc/sec2_riscv/src/$(SEC2_OUTPUTDIR)
+    endif
+  endif
+  ifdef SOE_RTOS
+    ifeq ($(LW_TARGET_OS),riscv)
+      LW_INCLUDES += $(LW_SOURCE)/uproc/soe_riscv/src/$(SOE_OUTPUTDIR)
+    endif
+  endif
+else
+  ifdef GSPLITE_RTOS
+    LW_INCLUDES += $(LW_SOURCE)/uproc/disp/dpu/inc
+    LW_INCLUDES += $(LW_SOURCE)/uproc/disp/dpu/src/_out/$(LW_PROJ)
+  endif
+endif
+
+ifeq ($(HS_OVERLAYS_ENABLED),true)
+  LW_INCLUDES += $(LW_SOURCE)/uproc/libs/scp/inc
+endif
+
+ifeq ($(IS_SSP_ENABLED),true)
+  ifeq ($(IS_SSP_ENABLED_WITH_SCP),true)
+    LW_INCLUDES += $(LW_SOURCE)/uproc/libs/scp/inc
+  endif
+endif
+
+ifdef GSP_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/uproc/gsp/inc
+endif
+ifdef SEC2_RTOS
+    ifeq ($(LW_TARGET_OS),falcon)
+      LW_INCLUDES += $(LW_SOURCE)/uproc/sec2/inc
+    else ifeq ($(LW_TARGET_OS),riscv)
+      LW_INCLUDES += $(LW_SOURCE)/uproc/sec2_riscv/inc
+    endif
+endif
+
+ifdef PMU_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/pmu_sw/inc
+endif
+
+ifdef DPU_RTOS
+  LW_INCLUDES += $(LW_SOURCE)/uproc/disp/dpu/inc
+endif
+
+ifdef SEC2_RTOS
+    ifeq ($(LW_TARGET_OS),falcon)
+      LW_INCLUDES += $(LW_SOURCE)/uproc/sec2/src/_out/$(LW_PROJ)
+    else ifeq ($(LW_TARGET_OS),riscv)
+      LW_INCLUDES += $(LW_SOURCE)/uproc/sec2_riscv/src/_out/$(LW_PROJ)
+    endif
+  LW_INCLUDES += $(FALCON_TOOLS)/include
+endif
+
+ifdef SOE_RTOS
+    ifeq ($(LW_TARGET_OS),falcon)
+      LW_INCLUDES += $(LW_SOURCE)/uproc/soe/inc
+      LW_INCLUDES += $(LW_SOURCE)/uproc/soe/src/_out/$(LW_PROJ)
+    else ifeq ($(LW_TARGET_OS),riscv)
+      LW_INCLUDES += $(LW_SOURCE)/uproc/soe_riscv/inc
+      LW_INCLUDES += $(LW_SOURCE)/uproc/soe_riscv/src/_out/$(LW_PROJ)
+    endif
+  LW_INCLUDES += $(FALCON_TOOLS)/include
+endif
+
+ifeq ($(LW_TARGET_OS), riscv)
+  LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/syslib/inc
+endif
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+
+ifneq ($(LW_TARGET_OS), riscv)
+  SOURCES += src/dmemovl.c
+  SOURCES += src/lwos_dma.c
+else
+  SOURCES += src/dmemovl-lwriscv.c
+endif
+
+SOURCES += src/lwos_dma_lock.c
+SOURCES += src/lib_lw64.c
+SOURCES += src/lib_lwf32.c
+SOURCES += src/lwoscmdmgmt.c
+ifeq ($(EXCLUDE_LWOSDEBUG), false)
+  SOURCES += src/lwosdebug.c
+endif
+SOURCES += src/lwosreg.c
+SOURCES += src/lwostask.c
+ifeq ($(TASK_SYNC),true)
+SOURCES += src/lwos_task_sync.c
+endif
+
+ifeq ($(INSTRUMENTATION),true)
+SOURCES += src/lwos_instrumentation.c
+endif #INSTRUMENTATION
+
+ifeq ($(USTREAMER), true)
+SOURCES += src/lwos_ustreamer.c
+endif
+
+ifneq ($(LW_TARGET_OS), riscv)
+  SOURCES += src/lwos_ovl_cmn.c
+
+  ifeq ($(ON_DEMAND_PAGING_BLK),true)
+    SOURCES += src/lwos_odp_imem.c
+  else #ON_DEMAND_PAGING_BLK
+    SOURCES += src/lwos_ovl_imem.c
+  endif #ON_DEMAND_PAGING_BLK
+  ifeq ($(DMEM_VA_SUPPORTED),true)
+    ifeq ($(ON_DEMAND_PAGING_BLK),true)
+      SOURCES += src/lwos_odp_dmem.c
+    else #ON_DEMAND_PAGING_BLK
+      SOURCES += src/lwos_ovl_dmem.c
+    endif #ON_DEMAND_PAGING_BLK
+  endif #DMEM_VA_SUPPORTED
+endif #riscv
+
+SOURCES += src/lwos_mem_error_hooks.c
+
+ifeq ($(OS_CALLBACKS),true)
+  SOURCES += src/lwostmrcallback.c
+else
+  SOURCES += src/lwostimer.c
+endif
+
+SOURCES += src/lwostmrcmn.c
+
+ifneq ($(LW_TARGET_OS),riscv)
+  ifeq ($(OS_TRACE),true)
+    SOURCES += src/lwostrace.c
+  endif
+endif
+
+ifeq ($(HS_OVERLAYS_ENABLED),true)
+  SOURCES += src/lwosselwreovly.c
+  SOURCES += src/lwos_dma_hs.c
+  SOURCES += src/mem_hs.c
+endif
+
+ifeq ($(WATCHDOG_ENABLE),true)
+  SOURCES += src/lwoswatchdog.c
+endif
+
+ifeq ($(IS_SSP_ENABLED),true)
+  ifeq ($(IS_SSP_ENABLED_WITH_SCP),true)
+    ifeq ($(LW_TARGET_OS),riscv)
+      SOURCES += src/riscv_lwos_ssp_scp.c
+    else
+      SOURCES += src/lwos_ssp_scp.c
+    endif
+  endif
+endif
+
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[uproc-lwos-$(LW_PROJ)-$(UPROC_ARCH)]"
+
+TGT = $(OUTPUTDIR)/libUprocLwos.a
+all: $(TGT)
+
+ifdef VCAST_INSTRUMENT
+  include lwos-vcast.mk
+endif
+
+$(TGT): $(OBJECTS)
+	$(MKDIR) ${dir $@}
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(AR) -r -c $(TGT) $(OBJECTS)
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+

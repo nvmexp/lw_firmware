@@ -1,0 +1,23 @@
+# testgen level to cover lwlink tests
+# created manually
+
+sublevel: -javascriptArgs gputest.js -modsArgs "-mle_forced -mle %(tname).mle %(DEFAULT_ROM)" -mdiagArgs "-time -null_display -lwlink_verbose 1 -lwlink_force_enable -no_gold -base %(DEFAULT_ARGS) %(NO_VIDEO_ENGINES) %(FBP_CONFIG) %(GPC_CONFIG) %(LWLINK_ALL_PEER) %(NO_PMU)"
+{
+  < name { LwLinkBwStress }     mdiag { -test 246 -testarg 246 ShowTestModes true -testarg 246 SkipBandwidthCheck true -testarg 246 SurfSizeFactor 1 -testarg 246 %(LWLINK_NO_LWDA) -testarg 246 %(LWLINK_NO_DMA_INIT) } >
+  < name { LwlbwsBeHammer }     mdiag { -test 28 -testarg 28 ShowTestModes true  -testarg 28 SurfSizeFactor 1  -testarg 28 %(LWLINK_NO_LWDA) -testarg 28 %(LWLINK_NO_DMA_INIT) } >
+  < name { LwlbwsBgPulse }      mdiag { -test 37 -testarg 37 ShowTestModes true  -testarg 37 SurfSizeFactor 1  -testarg 37 %(LWLINK_NO_LWDA) -testarg 37 %(LWLINK_NO_DMA_INIT) } >
+  < name { LwLinkEyeDiagram }   mdiag { -test 248 %(LWLINK_EYE_THRESHOLDS) } >
+  < name { LwlbwsSspmState }    mdiag { -test 5 -testarg 5 %(LWLINK_NO_LWDA) -testarg 5 %(LWLINK_NO_DMA_INIT) } >
+  < name { LwlValidateLinks }   mdiag { -test 254  } >
+  < name { LwLinkState }        mdiag { -test 252 -testarg 252 Verbose true } >
+}
+
+sublevel: -javascriptArgs gputest.js -modsArgs "-mle_forced -mle %(tname).mle %(DEFAULT_ROM)" -mdiagArgs "-time -null_display -lwlink_verbose 1 -lwlink_force_enable -no_gold -base %(DEFAULT_ARGS) %(NO_VIDEO_ENGINES) %(FBP_CONFIG) %(GPC_CONFIG) %(LWLINK_ALL_PEER)"
+{
+  < name { LwdaLwLinkAtomics }  mdiag { -test 252  } >
+}
+
+sublevel: -javascriptArgs gputest.js -modsArgs "-mle_forced -mle %(tname).mle %(DEFAULT_ROM)" -mdiagArgs "-time -null_display -lwlink_verbose 1 -lwlink_force_enable -no_gold -base %(DEFAULT_ARGS) %(NO_VIDEO_ENGINES) %(FBP_CONFIG) %(GPC_CONFIG) %(LWLINK_ALL_PEER)"
+{
+  <  name { LwdaLwLinkGupsBandwidth }  mdiag { -test 251 } >  
+}

@@ -1,0 +1,30 @@
+
+syntax = "proto3";
+
+message ExampleTop
+{
+    Example example_msg = 0;
+}
+message Example {
+
+    enum ExampleType
+    {
+        et_print      = 1;
+        et_submessage = 2;
+    }
+    ExampleType  example_type = 1;
+    string       print        = 2;
+    ExampleSubmessage example_submessage  = 3;
+}
+
+message ExampleSubmessage {
+    enum Submessage {
+        sm_foo    = 1;
+        sm_bar    = 2;
+    }
+
+    Submessage   example_enum   = 1;
+    sint64       example_int    = 2;
+    string       example_string = 3;
+}
+

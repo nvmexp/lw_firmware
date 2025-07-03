@@ -1,0 +1,1769 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2010-2022 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD ?= false
+NO_RELEASE     ?= false
+INCLUDE_DT     ?= false
+SAVE_TEMPS     ?= false
+NO_SUBMAKE     ?= false         # flag to bypass submake.  Added for GSP build
+                                # that only requires DPU generated headers
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+DPU_SW             = $(LW_SOURCE)/uproc/disp/dpu
+DPU_CFG            = $(LW_SOURCE)/uproc/disp/dpu/config
+DPU_BUILD          = $(LW_SOURCE)/uproc/disp/dpu/build
+LWUPROC            = $(LW_SOURCE)/uproc
+RESMAN_ROOT        = $(LW_SOURCE)/drivers/resman
+LIB_UPROC_LWOS_SRC = $(LWUPROC)/libs/lwos/$(LWOS_VERSION)
+BUILD_SCRIPTS      = $(LWUPROC)/build/scripts
+LDR_SRC            = $(LWUPROC)/bootloader/src
+SE_SRC             = $(LWUPROC)/libs/se/src
+MUTEX_SRC          = $(LWUPROC)/libs/mutex
+I2C_SRC            = $(LWUPROC)/libs/i2c/src
+DPAUX_SRC          = $(LWUPROC)/libs/dpaux/src
+SHA_SRC            = $(LWUPROC)/libs/crypto/sha
+SHAHW_SRC          = $(LWUPROC)/libs/crypto/shahw/src
+LIB_UPROC_CMN_SRC  = $(LWUPROC)/libs/cmn
+HDCP22WIRED_SRC    = $(LWUPROC)/libs/hdcp/hdcp22wired/src
+BIGINT_SRC         = $(LWUPROC)/libs/crypto/bigint
+HDCPAUTH_SRC       = $(LWUPROC)/libs/hdcp/hdcpauth
+HDCP_SRC           = $(LWUPROC)/libs/hdcp/hdcp1x/src
+TEST_SRC           = $(LWUPROC)/libs/test
+SIG_GEN            = $(LWUPROC)/utilities/siggen/siggen
+OPENSSL            = $(LWUPROC)/utilities/openssl/openssl
+DPU_SIGN_CFG       = $(DPU_BUILD)/sign
+SCP_SRC            = $(LWUPROC)/libs/scp
+LIB_CCC_REL_AD10X_ROOT  = $(LWUPROC)/lwriscv/sdk/lwriscv-sdk-3.0_dev/prebuilt/hdcp-ad10x-gsp-falcon
+LIB_CCC_REL_AD10X_INC   = $(LIB_CCC_REL_AD10X_ROOT)/inc
+LIB_CCC_REL_AD10X_LIB   = $(LIB_CCC_REL_AD10X_ROOT)/lib
+
+LWMAKE_CMD        ?= lwmake
+
+define PRINT_LWMAKE_SIGN_SCRIPT
+    $(call PRINT_SCRIPT,$1,$(LWMAKE_CMD) dpu @$2 \
+        NO_CHECK_BUILD=$(NO_CHECK_BUILD) \
+        NO_RELEASE=$(NO_RELEASE) \
+        INCLUDE_DT=$(INCLUDE_DT) \
+        SAVE_TEMPS=$(SAVE_TEMPS) \
+        DPUCFG_PROFILE=$(DPUCFG_PROFILE) \
+        DPUCFG_OUTPUTDIR=$(DPUCFG_OUTPUTDIR) \
+        LDR_IMEM_OFFS=$(LDR_IMEM_OFFS) \
+        LDR_STACK_OFFS=$(LDR_STACK_OFFS) \
+        SIGN_CHECK_BINARY=$(SIGN_CHECK_BINARY) \
+        SIGN_LOCAL=$(SIGN_LOCAL) \
+        SIGN_SERVER=$(SIGN_SERVER) \
+        BOOT_FROM_HS=$(BOOT_FROM_HS) \
+        IS_LS_ENCRYPTED=$(IS_LS_ENCRYPTED) \
+        IMG_PREFIX=$(IMG_PREFIX))
+endef
+
+define PRINT_SCRIPT
+    $(ECHO) $2 "|| exit 1" >> $1
+endef
+
+#
+# To execute all commnads copied to temporary files, each should be copied to new line.
+# TODO Lwrrently prints 2nd argument, add change to remove it.
+#
+define PRINT_SCRIPT_NEWLINE
+    $(ECHO) $2 && $(ECHO) $3 "|| exit 1" >> $1
+endef
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+DPUCFG_PROFILE ?= dpu-v0201
+DPUCFG_PROFILE  = $(DPUCFG_PROFILE)
+include $(DPU_CFG)/dpu-profiles.mk
+
+###############################################################################
+# Export a flag to inform RTOS that we are building for the DPU. This helps us
+# decide which CSB register offsets to use. This isn't very useful in the .c
+# files, where we can include the generic Falcon manuals and use the base
+# address to get to the right CSB offset. However, .S files are compiled with
+# a preprocessor that doesn't understand include paths. Hence, we use this flag
+# to define register offsets. This flag should be sparingly used (only when
+# absolutely necessary), and likely only in .S assembly files.
+###############################################################################
+ifeq ($(GSPLITE),true)
+GSPLITE_RTOS = 1
+else
+DPU_RTOS = 1
+endif
+
+###############################################################################
+# In DPU, the CSB access takes both base address and offset as input, thus
+# setting this flag informing the RTOS to do the CSB access with both base
+# address and offset
+###############################################################################
+ifeq ($(GSPLITE),true)
+GSPLITE_CSB_ACCESS = 1
+GSPLITE_BUILDING_SE = 1
+else
+BASEADDR_NEEDED_FOR_CSB_ACCESS = 1
+
+DPU_BUILDING_SE = 1
+endif
+
+###############################################################################
+# Load common falcon make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LWUPROC)/build/common/lwFalconArch.lwmk
+
+override LW_TARGET_ARCH = $(FALCON_TOOLS_BUILD)
+ifeq ($(GSPLITE),true)
+override LW_PROJ        = $(PROJ)
+else
+override LW_PROJ        = $(IPMAJORVER)$(IPMINORVER)
+endif
+override LW_TARGET_OS   = falcon
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+ifdef CHIP_MANUAL_PATH
+  include $(CHIP_MANUAL_PATH)/lwFalconSignParams.mk
+endif
+
+ifeq ($(FLCNDBG_ENABLED),true)
+CFLAGS += -DFLCNDBG_ENABLED
+endif
+
+ifeq ($(ON_DEMAND_PAGING_OVL_IMEM),true)
+CFLAGS += -DON_DEMAND_PAGING_OVL_IMEM
+endif
+
+ifeq ($(LS_FALCON),true)
+CFLAGS += -DDMA_REGION_CHECK
+endif
+
+ifeq ($(GSPLITE),true)
+CFLAGS += -DGSPLITE_RTOS
+else
+CFLAGS += -DDPU_RTOS
+endif
+
+ifeq ($(GSPLITE),true)
+CFLAGS += -DGSPLITE_CSB_ACCESS=$(GSPLITE_RTOS)
+endif
+
+ifeq ($(EMEM_SUPPORTED),true)
+CFLAGS += -DEMEM_SUPPORTED
+endif
+
+ifeq ($(DMEM_VA_SUPPORTED),true)
+CFLAGS += -DDMEM_VA_SUPPORTED
+endif
+
+#
+# Use the -mlarge-data switch for 32-bit addresses supported by the falcon6
+# toolchain. This is used for EMEM addresses.
+#
+ifeq ($(EMEM_SUPPORTED),true)
+CFLAGS += -mlarge-data
+endif
+
+ifeq ($(OS_CALLBACKS),true)
+CFLAGS += -DOS_CALLBACKS
+endif
+
+ifneq (,$(findstring SafeRTOS, $(RTOS_VERSION)))
+CFLAGS += -DSAFERTOS
+endif
+
+ifeq ("$(HDCP22_USE_SCP_ENCRYPT_SECRET)","true")
+CFLAGS += -DHDCP22_USE_SCP_ENCRYPT_SECRET
+endif
+
+ifeq ("$(HDCP22_CHECK_STATE_INTEGRITY)","true")
+CFLAGS += -DHDCP22_CHECK_STATE_INTEGRITY
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+CFLAGS += -DUPROC_FALCON
+else ifeq ($(LW_TARGET_OS),riscv)
+CFLAGS += -DUPROC_RISCV
+endif
+
+ifeq ("$(GSPLITE_RTTIMER_WAR_ENABLED)","true")
+CFLAGS += -DGSPLITE_RTTIMER_WAR_ENABLED
+endif
+
+ifeq ("$(HDCP22_USE_SCP_GEN_DKEY)","true")
+CFLAGS += -DHDCP22_USE_SCP_GEN_DKEY
+endif
+
+ifeq ("$(RTTIMER_TEST_LIB)","true")
+CFLAGS += -DRTTIMER_TEST_LIB
+endif
+
+ifeq ("$(HDCP22_USE_HW_RSA)","true")
+CFLAGS += -DHDCP22_USE_HW_RSA
+endif
+
+ifeq ("$(HDCP22_KMEM_ENABLED)","true")
+CFLAGS += -DHDCP22_KMEM_ENABLED
+endif
+
+###############################################################################
+# Variable used for SIGGEN
+###############################################################################
+ifeq ($(LW_HOST_OS_FAMILY),Windows)
+    POSTSIGN_SCRIPT = tmppostsig_$(DPUCFG_PROFILE)_$1.bat
+else
+    POSTSIGN_SCRIPT = tmppostsig.sh
+endif
+
+###############################################################################
+# Define the output directory paths for the DPU build and all sub-make builds.
+###############################################################################
+
+OUTPUTDIR := _out/$(subst dpu-,,$(DPUCFG_PROFILE))
+
+
+###############################################################################
+# Setup dpu-config make vars and ilwoke dpu-config. Use dpu-config's
+# makefile.mk to do all the work. The makefile will generate dpu-config.mk in
+# the output directory and then include it.
+###############################################################################
+
+DPUSRC_ALL         :=
+DPUCFG_OPTIONS     :=
+DPUCFG_OUTPUTDIR   ?= $(OUTPUTDIR)/config
+DPUCFG_RESMAN_ROOT := $(RESMAN_ROOT)
+DPUCFG_DPUSW_ROOT  := $(DPU_SW)/src
+
+include $(DPU_CFG)/makefile.mk
+
+# include the generated list of source files
+ifdef DPUCFG_INITIALIZED
+  include $(DPUCFG_OUTPUTDIR)/g_sources.mk
+endif
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+export FALCON_ARCH
+export LW_TARGET_ARCH
+export LW_TARGET_OS
+export LW_PROJ
+export MANUAL_PATHS
+ifeq ($(GSPLITE),true)
+export GSPLITE_CSB_ACCESS
+else
+export BASEADDR_NEEDED_FOR_CSB_ACCESS
+endif
+export TASK_RESTART
+export DMA_SUSPENSION
+export LS_FALCON
+export FLCNDBG_ENABLED
+ifeq ($(GSPLITE),true)
+export GSPLITE_RTOS
+else
+export DPU_RTOS
+endif
+ifdef SSP_ENABLED
+export SSP_ENABLED
+endif
+export SELWRITY_ENGINE
+ifeq ($(GSPLITE),true)
+export GSPLITE_BUILDING_SE
+else
+export DPU_BUILDING_SE
+endif
+export ON_DEMAND_PAGING_OVL_IMEM
+export MRU_OVERLAYS
+export I2CCFG_PROFILE
+ifdef COMPILE_SWI2C
+  export COMPILE_SWI2C
+endif
+export DPAUXCFG_PROFILE
+export HDCP22WIREDCFG_PROFILE
+export HDCPCFG_PROFILE
+ifeq ($(EMEM_SUPPORTED),true)
+export EMEM_SUPPORTED
+endif
+ifeq ($(DMEM_VA_SUPPORTED),true)
+export DMEM_VA_SUPPORTED
+endif
+ifeq ($(SELWRITY_ENGINE),true)
+export SECFG_PROFILE
+endif
+export OS_CALLBACKS
+export RTOS_VERSION
+export LWOS_VERSION
+export HS_UCODE_ENCRYPTION
+ifeq ($(HDCP22_USE_SCP_ENCRYPT_SECRET),true)
+export HDCP22_USE_SCP_ENCRYPT_SECRET
+endif
+ifeq ($(HDCP22_CHECK_STATE_INTEGRITY),true)
+export HDCP22_CHECK_STATE_INTEGRITY
+endif
+ifeq ($(HDCP22_USE_SCP_GEN_DKEY),true)
+export HDCP22_USE_SCP_GEN_DKEY
+endif
+ifeq ($(HDCP22_LC_RETRY_WAR_ENABLED),true)
+export HDCP22_LC_RETRY_WAR_ENABLED
+endif
+ifeq ($(HDCP22_WAR_3051763_ENABLED),true)
+export HDCP22_WAR_3051763_ENABLED
+endif
+ifeq ($(HDCP22_WAR_ECF_SELWRE_ENABLED),true)
+export HDCP22_WAR_ECF_SELWRE_ENABLED
+endif
+ifeq ($(HDCP22_USE_HW_RSA),true)
+export HDCP22_USE_HW_RSA
+endif
+ifeq ($(HDCP22_KMEM_ENABLED),true)
+export HDCP22_KMEM_ENABLED
+endif
+ifeq ($(HDCP22_USE_HW_SHA),true)
+export HDCP22_USE_HW_SHA
+endif
+
+export RTTIMER_TEST_LIB
+export HS_OVERLAYS_ENABLED
+export DMREAD_WAR_200142015
+export DMTAG_WAR_1845883
+export SIG_SIZE_IN_BITS
+export NUM_SIG_PER_UCODE
+export CHIP_MANUAL_PATH
+export BOOT_FROM_HS
+export STEADY_STATE_BUILD
+export RUNTIME_HS_OVL_SIG_PATCHING
+
+ifeq ("$(IS_PKC_ENABLED)","true")
+  export IS_PKC_ENABLED
+  export ENGINE_ID
+endif
+
+ifneq ($(IS_LS_ENCRYPTED),0)
+  export PROJ1
+endif
+
+ifdef HDCP22_DEBUG_MODE
+export HDCP22_DEBUG_MODE
+endif
+
+ifdef LIB_CCC_PRESENT
+export LIB_CCC_PRESENT
+endif
+
+###############################################################################
+# Submake Configuration
+#
+# This makefile builds libraries and tools that are shared with other projects.
+# Many of these builds may be lwstomized based on the needs of the project
+# building it. It is therefore necessary to ensure isolation between the
+# projects. Isolation is also required to allow for parallelization of project
+# builds.
+#
+# Isolation is achieved by ensuring that all build output is kept separate
+# between the projects. Ideally, output could all be redirected to a path
+# defined within the DPU's/project's output directory. However, the common
+# lwmake rules require that each submake target's output directory be contained
+# within that target's source directory. As a result, the only way to ensure
+# isolation is by establishing proper namespacing within each submake target's
+# local output directory.
+###############################################################################
+
+SUBMAKE_NAMESPACE := dpu
+SUBMAKE_OUTPUTDIR := \
+  _out/$(SUBMAKE_NAMESPACE)/$(LW_PROJ)_$(FALCON_ARCH)_$(LW_BUILD_TYPE)
+
+###############################################################################
+# RTOS Configuration
+###############################################################################
+
+include $(LWUPROC)/build/common/lwRtosVersion.lwmk
+
+RTOS_SRC  = $(LW_RTOS_SRC)
+LIBS      = $(LW_RTOS_LIB)
+LIB_RTOS := $(RTOS_SRC)/$(SUBMAKE_OUTPUTDIR)/$(LW_RTOS_LIB_FILENAME)
+
+SUBMAKE_TARGETS += RTOS
+$(LIB_RTOS): submake.RTOS
+
+###############################################################################
+# Bootloader Configuration
+#
+# The bootloader SP is set to start at offset 7K.  Lwrrently, all instances of
+# the display falcon have 8K of DMEM. By offsetting the stack from the end of
+# DMEM by 1K, we're giving room for the RM to write out the boot args (which it
+# writes at the end of the DMEM).
+###############################################################################
+
+# Setup the bootloader profile based on BOOT_FROM_HS and HS dbg/prod
+ifeq ("$(BOOT_FROM_HS)","true")
+   ifeq ("$(PROJ1)", "ad102")
+      LDR_MAKE_ARGS  := BLCFG_PROFILE=gsp_hs_bl_rtos_ad10x
+      LDR_PROD_BIN   := $(LDR_SRC)/$(SUBMAKE_OUTPUTDIR)/g_gsp_hs_bl_rtos_ad10x_prod.out.0x00000000
+      LDR_DBG_BIN    := $(LDR_SRC)/$(SUBMAKE_OUTPUTDIR)/g_gsp_hs_bl_rtos_ad10x_dbg.out.0x00000000
+   else
+      LDR_MAKE_ARGS  := BLCFG_PROFILE=gsp_hs_bl_rtos
+      LDR_PROD_BIN   := $(LDR_SRC)/$(SUBMAKE_OUTPUTDIR)/g_gsp_hs_bl_rtos_prod.out.0x00000000
+      LDR_DBG_BIN    := $(LDR_SRC)/$(SUBMAKE_OUTPUTDIR)/g_gsp_hs_bl_rtos_dbg.out.0x00000000
+   endif
+   LDR_BIN        := LDR_DBG_BIN
+else
+   LDR_MAKE_ARGS  := BLCFG_PROFILE=dpu_bl_rtos
+   LDR_NONHS_BIN  := $(LDR_SRC)/$(SUBMAKE_OUTPUTDIR)/loader.0x00000000.bin
+   LDR_BIN        := LDR_NONHS_BIN
+endif
+ifeq ($(GSPLITE),true)
+ifeq ("$(HDCP22_WAR_ECF_SELWRE_ENABLED)","true")
+    LDR_IMEM_OFFS  ?= 0xc700
+else
+    LDR_IMEM_OFFS  ?= 0xa400
+endif
+else
+    LDR_IMEM_OFFS  ?= 0x2800
+endif
+LDR_STACK_OFFS ?= 0x1C00
+
+LDR_MAKE_ARGS  += IMEM_OFFS=$(LDR_IMEM_OFFS)
+LDR_MAKE_ARGS  += STACK_OFFS=$(LDR_STACK_OFFS)
+LDR_MAKE_ARGS  += FALCON_ARCH=$(FALCON_ARCH)
+LDR_MAKE_ARGS  += MANUAL_PATH=$(word 1, $(MANUAL_PATHS))
+LDR_MAKE_ARGS  += NO_RELEASE=true
+LDR_MAKE_ARGS  += GSPLITE_RTOS=$(GSPLITE)
+
+SUBMAKE_TARGETS += LDR
+$(LDR_BIN): submake.LDR
+
+###############################################################################
+# Uproc Common Library
+###############################################################################
+
+LIB_UPROC_CMN := $(LIB_UPROC_CMN_SRC)/$(SUBMAKE_OUTPUTDIR)/libUprocCmn.a
+
+SUBMAKE_TARGETS += LIB_UPROC_CMN
+$(LIB_UPROC_CMN): submake.LIB_UPROC_CMN
+
+###############################################################################
+# Uproc LWOS Library
+###############################################################################
+
+LIB_UPROC_LWOS := $(LIB_UPROC_LWOS_SRC)/$(SUBMAKE_OUTPUTDIR)/libUprocLwos.a
+
+SUBMAKE_TARGETS += LIB_UPROC_LWOS
+$(LIB_UPROC_LWOS): submake.LIB_UPROC_LWOS
+
+###############################################################################
+# SE Library
+###############################################################################
+
+ifeq ($(SELWRITY_ENGINE), true)
+  LIB_SE := $(SE_SRC)/$(SUBMAKE_OUTPUTDIR)/libSE.a
+
+  SUBMAKE_TARGETS += SE
+  $(LIB_SE): submake.SE
+endif
+###############################################################################
+# Mutex library
+###############################################################################
+
+LIB_MUTEX := $(MUTEX_SRC)/$(SUBMAKE_OUTPUTDIR)/libMutex.a
+
+SUBMAKE_TARGETS += MUTEX
+$(LIB_MUTEX): submake.MUTEX
+
+###############################################################################
+# i2c Library
+###############################################################################
+ifdef I2CCFG_PROFILE
+  LIB_I2C := $(I2C_SRC)/$(SUBMAKE_OUTPUTDIR)/libI2C.a
+
+  SUBMAKE_TARGETS += I2C
+  $(LIB_I2C): submake.I2C
+endif
+###############################################################################
+# dpaux Library
+###############################################################################
+ifdef DPAUXCFG_PROFILE
+  LIB_DPAUX := $(DPAUX_SRC)/$(SUBMAKE_OUTPUTDIR)/libDPAUX.a
+
+  SUBMAKE_TARGETS += DPAUX
+  $(LIB_DPAUX): submake.DPAUX
+endif
+###############################################################################
+# SHA/SHAHW Library
+###############################################################################
+ifeq ($(HDCP22_USE_HW_SHA), true)
+  LIB_SHAHW := $(SHAHW_SRC)/$(SUBMAKE_OUTPUTDIR)/libSHAHW.a
+
+  SUBMAKE_TARGETS += SHAHW
+  $(LIB_SHAHW): submake.SHAHW
+else
+  LIB_SHA := $(SHA_SRC)/$(SUBMAKE_OUTPUTDIR)/libSHA.a
+
+  SUBMAKE_TARGETS += SHA
+  $(LIB_SHA): submake.SHA
+endif
+
+###############################################################################
+# SCP Library addtion for HS support
+###############################################################################
+ifeq ($(GSPLITE),true)
+  LIB_SCP := $(SCP_SRC)/$(SUBMAKE_OUTPUTDIR)/libSCP.a
+
+  SUBMAKE_TARGETS += SCP
+  $(LIB_SCP): submake.SCP
+endif
+
+###############################################################################
+# Hdcpauth library
+###############################################################################
+
+LIB_HDCPAUTH := $(HDCPAUTH_SRC)/$(SUBMAKE_OUTPUTDIR)/libHDCPAUTH.a
+
+SUBMAKE_TARGETS += HDCPAUTH
+$(LIB_HDCPAUTH): submake.HDCPAUTH
+
+###############################################################################
+# BigInt library
+###############################################################################
+
+LIB_BIGINT := $(BIGINT_SRC)/$(SUBMAKE_OUTPUTDIR)/libBigInt.a
+
+SUBMAKE_TARGETS += BIGINT
+$(LIB_BIGINT): submake.BIGINT
+
+###############################################################################
+# hdcp22wired Library
+###############################################################################
+ifdef HDCP22WIREDCFG_PROFILE
+  LIB_HDCP22WIRED := $(HDCP22WIRED_SRC)/$(SUBMAKE_OUTPUTDIR)/libHDCP22WIRED.a
+
+  SUBMAKE_TARGETS += HDCP22WIRED
+  $(LIB_HDCP22WIRED): submake.HDCP22WIRED
+endif
+
+###############################################################################
+# hdcp Library
+###############################################################################
+ifdef HDCPCFG_PROFILE
+  LIB_HDCP := $(HDCP_SRC)/$(SUBMAKE_OUTPUTDIR)/libHDCP.a
+
+  SUBMAKE_TARGETS += HDCP
+  $(LIB_HDCP): submake.HDCP
+endif
+
+###############################################################################
+# test Library
+###############################################################################
+LIB_TEST := $(TEST_SRC)/$(SUBMAKE_OUTPUTDIR)/libTEST.a
+
+SUBMAKE_TARGETS += TEST
+$(LIB_TEST): submake.TEST
+
+# Additional libraries to link against
+###############################################################################
+
+LIBDIRS += $(RTOS_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(LIB_UPROC_LWOS_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(LIB_UPROC_CMN_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(SE_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(MUTEX_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(I2C_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(DPAUX_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(SHA_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(SHAHW_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(BIGINT_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(HDCPAUTH_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(HDCP22WIRED_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(HDCP_SRC)/$(SUBMAKE_OUTPUTDIR)
+LIBDIRS += $(TEST_SRC)/$(SUBMAKE_OUTPUTDIR)
+ifeq ($(GSPLITE),true)
+  LIBDIRS += $(SCP_SRC)/$(SUBMAKE_OUTPUTDIR)
+endif
+# libraries should be placed in an order for linker to resolve dependencies.
+# Dependent library should be placed first
+
+ifdef HDCPCFG_PROFILE
+ LIBS += HDCP
+endif
+ifdef HDCP22WIREDCFG_PROFILE
+ LIBS += HDCP22WIRED
+endif
+ifeq ($(SELWRITY_ENGINE), true)
+  LIBS += SE
+endif
+ifdef I2CCFG_PROFILE
+  LIBS += I2C
+endif
+ifdef DPAUXCFG_PROFILE
+  LIBS += DPAUX
+endif
+
+LIBS += HDCPAUTH
+
+ifeq ($(GSPLITE),true)
+  LIBS += SCP
+endif
+
+ifeq ($(HDCP22_USE_HW_SHA), true)
+  LIBS += SHAHW
+else
+  LIBS += SHA
+endif
+
+LIBS += Mutex UprocLwos BigInt UprocCmn TEST
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(LIB_UPROC_LWOS_SRC)/inc
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/cmn/inc
+ifeq ($(LW_TARGET_OS), riscv)
+LW_INCLUDES += $(LW_SOURCE)/uproc/lwriscv/inc
+LW_INCLUDES += $(LWRISCV_TOOLS)/include/spike/
+endif
+ifeq ($(SSP_ENABLED),true)
+LW_INCLUDES += $(LW_SOURCE)/uproc/libs/se/inc
+endif
+LW_INCLUDES += $(DPU_SW)/inc
+ifeq ($(GSPLITE),true)
+  LW_INCLUDES += $(DPU_SW)/inc/$(PROJ)
+else
+  LW_INCLUDES += $(DPU_SW)/inc/v$(IPMAJORVER)$(IPMINORVER)
+endif
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/hwref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/swref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/displayport
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(LW_RTOS_INCLUDES)
+LW_INCLUDES += $(SE_SRC)/../inc
+LW_INCLUDES += $(I2C_SRC)/../inc
+LW_INCLUDES += $(DPAUX_SRC)/../inc
+LW_INCLUDES += $(HDCP_SRC)/../inc
+LW_INCLUDES += $(TEST_SRC)/inc
+LW_INCLUDES += $(SHA_SRC)/inc
+LW_INCLUDES += $(SHAHW_SRC)/../inc
+LW_INCLUDES += $(MUTEX_SRC)/inc
+LW_INCLUDES += $(LIB_UPROC_CMN_SRC)/inc
+LW_INCLUDES += $(FALCON_TOOLS)/include
+LW_INCLUDES += $(BIGINT_SRC)/inc
+LW_INCLUDES += $(HDCPAUTH_SRC)/inc
+LW_INCLUDES += $(HDCPAUTH_SRC)/../inc
+LW_INCLUDES += $(HDCP22WIRED_SRC)/../inc
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+ifeq ($(GSPLITE),true)
+  LW_INCLUDES += $(SCP_SRC)/inc
+endif
+
+
+##############################################################################
+# LibCCC Library
+##############################################################################
+ifeq ($(LIB_CCC_PRESENT), true)
+  LIB_CCC := $(LIB_CCC_REL_AD10X_LIB)/libCCC.a
+  LIBDIRS += $(LIB_CCC_REL_AD10X_LIB)
+  LIBS += CCC
+  CFLAGS += -DLIB_CCC_PRESENT
+  CFLAGS += -DCCC_ENGINE_GSP
+  CFLAGS += -DUPROC_ARCH_FALCON
+  LW_INCLUDES += $(LIB_CCC_REL_AD10X_INC)/libCCC
+  LW_INCLUDES += $(LIB_CCC_REL_AD10X_INC)/libCCC/hwref
+  LW_INCLUDES += $(LIB_CCC_REL_AD10X_INC)/libCCC/common
+  LW_INCLUDES += $(LIB_CCC_REL_AD10X_INC)/libCCC/common_crypto
+  LW_INCLUDES += $(LIB_CCC_REL_AD10X_INC)/libCCC/common_crypto/include
+  LW_INCLUDES += $(LIB_CCC_REL_AD10X_INC)/libCCC/common_crypto_private
+  LW_INCLUDES += $(LIB_CCC_REL_AD10X_INC)/libCCC/common_crypto_private/lwpka
+endif
+##############################################################################
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+
+IMG_PREFIX    := g_dispflcn_$(PROJ)
+
+ifeq ($(GSPLITE),true)
+  IMG_TARGET  := $(OUTPUTDIR)/$(IMG_PREFIX)
+else
+  IMG_TARGET  := $(OUTPUTDIR)/g_dpuuc$(IPMAJORVER)$(IPMINORVER)
+endif
+
+IMG_READELF         := $(IMG_TARGET).readelf
+IMG_ELF             := $(IMG_TARGET).out
+IMG_OBJDUMP         := $(IMG_TARGET).objdump
+IMG_NM              := $(IMG_TARGET).nm
+IMG_DT              := $(IMG_TARGET).dt
+IMG_DBGLINE         := $(IMG_TARGET).dbgline
+
+#
+# The PROJ1 variable has been set by referring to Unit.pm to handle different encrypted.bin
+# files being released for different SFKs present for the same profile.
+# This has been added to support LS Encryption feature
+#
+ifneq ($(IS_LS_ENCRYPTED), 0)
+  IMG_TARGET_ENC    := $(IMG_TARGET)_$(PROJ1)
+endif
+
+ifeq ($(GSPLITE),true)
+    IMG_MAP             := $(IMG_TARGET).map
+    IMG_SECTIONS        := $(IMG_TARGET).sections
+    IMG_PROD_HS_SIG_H   := $(IMG_TARGET)_prod_hs_sig
+    IMG_DBG_HS_SIG_H    := $(IMG_TARGET)_dbg_hs_sig
+endif
+
+ifeq ("$(BOOT_FROM_HS)","false")
+    IMG_BIN             := $(IMG_TARGET)_image.bin
+    DESC_BIN            := $(IMG_TARGET)_desc.bin
+    IMG_SIGN            := $(IMG_TARGET)_sign.bin
+    IMG_H               := $(IMG_TARGET).h
+    ifeq ($(SIGN_LICENSE), CODESIGN_LS_PKC)
+        IMG_SIG_H         := $(IMG_TARGET)_pkc_ls_sig.h
+        IMG_SIG_AES_H     := $(IMG_TARGET)_sig.h
+        ifneq ($(IS_LS_ENCRYPTED), 0)
+          IMG_DBG_ENCRYPTED_BIN   := $(IMG_TARGET_ENC)_image_debug_encrypted.bin
+          IMG_PROD_ENCRYPTED_BIN  := $(IMG_TARGET_ENC)_image_prod_encrypted.bin
+        endif
+    else
+        IMG_SIG_H         := $(IMG_TARGET)_sig.h
+    endif
+
+    IMG_BIN_RELEASE          = $(IMG_BIN)
+    IMG_SIG_H_RELEASE        = $(IMG_SIG_H)
+    RELEASE_FILES            = $(IMG_NM) $(IMG_OBJDUMP) $(IMG_READELF) $(IMG_BIN)\
+                               $(DESC_BIN) $(IMG_H)
+else
+    IMG_TARGET_PROD     := $(IMG_TARGET)_prod
+    IMG_TARGET_DBG      := $(IMG_TARGET)_dbg
+
+    IMG_PROD_BIN        := $(IMG_TARGET_PROD)_image.bin
+    IMG_DBG_BIN         := $(IMG_TARGET_DBG)_image.bin
+
+    DESC_BIN_PROD       := $(IMG_TARGET_PROD)_desc.bin
+    DESC_BIN_DBG        := $(IMG_TARGET_DBG)_desc.bin
+
+    IMG_PROD_SIGN       := $(IMG_TARGET_PROD)_sign.bin
+    IMG_DBG_SIGN        := $(IMG_TARGET_DBG)_sign.bin
+
+    IMG_PROD_DESC_H     := $(IMG_TARGET_PROD).h
+    IMG_DBG_DESC_H      := $(IMG_TARGET_DBG).h
+
+    IMG_PROD_ELF        := $(IMG_TARGET)_prod.out
+    IMG_DBG_ELF         := $(IMG_TARGET)_dbg.out
+
+    IMG_SECTIONS_PROD   := $(IMG_TARGET)_prod.sections
+    IMG_MAP_PROD        := $(IMG_TARGET)_prod.map
+
+    ifeq ($(SIGN_LICENSE), CODESIGN_LS_PKC)
+        IMG_PROD_SIG_H         := $(IMG_TARGET_PROD)_pkc_ls_sig.h
+        IMG_PROD_SIG_AES_H     := $(IMG_TARGET_PROD)_sig.h
+
+        IMG_DBG_SIG_H         := $(IMG_TARGET_DBG)_pkc_ls_sig.h
+        IMG_DBG_SIG_AES_H     := $(IMG_TARGET_DBG)_sig.h
+        IMG_PREFIX_DBG        := $(IMG_PREFIX)_dbg
+        IMG_PREFIX_PROD       := $(IMG_PREFIX)_prod
+        ifneq ($(IS_LS_ENCRYPTED), 0)
+          ifdef PROJ1
+            IMG_TARGET_PROD_ENC    := $(IMG_TARGET_PROD)_$(PROJ1)
+            IMG_TARGET_DBG_ENC     := $(IMG_TARGET_DBG)_$(PROJ1)
+          else # PROJ1
+            IMG_TARGET_PROD_ENC    := $(IMG_TARGET_PROD)
+            IMG_TARGET_DBG_ENC     := $(IMG_TARGET_DBG)
+          endif # PROJ1
+          IMG_DBG_ENCRYPTED_BIN   := $(IMG_TARGET_DBG_ENC)_image_debug_encrypted.bin
+          IMG_PROD_ENCRYPTED_BIN  := $(IMG_TARGET_PROD_ENC)_image_prod_encrypted.bin
+        endif
+    else
+        IMG_PROD_SIG_H        := $(IMG_TARGET_PROD)_sig.h
+        IMG_DBG_SIG_H         := $(IMG_TARGET_DBG)_sig.h
+    endif
+
+    IMG_BIN_RELEASE      = $(IMG_DBG_BIN)
+    IMG_SIG_H_RELEASE    = $(IMG_DBG_SIG_H)
+    ifneq ($(DEBUG_SIGN_ONLY),true)
+        IMG_BIN_RELEASE    += $(IMG_PROD_BIN)
+        IMG_SIG_H_RELEASE  += $(IMG_PROD_SIG_H)
+    endif
+
+    RELEASE_FILES        = $(IMG_NM) $(IMG_OBJDUMP) $(IMG_READELF)
+endif
+
+ifeq ($(HS_UCODE_ENCRYPTION), true)
+    RELEASE_FILES += $(IMG_ELF) $(IMG_MAP) $(IMG_SECTIONS)
+endif
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+CFLAGS  += -DSIG_SIZE_IN_BITS=$(SIG_SIZE_IN_BITS)
+CFLAGS  += -DNUM_SIG_PER_UCODE=$(NUM_SIG_PER_UCODE)
+CFLAGS  += -DGSP_LS_UCODE_VERSION=$(LS_UCODE_VERSION)
+
+CFLAGS  += -DDPU_LOADER_OFFSET=$(LDR_IMEM_OFFS)
+ifeq ($(HS_OVERLAYS_ENABLED),true)
+CFLAGS  += -DHS_OVERLAYS_ENABLED
+endif
+
+ifeq ($(DMA_SUSPENSION),true)
+    CFLAGS += -DDMA_SUSPENSION
+endif
+
+ifeq ($(MRU_OVERLAYS),true)
+    CFLAGS += -DMRU_OVERLAYS
+endif
+
+ifeq ("$(HS_UCODE_ENCRYPTION)","true")
+  CFLAGS += -DHS_UCODE_ENCRYPTION
+endif
+
+#Enabling secure stack protection
+ifeq ($(SSP_ENABLED),true)
+  CFLAGS += -DIS_SSP_ENABLED
+  CFLAGS += -fstack-protector-all
+  # It replaces __stack_chk_fail with halt.
+  # If SSP needs to be enabled in LS as well as HS enable this flag.
+  SSP_REPLACE_STACK_CHK_FAIL = TRUE
+endif # SSP enabled
+
+ifeq ($(DMREAD_WAR_200142015),true)
+  CFLAGS += -DDMREAD_WAR_200142015
+endif
+
+ifeq ($(DMTAG_WAR_1845883),true)
+  CFLAGS += -DDMTAG_WAR_1845883
+endif
+
+ifeq ($(IS_PKC_ENABLED), true)
+    CFLAGS += -DIS_PKC_ENABLED
+    CFLAGS += -DENGINE_ID=$(ENGINE_ID)
+endif
+
+ifeq ($(BOOT_FROM_HS),true)
+    CFLAGS += -DBOOT_FROM_HS
+endif
+
+ifeq ($(STEADY_STATE_BUILD), true)
+    CFLAGS += -DSTEADY_STATE_BUILD
+endif
+
+ifeq ($(RUNTIME_HS_OVL_SIG_PATCHING), true)
+    CFLAGS += -DRUNTIME_HS_OVL_SIG_PATCHING
+endif
+
+ifeq ($(HDCP22_DEBUG_MODE),true)
+  CFLAGS += -DHDCP22_DEBUG_MODE
+endif
+
+ifeq ("$(HDCP22_USE_HW_SHA)","true")
+  CFLAGS += -DHDCP22_USE_HW_SHA
+endif
+
+CFLAGS += -fno-jump-tables
+
+LDFLAGS += -L $(OUTPUTDIR)
+LDFLAGS += -T $(OUTPUTDIR)/g_sections.ld
+LDFLAGS += $(addprefix -L,$(LIBDIRS))
+LDFLAGS += $(addprefix -l,$(LIBS))
+LDFLAGS += -nostartfiles
+
+###############################################################################
+# Set the SOURCES that need picked-up by the build
+###############################################################################
+
+SOURCES := $(DPUSRC_ALL)
+
+###############################################################################
+# Some modules, depending on where they will reside in the final linked image
+# as well as the location of the code they reference, must be built using
+# -mlarge-code. This forces the compiler to use larger versions of instructions
+# like 'mv' to properly handle addresses greater than 0x8000 (the default 'mv'
+# instruction expects a signed 16-bit address). The following list specifies
+# which files this is required for.
+###############################################################################
+
+LARGE_SRC_FILES =
+
+#
+# Use target-specific variable values to add -mlarge-code to CFLAGS for any
+# targets in LARGE_SRC_FILES.
+# Note that -mlarge-code is deprecated in falcon-tools v6.2.1 and higher,
+# and will not have any effect if -msize32k is not set
+#
+LARGE_OBJ_FILES = $(addprefix $(OUTPUTDIR)/,$(LARGE_SRC_FILES:.c=.o))
+$(LARGE_OBJ_FILES) : CFLAGS += -mlarge-code
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(..)); delete $$ELW{PWD}; \
+                  print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Rule for running mkimage script to produce the image c-file, header, and binary.
+###############################################################################
+
+MKIMAGE = $(BUILD_SCRIPTS)/mkimage/flcnmkimg.pl
+ifeq ("$(BOOT_FROM_HS)","false")
+    MKIMAGE_ARGS  = --bootloaderFilename           $(LDR_NONHS_BIN)
+    MKIMAGE_ARGS += --bootloaderImemOffset         $(LDR_IMEM_OFFS)
+    MKIMAGE_ARGS += --bootloaderStackOffset        $(LDR_STACK_OFFS)
+    MKIMAGE_ARGS += --rm-desc-bfile                $(DESC_BIN)
+    MKIMAGE_ARGS += --rm-desc-tfile                $(OUTPUTDIR)/rmflcnucode.h
+    MKIMAGE_ARGS += --rm-img-hfile                 $(IMG_H)
+    MKIMAGE_ARGS += --rm-img-bfile                 $(IMG_BIN)
+    MKIMAGE_ARGS += --rm-img-signfile              $(IMG_SIGN)
+    ifeq ($(GSPLITE),true)
+        MKIMAGE_ARGS += --rm-image-basename          g_dispflcn_ucode_$(PROJ)
+    else
+        MKIMAGE_ARGS += --rm-image-basename          g_dpu_falcon_ucode_$(IPMAJORVER)$(IPMINORVER)
+    endif
+    MKIMAGE_ARGS += --rm-descriptor-structure-name RM_FLCN_UCODE_DESC
+    MKIMAGE_ARGS += --acl                          $(APP_P4_CL)
+    MKIMAGE_ARGS += --falcon-tools                 $(FALCON_TOOLS)
+    MKIMAGE_ARGS += --outdir                       $(OUTPUTDIR)
+    MKIMAGE_ARGS += --output-prefix                $(BUILD_PROJECT_NAME)
+    MKIMAGE_ARGS += --incs                         rmprecomp_disp.h
+    MKIMAGE_ARGS += --use-hs-bootloader            0
+    MKIMAGE_ARGS += $(IMG_ELF)
+else
+    MKIMAGE_DBG_ARGS  = --bootloaderFilename           $(LDR_DBG_BIN)
+    MKIMAGE_DBG_ARGS += --bootloaderImemOffset         $(LDR_IMEM_OFFS)
+    MKIMAGE_DBG_ARGS += --bootloaderStackOffset        $(LDR_STACK_OFFS)
+    MKIMAGE_DBG_ARGS += --rm-desc-bfile                $(DESC_BIN_DBG)
+    MKIMAGE_DBG_ARGS += --rm-desc-tfile                $(OUTPUTDIR)/rmflcnucode.h
+    MKIMAGE_DBG_ARGS += --rm-img-hfile                 $(IMG_DBG_DESC_H)
+    MKIMAGE_DBG_ARGS += --rm-img-bfile                 $(IMG_DBG_BIN)
+    MKIMAGE_DBG_ARGS += --rm-img-signfile              $(IMG_DBG_SIGN)
+    ifeq ($(GSPLITE),true)
+        MKIMAGE_DBG_ARGS += --rm-image-basename          g_dispflcn_ucode_$(PROJ)
+    else
+        MKIMAGE_DBG_ARGS += --rm-image-basename          g_dpu_falcon_ucode_$(IPMAJORVER)$(IPMINORVER)
+    endif
+    MKIMAGE_DBG_ARGS += --rm-descriptor-structure-name RM_FLCN_UCODE_DESC
+    MKIMAGE_DBG_ARGS += --acl                          $(APP_P4_CL)
+    MKIMAGE_DBG_ARGS += --falcon-tools                 $(FALCON_TOOLS)
+    MKIMAGE_DBG_ARGS += --outdir                       $(OUTPUTDIR)
+    MKIMAGE_DBG_ARGS += --output-prefix                $(BUILD_PROJECT_NAME)
+    MKIMAGE_DBG_ARGS += --incs                         rmprecomp_disp.h
+    MKIMAGE_DBG_ARGS += --use-hs-bootloader            1
+    MKIMAGE_DBG_ARGS += $(IMG_DBG_ELF)
+
+    MKIMAGE_PROD_ARGS  = --bootloaderFilename           $(LDR_PROD_BIN)
+    MKIMAGE_PROD_ARGS += --bootloaderImemOffset         $(LDR_IMEM_OFFS)
+    MKIMAGE_PROD_ARGS += --bootloaderStackOffset        $(LDR_STACK_OFFS)
+    MKIMAGE_PROD_ARGS += --rm-desc-bfile                $(DESC_BIN_PROD)
+    MKIMAGE_PROD_ARGS += --rm-desc-tfile                $(OUTPUTDIR)/rmflcnucode.h
+    MKIMAGE_PROD_ARGS += --rm-img-hfile                 $(IMG_PROD_DESC_H)
+    MKIMAGE_PROD_ARGS += --rm-img-bfile                 $(IMG_PROD_BIN)
+    MKIMAGE_PROD_ARGS += --rm-img-signfile              $(IMG_PROD_SIGN)
+    ifeq ($(GSPLITE),true)
+        MKIMAGE_PROD_ARGS += --rm-image-basename          g_dispflcn_ucode_$(PROJ)
+    else
+        MKIMAGE_PROD_ARGS += --rm-image-basename          g_dpu_falcon_ucode_$(IPMAJORVER)$(IPMINORVER)
+    endif
+    MKIMAGE_PROD_ARGS += --rm-descriptor-structure-name RM_FLCN_UCODE_DESC
+    MKIMAGE_PROD_ARGS += --acl                          $(APP_P4_CL)
+    MKIMAGE_PROD_ARGS += --falcon-tools                 $(FALCON_TOOLS)
+    MKIMAGE_PROD_ARGS += --outdir                       $(OUTPUTDIR)
+    MKIMAGE_PROD_ARGS += --output-prefix                $(BUILD_PROJECT_NAME)
+    MKIMAGE_PROD_ARGS += --incs                         rmprecomp_disp.h
+    MKIMAGE_PROD_ARGS += --use-hs-bootloader            1
+    MKIMAGE_PROD_ARGS += $(IMG_PROD_ELF)
+endif
+
+###############################################################################
+# Variables needed to ilwoke the signing client for LS Falcons
+###############################################################################
+
+# common paths
+SIGN_ROOT           = $(LW_SOURCE)/apps/codesigning
+SIGN_CLIENT         = $(SIGN_ROOT)/client/makefile.lwmk
+
+# Common args:
+SIGN_LICENSE       ?= CODESIGN_LS
+SIGN_PERF_TRACKING  = 0
+
+ifeq ("$(BOOT_FROM_HS)","true")
+   DBG_SIGN_ARGS       = LICENSE=$(SIGN_LICENSE)
+   DBG_SIGN_ARGS      += TRACK_PERF=$(SIGN_PERF_TRACKING)
+   DBG_SIGN_ARGS      += WORK_DIR=$(OUTPUTDIR)
+
+   PROD_SIGN_ARGS      = LICENSE=$(SIGN_LICENSE)
+   PROD_SIGN_ARGS     += TRACK_PERF=$(SIGN_PERF_TRACKING)
+   PROD_SIGN_ARGS     += WORK_DIR=$(OUTPUTDIR)
+else
+   SIGN_ARGS           = LICENSE=$(SIGN_LICENSE)
+   SIGN_ARGS          += TRACK_PERF=$(SIGN_PERF_TRACKING)
+   SIGN_ARGS          += WORK_DIR=$(OUTPUTDIR)
+endif
+
+# CODESIGN_LS specific args:
+
+# Check binary (sign only if binary changed)
+# this option can be specified when ilwoking build
+# (e.g. lwmake SIGN_CHECK_BINARY=0)
+SIGN_CHECK_BINARY  ?= 1
+
+# Sign locally, these options can be specified when ilwoking build
+SIGN_LOCAL         ?= 0
+SIGN_SERVER        ?= 1
+
+# chip, unit
+SIGN_CHIP          ?= $(subst dpu-v,,$(DPUCFG_PROFILE))
+SIGN_UNIT           = dpu
+
+# construct the client specific arguement for CODESIGN_LS/ CODESIGN_LS_PKC
+# we set the release path for the client to be OUTPUTDIR because
+# the release script will be responsible for releasing the signed
+# header
+# NOTE:
+#    With SIGN_LICENSE set to CODESIGN_LS_PKC, PKC signature is genrated
+#    for LS uCodes. LS_UCODE_ID is the extra paramtere passed.
+ifeq ("$(BOOT_FROM_HS)","true")
+   ifeq ($(SIGN_LICENSE), CODESIGN_LS_PKC)
+       DBG_SIGN_ARGS += CLIENT_PARAMS="$(IMG_DBG_BIN) $(IMG_DBG_SIGN) $(OUTPUTDIR) \
+       $(SIGN_CHECK_BINARY) $(RELEASE_PATH) $(SIGN_LOCAL) $(SIGN_SERVER) \
+       $(SIGN_CHIP) $(SIGN_UNIT) $(IMG_DBG_SIG_H) $(LS_UCODE_ID) \
+       $(LS_UCODE_VERSION) '' 1 $(IS_LS_ENCRYPTED) $(IMG_PREFIX_DBG)"
+
+       PROD_SIGN_ARGS += CLIENT_PARAMS="$(IMG_PROD_BIN) $(IMG_PROD_SIGN) $(OUTPUTDIR) \
+       $(SIGN_CHECK_BINARY) $(RELEASE_PATH) $(SIGN_LOCAL) $(SIGN_SERVER) \
+       $(SIGN_CHIP) $(SIGN_UNIT) $(IMG_PROD_SIG_H) $(LS_UCODE_ID) \
+       $(LS_UCODE_VERSION) '' 1 $(IS_LS_ENCRYPTED) $(IMG_PREFIX_PROD)"
+   else
+       DBG_SIGN_ARGS += CLIENT_PARAMS="$(IMG_DBG_BIN) $(IMG_DBG_SIGN) $(OUTPUTDIR) \
+       $(SIGN_CHECK_BINARY) $(RELEASE_PATH) $(SIGN_LOCAL) $(SIGN_SERVER) \
+       $(SIGN_CHIP) $(SIGN_UNIT) $(IMG_DBG_SIG_H) \
+       $(LS_UCODE_VERSION) ''"
+
+       PROD_SIGN_ARGS += CLIENT_PARAMS="$(IMG_PROD_BIN) $(IMG_PROD_SIGN) $(OUTPUTDIR) \
+       $(SIGN_CHECK_BINARY) $(RELEASE_PATH) $(SIGN_LOCAL) $(SIGN_SERVER) \
+       $(SIGN_CHIP) $(SIGN_UNIT) $(IMG_PROD_SIG_H) \
+       $(LS_UCODE_VERSION) ''"
+   endif
+else
+ifeq ($(SIGN_LICENSE), CODESIGN_LS_PKC)
+    SIGN_ARGS          += CLIENT_PARAMS="$(IMG_BIN) $(IMG_SIGN) $(OUTPUTDIR) \
+    $(SIGN_CHECK_BINARY) $(RELEASE_PATH) $(SIGN_LOCAL) $(SIGN_SERVER) \
+    $(SIGN_CHIP) $(SIGN_UNIT) $(IMG_SIG_H) $(LS_UCODE_ID) \
+    $(LS_UCODE_VERSION) '' 1 $(IS_LS_ENCRYPTED) $(IMG_PREFIX)"
+else
+    SIGN_ARGS          += CLIENT_PARAMS="$(IMG_BIN) $(IMG_SIGN) $(OUTPUTDIR) \
+    $(SIGN_CHECK_BINARY) $(RELEASE_PATH) $(SIGN_LOCAL) $(SIGN_SERVER) \
+    $(SIGN_CHIP) $(SIGN_UNIT) $(IMG_SIG_H) \
+    $(LS_UCODE_VERSION) ''"
+endif
+endif
+# Polling args used for polling
+# Clean can use the same args
+POLL_ARGS           = LICENSE=$(SIGN_LICENSE)
+POLL_ARGS          += TRACK_PERF=$(SIGN_PERF_TRACKING)
+POLL_ARGS          += WORK_DIR=$(OUTPUTDIR)
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(DPUCFG_PROFILE)]"
+
+###############################################################################
+# Generated header files
+###############################################################################
+
+GEN_PROFILE_HEADER  := $(OUTPUTDIR)/config/g_profile.h
+GEN_TASKS_HEADER    := $(OUTPUTDIR)/config/g_tasks.h
+
+GEN_HEADERS :=
+GEN_HEADERS += $(GEN_PROFILE_HEADER)
+GEN_HEADERS += $(GEN_TASKS_HEADER)
+
+# Most (all?) of the objects need the generated headers
+$(OBJECTS): $(GEN_HEADERS)
+
+.PHONY: headers
+headers: $(GEN_HEADERS)
+
+###############################################################################
+# Load lwConfig to generate guardword list and also for using the guardword
+# scanner later
+###############################################################################
+
+CHECK_GUARDWORD = $(OUTPUTDIR)/_guardwordCheck
+
+.PHONY: check_guardword
+check_guardword:: $(CHECK_GUARDWORD)
+
+LWCFG_DEFAULT_GEN       = --guardwordOutputFile=$(LWCFG_GUARDWORD_FILE)
+LW_GUARDWORD            = 1
+ifeq ($(LW_VERBOSE),0)
+  LWCFG_VERBOSE         = quiet
+endif
+include $(LW_SOURCE)/drivers/common/build/lwconfig.lwmk
+
+ifeq ("$(BOOT_FROM_HS)","true")
+    ifneq ($(DEBUG_SIGN_ONLY),true)
+        $(CHECK_GUARDWORD): $(IMG_DBG_BIN) $(IMG_PROD_BIN)
+			$(ECHO) $(BUILD_PROJECT_NAME) guardword dbg check
+			$(call LW_CHECK_GUARDWORDS_CMD,$(IMG_DBG_BIN))
+			$(ECHO) $(BUILD_PROJECT_NAME) guardword prod check
+			$(call LW_CHECK_GUARDWORDS_CMD,$(IMG_PROD_BIN))
+			$(ECHO) "dummy file for makefile dependency : lwconfig guardword" > $@
+    else
+        $(CHECK_GUARDWORD): $(IMG_DBG_BIN)
+			$(ECHO) $(BUILD_PROJECT_NAME) guardword dbg check
+			$(call LW_CHECK_GUARDWORDS_CMD,$(IMG_DBG_BIN))
+			$(ECHO) "dummy file for makefile dependency : lwconfig guardword" > $@
+    endif
+else
+$(CHECK_GUARDWORD): $(IMG_BIN)
+	$(ECHO) $(BUILD_PROJECT_NAME) guardword check
+	$(call LW_CHECK_GUARDWORDS_CMD,$(IMG_BIN))
+	$(ECHO) "dummy file for makefile dependency : lwconfig guardword" > $@
+endif
+
+check_guardword_script: imgbin_script
+ifeq ("$(BOOT_FROM_HS)","true")
+ifeq ($(ENABLE_HS_SIGN),true)
+	$(call PRINT_LWMAKE_SIGN_SCRIPT,$(call POSTSIGN_SCRIPT,check_guardword),check_guardword)
+endif
+else
+	$(call PRINT_LWMAKE_SIGN_SCRIPT,$(call POSTSIGN_SCRIPT,check_guardword),check_guardword)
+endif
+all: check_guardword_script
+
+
+###############################################################################
+# Additional dependencies of the ELF image
+###############################################################################
+
+$(IMG_ELF): $(LIB_RTOS)
+$(IMG_ELF): $(LIB_UPROC_LWOS)
+ifeq ($(SELWRITY_ENGINE), true)
+  $(IMG_ELF): $(LIB_SE)
+endif
+$(IMG_ELF): $(LIB_MUTEX)
+ifdef I2CCFG_PROFILE
+  $(IMG_ELF): $(LIB_I2C)
+endif
+ifdef DPAUXCFG_PROFILE
+  $(IMG_ELF): $(LIB_DPAUX)
+endif
+ifeq ($(HDCP22_USE_HW_SHA), true)
+  $(IMG_ELF): $(LIB_SHAHW)
+else
+  $(IMG_ELF): $(LIB_SHA)
+endif
+$(IMG_ELF): $(LIB_BIGINT)
+$(IMG_ELF): $(LIB_HDCPAUTH)
+ifdef HDCP22WIREDCFG_PROFILE
+  $(IMG_ELF): $(LIB_HDCP22WIRED)
+endif
+ifdef HDCPCFG_PROFILE
+  $(IMG_ELF): $(LIB_HDCP)
+endif
+$(IMG_ELF): $(LDR_BIN)
+ifeq ($(GSPLITE),true)
+  $(IMG_ELF): $(LIB_SCP)
+endif
+$(IMG_ELF): $(LIB_TEST)
+
+###############################################################################
+# Define a utility macro for ilwoking make (submake) on any external libraries
+# or utilities that this build depends upon. The macro will establish the
+# targets and dependencies between the builds, override the output directory
+# of the submake build, and pass any other (optional) make arguments to the
+# submake build.
+#
+# Arguments:
+#     $(1) - name of the submake build
+#
+# The name supplied is used to define the the name of target for the build.
+# This macro will also use the name to construct the name of make-var
+# containing the path to the submake build's source directory. The caller is
+# responsible for defining this make-var. For an example, if $(1) is set to
+# 'FOO', this macro requires that the make-var 'FOO_SRC' be defined and that it
+# points to the source directory where the makefile for the project is located.
+# It may sometimes be desired to pass additional arguments/overrides on the
+# submake build command-line. In such cases, the caller may define a similarly
+# named make-var suffixed with _MAKE_ARGS and assign to it the list of
+# arguments that should be passed to the build. This is optional, if the make-
+# var is not defined, no additional arguments will be supplied.
+###############################################################################
+
+define SUBMAKE_DEFINITION
+  .PHONY: submake.$(1)
+
+  build: submake.$(1)
+  clean: submake.$(1)
+  clobber: submake.$(1)
+
+  $(1)_MAKE_ARGS ?=
+
+  submake.$(1):
+	  @$$(MAKE) -C $$($(1)_SRC) -f makefile.lwmk \
+        OUTPUTDIR=$$(SUBMAKE_OUTPUTDIR)          \
+        LW_TARGET_ARCH=$$(LW_TARGET_ARCH)        \
+        $$($(1)_MAKE_ARGS)                       \
+        $$(MAKECMDGOALS)
+endef
+
+###############################################################################
+# Create the target/rule definitions for each submake target
+###############################################################################
+
+ifneq (true, $(NO_SUBMAKE))
+  $(foreach target, $(SUBMAKE_TARGETS), \
+    $(eval $(call SUBMAKE_DEFINITION,$(strip $(target)))))
+endif
+
+###############################################################################
+# Relink the image if any file in LINK_DEPS is changed
+###############################################################################
+
+LINK_DEPS += $(OBJECTS)
+LINK_DEPS += $(OUTPUTDIR)/g_sections.ld
+
+##############################################################################
+# HS signing infra
+##############################################################################
+ifneq ($(LW_HOST_OS_FAMILY),Windows)
+ifeq ($(ENABLE_HS_SIGN),true)
+  .PHONY: hs_sign hs_dbg_sign hs_prod_sign
+
+ifeq ("$(BOOT_FROM_HS)","true")
+    RELEASE_FILES  += $(IMG_MAP_PROD) $(IMG_SECTIONS_PROD) $(IMG_PROD_ELF) $(IMG_DBG_BIN) $(DESC_BIN_DBG) $(IMG_DBG_DESC_H)
+endif
+
+  RELEASE_FILES += $(foreach SIGGEN_CHIP, $(SIGGEN_CHIPS),"$(IMG_DBG_HS_SIG_H)_$(SIGGEN_CHIP).h")
+  RELEASE_FILES += $(foreach SIGGEN_CHIP, $(SIGGEN_CHIPS),"$(IMG_DBG_HS_SIG_H)_patch_$(SIGGEN_CHIP).h")
+  SIG_GEN_ARGS    := $(IMG_TARGET) -uversion $(LS_UCODE_VERSION)
+  SIGGEN_DUMMY_TARGET     := $(IMG_TARGET).out.0x20000000
+  hs_sign: hs_dbg_sign
+
+# Skip prod signing if the makefile variable is set, or there is no prod-sign
+# siggen config
+ifneq ($(DEBUG_SIGN_ONLY),true)
+  ifneq ($(SIG_GEN_PROD_CFG),)
+    # Release prod HS sig files
+    ifeq ("$(BOOT_FROM_HS)","true")
+        RELEASE_FILES  += $(IMG_PROD_BIN) $(DESC_BIN_PROD) $(IMG_PROD_DESC_H)
+    endif
+    RELEASE_FILES += $(foreach SIGGEN_CHIP, $(SIGGEN_CHIPS),"$(IMG_PROD_HS_SIG_H)_$(SIGGEN_CHIP).h")
+    RELEASE_FILES += $(foreach SIGGEN_CHIP, $(SIGGEN_CHIPS),"$(IMG_PROD_HS_SIG_H)_patch_$(SIGGEN_CHIP).h")
+
+    hs_sign: hs_prod_sign
+  endif
+endif
+
+  imgbin_script: hs_sign
+
+# When prod mode is enabled and there is no change in the signatures, siggen
+# needs a copy of the .out file that has the prod encrypted overlays patched
+# in so it can blindly copy over the contents to the new .out file. That is why
+# the parameter to siggen for the totAppFilePrefix for prod signing is
+# IMG_TARGET_PROD.
+ifeq ("$(BOOT_FROM_HS)","true")
+hs_dbg_sign: $(IMG_ELF)
+	$(ECHO) "" >> $(SIGGEN_DUMMY_TARGET)
+	$(call PRINT_SCRIPT,$(SIGN_DBG_SCRIPT),$(COPY) $(IMG_ELF) $(IMG_ELF)_dbg_copy)
+	$(call PRINT_SIGGEN_SCRIPT,$(SIGN_DBG_SCRIPT),$(SIG_GEN) $(DPU_SIGN_CFG)/$(SIG_GEN_DBG_CFG) $(SIG_GEN_ARGS), $(IMG_DBG_HS_SIG_H), $(IMG_TARGET))
+	$(call PRINT_SCRIPT,$(SIGN_DBG_SCRIPT),$(COPY) $(IMG_ELF) $(IMG_DBG_ELF))
+	$(call PRINT_SCRIPT,$(SIGN_DBG_SCRIPT),$(DPUCFG_PERL) $(MKIMAGE) $(MKIMAGE_DBG_ARGS))
+	$(call PRINT_SCRIPT,$(SIGN_DBG_SCRIPT),$(COPY) $(IMG_ELF)_dbg_copy $(IMG_ELF))
+hs_prod_sign: $(IMG_ELF)
+	$(ECHO) "" >> $(SIGGEN_DUMMY_TARGET)
+	$(call PRINT_SCRIPT,$(SIGN_PROD_SCRIPT),$(COPY) $(IMG_ELF) $(IMG_ELF)_prod_copy)
+	$(call PRINT_SIGGEN_SCRIPT,$(SIGN_PROD_SCRIPT),$(SIG_GEN) $(DPU_SIGN_CFG)/$(SIG_GEN_PROD_CFG) $(SIG_GEN_ARGS), $(IMG_PROD_HS_SIG_H), $(IMG_TARGET_PROD))
+	$(call PRINT_SCRIPT,$(SIGN_PROD_SCRIPT),$(COPY) $(IMG_ELF) $(IMG_PROD_ELF))
+	$(call PRINT_SCRIPT,$(SIGN_PROD_SCRIPT),$(DPUCFG_PERL) $(MKIMAGE) $(MKIMAGE_PROD_ARGS))
+	$(call PRINT_SCRIPT,$(SIGN_PROD_SCRIPT),$(COPY) $(IMG_ELF)_prod_copy $(IMG_ELF))
+	$(call PRINT_SCRIPT,$(SIGN_PROD_SCRIPT),$(COPY) $(IMG_SECTIONS) $(IMG_SECTIONS_PROD))
+	$(call PRINT_SCRIPT,$(SIGN_PROD_SCRIPT),$(COPY) $(IMG_MAP) $(IMG_MAP_PROD))
+else
+hs_dbg_sign: $(IMG_ELF)
+	$(ECHO) "" >> $(SIGGEN_DUMMY_TARGET)
+	$(call PRINT_SIGGEN_SCRIPT,$(SIGN_DBG_SCRIPT),$(SIG_GEN) $(DPU_SIGN_CFG)/$(SIG_GEN_DBG_CFG) $(SIG_GEN_ARGS), $(IMG_DBG_HS_SIG_H), $(IMG_TARGET))
+hs_prod_sign: $(IMG_ELF)
+	$(ECHO) "" >> $(SIGGEN_DUMMY_TARGET)
+	$(call PRINT_SIGGEN_SCRIPT,$(SIGN_PROD_SCRIPT),$(SIG_GEN) $(DPU_SIGN_CFG)/$(SIG_GEN_PROD_CFG) $(SIG_GEN_ARGS), $(IMG_PROD_HS_SIG_H), $(IMG_TARGET))
+endif
+endif
+endif
+###############################################################################
+# Rules for listing all profile names in single file.
+# To be used while compiling on windows
+###############################################################################
+
+ifeq ($(LW_HOST_OS_FAMILY),Windows)
+ .PHONY: list_profile_name
+ imgbin_script: list_profile_name
+list_profile_name: $(IMG_ELF)
+	$(ECHO) $(DPUCFG_PROFILES_ALL) >> $(CONFIG_NAMES)
+ifeq ($(GSPLITE),true)
+	$(ECHO) "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+	$(ECHO) "!!!!                                                                                    !!!!"
+	$(ECHO) "!!              !!!! DO NOT SUBMIT GSPLite/GSP BUILT ON WINDOWS !!!!                      !!"
+	$(ECHO) "!!  Due to lack of siggen support on Windows, GSPLite/GSP binaries will not be generated  !!"
+	$(ECHO) "!!  on windows build. So if GSPLite/GSP binaries are being affected, switch to Linux.     !!"
+	$(ECHO) "!!!!                                                                                    !!!!"
+	$(ECHO) "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+endif
+endif
+
+###############################################################################
+# Rules for buildig the ELF image and binary files
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+all: $(IMG_ELF) imgbin_script
+
+imgbin_script: $(IMG_ELF)
+ifneq ("$(BOOT_FROM_HS)","true")
+	$(call PRINT_SCRIPT,$(call POSTSIGN_SCRIPT,imgbin_script),$(DPUCFG_PERL) $(MKIMAGE) $(MKIMAGE_ARGS))
+endif
+
+# $(IMG_H) is created as part of the $(IMG_BIN) recipe
+#
+# We need to turn off --output-sync for the signing process, since otherwise
+# no interactive messages / warning etc would be displayed.
+#
+SIGN_MAKE_FLAGS = -Onone --no-print-directory
+
+###############################################################################
+# Rules for LS signing
+###############################################################################
+
+# IMG_SIG_H (*_sig.h) is not generated when IMG_BIN has no change
+# Here it needs a dummy file for make dependency
+LS_SIGNING = $(OUTPUTDIR)/_LS_Signing
+
+.PHONY: ls_sign
+ls_sign:: $(LS_SIGNING)
+
+$(LS_SIGNING): $(IMG_BIN_RELEASE)
+ifeq ("$(BOOT_FROM_HS)","true")
+	$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) clean $(POLL_ARGS)
+	$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) submit $(DBG_SIGN_ARGS)
+	$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) poll $(POLL_ARGS)
+	$(ECHO) "dummy file for makefile dependency : [ LS Signing ]" > $@
+    ifneq ($(DEBUG_SIGN_ONLY),true)
+		$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) clean $(POLL_ARGS)
+		$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) submit $(PROD_SIGN_ARGS)
+		$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) poll $(POLL_ARGS)
+		$(ECHO) "dummy file for makefile dependency : [ LS Signing ]" > $@
+    endif
+else
+	$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) clean $(POLL_ARGS)
+	$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) submit $(SIGN_ARGS)
+	$(MAKE) $(SIGN_MAKE_FLAGS) -f $(SIGN_CLIENT) poll $(POLL_ARGS)
+	$(ECHO) "dummy file for makefile dependency : [ LS Signing ]" > $@
+endif
+$(IMG_SIG_H_RELEASE) : $(LS_SIGNING)
+
+
+#
+# If LS signing is supported for this profile, add the signature
+# file as prerequisite for `all` and to the list of release files.
+#
+all: ls_sign_script
+install: ls_sign_script
+
+ifeq ($(LS_FALCON), true)
+  ifeq ("$(BOOT_FROM_HS)","true")
+    RELEASE_FILES += $(IMG_DBG_SIG_H)
+    ifneq ($(DEBUG_SIGN_ONLY),true)
+        RELEASE_FILES += $(IMG_PROD_SIG_H)
+    endif
+  else
+    RELEASE_FILES += $(IMG_SIG_H)
+  endif
+
+  ifeq ($(SIGN_LICENSE), CODESIGN_LS_PKC)
+    ifeq ("$(BOOT_FROM_HS)","true")
+        RELEASE_FILES += $(IMG_DBG_SIG_AES_H)
+        ifneq ($(DEBUG_SIGN_ONLY),true)
+           RELEASE_FILES += $(IMG_PROD_SIG_AES_H)
+        endif
+     else
+        RELEASE_FILES += $(IMG_SIG_AES_H)
+     endif
+  endif
+  ifneq ($(IS_LS_ENCRYPTED), 0)
+  RELEASE_FILES += $(IMG_DBG_ENCRYPTED_BIN)
+    ifeq ($(SIGN_LOCAL), 0)
+      ifeq ($(LS_PKC_PROD_ENC_ENABLED), true)
+        RELEASE_FILES += $(IMG_PROD_ENCRYPTED_BIN)
+      endif
+    endif
+  endif
+endif
+
+ifeq ($(LS_FALCON), true)
+ls_sign_script: imgbin_script
+ifeq ("$(BOOT_FROM_HS)","true")
+ifeq ($(ENABLE_HS_SIGN),true)
+	$(call PRINT_LWMAKE_SIGN_SCRIPT,$(call POSTSIGN_SCRIPT,ls_sign),ls_sign)
+endif
+else
+	$(call PRINT_LWMAKE_SIGN_SCRIPT,$(call POSTSIGN_SCRIPT,ls_sign),ls_sign)
+endif
+else
+ls_sign_script: imgbin_script
+	$(ECHO) "" >> $(call POSTSIGN_SCRIPT,ls_sign)
+endif
+
+###############################################################################
+# Common dependency files for rtos-flcn-script.pl exelwtion
+###############################################################################
+FLCN_SCRIPT_DEPS =
+
+FLCN_SCRIPT_DEPS += $(BUILD_SCRIPTS)/rtos-flcn-script.pl
+FLCN_SCRIPT_DEPS += $(BUILD_SCRIPTS)/impl/TasksImpl.pm
+FLCN_SCRIPT_DEPS += $(BUILD_SCRIPTS)/impl/ProfilesImpl.pm
+FLCN_SCRIPT_DEPS += $(BUILD_SCRIPTS)/impl/OverlaysImpl.pm
+
+###############################################################################
+# Rules to genereate header file g_profile.h
+###############################################################################
+
+$(GEN_PROFILE_HEADER): $(DPU_BUILD)/Profiles.pm $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(PERL) -I$(DPU_BUILD) -I$(BUILD_SCRIPTS) \
+        -I$(LW_SOURCE)/drivers/common/chip-config                        \
+        $(BUILD_SCRIPTS)/rtos-flcn-script.pl --profile $(DPUCFG_PROFILE) \
+        --lwroot $(LW_SOURCE) --perl $(PERL)                             \
+        --gen-profile-header --outfile $(GEN_PROFILE_HEADER)
+
+
+###############################################################################
+# Rules to genereate header file g_tasks.h
+###############################################################################
+
+$(GEN_TASKS_HEADER): $(DPU_BUILD)/Tasks.pm $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(PERL) -I$(DPU_BUILD) -I$(BUILD_SCRIPTS) \
+        -I$(LW_SOURCE)/drivers/common/chip-config                        \
+        $(BUILD_SCRIPTS)/rtos-flcn-script.pl --profile $(DPUCFG_PROFILE) \
+        --lwroot $(LW_SOURCE) --perl $(PERL)                             \
+        --gen-ostask-header --outfile $(GEN_TASKS_HEADER)
+
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files is the prerequisite
+# for this rule.
+###############################################################################
+$(IMG_ELF): $(LINK_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(CFLAGS) $(OBJECTS) -o $(IMG_ELF) $(LDFLAGS)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_READELF)
+	$(OBJDUMP) -d    $(IMG_ELF) >> $(IMG_OBJDUMP)
+	$(OBJDUMP) -S -d $(IMG_ELF) >> $(IMG_OBJDUMP).source
+	$(NM)      -S -n $(IMG_ELF) >> $(IMG_NM)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_READELF))
+	$(READELF) --all $(IMG_ELF) >> $(IMG_READELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(IMG_ELF) >> $(IMG_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(IMG_ELF)
+ifeq ($(GSPLITE),true)
+	$(NM)      $(IMG_ELF) >> $(IMG_MAP)
+	$(DUMPEXEC) -img $(IMG_ELF) -b $(IMG_ELF)
+	$(READELF) -S $(IMG_ELF) >> $(IMG_SECTIONS)
+endif
+
+#
+# Trigger the process by adding a phony prerequisite to 'all' called 'install'.
+# The rule to rebuild that target will perform the install process and will copy
+# the files to the RM if necessary.
+# Skip this process if the user has requested that files NOT be installed via
+# NO_INSTALL=true.
+#
+ifneq ("$(NO_RELEASE)","true")
+  .PHONY: install
+  all: install
+endif
+
+###############################################################################
+# Rules to check Tasks IMEM Overlays and Resident code boundary
+###############################################################################
+
+# a dummy file to maintain the dependency.  Run the check only when IMG_H has a change
+CHECK_OVL = $(OUTPUTDIR)/_ovlCheck
+
+$(CHECK_OVL): imgbin_script $(FLCN_SCRIPT_DEPS)
+	$(call PRINT_SCRIPT_NEWLINE,$(call POSTSIGN_SCRIPT,check_ovl),$(ECHO) $(BUILD_PROJECT_NAME) overlay sanity and resident code boundary check ";", \
+	$(PERL) -I$(DPU_BUILD) -I$(BUILD_SCRIPTS) \
+        -I$(LW_SOURCE)/drivers/common/chip-config                        \
+        $(BUILD_SCRIPTS)/rtos-flcn-script.pl --profile $(DPUCFG_PROFILE) \
+    	--lwroot $(LW_SOURCE) --perl $(PERL)                             \
+        --check-overlays-imem --check-nm-file $(IMG_NM) --verbose $(LW_VERBOSE))
+	$(ECHO) "dummy file for makefile dependency : [ rtos-flcn-script.pl --check-overlays-imem --check-nm-file ]" > $@
+
+all: $(CHECK_OVL)
+
+# make LS_SIGNING happen after CHECK_OVL to reduce singing server load
+ls_sign_script: $(CHECK_OVL)
+
+###############################################################################
+# Rules to analyze objdump to generate calltree, stack, & overlay info
+###############################################################################
+
+ANALYZE_DIR = $(OUTPUTDIR)/_analysis
+# a dummy file to maintain the dependency
+ANALYZE_OBJDUMP = $(ANALYZE_DIR)/_analyzed
+ANALYZE_SUMMARY = $(ANALYZE_DIR)/summary.txt
+ANALYZE_RELEASE = $(IMG_TARGET)_analysis.txt
+RELEASE_FILES += $(ANALYZE_RELEASE)
+
+ANALYZE_DEPS += $(IMG_ELF)
+ANALYZE_DEPS += $(DPU_BUILD)/Tasks.pm
+ANALYZE_DEPS += $(DPU_BUILD)/Analyze.pm
+
+$(ANALYZE_OBJDUMP): $(ANALYZE_DEPS) $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) analyzing objdump
+	$(MKDIR) $(ANALYZE_DIR)
+	$(PERL) -I$(DPU_BUILD) -I$(BUILD_SCRIPTS)                            \
+        -I$(LW_SOURCE)/drivers/common/chip-config                        \
+        $(BUILD_SCRIPTS)/rtos-flcn-script.pl --profile $(DPUCFG_PROFILE) \
+        --lwroot $(LW_SOURCE) --perl $(PERL) --verbose $(LW_VERBOSE)     \
+		--analyze-objdump $(IMG_OBJDUMP) --outfile $(ANALYZE_DIR)
+	$(ECHO) analyzed > $(ANALYZE_OBJDUMP)
+
+$(ANALYZE_RELEASE): $(ANALYZE_OBJDUMP)
+	$(COPY) $(ANALYZE_SUMMARY) $(ANALYZE_RELEASE)
+
+install: $(ANALYZE_RELEASE)
+$(CHECK_OVL): $(ANALYZE_OBJDUMP)
+
+###############################################################################
+# The install process is handled by a perl-script to avoid the unnecessary
+# complication of host-specific process in make.
+###############################################################################
+
+RELEASE_SCRIPT = $(BUILD_SCRIPTS)/release-imgs-if-changed.pl
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+RELEASE_IMG_ARGS += --output-prefix $(BUILD_PROJECT_NAME)
+ifeq ("$(BOOT_FROM_HS)","true")
+   RELEASE_IMG_ARGS += --image         $(IMG_DBG_BIN)
+   ifneq ($(DEBUG_SIGN_ONLY),true)
+      RELEASE_IMG_ARGS += --image         $(IMG_PROD_BIN)
+   endif
+else
+   RELEASE_IMG_ARGS += --image         $(IMG_BIN)
+endif
+RELEASE_IMG_ARGS += --p4            $(P4)
+
+RELEASE_IMG_ARGS += --release-path $(RELEASE_PATH)
+
+RELEASE_IMG_ARGS += --release-files            \
+  $(subst $(SPACE),$(COMMA),$(RELEASE_FILES))
+
+# unless disabled, make sure the environment is fresh before installing
+ifneq ("$(NO_CHECK_BUILD)","true")
+  .PHONY: checkbuild
+  install: checkbuild
+endif
+
+install: imgbin_script
+	$(call PRINT_SCRIPT,$(call POSTSIGN_SCRIPT,install),$(PERL) $(RELEASE_SCRIPT) $(RELEASE_IMG_ARGS))
+
+###############################################################################
+# Variables used for siggen
+###############################################################################
+SIGN_PROD_SCRIPT     = "tmpprodsig.sh"
+SIGN_DBG_SCRIPT      = "tmpdbgsig.sh"
+CONFIG_NAMES         = "all_config_name.txt"
+
+ENCRYPT_ARGS :=
+ifeq ("$(HS_UCODE_ENCRYPTION)", "true")
+ENCRYPT_ARGS := "-encryptUcode -encryptMode 2"
+endif
+
+#
+# Providing our own compiled openssl binary to Siggen since DVS sanity does not
+#  have access to LSF /home/utils/... path, which Siggen use
+#
+PKC_ENABLED_ARGS :=
+ifeq ("$(IS_PKC_ENABLED)","true")
+    PKC_ENABLED_ARGS := "-engineId $(ENGINE_ID) -sigMetadataFile $(CHIP_MANUAL_PATH)/lwFalconSignParams.mk"
+    PKC_ENABLED_ARGS += "-openssl $(OPENSSL)"
+endif
+
+#
+# Providing argument to siggen to skip patching of HS Ovls Signatures in binary
+#
+SKIP_SIG_PATCHING_ARGS :=
+ifeq ("$(RUNTIME_HS_OVL_SIG_PATCHING)","true")
+    SKIP_SIG_PATCHING_ARGS := "-skipSigPatching"
+endif
+
+define PRINT_SIGGEN_SCRIPT
+    $(foreach SIGGEN_CHIP, $(SIGGEN_CHIPS), \
+        $(ECHO) "cat $(RELEASE_PATH)/$(notdir $3_$(SIGGEN_CHIP).h) > $3_$(SIGGEN_CHIP).h"  >> $1; \
+        $(ECHO) $2 -chip $(SIGGEN_CHIP) -app $3_patch_$(SIGGEN_CHIP).h \
+        -sig $3_$(SIGGEN_CHIP).h $(ENCRYPT_ARGS) -totAppFilePrefix $(RELEASE_PATH)/$(notdir $4) $(PKC_ENABLED_ARGS) \
+        $(SKIP_SIG_PATCHING_ARGS) -calcPrevNSignatures $$(($(NUM_SIG_PER_UCODE)-1)) "|| exit 1" >> $1;)
+endef
+
+###############################################################################
+# 'forcesync' is the same as the 'install' target except that we force the
+# files to be installed (ie. regardless of whether or not the c-file differs
+# from the RM version).
+###############################################################################
+
+forcesync: install
+forcesync: RELEASE_IMG_ARGS += --force
+
+###############################################################################
+# Rule for running a script that checks select files and directories in the
+# environment and checks w/perforce that they are up-to-date (ie. TOT).
+###############################################################################
+
+CHECK_ELW_SCRIPT = $(BUILD_SCRIPTS)/check-build-elw.pl
+
+# files/directories added to this list will be checked
+CHECK_ELW_FILES += $(SIGN_ROOT)
+CHECK_ELW_FILES += $(LW_SOURCE)/uproc/disp/dpu
+CHECK_ELW_FILES += $(LW_SOURCE)/uproc/build
+CHECK_ELW_FILES += $(LIB_UPROC_LWOS_SRC)
+CHECK_ELW_FILES += $(RTOS_SRC)
+CHECK_ELW_FILES += $(SE_SRC)
+CHECK_ELW_FILES += $(MUTEX_SRC)
+CHECK_ELW_FILES += $(I2C_SRC)
+CHECK_ELW_FILES += $(DPAUX_SRC)
+CHECK_ELW_FILES += $(HDCP22WIRED_SRC)
+CHECK_ELW_FILES += $(HDCP_SRC)
+CHECK_ELW_FILES += $(TEST_SRC)
+CHECK_ELW_FILES += $(SHA_SRC)
+CHECK_ELW_FILES += $(SHAHW_SRC)
+CHECK_ELW_FILES += $(LIB_UPROC_CMN_SRC)
+CHECK_ELW_FILES += $(BIGINT_SRC)
+CHECK_ELW_FILES += $(HDCPAUTH_SRC)
+ifeq ($(GSPLITE),true)
+CHECK_ELW_FILES += $(SCP_SRC)
+endif
+
+CHECK_ELW_ARGS  += --check-list $(subst $(SPACE),$(COMMA),$(CHECK_ELW_FILES))
+CHECK_ELW_ARGS  += --p4 $(P4)
+
+ifneq ($(LW_DVS_BLD),1)
+checkbuild:
+	-$(PERL) $(CHECK_ELW_SCRIPT) $(CHECK_ELW_ARGS)
+else
+checkbuild:
+endif
+
+###############################################################################
+# Rule for generating .dt/symdump file
+###############################################################################
+
+SYMDUMP_SCRIPT = $(BUILD_SCRIPTS)/symdump/symdump.pl
+
+SYMDUMP_ARGS  += $(IMG_ELF) $(IMG_DT)
+SYMDUMP_ARGS  += --falcon-tools $(FALCON_TOOLS)
+SYMDUMP_ARGS  += --acl          $(APP_P4_CL)
+
+$(IMG_DT):
+	-$(PERL) $(SYMDUMP_SCRIPT) $(SYMDUMP_ARGS)
+
+ifeq ("$(INCLUDE_DT)","true")
+  all: $(IMG_DT)
+endif
+
+###############################################################################
+# Rule for generating overlay sections linker-script
+###############################################################################
+
+LDGEN_SCRIPT    = $(BUILD_SCRIPTS)/rtos-flcn-script.pl --gen-ldscript
+
+LDGEN_INCLUDES += -I$(DPU_BUILD)
+LDGEN_INCLUDES += -I$(LW_SOURCE)/drivers/common/chip-config
+LDGEN_INCLUDES += -I$(BUILD_SCRIPTS)
+
+LDGEN_DEPS     += $(DPU_BUILD)/OverlaysImem.pm
+LDGEN_DEPS     += $(DPU_BUILD)/Profiles.pm
+LDGEN_DEPS     += $(LWUPROC)/build/templates/gt_sections.ld
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/GenLdscript.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfInputSectionImem.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfOutputSectionImem.pm
+LDGEN_DEPS     += $(BUILD_SCRIPTS)/ldgen/elf/ElfKeepSectionImem.pm
+
+LDGEN_ARGS     += --lwroot $(LW_SOURCE)
+LDGEN_ARGS     += --perl $(PERL)
+LDGEN_ARGS     += --profile $(DPUCFG_PROFILE)
+LDGEN_ARGS     += --template $(LWUPROC)/build/templates/gt_sections.ld
+LDGEN_ARGS     += --outfile $(OUTPUTDIR)/g_sections.ld
+
+$(OUTPUTDIR)/g_sections.ld: $(LDGEN_DEPS) $(FLCN_SCRIPT_DEPS)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	-$(PERL) $(LDGEN_INCLUDES) $(LDGEN_SCRIPT) $(LDGEN_ARGS)
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clean_ucode
+clean: clean_ucode
+
+
+clobber_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clobber_ucode
+clobber: clobber_ucode
+
+###############################################################################
+# uCode AS2 Promotion Update (Bug 2681795)
+###############################################################################
+# List profiles that are blocked from promotion to HW over AS2
+include ../../../build/common/lwUcodePromotion.lwmk

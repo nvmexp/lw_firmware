@@ -1,0 +1,465 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2008-2021 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+
+//
+// RM test to test LWDEC class
+//
+//
+//!
+//! \file rmt_lwdec.cpp
+//! \brief RM test to test LWDEC class
+
+//!
+//! This file tests LWDEC. The test allocates an object of the class, and tries to
+//! write a value to a memory and read it back to make sure it went through. It
+//! also checks that lwdec was able to notify the CPU about the semaphore release
+//! using a nonstall interrupt
+//!
+
+#include "lwos.h"
+#include "core/include/channel.h"
+#include "core/include/platform.h"
+#include "core/include/jscript.h"
+#include "gpu/include/gralloc.h"
+#include "class/cl0070.h" // LW01_MEMORY_VIRTUAL
+#include "class/cla0b0.h" // LWA0B0_VIDEO_DECODER
+#include "class/clb0b0.h" // LWB0B0_VIDEO_DECODER
+#include "class/clb6b0.h" // LWB6B0_VIDEO_DECODER
+#include "class/clb8b0.h" // LWB8B0_VIDEO_DECODER
+#include "class/clc1b0.h" // LWC1B0_VIDEO_DECODER
+#include "class/clc2b0.h" // LWC2B0_VIDEO_DECODER
+#include "class/clc3b0.h" // LWC3B0_VIDEO_DECODER
+#include "class/clc4b0.h" // LWC4B0_VIDEO_DECODER
+#include "class/clc6b0.h" // LWC6B0_VIDEO_DECODER
+#include "class/clc7b0.h" // LWC7B0_VIDEO_DECODER
+#include "class/clc9b0.h" // LWC9B0_VIDEO_DECODER
+
+#include "gpu/tests/rmtest.h"
+#include "core/include/memcheck.h"
+
+struct PollArgs
+{
+    UINT32 *pollCpuAddr;
+    UINT32 value;
+};
+
+//! \brief Poll Function. Explicit function for polling
+//!
+//! Designed so as to remove the need for waitidle
+//-----------------------------------------------------------------------------
+static bool Poll(void *pArgs)
+{
+    UINT32 val;
+    PollArgs Args = *(PollArgs *)pArgs;
+
+    val = MEM_RD32(Args.pollCpuAddr);
+
+    if (Args.value == val)
+    {
+        return true;
+    }
+    return false;
+}
+
+class LwdecTest: public RmTest
+{
+public:
+    LwdecTest();
+    void A0B0Test(UINT32 &);
+    RC   B0B0Test(UINT32 &);
+    virtual ~LwdecTest();
+    virtual string IsTestSupported();
+    virtual bool   IsInstanceSupported(UINT32 instNum);
+    virtual RC Setup();
+    virtual RC Run();
+    virtual RC Cleanup();
+
+    SETGET_PROP(InstanceId, UINT32);
+    SETGET_PROP(TestRc,     bool);
+private:
+    UINT64       m_gpuAddr;
+    UINT32 *     m_cpuAddr;
+    UINT32       m_InstanceId;
+    bool         m_TestRc;
+
+    LwRm::Handle m_hObj;
+    LwRm::Handle m_hVA;
+
+    LwRm::Handle m_hSemMem;
+    FLOAT64      m_TimeoutMs  = Tasker::NO_TIMEOUT;
+
+    ModsEvent   *pNotifyEvent = NULL;
+
+    GrClassAllocator *m_classAllocator;
+};
+
+//! \brief LwdecTest constructor.
+//!
+//! \sa Setup
+//------------------------------------------------------------------------------
+LwdecTest::LwdecTest()
+{
+    m_gpuAddr = 0LL;
+    m_cpuAddr = NULL;
+    m_hObj    = 0;
+    m_hVA     = 0;
+    m_hSemMem = 0;
+    m_InstanceId = 0;
+    m_TestRc  = false;
+
+    m_classAllocator = new LwdecAlloc();
+
+    SetName("LwdecTest");
+}
+
+//! \brief LwdecTest destructor.
+//!
+//! \sa Cleanup
+//------------------------------------------------------------------------------
+LwdecTest::~LwdecTest()
+{
+    delete m_classAllocator;
+}
+
+//! \brief Check if engine instance is supported
+//!
+//! \return true/false
+//------------------------------------------------------------------------------
+bool LwdecTest::IsInstanceSupported(UINT32 instNum)
+{
+    RC     rc;
+    UINT32 engineId = LW2080_ENGINE_TYPE_NULL;
+
+    m_classAllocator->GetEngineId(GetBoundGpuDevice(),
+                                  GetBoundRmClient(), instNum, &engineId);
+
+    return (engineId == LW2080_ENGINE_TYPE_LWDEC(instNum));
+}
+
+//! \brief Make sure the class we're testing is supported by RM.
+//!
+//! \return True
+//------------------------------------------------------------------------------
+string LwdecTest::IsTestSupported()
+{
+    GpuDevice *pGpuDev = GetBoundGpuDevice();
+
+    if (m_classAllocator->IsSupported(pGpuDev))
+    {
+        if (IsInstanceSupported(GetInstanceId()))
+        {
+            Printf(Tee::PriHigh,
+                   "Test is supported on the current GPU/platform, preparing to run on LWDEC%d...\n",
+                   GetInstanceId());
+            return RUN_RMTEST_TRUE;
+        }
+        return "Engine instance Not supported on GPU";
+    }
+    else
+    {
+        switch(m_classAllocator->GetClass())
+        {
+            case LWA0B0_VIDEO_DECODER:
+                return "Class LWA0B0_VIDEO_DECODER Not supported on GPU";
+            case LWB0B0_VIDEO_DECODER:
+                return "Class LWB0B0_VIDEO_DECODER Not supported on GPU";
+            case LWB6B0_VIDEO_DECODER:
+                return "Class LWB6B0_VIDEO_DECODER Not supported on GPU";
+            case LWB8B0_VIDEO_DECODER:
+                return "Class LWB8B0_VIDEO_DECODER Not supported on GPU";
+            case LWC1B0_VIDEO_DECODER:
+                return "Class LWC1B0_VIDEO_DECODER Not supported on GPU";
+            case LWC2B0_VIDEO_DECODER:
+                return "Class LWC2B0_VIDEO_DECODER Not supported on GPU";
+            case LWC3B0_VIDEO_DECODER:
+                return "Class LWC3B0_VIDEO_DECODER Not supported on GPU";
+            case LWC4B0_VIDEO_DECODER:
+                return "Class LWC4B0_VIDEO_DECODER Not supported on GPU";
+            case LWC6B0_VIDEO_DECODER:
+                return "Class LWC6B0_VIDEO_DECODER Not supported on GPU";
+            case LWC7B0_VIDEO_DECODER:
+                return "Class LWC7B0_VIDEO_DECODER Not supported on GPU";
+            case LWC9B0_VIDEO_DECODER:
+                return "Class LWC9B0_VIDEO_DECODER Not supported on GPU";
+        }
+        return "Invalid Class Specified";
+    }
+}
+
+//! \brief Setup all necessary state before running the test.
+//!
+//! \sa IsSupported
+//------------------------------------------------------------------------------
+RC LwdecTest::Setup()
+{
+    RC                                        rc;
+    const UINT32                              memSize = 0x1000;
+    LwRmPtr                                   pLwRm;
+    GpuDevice                                *pGpuDev = GetBoundGpuDevice();
+    LwRm::Handle                              hNotifyEvent = 0;
+    void                                     *pEventAddr   = NULL;
+    LW2080_CTRL_EVENT_SET_NOTIFICATION_PARAMS eventParams  = {0};
+
+    CHECK_RC(InitFromJs());
+
+    m_TimeoutMs = m_TestConfig.TimeoutMs();
+
+    CHECK_RC(pLwRm->AllocSystemMemory(&m_hSemMem,
+             DRF_DEF(OS02, _FLAGS, _PHYSICALITY, _NONCONTIGUOUS) |
+             DRF_DEF(OS02, _FLAGS, _LOCATION, _PCI) |
+             DRF_DEF(OS02, _FLAGS, _COHERENCY, _UNCACHED),
+             memSize, GetBoundGpuDevice()));
+
+    LW_MEMORY_VIRTUAL_ALLOCATION_PARAMS vmparams = { 0 };
+    CHECK_RC(pLwRm->Alloc(pLwRm->GetDeviceHandle(GetBoundGpuDevice()),
+                          &m_hVA, LW01_MEMORY_VIRTUAL, &vmparams));
+
+    // Allocate channel
+    CHECK_RC(m_TestConfig.AllocateChannel(&m_pCh, &m_hCh, LW2080_ENGINE_TYPE_LWDEC(GetInstanceId())));
+
+    CHECK_RC(pLwRm->MapMemoryDma(m_hVA, m_hSemMem, 0, memSize,
+                                 LW04_MAP_MEMORY_FLAGS_NONE, &m_gpuAddr, GetBoundGpuDevice()));
+    CHECK_RC(pLwRm->MapMemory(m_hSemMem, 0, memSize, (void **)&m_cpuAddr, 0, GetBoundGpuSubdevice()));
+
+    CHECK_RC(m_classAllocator->AllocOnEngine(m_hCh,
+                                             LW2080_ENGINE_TYPE_LWDEC(GetInstanceId()),
+                                             pGpuDev, GetBoundRmClient()));
+    m_hObj = m_classAllocator->GetHandle();
+
+    // Allocate event
+    pNotifyEvent = Tasker::AllocEvent();
+    pEventAddr = Tasker::GetOsEvent(pNotifyEvent,
+                                    pLwRm->GetClientHandle(),
+                                    pLwRm->GetDeviceHandle(pGpuDev));
+
+    // Associate event to object
+    CHECK_RC(pLwRm->AllocEvent(pLwRm->GetSubdeviceHandle(GetBoundGpuSubdevice()),
+                               &hNotifyEvent,
+                               LW01_EVENT_OS_EVENT,
+                               LW2080_NOTIFIERS_LWDEC(GetInstanceId()) | LW01_EVENT_NONSTALL_INTR,
+                               pEventAddr));
+
+    eventParams.event  = LW2080_NOTIFIERS_LWDEC(GetInstanceId());
+    eventParams.action = LW2080_CTRL_EVENT_SET_NOTIFICATION_ACTION_SINGLE;
+
+    CHECK_RC(pLwRm->Control(pLwRm->GetSubdeviceHandle(GetBoundGpuSubdevice()),
+             LW2080_CTRL_CMD_EVENT_SET_NOTIFICATION,
+             &eventParams, sizeof(eventParams)));
+
+    return rc;
+}
+//-----------------------------------------------------------------------------
+//! \brief A0B0Test test by writing different value to the same memory through
+//!        GPU mapping for A0B0 class.
+//!
+//! \return void
+//-----------------------------------------------------------------------------
+void LwdecTest::A0B0Test(UINT32 &subch)
+{
+    m_pCh->Write(subch, LWA0B0_SEMAPHORE_A,
+                    DRF_NUM(A0B0, _SEMAPHORE_A, _UPPER, (UINT32)(m_gpuAddr >> 32LL)));
+    m_pCh->Write(subch, LWA0B0_SEMAPHORE_B, (UINT32)(m_gpuAddr & 0xffffffffLL));
+    m_pCh->Write(subch, LWA0B0_SEMAPHORE_C,
+                    DRF_NUM(A0B0, _SEMAPHORE_C, _PAYLOAD, 0x12345678));
+    m_pCh->Write(subch, LWA0B0_SEMAPHORE_D,
+                    DRF_DEF(A0B0, _SEMAPHORE_D, _STRUCTURE_SIZE, _ONE) |
+                    DRF_DEF(A0B0, _SEMAPHORE_D, _AWAKEN_ENABLE, _FALSE));
+    m_pCh->Write(subch, LWA0B0_SEMAPHORE_D,
+                    DRF_DEF(A0B0, _SEMAPHORE_D, _OPERATION, _TRAP));
+
+    m_pCh->Flush();
+}
+//-----------------------------------------------------------------------------
+//! \brief B0B0Test test by writing different value to the same memory through
+//!        GPU mapping for B0B0 class.
+//!
+//! \return void
+//-----------------------------------------------------------------------------
+RC LwdecTest::B0B0Test(UINT32 &subch)
+{
+    if (m_TestRc)
+    {
+        RC errorRc;
+        RC expectedRc = RC::RM_RCH_FIFO_ERROR_MMU_ERR_FLT;
+
+        // avoid test failure due to MMU fault interrupt
+        ErrorLogger::IgnoreErrorsForThisTest();
+
+        // send invalid semaphore address generating MMU fault
+        m_pCh->Write(subch, LWB0B0_SEMAPHORE_A,
+                        DRF_NUM(B0B0, _SEMAPHORE_A, _UPPER, (UINT32)(0)));
+        m_pCh->Write(subch, LWB0B0_SEMAPHORE_B, (UINT32)(0));
+        m_pCh->Write(subch, LWB0B0_SEMAPHORE_C,
+                        DRF_NUM(B0B0, _SEMAPHORE_C, _PAYLOAD, 0xdeaddead));
+        m_pCh->Write(subch, LWB0B0_SEMAPHORE_D,
+                        DRF_DEF(B0B0, _SEMAPHORE_D, _STRUCTURE_SIZE, _ONE) |
+                        DRF_DEF(B0B0, _SEMAPHORE_D, _AWAKEN_ENABLE, _FALSE));
+        m_pCh->Write(subch, LWB0B0_SEMAPHORE_D,
+                        DRF_DEF(B0B0, _SEMAPHORE_D, _OPERATION, _TRAP));
+
+        m_pCh->Flush();
+        m_pCh->WaitIdle(m_TimeoutMs);
+
+        errorRc = m_pCh->CheckError();
+
+        Printf(Tee::PriHigh,
+            "%s: %s RC error oclwrred on LWDEC%d in RC test: %s\n",
+            __FUNCTION__, (errorRc == expectedRc) ? "Expected" : "Unexpected",
+            m_InstanceId, errorRc.Message());
+
+        if (errorRc == expectedRc)
+        {
+            m_pCh->ClearError();
+        }
+        else
+        {
+            return errorRc;
+        }
+    }
+
+    m_pCh->Write(subch, LWB0B0_SEMAPHORE_A,
+                    DRF_NUM(B0B0, _SEMAPHORE_A, _UPPER, (UINT32)(m_gpuAddr >> 32LL)));
+    m_pCh->Write(subch, LWB0B0_SEMAPHORE_B, (UINT32)(m_gpuAddr & 0xffffffffLL));
+    m_pCh->Write(subch, LWB0B0_SEMAPHORE_C,
+                    DRF_NUM(B0B0, _SEMAPHORE_C, _PAYLOAD, 0x12345678));
+    m_pCh->Write(subch, LWB0B0_SEMAPHORE_D,
+                    DRF_DEF(B0B0, _SEMAPHORE_D, _STRUCTURE_SIZE, _ONE) |
+                    DRF_DEF(B0B0, _SEMAPHORE_D, _AWAKEN_ENABLE, _FALSE));
+    m_pCh->Write(subch, LWB0B0_SEMAPHORE_D,
+                    DRF_DEF(B0B0, _SEMAPHORE_D, _OPERATION, _TRAP));
+
+    m_pCh->Flush();
+    return RC::OK;
+}
+
+//! \brief Run test by writing to a memory and reading it back to confirm.
+//!
+//! \return OK if the test passed, test-specific RC if it failed
+//------------------------------------------------------------------------
+RC LwdecTest::Run()
+{
+    RC     rc;
+    UINT32 semVal;
+    PollArgs args;
+    UINT32 subch = 0;
+
+    ErrorLogger::StartingTest();
+
+    //
+    // Write a value to memory through CPU mapping
+    //
+    MEM_WR32(m_cpuAddr, 0x87654321);
+
+    m_pCh->SetObject(subch, m_hObj);
+
+    switch(m_classAllocator->GetClass())
+    {
+        case LWA0B0_VIDEO_DECODER:
+        {
+            A0B0Test(subch);
+        }
+        break;
+
+        case LWB0B0_VIDEO_DECODER:
+        case LWB6B0_VIDEO_DECODER:
+        case LWB8B0_VIDEO_DECODER:
+        case LWC1B0_VIDEO_DECODER:
+        case LWC2B0_VIDEO_DECODER:
+        case LWC3B0_VIDEO_DECODER:
+        case LWC4B0_VIDEO_DECODER:
+        case LWC6B0_VIDEO_DECODER:
+        case LWC7B0_VIDEO_DECODER:
+        case LWC9B0_VIDEO_DECODER:
+        {
+            CHECK_RC(B0B0Test(subch));
+        }
+        break;
+
+        default:
+        {
+            Printf(Tee::PriHigh,"Class 0x%x not supported.. skipping the  Semaphore Exelwtion\n",
+                        m_classAllocator->GetClass());
+            return RC::LWRM_ILWALID_CLASS;
+        }
+    }
+
+    args.value = (0x12345678);
+    args.pollCpuAddr = m_cpuAddr;
+
+    Printf(Tee::PriHigh, "Waiting for semaphore release...\n");
+    rc = POLLWRAP(&Poll, &args, m_TimeoutMs);
+    Printf(Tee::PriHigh, "Semaphore released\n");
+
+    //
+    // Read a value from memory through CPU mapping
+    //
+    semVal = MEM_RD32(m_cpuAddr);
+
+    if (rc != OK)
+    {
+        Printf(Tee::PriHigh,
+              "LwdecTest: GOT: 0x%x\n", semVal);
+        Printf(Tee::PriHigh,
+              "                EXPECTED: 0x%x\n", 0x12345678);
+        return rc;
+    }
+    else
+    {
+        Printf(Tee::PriHigh,
+              "LwdecTest: Read/Write matched as expected.\n");
+    }
+
+    Printf(Tee::PriHigh, "Waiting on SEMAPHORE_D trap notification...\n");
+    CHECK_RC(Tasker::WaitOnEvent(pNotifyEvent, m_TimeoutMs));
+    Printf(Tee::PriHigh, "Received SEMAPHORE_D trap notification\n");
+
+    ErrorLogger::TestCompleted();
+    return rc;
+}
+
+//! \brief Free any resources that this test selwred
+//!
+//! \sa Cleanup
+//------------------------------------------------------------------------------
+RC LwdecTest::Cleanup()
+{
+    LwRmPtr pLwRm;
+
+    pLwRm->UnmapMemory(m_hSemMem, m_cpuAddr, 0, GetBoundGpuSubdevice());
+    pLwRm->UnmapMemoryDma(m_hVA, m_hSemMem,
+                          LW04_MAP_MEMORY_FLAGS_NONE, m_gpuAddr, GetBoundGpuDevice());
+
+    if (m_hObj)
+    {
+        pLwRm->Free(m_hObj);
+    }
+
+    m_TestConfig.FreeChannel(m_pCh);
+
+    pLwRm->Free(m_hVA);
+    pLwRm->Free(m_hSemMem);
+
+    return OK;
+}
+
+//------------------------------------------------------------------------------
+// JS Linkage
+//------------------------------------------------------------------------------
+
+//! \brief Linkage to JavaScript
+//!
+//! Set up a JavaScript class that creates and owns a C++ LwdecTest object.
+//------------------------------------------------------------------------------
+JS_CLASS_INHERIT(LwdecTest, RmTest, "LWDEC RM test.");
+CLASS_PROP_READWRITE(LwdecTest, InstanceId, UINT32,
+                     "Instance number to test");
+CLASS_PROP_READWRITE(LwdecTest, TestRc, bool,
+                     "RC recovery test");

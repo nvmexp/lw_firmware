@@ -1,0 +1,103 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2014-2016 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+#
+# Top-level SOE makefile. This makefile is responsible for building the SOE
+# binary including projects it depends on (RTOS, bootloader, etc ...) across
+# all SOE config-profiles.
+#
+
+all: build
+
+###############################################################################
+# Use the flag to serialize per-profile builds (this does not prevent parallel
+# building within each profile). The flag decreases the speed a bit but avoid
+# the mess output of inter-profiles building. When an error is found, it makes
+# the build stop immediately.
+###############################################################################
+
+SERIALIZE_PROFILES ?= "true"
+
+ifneq ("$(SERIALIZE_PROFILES)","false")
+  .NOTPARALLEL:
+endif
+
+###############################################################################
+# Set SOECFG_PROFILES to the list of SOECFG profiles to build. The value is set
+# in one of three ways depending on defaults and user-overrides (if any).
+#
+# 1. Sourcing soe-profiles.mk to get the full list of profiles (default)
+# 2. If SOECFG_PROFILE is set on the command-line or as an elwvar, build that
+#    profile only.
+#
+# Setting SOECFG_PROFILES in the shell or on the command-line will override the
+# profile(s) returned by the first two options above. SOECFG_PROFILE trumps
+# everything.
+###############################################################################
+
+SOECFG_PROFILES ?=
+
+ifndef SOECFG_PROFILE
+  ifeq ("$(strip $(SOECFG_PROFILES))", "")
+    include $(LW_SOURCE)/uproc/soe/config/soe-profiles.mk
+    override SOECFG_PROFILES = $(SOECFG_PROFILES_ALL)
+  endif
+else
+  SOECFG_PROFILES = $(SOECFG_PROFILE)
+endif
+
+###############################################################################
+# Create submake build/clean/clobber targets for profiles being built.
+###############################################################################
+
+PROFILES.build   = $(SOECFG_PROFILES:=.build)
+PROFILES.clean   = $(SOECFG_PROFILES:=.clean)
+PROFILES.clobber = $(SOECFG_PROFILES:=.clobber)
+PROFILES.ls_sign = $(SOECFG_PROFILES:=.ls_sign)
+PROFILES.dmem_patch = $(SOECFG_PROFILES:=.dmem_patch)
+PROFILES.check_guardword = $(SOECFG_PROFILES:=.check_guardword)
+
+###############################################################################
+# Targets/Rules
+###############################################################################
+
+.PHONY: PROFILES.build   build
+.PHONY: PROFILES.clean   clean
+.PHONY: PROFILES.clobber clobber
+.PHONY: PROFILES.ls_sign ls_sign
+.PHONY: PROFILES.dmem_patch dmem_patch
+.PHONY: PROFILES.check_guardword check_guardword
+
+build::   $(PROFILES.build)
+clean::   $(PROFILES.clean)
+clobber:: $(PROFILES.clobber)
+ls_sign:: $(PROFILES.ls_sign)
+dmem_patch:: $(PROFILES.dmem_patch)
+check_guardword:: $(PROFILES.check_guardword)
+
+$(PROFILES.build):
+	$(MAKE) -f make-profile.lwmk SOECFG_PROFILE=$(basename $@) build
+
+$(PROFILES.ls_sign):
+	$(MAKE) -f make-profile.lwmk SOECFG_PROFILE=$(basename $@) ls_sign
+
+$(PROFILES.dmem_patch):
+	$(MAKE) -f make-profile.lwmk SOECFG_PROFILE=$(basename $@) dmem_patch
+
+$(PROFILES.check_guardword):
+	$(MAKE) -f make-profile.lwmk SOECFG_PROFILE=$(basename $@) check_guardword
+
+$(PROFILES.clean):
+	$(MAKE) -f make-profile.lwmk SOECFG_PROFILE=$(basename $@) clean
+
+$(PROFILES.clobber):
+	$(MAKE) -f make-profile.lwmk SOECFG_PROFILE=$(basename $@) clobber
+

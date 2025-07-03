@@ -1,0 +1,152 @@
+{
+    "node0" :
+    {
+        "type" : "node",
+        "ip"   : "ipaddr"   
+    },
+    "gpu0" :
+    {
+        "type"             : "gpu",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "fabric_base"      : 0,
+        "fabric_16G_ranges": 4,
+        "requester_base"   : 0,
+        "max_ports"        : 6
+    },
+    "gpu1" :
+    {
+        "type"             : "gpu",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "fabric_base"      : 4,
+        "fabric_16G_ranges": 4,
+        "requester_base"   : 6,
+        "max_ports"        : 6
+    },
+    "switch0" :
+    {
+        "type"             : "switch",
+        "node_tag"         : "node0",
+        "ecid"             : "myecid",
+        "max_ports"        : 18,
+        "ports"            : 
+            [
+                { "port"        : 0,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 1,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu1", "policy" : 0, "output_ports" : [ 6 ] }
+                      ]
+                },
+                { "port"        : 1,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 0,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu1", "policy" : 0, "output_ports" : [ 6 ] }
+                      ]
+                },
+                { "port"        : 2,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 5,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu1", "policy" : 0, "output_ports" : [ 6 ] }
+                      ]
+                },
+                { "port"        : 3,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 4,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu1", "policy" : 0, "output_ports" : [ 6 ] }
+                      ]
+                },
+                { "port"        : 4,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 2,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu1", "policy" : 0, "output_ports" : [ 6 ] }
+                      ]
+                },
+                { "port"        : 5,
+                  "remote_tag"  : "gpu0",
+                  "remote_port" : 3,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu1", "policy" : 0, "output_ports" : [ 6 ] }
+                      ]
+                },
+                { "port"        : 8,
+                  "remote_tag"  : "gpu1",
+                  "remote_port" : 2,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "policy" : 0, "output_ports" : [ 15 ] }
+                      ]
+                },
+                { "port"        : 9,
+                  "remote_tag"  : "gpu1",
+                  "remote_port" : 3,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "policy" : 0, "output_ports" : [ 15 ] }
+                      ]
+                },
+                { "port"        : 10,
+                  "remote_tag"  : "gpu1",
+                  "remote_port" : 4,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "policy" : 0, "output_ports" : [ 15 ] }
+                      ]
+                },
+                { "port"        : 11,
+                  "remote_tag"  : "gpu1",
+                  "remote_port" : 5,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "policy" : 0, "output_ports" : [ 15 ] }
+                      ]
+                },
+                { "port"        : 12,
+                  "remote_tag"  : "gpu1",
+                  "remote_port" : 1,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "policy" : 0, "output_ports" : [ 15 ] }
+                      ]
+                },
+                { "port"        : 13,
+                  "remote_tag"  : "gpu1",
+                  "remote_port" : 0,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "policy" : 0, "output_ports" : [ 15 ] }
+                      ]
+                },
+                { "port"        : 6,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 15,
+                  "ac_coupled"  : true,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu0", "policy" : 0, "output_ports" : [ 0, 1, 2, 3, 4, 5 ] }
+                      ]
+                },
+                { "port"        : 15,
+                  "remote_tag"  : "switch0",
+                  "remote_port" : 6,
+                  "ac_coupled"  : true,
+                  "routing"     :
+                      [
+                          { "dest_dev_tag" : "gpu1", "policy" : 0, "output_ports" : [ 8, 9, 10, 11, 12, 13 ] }
+                      ]
+                }
+            ]
+    }
+}
+

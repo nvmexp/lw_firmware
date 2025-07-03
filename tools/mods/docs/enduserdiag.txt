@@ -1,0 +1,37 @@
+LWPU End User Diagnostic Tool
+
+This diagnostic tool runs a simple set of tests to confirm the health of FB, LWCA, GL, and PEX.
+
+List of files and their location during installation
+mods                 /usr/share/lwpu/diagnostic/mods         (This is the actual binary that contains MODS)
+lwca.bin             /usr/share/lwpu/diagnostic/lwca.bin     (LWCA kernel file for exelwting LWCA test)
+default.bin          /usr/share/lwpu/diagnostic/default.bin  (LWCA kernel file for exelwting LWCA test)
+README.txt           /usr/share/lwpu/diagnostic/README.txt   (README that contains list of where which files goes)
+lwpu-diagnostic.sh /usr/bin/lwpu-diagnostic.sh             (Simple shell script that runs diagnostic and reports PASS/FAIL result)
+
+usage: lwpu-diagnostic.sh [options]
+OPTIONS
+    -g GPUNUMBER
+        Execute the diagnostic on the GPUNUMBER device. If this option is
+        omitted, then on the first available device.
+    -l PATH
+        Write the log file to the specified path and file name. If this option
+        is omitted, the log file name will be lwpu-diagnostic.log and it will
+        be placed in the current directory.
+    -L
+        Write the log file only on a failure.
+    -n
+        Do not write the log file.
+    -s
+        Suppress output to stdout or stderr.
+    -h
+        Print a help message.
+EXAMPLES
+    Execute the diagnostic on the first available GPU.
+        lwpu-diagnostic.sh
+    Execute the diagnostic on GPU 0.
+        lwpu-diagnostic.sh -g 0
+    Execute the diagnostic on GPU 1, do not write the log file, do not output to
+    stdout or stderr.
+        lwpu-diagnostic.sh -sng 1
+

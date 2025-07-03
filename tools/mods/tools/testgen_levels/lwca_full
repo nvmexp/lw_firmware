@@ -1,0 +1,44 @@
+# testgen level to cover all frames at full coverage of all lwca tests
+# created manually
+# Note: On GH100 none of the tests finished without the %(NO_PMU) aka "-pmu_bootstrap_mode 1" argument. They all failed with this warning:
+# WARNING: [118410] LWRM clkReadDomain_CLK3: PMU_NOT_READY: Using Clocks 2.x to read pwrclk clock domain 19.
+# This is also needed to get a pass: "-chipargs -smAllowUninitializedRegister"
+
+sublevel: -javascriptArgs gpugen.js -modsArgs "-mle_forced -mle %(tname).mle" -mdiagArgs "-dump_png -no_golden_dma -null_display -lwlink_force_disable %(DEFAULT_ARGS) %(NO_VIDEO_ENGINES) %(FBP_CONFIG) %(GPC_CONFIG) %(NO_PMU) %(IGNORE_PRMT_FAILURES)"
+{
+  [
+    name { LwdaRandom }    mdiag { -test 119 -testargstr 119 TestDescription "Level0"  }
+  ]
+  [
+    name { _isolate_frames_00 } mdiag { -isolate_frames  0  0 } &
+    name { _isolate_frames_01 } mdiag { -isolate_frames  1  1 } &
+    name { _isolate_frames_02 } mdiag { -isolate_frames  2  2 } &
+    name { _isolate_frames_03 } mdiag { -isolate_frames  3  3 } &
+    name { _isolate_frames_04 } mdiag { -isolate_frames  4  4 } &
+    name { _isolate_frames_05 } mdiag { -isolate_frames  5  5 } &
+    name { _isolate_frames_06 } mdiag { -isolate_frames  6  6 } &
+    name { _isolate_frames_07 } mdiag { -isolate_frames  7  7 } &
+    name { _isolate_frames_08 } mdiag { -isolate_frames  8  8 } &
+    name { _isolate_frames_09 } mdiag { -isolate_frames  9  9 } &
+    name { _isolate_frames_10 } mdiag { -isolate_frames 10 10 } &
+    name { _isolate_frames_11 } mdiag { -isolate_frames 11 11 } &
+    name { _isolate_frames_12 } mdiag { -isolate_frames 12 12 } &
+    name { _isolate_frames_13 } mdiag { -isolate_frames 13 13 } &
+    name { _isolate_frames_14 } mdiag { -isolate_frames 14 14 } &
+    name { _isolate_frames_15 } mdiag { -isolate_frames 15 15 } &
+    name { _isolate_frames_16 } mdiag { -isolate_frames 16 16 } &
+    name { _isolate_frames_17 } mdiag { -isolate_frames 17 17 } &
+    name { _isolate_frames_18 } mdiag { -isolate_frames 18 18 } &
+    name { _isolate_frames_19 } mdiag { -isolate_frames 19 19 } &
+    name { _isolate_frames_20 } mdiag { -isolate_frames 20 20 } &
+    name { _isolate_frames_21 } mdiag { -isolate_frames 21 21 } &
+    name { _isolate_frames_22 } mdiag { -isolate_frames 22 22 } &
+    name { _isolate_frames_23 } mdiag { -isolate_frames 23 23 } &
+    name { _isolate_frames_24 } mdiag { -isolate_frames 24 24 } &
+    name { _isolate_frames_25 } mdiag { -isolate_frames 25 25 } &
+    name { _isolate_frames_26 } mdiag { -isolate_frames 26 26 } &
+    name { _isolate_frames_27 } mdiag { -isolate_frames 27 27 } &
+    name { _isolate_frames_28 } mdiag { -isolate_frames 28 28 } &
+    name { _isolate_frames_29 } mdiag { -isolate_frames 29 29 }
+  ];
+}

@@ -1,0 +1,66 @@
+/* _LWRM_COPYRIGHT_BEGIN_
+ *
+ * Copyright 2020 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * _LWRM_COPYRIGHT_END_
+ */
+
+#ifndef TESTVECTORECDSAP256SIGNINGATOMICPRIMITIVE_H
+#define TESTVECTORECDSAP256SIGNINGATOMICPRIMITIVE_H
+
+#include "ecdsa_atomic_primitive.h"
+
+#define SIZE_IN_BYTES_ECDSA_P256 32
+
+#if 1
+    /*
+        All values are in BIG ENDIAN.
+
+        --------------
+        Message input:
+        --------------
+        Message = "Hello"
+        MsgHash (SHA-256 HASH OF ABOVE MESSAGE) = 185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969
+        Tool used to get hash of hex message : https://emn178.github.io/online-tools/sha256.html
+
+        ----------
+        Key input:
+        ----------
+        d (PRIVATE KEY) = 519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464
+
+        Public key (not used for signing):
+        Qx (PUBLIC KEY X COORDINATE) = 1ccbe91c075fc7f4f033bfa248db8fccd3565de94bbfb12f3c59ff46c271bf83
+        Qy (PUBLIC KEY Y COORDINATE) = ce4014c68811f9a21a1fdb2c0e6113e06db7ca93b7404e78dc7ccd5ca89a4ca9
+    */
+
+    char*   message = "Hello";
+
+    uint8_t msgHash[SIZE_IN_BYTES_ECDSA_P256] = {
+        0x18, 0x5f, 0x8d, 0xb3, 0x22, 0x71, 0xfe, 0x25, 0xf5, 0x61, 0xa6, 0xfc, 0x93, 0x8b, 0x2e, 0x26,
+        0x43, 0x06, 0xec, 0x30, 0x4e, 0xda, 0x51, 0x80, 0x07, 0xd1, 0x76, 0x48, 0x26, 0x38, 0x19, 0x69,
+    };
+
+#ifdef TEST_KEY_INSERTION
+    uint8_t privateKey[SIZE_IN_BYTES_ECDSA_P256] = {
+        0x51, 0x9b, 0x42, 0x3d, 0x71, 0x5f, 0x8b, 0x58, 0x1f, 0x4f, 0xa8, 0xee, 0x59, 0xf4, 0x77, 0x1a,
+        0x5b, 0x44, 0xc8, 0x13, 0x0b, 0x4e, 0x3e, 0xac, 0xca, 0x54, 0xa5, 0x6d, 0xda, 0x72, 0xb4, 0x64,
+    };
+
+    uint8_t Qx[SIZE_IN_BYTES_ECDSA_P256] = {
+        0x1c, 0xcb, 0xe9, 0x1c, 0x07, 0x5f, 0xc7, 0xf4, 0xf0, 0x33, 0xbf, 0xa2, 0x48, 0xdb, 0x8f, 0xcc,
+        0xd3, 0x56, 0x5d, 0xe9, 0x4b, 0xbf, 0xb1, 0x2f, 0x3c, 0x59, 0xff, 0x46, 0xc2, 0x71, 0xbf, 0x83,
+    };
+
+    uint8_t Qy[SIZE_IN_BYTES_ECDSA_P256] = {
+        0xce, 0x40, 0x14, 0xc6, 0x88, 0x11, 0xf9, 0xa2, 0x1a, 0x1f, 0xdb, 0x2c, 0x0e, 0x61, 0x13, 0xe0,
+        0x6d, 0xb7, 0xca, 0x93, 0xb7, 0x40, 0x4e, 0x78, 0xdc, 0x7c, 0xcd, 0x5c, 0xa8, 0x9a, 0x4c, 0xa9,
+    };
+#endif
+#endif
+
+/* More test vectors can be added here if needed */
+
+#endif // TESTVECTORECDSAP256SIGNINGATOMICPRIMITIVE_H

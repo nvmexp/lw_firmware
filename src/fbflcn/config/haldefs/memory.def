@@ -1,0 +1,324 @@
+# -*- mode: perl; -*-
+
+# FBFALCON Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $memoryHal = [
+
+    # per-GPU defaults for FBFALCON for all interfaces below
+    DEFAULTS => [
+        FLAGS   => ":DIRECT_HAL_CALLS",
+    ],
+
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        START_FB => [
+            DESCRIPTION => "Fbfalcon chip specific code to do fb start/stop",
+            RETURN_TYPE => LwU32,
+            ARGUMENTS   => "PFLCN_TIMESTAMP pStartFbStopTimeNs",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("memory", "__FUNC__")',
+            FLAGS       => ":NO_STUB",
+
+            _TU10X      => [ TU10X_and_later ],
+            _GV100      => [ GV100 ],
+        ],
+
+        STOP_FB => [
+            DESCRIPTION => "Fbfalcon chip specific code to do fb start/stop",
+            RETURN_TYPE => void,
+            ARGUMENTS   => "LwU8 waitForDisplay, PFLCN_TIMESTAMP pStartFbStopTimeNs",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("memory", "__FUNC__")',
+            FLAGS       => ":NO_STUB",
+
+            _TU10X      => [ TU10X_and_later ],
+            _GV100      => [ GV100 ],          
+        ],
+
+        WAIT_FOR_DISPLAY_OK_TO_SWITCH => [
+            DESCRIPTION => "wait for display confirmation to assert fb_stop",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("memory", "__FUNC__")',
+            FLAGS       => ":NO_STUB",
+
+            _TU10X      => [ TU10X ],
+            _GV100      => [ GV100,],
+            _GA100      => [ GA100,],
+            _GA10X      => [ GA102_and_later, ],
+        ],
+                
+        WAIT_FOR_DISPLAY_OK_TO_SWITCH_VAL => [
+            DESCRIPTION => "wait for a specific level of the ok_to_switch signal",
+            RETURN_TYPE => void,
+            ARGUMENTS   => LwU8,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("memory", "__FUNC__")',
+
+			_STUB		=> [ pre_GA102, ],
+            _GA10X      => [ GA102_and_later, ],
+        ],
+        
+       MOVE_CMD_TRAINING_VALUES => [
+            DESCRIPTION => "move command training values (barrelshifter and interpolators) between fbpa and fbfalcon dmem",
+            RETURN_TYPE => void,
+            ARGUMENTS   => "LwU32* pBuffer, REGISTER_ACCESS_TYPE cmd",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+
+            _TU10X      => [ TU10X_and_later ],
+            _STUB       => [ pre_TU10X ],
+        ],
+
+        MOVE_VREF_DFE_TRAINING_VALUES => [
+            DESCRIPTION => "move vref_dfe registers between fbpa and fbfalcon dmem",
+            RETURN_TYPE => void,
+            ARGUMENTS   => "LwU32* pBuffer, REGISTER_ACCESS_TYPE cmd",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+
+            _GA10X      => [ GA10X_and_later ],
+            _STUB       => [ pre_GA10X ],
+        ],
+
+        MOVE_VREF_CODE_TRAINING_VALUES => [
+            DESCRIPTION => "move vref code register values between fbpa and fbfalcon dmem",
+            RETURN_TYPE => void,
+            ARGUMENTS   => "LwU32* pBuffer, REGISTER_ACCESS_TYPE cmd",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+
+            _GA10X      => [ GA10X_and_later ],
+            _TU10X      => [ TU10X ],
+            _STUB       => [ pre_TU10X ],
+        ],
+        
+        MOVE_VREF_TRACKING_SHADOW_VALUES => [
+            DESCRIPTION => "move vref tracking shadow values between fbpa and fbfalcon dmem",
+            RETURN_TYPE => void,
+            ARGUMENTS   => "LwU32* pBuffer, REGISTER_ACCESS_TYPE cmd",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+
+            _GA10X      => [ GA10X_and_later ],
+            _STUB       => [ pre_GA10X ],
+        ],      
+
+        MOVE_VREF_DFE_G6X_TRAINING_VALUES => [
+            DESCRIPTION => "move vref_dfe registers between fbpa and fbfalcon dmem",
+            RETURN_TYPE => void,
+            ARGUMENTS   => "LwU32* pBuffer, REGISTER_ACCESS_TYPE cmd",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+
+            _GA10X      => [ GA10X_and_later ],
+            _STUB       => [ pre_GA10X ],
+        ],     
+        
+        MOVE_3_REG_PER_BYTE_VALUES => [
+            DESCRIPTION => "move 3 regiter per byte for vref codes",
+            RETURN_TYPE => void,
+            ARGUMENTS   => "LwU32* buf, LwU32 startReg, REGISTER_ACCESS_TYPE cmd",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+
+            _TU10X      => [ TU10X_and_later ],
+            _STUB       => [ pre_TU10X ],
+        ], 
+        
+        PROGRAM_EDGE_OFFSET_BKV => [
+            DESCRIPTION => "program edge offset for bkv values",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+
+            _GA10X      => [ GA10X_and_later ],
+            _STUB       => [ pre_GA10X ],
+        ],       
+              
+        
+        GET_MRS_VALUE_HBM => [
+            DESCRIPTION => "get mrs values and reconfigure based on config paramters",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("memory", "__FUNC__")',
+          
+            _GV100      => [ GV100 ],
+            _GH100      => [ GH100_and_later ],
+            _GA100      => [ TU10X, GA100, GA10X, AD10X ],
+
+        ],
+        
+        ENABLE_SELF_REFRESH_HBM => [
+            DESCRIPTION => "enable self refresh for hbm",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("memory", "__FUNC__")',
+                    
+            _GV100      => [ GV100 ],
+            _GA100      => [ TU10X_and_later ],
+        ],
+        
+               
+        SET_DRAM_CLK_BYPASS_HBM => [
+            DESCRIPTION => "sets dram clk bypass for hbm",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("memory", "__FUNC__")',
+          
+            _GV100      => [ GV100 ],
+            _GA100      => [ TU10X_and_later ],
+        ],
+        
+         STOP_CLKEN_PADMACRO_HBM => [
+            DESCRIPTION => "stops clock enable padmacro for hbm",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("memory", "__FUNC__")',
+                   
+            _GV100      => [ GV100 ],
+            _GA100      => [ TU10X_and_later ],
+        ],
+        
+         SWITCH_PLL_HBM => [
+            DESCRIPTION => "switch pll for hbm based on paramters",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("memory", "__FUNC__")',
+         
+            _GV100      => [ GV100 ],
+            _GA100      => [ TU10X_and_later ],
+        ],
+        
+         START_CLKEN_PADMACRO_HBM => [
+            DESCRIPTION => "start clock enable padmacro for hbm",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("memory", "__FUNC__")',
+          
+            _GV100      => [ GV100 ],
+            _GA100      => [ TU10X_and_later ],
+        ],
+        
+         DISABLE_SELFREFRESH_HBM => [
+            DESCRIPTION => "disable selfrefresh for hbm",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void,
+ 
+            _GV100      => [ GV100 ],
+            _GA100      => [ TU10X_and_later ],
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("memory", "__FUNC__")',
+        ],
+        
+          SET_MRS_VALUES_HBM => [
+            DESCRIPTION => "set mrs values stored from get mrs value function for hbm",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("memory", "__FUNC__")',
+  
+            _GV100      => [ GV100 ],
+            _GH100      => [ GH100_and_later ],
+            _GA100      => [ TU10X, GA100, GA10X, AD10X ],
+        ],
+
+        SET_TRAINING_CONTROL_PRBS_MODE => [
+        	DESCRIPTION => "set prbs mode for training control",
+        	RETURN_TYPE => void,
+        	ARGUMENTS   => "LwU8 prbsMode",
+        	GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("memory", "__FUNC__")',
+        	
+        	_GA100      => [ GA100_and_later ],
+        	_TU10X      => [ TU10X ],
+        	_STUB       => [ GV100 ],
+        ],
+
+        SET_TRAINING_CONTROL_GDDR5_COMMANDS => [
+        	DESCRIPTION => "set gddr5 commadn for training control",
+        	RETURN_TYPE => void,
+        	ARGUMENTS   => "LwU8 gddr5Command",
+        	GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("memory", "__FUNC__")',
+        	
+        	_GA100      => [ GA100_and_later ],
+        	_TU10X      => [ TU10X ],
+        	_STUB       => [ GV100 ],
+        ],
+        
+        READ_SW_CONFIG => [
+         	DESCRIPTION => "read the sw config register in the fbpa and assign global control bit",
+        	RETURN_TYPE => void,
+        	ARGUMENTS   => "void",
+        	GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("init", "__FUNC__")',
+        	
+        	_GA10X      => [ GA102_and_later ],
+        	_STUB       => [ GV100, TU10X, GA100, pre_TU10X ],
+        ],
+
+        GET_BYTE_SWIZZLE => [
+         	DESCRIPTION => "get the byte swizzle for the selected partition",
+        	RETURN_TYPE => void,
+        	ARGUMENTS   => "LwU8 partition, LwU8* byteSwizzle",
+        	GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+        	
+        	_GA10X      => [ GA102_and_later ],
+        	_STUB       => [ GV100, TU10X, GA100, pre_TU10X ],
+        ],
+           
+           
+        GET_GPIO_INDEX_FOR_FBVDDQ => [
+         	DESCRIPTION => "get the io pin for the fbvddq gpio",
+        	RETURN_TYPE => LwU8,
+        	ARGUMENTS   => "void",
+        	GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+        	
+        	_GH100      => [ GH100_and_later ],
+        	_TU10X      => [ TU10X, GA10X, AD10X, ],
+        	_GV100      => [ GV100 ],
+        ], 
+        
+        GET_GPIO_INDEX_FOR_VREF => [
+            DESCRIPTION => "get the io pin for the vref gpio",
+            RETURN_TYPE => LwU8,
+            ARGUMENTS   => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("resident", "__FUNC__")',
+            
+            _GH100      => [ GH100_and_later ],
+            _TU10X      => [ TU10X, GA10X, AD10X, ],
+            _GV100      => [ GV100 ],
+        ], 
+
+        DECODE_I1500_STRAP => [
+            DESCRIPTION => "decode strap value from I1500 memory info",
+            RETURN_TYPE => LW_STATUS,
+            ARGUMENTS   => void, 
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("init", "__FUNC__")',
+            STUB_RETURNS => LW_ERR_NOT_SUPPORTED,
+        
+            _STUB       => [ pre_GH100, ],
+            _GH100      => [ GH100_and_later, ],
+        ],
+        
+        READ_I1500_DEVICE_ID => [
+            DESCRIPTION => "read and parse I1500 device id for HBM3",
+            RETURN_TYPE => LW_STATUS,
+            ARGUMENTS   => void, 
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("init", "__FUNC__")',
+            STUB_RETURNS => LW_ERR_NOT_SUPPORTED,
+        
+            _STUB       => [ pre_GH100, GH20X_and_later ],
+            _GH100      => [ GH100, ],
+        ],
+        
+        INIT_HBM_CHANNEL_CONFIG => [
+            DESCRIPTION => "setup channel config for HBM system",
+            RETURN_TYPE => void,
+            ARGUMENTS   => void, 
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("init", "__FUNC__")',
+        
+            _STUB       => [ pre_GH100, GH20X_and_later],
+            _GH100      => [ GH100, ],
+        ],
+       
+       
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $memoryHal;
+

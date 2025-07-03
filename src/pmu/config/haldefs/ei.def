@@ -1,0 +1,41 @@
+# -*- mode: perl; -*-
+
+# EI Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $eiHal = [
+
+    DEFAULTS => [
+        FLAGS          => ':DIRECT_HAL_CALLS',
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+    IDLE_MASK_INIT => [
+            DESCRIPTION    => "initializes the idle mask for EI",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _TU10X         => [ TURING, ],
+            _GA10X         => [ AMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB          => [ pre_TURING, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+    PASSIVE_IDLE_MASK_INIT => [
+            DESCRIPTION    => "initializes the idle mask for EI Passive",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_lpwrLoadin", "__FUNC__")',
+
+            _GA10X         => [ AMPERE_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ pre_AMPERE, GA100, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GH100, GB100, G00X, ],
+        ],
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $eiHal;

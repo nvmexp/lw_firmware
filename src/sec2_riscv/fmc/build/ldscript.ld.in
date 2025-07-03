@@ -1,0 +1,126 @@
+#include <liblwriscv/g_lwriscv_config.h>
+
+OUTPUT_ARCH( "riscv" )
+ENTRY(partition_dispatcher)
+
+imem_sk_size    = 4K;
+imem_shr_size   = 16K; // Shared code (mostly used by worklaunch)
+imem_wl_size    = 8K; // Worklaunch partition
+imem_rtos_size  = 10K; // RTOS trampoline
+
+dmem_sk_size    =  4K;
+dmem_shr_size   =  1K;
+dmem_wl_size    =  14K;
+dmem_rtos_size  =  10K;
+dmem_print_size =  2K;
+
+
+MEMORY {
+    // DO NOT REORDER THOSE REGIONS OR BAD THINGS WILL HAPPEN
+    imem_sk    (rx) : ORIGIN = 0x0000000000100000,                    LENGTH = imem_sk_size
+    imem_shr   (rx) : ORIGIN = ORIGIN(imem_sk)   + LENGTH(imem_sk),   LENGTH = imem_shr_size
+    imem_wl    (rx) : ORIGIN = ORIGIN(imem_shr)  + LENGTH(imem_shr),  LENGTH = imem_wl_size
+    imem_rtos  (rx) : ORIGIN = ORIGIN(imem_wl)   + LENGTH(imem_wl),   LENGTH = imem_rtos_size
+
+    dmem_sk    (rw) : ORIGIN = 0x0000000000180000,                    LENGTH = dmem_sk_size
+    dmem_shr   (rw) : ORIGIN = ORIGIN(dmem_sk)   + LENGTH(dmem_sk),   LENGTH = dmem_shr_size
+    dmem_wl    (rw) : ORIGIN = ORIGIN(dmem_shr)  + LENGTH(dmem_shr),  LENGTH = dmem_wl_size
+    dmem_rtos  (rw) : ORIGIN = ORIGIN(dmem_wl)   + LENGTH(dmem_wl),   LENGTH = dmem_rtos_size
+    dmem_print (rw) :  ORIGIN = ORIGIN(dmem_sk)   + LWRISCV_DMEM_SIZE - dmem_print_size, LENGTH = dmem_print_size
+
+    emem (rw) : ORIGIN = 0x0000000001200000, LENGTH = LWRISCV_EMEM_SIZE
+}
+
+ASSERT(ORIGIN(imem_rtos) + LENGTH(imem_rtos) <= 0x100000 + LWRISCV_IMEM_SIZE, "Run out of IMEM");
+ASSERT(ORIGIN(dmem_rtos) + LENGTH(dmem_rtos) <= ORIGIN(dmem_print), "Run out of DMEM");
+ASSERT(ORIGIN(dmem_print) + LENGTH(dmem_print) == 0x180000 + LWRISCV_DMEM_SIZE, "Print buffer is not at the end of DMEM");
+
+SECTIONS
+{
+  .partition_shared_code :
+  {
+      KEEP(*libpart_shared.a:(.text.partition_dispatcher))   // entry points
+      *libpart_shared.a:(.text.* .rodata* .srodata*)
+      *liblwriscv.a:(.text.* .rodata* .srodata*)
+      *libCCC.a:(.text.* .rodata* .srodata*)
+  } > imem_shr
+
+////////////////////////////////////////////////////////////////////////////////
+// Partition code
+////////////////////////////////////////////////////////////////////////////////
+
+.partition_wl_code :
+{
+    KEEP(*libpart_worklaunch.a:(.text.partition_wl_entry))
+    . = ALIGN(8);
+    KEEP(*libpart_worklaunch.a:(.text.partition_wl_trap_handler))
+    *libpart_worklaunch*.a:(.imem_acr* .text* .rodata* .srodata*)
+    . = ALIGN(0x100);
+} > imem_wl
+
+.partition_rtos_code :
+{
+    KEEP(*libpart_rtos.a:(.text.partition_rtos_entry))
+    . = ALIGN(8);
+    KEEP(*libpart_rtos.a:(.text.partition_rtos_trap_handler))
+    *libpart_rtos.a:(.text* .rodata* .srodata*)
+    . = ALIGN(0x100);
+} > imem_rtos
+
+PROVIDE(__fmc_imem_size = . - ORIGIN(imem_sk));
+
+////////////////////////////////////////////////////////////////////////////////
+// DATA
+////////////////////////////////////////////////////////////////////////////////
+
+  .partition_shared_data :
+  {
+    /* Put RPCs first, as we can't pass it easily to RTOS, it's easier this way.*/
+    *libpart_shared.a:(.rpc.request)
+    . = ALIGN(0x10);
+    *libpart_shared.a:(.rpc.reply)
+    . = ALIGN(0x10);
+    *libpart_shared.a:(.bss* .sbss*)
+    *liblwriscv.a:(.data* .sdata*)
+    *libCCC.a:(.data* .sdata*)
+    *libpart_shared.a:(.data* .sdata*)
+    *(.partition_shared_data* .partition_shared_data.*)
+    *liblwriscv.a:(.bss* .sbss*)
+    *libCCC.a:(.bss* .sbss*)
+    *libpart_shared.a:(.bss* .sbss*)
+    . = ALIGN(0x100);
+  } > dmem_shr
+
+  .partition_wl_data :
+  {
+    *libpart_worklaunch.a:(.dataEntry* .data* .sdata* .partition_context)
+    *libpart_worklaunch.a:(.bss* .sbss*)
+    . = ALIGN(0x10); // stack alignment
+    _partition_wl_stack_bottom = . ;
+    . += 4096 ;
+    _partition_wl_stack_top = . ;
+    . = ALIGN(0x100);
+  } > dmem_wl
+
+  .partition_rtos_data :
+  {
+    *libpart_rtos.a:(.data* .sdata* .partition_context)
+    *libpart_rtos.a:(.bss* .sbss*)
+    . = ALIGN(0x10); // stack alignment
+    _partition_rtos_stack_bottom = . ;
+    . += 512 ;
+    _partition_rtos_stack_top = . ;
+    . = ALIGN(0x100);
+  } > dmem_rtos
+
+  PROVIDE(__fmc_dmem_size = . - ORIGIN(dmem_sk));
+
+  .trap_COMMON :
+  {
+    *(COMMON)
+  }
+}
+
+// Sanity checks that we don't use sections we're not supposed to
+ASSERT(SIZEOF(.trap_COMMON) == 0,
+       "Unexpected data in COMMON section. Add -fno-common to CFLAGS.");

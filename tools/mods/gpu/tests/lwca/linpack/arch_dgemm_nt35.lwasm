@@ -1,0 +1,1568 @@
+.headerflags	@"EF_LWDA_TEXMODE_UNIFIED EF_LWDA_64BIT_ADDRESS EF_LWDA_SM35 EF_LWDA_PTX_SM(EF_LWDA_SM35) "
+// C prototype :
+// __global__ void dgemm_sm_heavy_ldg_nt(
+//                      void *Ptr_A, void *Ptr_B, void *Ptr_X, void *Ptr_C,
+//                      int StrideA, int StrideB, int StrideC,
+//                      int CountK,
+//                      double Alpha, double Beta)
+	.section       .text.dgemm_sm_heavy_ldg_nt,"ax",@progbits
+	.sectionflags	@"SHF_BARRIERS=1  "
+	.sectioninfo	@"SHI_REGISTERS=255  "
+	.align 4
+	.global        dgemm_sm_heavy_ldg_nt
+	.type          dgemm_sm_heavy_ldg_nt,@function
+	.size          dgemm_sm_heavy_ldg_nt,(NT_LDG_END - dgemm_sm_heavy_ldg_nt)
+	.other         dgemm_sm_heavy_ldg_nt,@"STO_LWDA_ENTRY "
+dgemm_sm_heavy_ldg_nt:
+      S2R         R227, SR33  (*"WAIT4"*);
+      S2R         R236, SR34  (*"WAIT1"*);
+      S2R         R240, SR37  (*"WAIT1"*);
+      S2R         R241, SR38  (*"WAIT14"*);
+      ISCADD      R192, R236, R227, 4  (*"WAIT1"*);
+      STS.128     [32768], RZ  (*"WAIT10"*);
+      ISETP.LT    P0, R192, 128  (*"WAIT1"*);
+      LDC.64      R200, c[0][0x148]  (*"WAIT12"*);
+(P0)  LDC.64      R200, c[0][0x140]  (*"WAIT1"*);
+      SEL         R238, R240, R241, P0  (*"WAIT1"*);
+      LOP.AND     R239, R192, 0x7f  (*"WAIT10"*);
+      ISCADD      R238, R238, R239, 7  (*"WAIT10"*);
+      ISCADD      R200.CC, R238, R200, 3  (*"WAIT13"*);
+      IADD.X      R201, R201, RZ  (*"WAIT1"*);
+      ISETP.NE    P1, RZ, c[0][0x180]  (*"WAIT1"*);
+      LDC.64      R246, c[0][0x170]  (*"WAIT4"*);
+      LDC.64      R248,  c[0][0x178]  (*"WAIT6"*);
+(P1)  LD.E.CG.64  R246, [R246]  (*"WAIT4"*);
+(P1)  LD.E.CG.64  R248, [R248]  (*"WAIT4"*);
+      MOV         R193, c[0][0x164]  (*"WAIT1_REORDER"*);
+(P0)  MOV         R193, c[0][0x160]  (*"WAIT10"*);
+      IADD        R194.CC, R200, R193  (*"WAIT13"*);
+      IADD.X      R195, R201, RZ  (*"WAIT1"*);
+      IADD        R208.CC, R194, R193  (*"WAIT13"*);
+      IADD.X      R209, R195, RZ  (*"WAIT1"*);
+      IADD        R202.CC, R208, R193  (*"WAIT13"*);
+      IADD.X      R203, R209, RZ  (*"WAIT1"*);
+      IADD        R216.CC, R202, R193  (*"WAIT13"*);
+      IADD.X      R217, R203, RZ  (*"WAIT1"*);
+      IADD        R210.CC, R216, R193  (*"WAIT13"*);
+      IADD.X      R211, R217, RZ  (*"WAIT1"*);
+      IADD        R224.CC, R210, R193  (*"WAIT13"*);
+      IADD.X      R225, R211, RZ  (*"WAIT1"*);
+      IADD        R218.CC, R224, R193  (*"WAIT13"*);
+      IADD.X      R219, R225, RZ  (*"WAIT1"*);
+      SHL         R193, R193, 3  (*"WAIT4"*);
+      SHL         R226, R192, 3  (*"WAIT4"*);
+      ISCADD      R244, R236, 0x400, 4  (*"WAIT4"*);
+      SHL         R242, R227, 4  (*"WAIT1"*);
+      MOV         R237, c[0][0x16c]  (*"WAIT10"*);
+      SHR         R237.CC, R237, 3  (*"WAIT13"*);
+      CSETP.EQU   P2, CC  (*"WAIT13"*);
+(P2)  BRA.U       CLEAR_C  (*"WAIT15"*);
+      ISETP.GE    P1, R236, 8  (*"WAIT1"*);
+      LDG.E.CG.64    R196, [R200]  (*"WAIT16"*);
+      LDG.E.CG.64    R198, [R194]  (*"WAIT16"*);
+      LDG.E.CG.64    R204, [R208]  (*"WAIT16"*);
+      LDG.E.CG.64    R206, [R202]  (*"WAIT16"*);
+      LDG.E.CG.64    R212, [R216]  (*"WAIT16"*);
+      LDG.E.CG.64    R214, [R210]  (*"WAIT16"*);
+      LDG.E.CG.64    R220, [R224]  (*"WAIT16"*);
+      LDG.E.CG.64    R222, [R218]  (*"WAIT16"*);
+      IADD   R200.CC, R200, R193  (*"WAIT13"*);
+      IADD.X R201, R201, RZ  (*"WAIT1"*);
+      IADD   R194.CC, R194, R193  (*"WAIT13"*);
+      IADD.X R195, R195, RZ  (*"WAIT1"*);
+      IADD   R208.CC, R208, R193  (*"WAIT13"*);
+      IADD.X R209, R209, RZ  (*"WAIT1"*);
+      IADD   R202.CC, R202, R193  (*"WAIT13"*);
+      IADD.X R203, R203, RZ  (*"WAIT1"*);
+      IADD   R216.CC, R216, R193  (*"WAIT13"*);
+      IADD.X R217, R217, RZ  (*"WAIT1"*);
+      IADD   R210.CC, R210, R193  (*"WAIT13"*);
+      IADD.X R211, R211, RZ  (*"WAIT1"*);
+      IADD   R224.CC, R224, R193  (*"WAIT13"*);
+      IADD.X R225, R225, RZ  (*"WAIT1"*);
+      IADD   R218.CC, R218, R193  (*"WAIT13"*);
+      IADD.X R219, R219, RZ  (*"WAIT1"*);
+CLEAR_C:
+      LDS.U.128 R0, [32768]  (*"WAIT4"*);
+      LDS.U.128 R4, [32768]  (*"WAIT4"*);
+      LDS.U.128 R8, [32768]  (*"WAIT4"*);
+      LDS.U.128 R12, [32768]  (*"WAIT4"*);
+      LDS.U.128 R16, [32768]  (*"WAIT4"*);
+      LDS.U.128 R20, [32768]  (*"WAIT4"*);
+      LDS.U.128 R24, [32768]  (*"WAIT4"*);
+      LDS.U.128 R28, [32768]  (*"WAIT4"*);
+      LDS.U.128 R32, [32768]  (*"WAIT4"*);
+      LDS.U.128 R36, [32768]  (*"WAIT4"*);
+      LDS.U.128 R40, [32768]  (*"WAIT4"*);
+      LDS.U.128 R44, [32768]  (*"WAIT4"*);
+      LDS.U.128 R48, [32768]  (*"WAIT4"*);
+      LDS.U.128 R52, [32768]  (*"WAIT4"*);
+      LDS.U.128 R56, [32768]  (*"WAIT4"*);
+      LDS.U.128 R60, [32768]  (*"WAIT4"*);
+      LDS.U.128 R64, [32768]  (*"WAIT4"*);
+      LDS.U.128 R68, [32768]  (*"WAIT4"*);
+      LDS.U.128 R72, [32768]  (*"WAIT4"*);
+      LDS.U.128 R76, [32768]  (*"WAIT4"*);
+      LDS.U.128 R80, [32768]  (*"WAIT4"*);
+      LDS.U.128 R84, [32768]  (*"WAIT4"*);
+      LDS.U.128 R88, [32768]  (*"WAIT4"*);
+      LDS.U.128 R92, [32768]  (*"WAIT4"*);
+      LDS.U.128 R96, [32768]  (*"WAIT4"*);
+      LDS.U.128 R100, [32768]  (*"WAIT4"*);
+      LDS.U.128 R104, [32768]  (*"WAIT4"*);
+      LDS.U.128 R108, [32768]  (*"WAIT4"*);
+      LDS.U.128 R112, [32768]  (*"WAIT4"*);
+      LDS.U.128 R116, [32768]  (*"WAIT4"*);
+      LDS.U.128 R120, [32768]  (*"WAIT4"*);
+      LDS.U.128 R124, [32768]  (*"WAIT4"*);
+(P2)  BRA.U EOL  (*"WAIT15"*);
+      TEXDEPBAR 0  (*"WAIT1"*);
+      STS.64 [R226 + 0], R196  (*"WAIT4_FULL_REORDER"*);
+      STS.64 [R226 + 2048], R198  (*"WAIT4_FULL_REORDER"*);
+      STS.64 [R226 + 4096], R204  (*"WAIT4_FULL_REORDER"*);
+      STS.64 [R226 + 6144], R206  (*"WAIT4_FULL_REORDER"*);
+      STS.64 [R226 + 8192], R212  (*"WAIT4_FULL_REORDER"*);
+      STS.64 [R226 + 10240], R214  (*"WAIT4_FULL_REORDER"*);
+      STS.64 [R226 + 12288], R220  (*"WAIT4_FULL_REORDER"*);
+      STS.64 [R226 + 14336], R222  (*"WAIT4_FULL_REORDER"*);
+      BAR.SYNC  0  (*"WAIT9"*);
+      LOP.XOR   R226, R226, 0x4000  (*"WAIT1"*);
+      LDS.U.128 R128, [R242 + 0x0]  (*"WAIT3"*);
+      LDS.U.128 R132, [R244 + 0x0]  (*"WAIT3"*);
+      LDS.U.128 R136, [R242 + 0x100]  (*"WAIT3"*);
+      LDS.U.128 R140, [R244 + 0x100]  (*"WAIT3"*);
+      LDS.U.128 R144, [R242 + 0x200]  (*"WAIT3"*);
+      LDS.U.128 R148, [R244 + 0x200]  (*"WAIT3"*);
+      LDS.U.128 R152, [R242 + 0x300]  (*"WAIT3"*);
+      LDS.U.128 R156, [R244 + 0x300]  (*"WAIT3"*);
+      PSETP.OR P0, PT, PT  (*"WAIT1"*);
+      NOP  (*"PAIR"*);
+      NOP  (*"WAIT1"*);
+      NOP  (*"PAIR"*);
+      NOP  (*"WAIT1"*);
+      NOP  (*"WAIT1"*);
+LOOP:
+(P0)  NOP.TRIG 1  (*"HOLD_IFB"*);
+(P0)  DFMA R2, R128, R132, R2  (*"HOLD_IFB"*);
+(P0)  DFMA R0, R130, R132, R0  (*"HOLD_IFB"*);
+(P0)  DFMA R34, R136, R132, R34  (*"HOLD_IFB"*);
+(P0)  DFMA R32, R138, R132, R32  (*"HOLD_IFB"*);
+(P0)  DFMA R66, R144, R132, R66  (*"HOLD_IFB"*);
+(!P0) BRA.U EOL  (*"WAIT1"*);
+// dfmaK = 0.0, ldsK = -0.1, prefetchK = 0
+      NOP  (*"PAIR"*);
+      DFMA R104, R154, R134, R104  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R164, [R244 + 0x800]  (*"PAIR"*);
+      DFMA R106, R152, R134, R106  (*"HOLD_IFB_REORDER"*);
+      DFMA R72, R146, R134, R72  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R172, [R244 + 0x900]  (*"PAIR"*);
+      DFMA R74, R144, R134, R74  (*"WAIT2_REORDER"*);
+
+// dfmaK = 0.0, ldsK = -0.1, prefetchK = 0
+      NOP  (*"PAIR"*);
+      DFMA R40, R138, R134, R40  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R180, [R244 + 0xa00]  (*"PAIR"*);
+      DFMA R42, R136, R134, R42  (*"HOLD_IFB_REORDER"*);
+      DFMA R8, R130, R134, R8  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R188, [R244 + 0xb00]  (*"PAIR"*);
+      DFMA R10, R128, R134, R10  (*"WAIT2_REORDER"*);
+
+// dfmaK = 0.0, ldsK = 0.4, prefetchK = 0
+      DFMA R64, R146, R132, R64  (*"HOLD_IFB"*);
+      DFMA R98, R152, R132, R98  (*"HOLD_IFB"*);
+      DFMA R18, R128, R140, R18  (*"HOLD_IFB"*);
+      DFMA R16, R130, R140, R16  (*"HOLD_IFB"*);
+      IADD32I   R237, R237, -1  (*"PAIR"*);
+      DFMA R50, R136, R140, R50  (*"HOLD_IFB"*);
+      DFMA R48, R138, R140, R48  (*"WAIT2"*);
+
+// dfmaK = 0.0, ldsK = 0.4, prefetchK = 0
+      DFMA R96, R154, R132, R96  (*"HOLD_IFB"*);
+      DFMA R120, R154, R142, R120  (*"HOLD_IFB"*);
+      DFMA R82, R144, R140, R82  (*"HOLD_IFB"*);
+      DFMA R80, R146, R140, R80  (*"HOLD_IFB"*);
+      ISETP.NE  P0, R237, 0  (*"PAIR"*);
+      DFMA R114, R152, R140, R114  (*"HOLD_IFB"*);
+      DFMA R112, R154, R140, R112  (*"WAIT2"*);
+
+// dfmaK = 0.0, ldsK = 0.4, prefetchK = 0.5
+      DFMA R122, R152, R142, R122  (*"HOLD_IFB_REORDER"*);
+      DFMA R88, R146, R142, R88  (*"HOLD_IFB_REORDER"*);
+      DFMA R90, R144, R142, R90  (*"HOLD_IFB_REORDER"*);
+      DFMA R56, R138, R142, R56  (*"HOLD_IFB_REORDER"*);
+      DFMA R58, R136, R142, R58  (*"HOLD_IFB_REORDER"*);
+      DFMA R24, R130, R142, R24  (*"HOLD_IFB_REORDER"*);
+      DFMA R26, R128, R142, R26  (*"WAIT2_REORDER"*);
+
+// dfmaK = 0.5, ldsK = 0.4, prefetchK = 0.5
+      NOP  (*"PAIR"*);
+      DFMA R6, R128, R148, R6  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R160, [R242 + 0x800]  (*"PAIR"*);
+      DFMA R4, R128, R150, R4  (*"HOLD_IFB_REORDER"*);
+      DFMA R14, R128, R156, R14  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R168, [R242 + 0x900]  (*"PAIR"*);
+      DFMA R12, R128, R158, R12  (*"WAIT2_REORDER"*);
+
+// dfmaK = 0.5, ldsK = 0.4, prefetchK = 0.5
+      NOP  (*"PAIR"*);
+      DFMA R28, R130, R158, R28  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R176, [R242 + 0xa00]  (*"PAIR"*);
+      DFMA R30, R130, R156, R30  (*"HOLD_IFB_REORDER"*);
+      DFMA R20, R130, R150, R20  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R184, [R242 + 0xb00]  (*"PAIR"*);
+      DFMA R22, R130, R148, R22  (*"WAIT2_REORDER"*);
+
+// dfmaK = 0.5, ldsK = 0.9, prefetchK = 0.5
+(P0)  LDG.E.CG.64  R196, [R200]  (*"HOLD_IFB"*);
+      DFMA R38, R136, R148, R38  (*"HOLD_IFB_REORDER"*);
+      DFMA R36, R136, R150, R36  (*"HOLD_IFB_REORDER"*);
+      DFMA R46, R136, R156, R46  (*"HOLD_IFB_REORDER"*);
+      DFMA R44, R136, R158, R44  (*"HOLD_IFB_REORDER"*);
+      DFMA R60, R138, R158, R60  (*"HOLD_IFB_REORDER"*);
+      DFMA R62, R138, R156, R62  (*"WAIT2_REORDER"*);
+
+// dfmaK = 0.5, ldsK = 0.9, prefetchK = 0.5
+(P0)  LDG.E.CG.64  R198, [R194]  (*"HOLD_IFB"*);
+      DFMA R52, R138, R150, R52  (*"HOLD_IFB_REORDER"*);
+      DFMA R54, R138, R148, R54  (*"HOLD_IFB_REORDER"*);
+      DFMA R70, R144, R148, R70  (*"HOLD_IFB_REORDER"*);
+      DFMA R68, R144, R150, R68  (*"HOLD_IFB_REORDER"*);
+      DFMA R78, R144, R156, R78  (*"HOLD_IFB_REORDER"*);
+      DFMA R76, R144, R158, R76  (*"WAIT2_REORDER"*);
+
+// dfmaK = 0.5, ldsK = 0.9, prefetchK = 0.5
+(P0)  LDG.E.CG.64  R204, [R208]  (*"HOLD_IFB"*);
+      DFMA R92, R146, R158, R92  (*"HOLD_IFB_REORDER"*);
+      DFMA R94, R146, R156, R94  (*"HOLD_IFB_REORDER"*);
+      DFMA R84, R146, R150, R84  (*"HOLD_IFB_REORDER"*);
+      DFMA R86, R146, R148, R86  (*"HOLD_IFB_REORDER"*);
+      DFMA R102, R152, R148, R102  (*"HOLD_IFB_REORDER"*);
+      DFMA R100, R152, R150, R100  (*"WAIT2_REORDER"*);
+
+// dfmaK = 0.5, ldsK = 0.9, prefetchK = 0.5
+(P0)  LDG.E.CG.64  R206, [R202]  (*"HOLD_IFB"*);
+      DFMA R110, R152, R156, R110  (*"HOLD_IFB_REORDER"*);
+      DFMA R108, R152, R158, R108  (*"HOLD_IFB_REORDER"*);
+      DFMA R124, R154, R158, R124  (*"HOLD_IFB_REORDER"*);
+      DFMA R126, R154, R156, R126  (*"HOLD_IFB_REORDER"*);
+      DFMA R116, R154, R150, R116  (*"HOLD_IFB_REORDER"*);
+      DFMA R118, R154, R148, R118  (*"WAIT2_REORDER"*);
+
+// dfmaK = 1.0, ldsK = 0.9, prefetchK = 1.0
+      NOP  (*"PAIR"*);
+      DFMA R2, R160, R164, R2  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R132, [R244 + 0x1000]  (*"PAIR"*);
+      DFMA R0, R162, R164, R0  (*"HOLD_IFB_REORDER"*);
+      DFMA R34, R168, R164, R34  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R140, [R244 + 0x1100]  (*"PAIR"*);
+      DFMA R32, R170, R164, R32  (*"WAIT2_REORDER"*);
+
+// dfmaK = 1.0, ldsK = 0.9, prefetchK = 1.0
+      NOP  (*"PAIR"*);
+      DFMA R66, R176, R164, R66  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R148, [R244 + 0x1200]  (*"PAIR"*);
+      DFMA R64, R178, R164, R64  (*"HOLD_IFB_REORDER"*);
+      DFMA R98, R184, R164, R98  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R156, [R244 + 0x1300]  (*"PAIR"*);
+      DFMA R96, R186, R164, R96  (*"WAIT2_REORDER"*);
+
+// dfmaK = 1.0, ldsK = 1.4, prefetchK = 1.0
+(P0)  LDG.E.CG.64  R212, [R216]  (*"HOLD_IFB"*);
+      DFMA R104, R186, R166, R104  (*"HOLD_IFB_REORDER"*);
+      DFMA R106, R184, R166, R106  (*"HOLD_IFB_REORDER"*);
+      DFMA R72, R178, R166, R72  (*"HOLD_IFB_REORDER"*);
+      DFMA R74, R176, R166, R74  (*"HOLD_IFB_REORDER"*);
+      DFMA R40, R170, R166, R40  (*"HOLD_IFB_REORDER"*);
+      DFMA R42, R168, R166, R42  (*"WAIT2_REORDER"*);
+
+// dfmaK = 1.0, ldsK = 1.4, prefetchK = 1.0
+(P0)  LDG.E.CG.64  R214, [R210]  (*"HOLD_IFB"*);
+      DFMA R8, R162, R166, R8  (*"HOLD_IFB_REORDER"*);
+      DFMA R10, R160, R166, R10  (*"HOLD_IFB_REORDER"*);
+      DFMA R18, R160, R172, R18  (*"HOLD_IFB_REORDER"*);
+      DFMA R16, R162, R172, R16  (*"HOLD_IFB_REORDER"*);
+      DFMA R50, R168, R172, R50  (*"HOLD_IFB_REORDER"*);
+      DFMA R48, R170, R172, R48  (*"WAIT2_REORDER"*);
+
+// dfmaK = 1.0, ldsK = 1.4, prefetchK = 1.0
+(P0)  LDG.E.CG.64  R220, [R224]  (*"HOLD_IFB"*);
+      DFMA R82, R176, R172, R82  (*"HOLD_IFB_REORDER"*);
+      DFMA R80, R178, R172, R80  (*"HOLD_IFB_REORDER"*);
+      DFMA R114, R184, R172, R114  (*"HOLD_IFB_REORDER"*);
+      DFMA R112, R186, R172, R112  (*"HOLD_IFB_REORDER"*);
+      DFMA R120, R186, R174, R120  (*"HOLD_IFB_REORDER"*);
+      DFMA R122, R184, R174, R122  (*"WAIT2_REORDER"*);
+
+// dfmaK = 1.0, ldsK = 1.4, prefetchK = 1.0
+(P0)  LDG.E.CG.64  R222, [R218]  (*"HOLD_IFB"*);
+      DFMA R88, R178, R174, R88  (*"HOLD_IFB_REORDER"*);
+      DFMA R90, R176, R174, R90  (*"HOLD_IFB_REORDER"*);
+      DFMA R56, R170, R174, R56  (*"HOLD_IFB_REORDER"*);
+      DFMA R58, R168, R174, R58  (*"HOLD_IFB_REORDER"*);
+      DFMA R24, R162, R174, R24  (*"HOLD_IFB_REORDER"*);
+      DFMA R26, R160, R174, R26  (*"WAIT2_REORDER"*);
+
+// dfmaK = 1.5, ldsK = 1.4, prefetchK = 2.5
+      NOP  (*"PAIR"*);
+      DFMA R6, R160, R180, R6  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R128, [R242 + 0x1000]  (*"PAIR"*);
+      DFMA R4, R160, R182, R4  (*"HOLD_IFB_REORDER"*);
+      DFMA R14, R160, R188, R14  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R136, [R242 + 0x1100]  (*"PAIR"*);
+      DFMA R12, R160, R190, R12  (*"WAIT2_REORDER"*);
+
+// dfmaK = 1.5, ldsK = 1.4, prefetchK = 2.5
+      NOP  (*"PAIR"*);
+      DFMA R28, R162, R190, R28  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R144, [R242 + 0x1200]  (*"PAIR"*);
+      DFMA R30, R162, R188, R30  (*"HOLD_IFB_REORDER"*);
+      DFMA R20, R162, R182, R20  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R152, [R242 + 0x1300]  (*"PAIR"*);
+      DFMA R22, R162, R180, R22  (*"WAIT2_REORDER"*);
+
+// dfmaK = 1.5, ldsK = 1.9, prefetchK = 2.5
+      DFMA R38, R168, R180, R38  (*"HOLD_IFB_REORDER"*);
+      DFMA R36, R168, R182, R36  (*"HOLD_IFB_REORDER"*);
+      DFMA R46, R168, R188, R46  (*"HOLD_IFB_REORDER"*);
+      DFMA R44, R168, R190, R44  (*"HOLD_IFB_REORDER"*);
+      DFMA R60, R170, R190, R60  (*"HOLD_IFB_REORDER"*);
+      DFMA R62, R170, R188, R62  (*"HOLD_IFB_REORDER"*);
+      DFMA R52, R170, R182, R52  (*"WAIT2_REORDER"*);
+
+// dfmaK = 1.5, ldsK = 1.9, prefetchK = 2.5
+      DFMA R54, R170, R180, R54  (*"HOLD_IFB_REORDER"*);
+      DFMA R70, R176, R180, R70  (*"HOLD_IFB_REORDER"*);
+      DFMA R68, R176, R182, R68  (*"HOLD_IFB_REORDER"*);
+      DFMA R78, R176, R188, R78  (*"HOLD_IFB_REORDER"*);
+      DFMA R76, R176, R190, R76  (*"HOLD_IFB_REORDER"*);
+      DFMA R92, R178, R190, R92  (*"HOLD_IFB_REORDER"*);
+      DFMA R94, R178, R188, R94  (*"WAIT2_REORDER"*);
+
+// dfmaK = 1.5, ldsK = 1.9, prefetchK = 2.5
+      DFMA R84, R178, R182, R84  (*"HOLD_IFB_REORDER"*);
+      DFMA R86, R178, R180, R86  (*"HOLD_IFB_REORDER"*);
+      DFMA R102, R184, R180, R102  (*"HOLD_IFB_REORDER"*);
+      DFMA R100, R184, R182, R100  (*"HOLD_IFB_REORDER"*);
+      DFMA R110, R184, R188, R110  (*"HOLD_IFB_REORDER"*);
+      DFMA R108, R184, R190, R108  (*"HOLD_IFB_REORDER"*);
+      DFMA R124, R186, R190, R124  (*"WAIT2_REORDER"*);
+
+// dfmaK = 1.5, ldsK = 1.9, prefetchK = 2.5
+      DFMA R126, R186, R188, R126  (*"HOLD_IFB_REORDER"*);
+      DFMA R116, R186, R182, R116  (*"HOLD_IFB_REORDER"*);
+      DFMA R118, R186, R180, R118  (*"HOLD_IFB_REORDER"*);
+      DFMA R2, R128, R132, R2  (*"HOLD_IFB_REORDER"*);
+      DFMA R0, R130, R132, R0  (*"HOLD_IFB_REORDER"*);
+      DFMA R34, R136, R132, R34  (*"HOLD_IFB_REORDER"*);
+      DFMA R32, R138, R132, R32  (*"WAIT2_REORDER"*);
+
+// dfmaK = 2.0, ldsK = 1.9, prefetchK = 2.5
+      NOP  (*"PAIR"*);
+      DFMA R66, R144, R132, R66  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R164, [R244 + 0x1800]  (*"PAIR"*);
+      DFMA R64, R146, R132, R64  (*"HOLD_IFB_REORDER"*);
+      DFMA R98, R152, R132, R98  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R172, [R244 + 0x1900]  (*"PAIR"*);
+      DFMA R96, R154, R132, R96  (*"WAIT2_REORDER"*);
+
+// dfmaK = 2.0, ldsK = 1.9, prefetchK = 2.5
+      NOP  (*"PAIR"*);
+      DFMA R104, R154, R134, R104  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R180, [R244 + 0x1a00]  (*"PAIR"*);
+      DFMA R106, R152, R134, R106  (*"HOLD_IFB_REORDER"*);
+      DFMA R72, R146, R134, R72  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R188, [R244 + 0x1b00]  (*"PAIR"*);
+      DFMA R74, R144, R134, R74  (*"WAIT2_REORDER"*);
+
+// dfmaK = 2.0, ldsK = 2.4, prefetchK = 2.5
+      DFMA R40, R138, R134, R40  (*"HOLD_IFB_REORDER"*);
+      DFMA R42, R136, R134, R42  (*"HOLD_IFB_REORDER"*);
+      DFMA R8, R130, R134, R8  (*"HOLD_IFB_REORDER"*);
+      DFMA R10, R128, R134, R10  (*"HOLD_IFB_REORDER"*);
+      DFMA R18, R128, R140, R18  (*"HOLD_IFB_REORDER"*);
+      DFMA R16, R130, R140, R16  (*"HOLD_IFB_REORDER"*);
+      DFMA R50, R136, R140, R50  (*"WAIT2_REORDER"*);
+
+// dfmaK = 2.0, ldsK = 2.4, prefetchK = 2.5
+      DFMA R48, R138, R140, R48  (*"HOLD_IFB_REORDER"*);
+      DFMA R82, R144, R140, R82  (*"HOLD_IFB_REORDER"*);
+      DFMA R80, R146, R140, R80  (*"HOLD_IFB_REORDER"*);
+      DFMA R114, R152, R140, R114  (*"HOLD_IFB_REORDER"*);
+      DFMA R112, R154, R140, R112  (*"HOLD_IFB_REORDER"*);
+      DFMA R120, R154, R142, R120  (*"HOLD_IFB_REORDER"*);
+      DFMA R122, R152, R142, R122  (*"WAIT2_REORDER"*);
+
+// dfmaK = 2.0, ldsK = 2.4, prefetchK = 2.5
+      DFMA R88, R146, R142, R88  (*"HOLD_IFB_REORDER"*);
+      DFMA R90, R144, R142, R90  (*"HOLD_IFB_REORDER"*);
+      DFMA R56, R138, R142, R56  (*"HOLD_IFB_REORDER"*);
+      DFMA R58, R136, R142, R58  (*"HOLD_IFB_REORDER"*);
+      DFMA R24, R130, R142, R24  (*"HOLD_IFB_REORDER"*);
+      DFMA R26, R128, R142, R26  (*"HOLD_IFB_REORDER"*);
+      DFMA R6, R128, R148, R6  (*"WAIT2_REORDER"*);
+
+// dfmaK = 2.5, ldsK = 2.4, prefetchK = 2.5
+      NOP  (*"PAIR"*);
+      DFMA R28, R130, R158, R28  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R160, [R242 + 0x1800]  (*"PAIR"*);
+      DFMA R30, R130, R156, R30  (*"HOLD_IFB_REORDER"*);
+      DFMA R20, R130, R150, R20  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R168, [R242 + 0x1900]  (*"PAIR"*);
+      DFMA R22, R130, R148, R22  (*"WAIT2_REORDER"*);
+
+// dfmaK = 2.5, ldsK = 2.4, prefetchK = 2.5
+      NOP  (*"PAIR"*);
+      DFMA R38, R136, R148, R38  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R176, [R242 + 0x1a00]  (*"PAIR"*);
+      DFMA R36, R136, R150, R36  (*"HOLD_IFB_REORDER"*);
+      DFMA R46, R136, R156, R46  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R184, [R242 + 0x1b00]  (*"PAIR"*);
+      DFMA R44, R136, R158, R44  (*"WAIT2_REORDER"*);
+
+// dfmaK = 2.5, ldsK = 2.9, prefetchK = 2.5
+      DFMA R4, R128, R150, R4  (*"HOLD_IFB"*);
+      DFMA R14, R128, R156, R14  (*"HOLD_IFB"*);
+      DFMA R60, R138, R158, R60  (*"HOLD_IFB"*);
+      DFMA R62, R138, R156, R62  (*"HOLD_IFB"*);
+      IADD      R200.CC, R200, R193  (*"PAIR"*);
+      DFMA R52, R138, R150, R52  (*"HOLD_IFB"*);
+      DFMA R54, R138, R148, R54  (*"WAIT2"*);
+
+// dfmaK = 2.5, ldsK = 2.9, prefetchK = 2.5
+      DFMA R12, R128, R158, R12  (*"HOLD_IFB"*);
+      DFMA R92, R146, R158, R92  (*"HOLD_IFB"*);
+      DFMA R70, R144, R148, R70  (*"HOLD_IFB"*);
+      DFMA R68, R144, R150, R68  (*"HOLD_IFB"*);
+      IADD.X    R201, R201, RZ  (*"PAIR"*);
+      DFMA R78, R144, R156, R78  (*"HOLD_IFB"*);
+      DFMA R76, R144, R158, R76  (*"WAIT2"*);
+
+// dfmaK = 2.5, ldsK = 2.9, prefetchK = 2.5
+      DFMA R94, R146, R156, R94  (*"HOLD_IFB"*);
+      DFMA R84, R146, R150, R84  (*"HOLD_IFB"*);
+      DFMA R102, R152, R148, R102  (*"HOLD_IFB"*);
+      DFMA R100, R152, R150, R100  (*"HOLD_IFB"*);
+      IADD      R194.CC, R194, R193  (*"PAIR"*);
+      DFMA R110, R152, R156, R110  (*"HOLD_IFB"*);
+      DFMA R108, R152, R158, R108  (*"WAIT2"*);
+
+// dfmaK = 2.5, ldsK = 2.9, prefetchK = 2.5
+      DFMA R86, R146, R148, R86  (*"HOLD_IFB"*);
+      DFMA R2, R160, R164, R2  (*"HOLD_IFB"*);
+      DFMA R124, R154, R158, R124  (*"HOLD_IFB"*);
+      DFMA R126, R154, R156, R126  (*"HOLD_IFB"*);
+      IADD.X    R195, R195, RZ  (*"PAIR"*);
+      DFMA R116, R154, R150, R116  (*"HOLD_IFB"*);
+      DFMA R118, R154, R148, R118  (*"WAIT2"*);
+
+// dfmaK = 3.0, ldsK = 2.9, prefetchK = 3.5
+      NOP  (*"PAIR"*);
+      DFMA R0, R162, R164, R0  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R132, [R244 + 0x2000]  (*"PAIR"*);
+      DFMA R34, R168, R164, R34  (*"HOLD_IFB_REORDER"*);
+      DFMA R32, R170, R164, R32  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R140, [R244 + 0x2100]  (*"PAIR"*);
+      DFMA R66, R176, R164, R66  (*"WAIT2_REORDER"*);
+
+// dfmaK = 3.0, ldsK = 2.9, prefetchK = 3.5
+      NOP  (*"PAIR"*);
+      DFMA R104, R186, R166, R104  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R148, [R244 + 0x2200]  (*"PAIR"*);
+      DFMA R106, R184, R166, R106  (*"HOLD_IFB_REORDER"*);
+      DFMA R72, R178, R166, R72  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R156, [R244 + 0x2300]  (*"PAIR"*);
+      DFMA R74, R176, R166, R74  (*"WAIT2_REORDER"*);
+
+// dfmaK = 3.0, ldsK = 3.4, prefetchK = 3.5
+      DFMA R64, R178, R164, R64  (*"HOLD_IFB_REORDER"*);
+      DFMA R98, R184, R164, R98  (*"HOLD_IFB_REORDER"*);
+      DFMA R96, R186, R164, R96  (*"HOLD_IFB_REORDER"*);
+      DFMA R40, R170, R166, R40  (*"HOLD_IFB_REORDER"*);
+      DFMA R42, R168, R166, R42  (*"HOLD_IFB_REORDER"*);
+      DFMA R8, R162, R166, R8  (*"HOLD_IFB_REORDER"*);
+      DFMA R10, R160, R166, R10  (*"WAIT2_REORDER"*);
+
+// dfmaK = 3.0, ldsK = 3.4, prefetchK = 3.5
+      DFMA R18, R160, R172, R18  (*"HOLD_IFB_REORDER"*);
+      DFMA R16, R162, R172, R16  (*"HOLD_IFB_REORDER"*);
+      DFMA R50, R168, R172, R50  (*"HOLD_IFB_REORDER"*);
+      DFMA R48, R170, R172, R48  (*"HOLD_IFB_REORDER"*);
+      DFMA R82, R176, R172, R82  (*"HOLD_IFB_REORDER"*);
+      DFMA R80, R178, R172, R80  (*"HOLD_IFB_REORDER"*);
+      DFMA R114, R184, R172, R114  (*"WAIT2_REORDER"*);
+
+// dfmaK = 3.0, ldsK = 3.4, prefetchK = 3.5
+      DFMA R112, R186, R172, R112  (*"HOLD_IFB_REORDER"*);
+      DFMA R120, R186, R174, R120  (*"HOLD_IFB_REORDER"*);
+      DFMA R122, R184, R174, R122  (*"HOLD_IFB_REORDER"*);
+      DFMA R88, R178, R174, R88  (*"HOLD_IFB_REORDER"*);
+      DFMA R90, R176, R174, R90  (*"HOLD_IFB_REORDER"*);
+      DFMA R56, R170, R174, R56  (*"HOLD_IFB_REORDER"*);
+      DFMA R58, R168, R174, R58  (*"WAIT2_REORDER"*);
+
+// dfmaK = 3.0, ldsK = 3.4, prefetchK = 3.5
+      DFMA R24, R162, R174, R24  (*"HOLD_IFB_REORDER"*);
+      DFMA R26, R160, R174, R26  (*"HOLD_IFB_REORDER"*);
+      DFMA R6, R160, R180, R6  (*"HOLD_IFB_REORDER"*);
+      DFMA R4, R160, R182, R4  (*"HOLD_IFB_REORDER"*);
+      DFMA R14, R160, R188, R14  (*"HOLD_IFB_REORDER"*);
+      DFMA R12, R160, R190, R12  (*"HOLD_IFB_REORDER"*);
+      DFMA R28, R162, R190, R28  (*"WAIT2_REORDER"*);
+
+// dfmaK = 3.5, ldsK = 3.4, prefetchK = 3.5
+      NOP  (*"PAIR"*);
+      DFMA R38, R168, R180, R38  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R128, [R242 + 0x2000]  (*"PAIR"*);
+      DFMA R36, R168, R182, R36  (*"HOLD_IFB_REORDER"*);
+      DFMA R46, R168, R188, R46  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R136, [R242 + 0x2100]  (*"PAIR"*);
+      DFMA R44, R168, R190, R44  (*"WAIT2_REORDER"*);
+
+// dfmaK = 3.5, ldsK = 3.4, prefetchK = 3.5
+      NOP  (*"PAIR"*);
+      DFMA R60, R170, R190, R60  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R144, [R242 + 0x2200]  (*"PAIR"*);
+      DFMA R62, R170, R188, R62  (*"HOLD_IFB_REORDER"*);
+      DFMA R52, R170, R182, R52  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R152, [R242 + 0x2300]  (*"PAIR"*);
+      DFMA R54, R170, R180, R54  (*"WAIT2_REORDER"*);
+
+// dfmaK = 3.5, ldsK = 3.9, prefetchK = 3.5
+      DFMA R30, R162, R188, R30  (*"HOLD_IFB"*);
+      DFMA R20, R162, R182, R20  (*"HOLD_IFB"*);
+      DFMA R70, R176, R180, R70  (*"HOLD_IFB"*);
+      DFMA R68, R176, R182, R68  (*"HOLD_IFB"*);
+      IADD      R208.CC, R208, R193  (*"PAIR"*);
+      DFMA R78, R176, R188, R78  (*"HOLD_IFB"*);
+      DFMA R76, R176, R190, R76  (*"WAIT2"*);
+
+// dfmaK = 3.5, ldsK = 3.9, prefetchK = 3.5
+      DFMA R22, R162, R180, R22  (*"HOLD_IFB"*);
+      DFMA R102, R184, R180, R102  (*"HOLD_IFB"*);
+      DFMA R92, R178, R190, R92  (*"HOLD_IFB"*);
+      DFMA R94, R178, R188, R94  (*"HOLD_IFB"*);
+      IADD.X    R209, R209, RZ  (*"PAIR"*);
+      DFMA R84, R178, R182, R84  (*"HOLD_IFB"*);
+      DFMA R86, R178, R180, R86  (*"WAIT2"*);
+
+// dfmaK = 3.5, ldsK = 3.9, prefetchK = 3.5
+      DFMA R100, R184, R182, R100  (*"HOLD_IFB"*);
+      DFMA R110, R184, R188, R110  (*"HOLD_IFB"*);
+      DFMA R124, R186, R190, R124  (*"HOLD_IFB"*);
+      DFMA R126, R186, R188, R126  (*"HOLD_IFB"*);
+      IADD      R202.CC, R202, R193  (*"PAIR"*);
+      DFMA R116, R186, R182, R116  (*"HOLD_IFB"*);
+      DFMA R118, R186, R180, R118  (*"WAIT2"*);
+
+// dfmaK = 3.5, ldsK = 3.9, prefetchK = 3.5
+      DFMA R108, R184, R190, R108  (*"HOLD_IFB"*);
+      DFMA R66, R144, R132, R66  (*"HOLD_IFB"*);
+      DFMA R2, R128, R132, R2  (*"HOLD_IFB"*);
+      DFMA R0, R130, R132, R0  (*"HOLD_IFB"*);
+      IADD.X    R203, R203, RZ  (*"PAIR"*);
+      DFMA R34, R136, R132, R34  (*"HOLD_IFB"*);
+      DFMA R32, R138, R132, R32  (*"WAIT2"*);
+
+// dfmaK = 4.0, ldsK = 3.9, prefetchK = 4.5
+      NOP  (*"PAIR"*);
+      DFMA R104, R154, R134, R104  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R164, [R244 + 0x2800]  (*"PAIR"*);
+      DFMA R106, R152, R134, R106  (*"HOLD_IFB_REORDER"*);
+      DFMA R72, R146, R134, R72  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R172, [R244 + 0x2900]  (*"PAIR"*);
+      DFMA R74, R144, R134, R74  (*"WAIT2_REORDER"*);
+
+// dfmaK = 4.0, ldsK = 3.9, prefetchK = 4.5
+      NOP  (*"PAIR"*);
+      DFMA R40, R138, R134, R40  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R180, [R244 + 0x2a00]  (*"PAIR"*);
+      DFMA R42, R136, R134, R42  (*"HOLD_IFB_REORDER"*);
+      DFMA R8, R130, R134, R8  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R188, [R244 + 0x2b00]  (*"PAIR"*);
+      DFMA R10, R128, R134, R10  (*"WAIT2_REORDER"*);
+
+// dfmaK = 4.0, ldsK = 4.4, prefetchK = 4.5
+      DFMA R64, R146, R132, R64  (*"HOLD_IFB_REORDER"*);
+      DFMA R98, R152, R132, R98  (*"HOLD_IFB_REORDER"*);
+      DFMA R96, R154, R132, R96  (*"HOLD_IFB_REORDER"*);
+      DFMA R18, R128, R140, R18  (*"HOLD_IFB_REORDER"*);
+      DFMA R16, R130, R140, R16  (*"HOLD_IFB_REORDER"*);
+      DFMA R50, R136, R140, R50  (*"HOLD_IFB_REORDER"*);
+      DFMA R48, R138, R140, R48  (*"WAIT2_REORDER"*);
+
+// dfmaK = 4.0, ldsK = 4.4, prefetchK = 4.5
+      DFMA R82, R144, R140, R82  (*"HOLD_IFB_REORDER"*);
+      DFMA R80, R146, R140, R80  (*"HOLD_IFB_REORDER"*);
+      DFMA R114, R152, R140, R114  (*"HOLD_IFB_REORDER"*);
+      DFMA R112, R154, R140, R112  (*"HOLD_IFB_REORDER"*);
+      DFMA R120, R154, R142, R120  (*"HOLD_IFB_REORDER"*);
+      DFMA R122, R152, R142, R122  (*"HOLD_IFB_REORDER"*);
+      DFMA R88, R146, R142, R88  (*"WAIT2_REORDER"*);
+
+// dfmaK = 4.0, ldsK = 4.4, prefetchK = 4.5
+      DFMA R90, R144, R142, R90  (*"HOLD_IFB_REORDER"*);
+      DFMA R56, R138, R142, R56  (*"HOLD_IFB_REORDER"*);
+      DFMA R58, R136, R142, R58  (*"HOLD_IFB_REORDER"*);
+      DFMA R24, R130, R142, R24  (*"HOLD_IFB_REORDER"*);
+      DFMA R26, R128, R142, R26  (*"HOLD_IFB_REORDER"*);
+      DFMA R6, R128, R148, R6  (*"HOLD_IFB_REORDER"*);
+      DFMA R4, R128, R150, R4  (*"WAIT2_REORDER"*);
+
+// dfmaK = 4.5, ldsK = 4.4, prefetchK = 4.5
+      NOP  (*"PAIR"*);
+      DFMA R28, R130, R158, R28  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R160, [R242 + 0x2800]  (*"PAIR"*);
+      DFMA R30, R130, R156, R30  (*"HOLD_IFB_REORDER"*);
+      DFMA R20, R130, R150, R20  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R168, [R242 + 0x2900]  (*"PAIR"*);
+      DFMA R22, R130, R148, R22  (*"WAIT2_REORDER"*);
+
+// dfmaK = 4.5, ldsK = 4.4, prefetchK = 4.5
+      NOP  (*"PAIR"*);
+      DFMA R38, R136, R148, R38  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R176, [R242 + 0x2a00]  (*"PAIR"*);
+      DFMA R36, R136, R150, R36  (*"HOLD_IFB_REORDER"*);
+      DFMA R46, R136, R156, R46  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R184, [R242 + 0x2b00]  (*"PAIR"*);
+      DFMA R44, R136, R158, R44  (*"WAIT2_REORDER"*);
+
+// dfmaK = 4.5, ldsK = 4.9, prefetchK = 4.5
+      DFMA R14, R128, R156, R14  (*"HOLD_IFB"*);
+      DFMA R12, R128, R158, R12  (*"HOLD_IFB"*);
+      DFMA R60, R138, R158, R60  (*"HOLD_IFB"*);
+      DFMA R62, R138, R156, R62  (*"HOLD_IFB"*);
+      IADD      R216.CC, R216, R193  (*"PAIR"*);
+      DFMA R52, R138, R150, R52  (*"HOLD_IFB"*);
+      DFMA R54, R138, R148, R54  (*"WAIT2"*);
+
+// dfmaK = 4.5, ldsK = 4.9, prefetchK = 4.5
+      DFMA R92, R146, R158, R92  (*"HOLD_IFB"*);
+      DFMA R94, R146, R156, R94  (*"HOLD_IFB"*);
+      DFMA R70, R144, R148, R70  (*"HOLD_IFB"*);
+      DFMA R68, R144, R150, R68  (*"HOLD_IFB"*);
+      IADD.X    R217, R217, RZ  (*"PAIR"*);
+      DFMA R78, R144, R156, R78  (*"HOLD_IFB"*);
+      DFMA R76, R144, R158, R76  (*"WAIT2"*);
+
+// dfmaK = 4.5, ldsK = 4.9, prefetchK = 4.5
+      DFMA R84, R146, R150, R84  (*"HOLD_IFB"*);
+      DFMA R86, R146, R148, R86  (*"HOLD_IFB"*);
+      DFMA R102, R152, R148, R102  (*"HOLD_IFB"*);
+      DFMA R100, R152, R150, R100  (*"HOLD_IFB"*);
+      IADD      R210.CC, R210, R193  (*"PAIR"*);
+      DFMA R110, R152, R156, R110  (*"HOLD_IFB"*);
+      DFMA R108, R152, R158, R108  (*"WAIT2"*);
+
+// dfmaK = 4.5, ldsK = 4.9, prefetchK = 4.5
+      DFMA R2, R160, R164, R2  (*"HOLD_IFB"*);
+      DFMA R0, R162, R164, R0  (*"HOLD_IFB"*);
+      DFMA R124, R154, R158, R124  (*"HOLD_IFB"*);
+      DFMA R126, R154, R156, R126  (*"HOLD_IFB"*);
+      IADD.X    R211, R211, RZ  (*"PAIR"*);
+      DFMA R116, R154, R150, R116  (*"HOLD_IFB"*);
+      DFMA R118, R154, R148, R118  (*"WAIT2"*);
+
+// dfmaK = 5.0, ldsK = 4.9, prefetchK = 5.5
+      NOP  (*"PAIR"*);
+      DFMA R34, R168, R164, R34  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R132, [R244 + 0x3000]  (*"PAIR"*);
+      DFMA R32, R170, R164, R32  (*"HOLD_IFB_REORDER"*);
+      DFMA R66, R176, R164, R66  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R140, [R244 + 0x3100]  (*"PAIR"*);
+      DFMA R64, R178, R164, R64  (*"WAIT2_REORDER"*);
+
+// dfmaK = 5.0, ldsK = 4.9, prefetchK = 5.5
+      NOP  (*"PAIR"*);
+      DFMA R104, R186, R166, R104  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R148, [R244 + 0x3200]  (*"PAIR"*);
+      DFMA R106, R184, R166, R106  (*"HOLD_IFB_REORDER"*);
+      DFMA R72, R178, R166, R72  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R156, [R244 + 0x3300]  (*"PAIR"*);
+      DFMA R74, R176, R166, R74  (*"WAIT2_REORDER"*);
+
+// dfmaK = 5.0, ldsK = 5.4, prefetchK = 5.5
+      DFMA R98, R184, R164, R98  (*"HOLD_IFB_REORDER"*);
+      DFMA R96, R186, R164, R96  (*"HOLD_IFB_REORDER"*);
+      DFMA R40, R170, R166, R40  (*"HOLD_IFB_REORDER"*);
+      DFMA R42, R168, R166, R42  (*"HOLD_IFB_REORDER"*);
+      DFMA R8, R162, R166, R8  (*"HOLD_IFB_REORDER"*);
+      DFMA R10, R160, R166, R10  (*"HOLD_IFB_REORDER"*);
+      DFMA R18, R160, R172, R18  (*"WAIT2_REORDER"*);
+
+// dfmaK = 5.0, ldsK = 5.4, prefetchK = 5.5
+      DFMA R16, R162, R172, R16  (*"HOLD_IFB_REORDER"*);
+      DFMA R50, R168, R172, R50  (*"HOLD_IFB_REORDER"*);
+      DFMA R48, R170, R172, R48  (*"HOLD_IFB_REORDER"*);
+      DFMA R82, R176, R172, R82  (*"HOLD_IFB_REORDER"*);
+      DFMA R80, R178, R172, R80  (*"HOLD_IFB_REORDER"*);
+      DFMA R114, R184, R172, R114  (*"HOLD_IFB_REORDER"*);
+      DFMA R112, R186, R172, R112  (*"WAIT2_REORDER"*);
+
+// dfmaK = 5.0, ldsK = 5.4, prefetchK = 5.5
+      DFMA R120, R186, R174, R120  (*"HOLD_IFB_REORDER"*);
+      DFMA R122, R184, R174, R122  (*"HOLD_IFB_REORDER"*);
+      DFMA R88, R178, R174, R88  (*"HOLD_IFB_REORDER"*);
+      DFMA R90, R176, R174, R90  (*"HOLD_IFB_REORDER"*);
+      DFMA R56, R170, R174, R56  (*"HOLD_IFB_REORDER"*);
+      DFMA R58, R168, R174, R58  (*"HOLD_IFB_REORDER"*);
+      DFMA R24, R162, R174, R24  (*"WAIT2_REORDER"*);
+
+// dfmaK = 5.0, ldsK = 5.4, prefetchK = 5.5
+      DFMA R26, R160, R174, R26  (*"HOLD_IFB_REORDER"*);
+      DFMA R6, R160, R180, R6  (*"HOLD_IFB_REORDER"*);
+      DFMA R4, R160, R182, R4  (*"HOLD_IFB_REORDER"*);
+      DFMA R14, R160, R188, R14  (*"HOLD_IFB_REORDER"*);
+      DFMA R12, R160, R190, R12  (*"HOLD_IFB_REORDER"*);
+      DFMA R28, R162, R190, R28  (*"HOLD_IFB_REORDER"*);
+      DFMA R30, R162, R188, R30  (*"WAIT2_REORDER"*);
+
+// dfmaK = 5.5, ldsK = 5.4, prefetchK = 5.5
+      NOP  (*"PAIR"*);
+      DFMA R38, R168, R180, R38  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R128, [R242 + 0x3000]  (*"PAIR"*);
+      DFMA R36, R168, R182, R36  (*"HOLD_IFB_REORDER"*);
+      DFMA R46, R168, R188, R46  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R136, [R242 + 0x3100]  (*"PAIR"*);
+      DFMA R44, R168, R190, R44  (*"WAIT2_REORDER"*);
+
+// dfmaK = 5.5, ldsK = 5.4, prefetchK = 5.5
+      NOP  (*"PAIR"*);
+      DFMA R60, R170, R190, R60  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R144, [R242 + 0x3200]  (*"PAIR"*);
+      DFMA R62, R170, R188, R62  (*"HOLD_IFB_REORDER"*);
+      DFMA R52, R170, R182, R52  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R152, [R242 + 0x3300]  (*"PAIR"*);
+      DFMA R54, R170, R180, R54  (*"WAIT2_REORDER"*);
+
+// dfmaK = 5.5, ldsK = 5.9, prefetchK = 5.5
+      DFMA R20, R162, R182, R20  (*"HOLD_IFB"*);
+      DFMA R22, R162, R180, R22  (*"HOLD_IFB"*);
+      DFMA R70, R176, R180, R70  (*"HOLD_IFB"*);
+      DFMA R68, R176, R182, R68  (*"HOLD_IFB"*);
+      IADD      R224.CC, R224, R193  (*"PAIR"*);
+      DFMA R78, R176, R188, R78  (*"HOLD_IFB"*);
+      DFMA R76, R176, R190, R76  (*"WAIT2"*);
+
+// dfmaK = 5.5, ldsK = 5.9, prefetchK = 5.5
+      DFMA R102, R184, R180, R102  (*"HOLD_IFB"*);
+      DFMA R100, R184, R182, R100  (*"HOLD_IFB"*);
+      DFMA R92, R178, R190, R92  (*"HOLD_IFB"*);
+      DFMA R94, R178, R188, R94  (*"HOLD_IFB"*);
+      IADD.X    R225, R225, RZ  (*"PAIR"*);
+      DFMA R84, R178, R182, R84  (*"HOLD_IFB"*);
+      DFMA R86, R178, R180, R86  (*"WAIT2"*);
+
+// dfmaK = 5.5, ldsK = 5.9, prefetchK = 5.5
+      DFMA R110, R184, R188, R110  (*"HOLD_IFB"*);
+      DFMA R108, R184, R190, R108  (*"HOLD_IFB"*);
+      DFMA R124, R186, R190, R124  (*"HOLD_IFB"*);
+      DFMA R126, R186, R188, R126  (*"HOLD_IFB"*);
+      IADD      R218.CC, R218, R193  (*"PAIR"*);
+      DFMA R116, R186, R182, R116  (*"HOLD_IFB"*);
+      DFMA R118, R186, R180, R118  (*"WAIT2"*);
+
+// dfmaK = 6.0, ldsK = 5.9, prefetchK = 5.5
+      DFMA R66, R144, R132, R66  (*"HOLD_IFB"*);
+      DFMA R64, R146, R132, R64  (*"HOLD_IFB"*);
+      DFMA R2, R128, R132, R2  (*"HOLD_IFB"*);
+      DFMA R0, R130, R132, R0  (*"HOLD_IFB"*);
+      IADD.X    R219, R219, RZ  (*"PAIR"*);
+      DFMA R34, R136, R132, R34  (*"HOLD_IFB"*);
+      DFMA R32, R138, R132, R32  (*"WAIT2"*);
+
+// dfmaK = 6.0, ldsK = 5.9, prefetchK = 5.5
+      DFMA R98, R152, R132, R98  (*"HOLD_IFB_REORDER"*);
+      DFMA R96, R154, R132, R96  (*"HOLD_IFB_REORDER"*);
+      DFMA R104, R154, R134, R104  (*"HOLD_IFB_REORDER"*);
+      DFMA R106, R152, R134, R106  (*"HOLD_IFB_REORDER"*);
+      DFMA R72, R146, R134, R72  (*"HOLD_IFB_REORDER"*);
+      DFMA R74, R144, R134, R74  (*"HOLD_IFB_REORDER"*);
+      TEXDEPBAR 0  (*"WAIT2"*);
+
+// dfmaK = 6.0, ldsK = 5.9, prefetchK = 5.5
+(P0)  STS.64    [R226 + 0x0], R196  (*"HOLD_IFB_FULL_REORDER"*);
+      DFMA R40, R138, R134, R40  (*"HOLD_IFB_REORDER"*);
+      DFMA R42, R136, R134, R42  (*"HOLD_IFB_REORDER"*);
+      DFMA R8, R130, R134, R8  (*"HOLD_IFB_REORDER"*);
+(P0)  STS.64    [R226 + 0x800], R198  (*"HOLD_IFB_FULL_REORDER"*);
+      DFMA R10, R128, R134, R10  (*"HOLD_IFB_REORDER"*);
+      DFMA R18, R128, R140, R18  (*"WAIT2_REORDER"*);
+
+// dfmaK = 6.0, ldsK = 5.9, prefetchK = 5.5
+(P0)  STS.64    [R226 + 0x1000], R204  (*"HOLD_IFB_FULL_REORDER"*);
+      DFMA R16, R130, R140, R16  (*"HOLD_IFB_REORDER"*);
+      DFMA R50, R136, R140, R50  (*"HOLD_IFB_REORDER"*);
+      DFMA R48, R138, R140, R48  (*"HOLD_IFB_REORDER"*);
+(P0)  STS.64    [R226 + 0x1800], R206  (*"HOLD_IFB_FULL_REORDER"*);
+      DFMA R82, R144, R140, R82  (*"HOLD_IFB_REORDER"*);
+      DFMA R80, R146, R140, R80  (*"WAIT2_REORDER"*);
+
+// dfmaK = 6.0, ldsK = 5.9, prefetchK = 6.5
+      NOP  (*"PAIR"*);
+      DFMA R120, R154, R142, R120  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R164, [R244 + 0x3800]  (*"PAIR"*);
+      DFMA R122, R152, R142, R122  (*"HOLD_IFB_REORDER"*);
+      DFMA R88, R146, R142, R88  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R172, [R244 + 0x3900]  (*"PAIR"*);
+      DFMA R90, R144, R142, R90  (*"WAIT2_REORDER"*);
+
+// dfmaK = 6.0, ldsK = 5.9, prefetchK = 6.5
+      NOP  (*"PAIR"*);
+      DFMA R56, R138, R142, R56  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R180, [R244 + 0x3a00]  (*"PAIR"*);
+      DFMA R58, R136, R142, R58  (*"HOLD_IFB_REORDER"*);
+      DFMA R24, R130, R142, R24  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R188, [R244 + 0x3b00]  (*"PAIR"*);
+      DFMA R26, R128, R142, R26  (*"WAIT2_REORDER"*);
+
+// dfmaK = 6.0, ldsK = 6.4, prefetchK = 6.5
+      DFMA R114, R152, R140, R114  (*"HOLD_IFB_REORDER"*);
+      DFMA R112, R154, R140, R112  (*"HOLD_IFB_REORDER"*);
+      DFMA R6, R128, R148, R6  (*"HOLD_IFB_REORDER"*);
+      DFMA R4, R128, R150, R4  (*"HOLD_IFB_REORDER"*);
+      DFMA R14, R128, R156, R14  (*"HOLD_IFB_REORDER"*);
+      DFMA R12, R128, R158, R12  (*"HOLD_IFB_REORDER"*);
+      DFMA R28, R130, R158, R28  (*"WAIT2_REORDER"*);
+
+// dfmaK = 6.5, ldsK = 6.4, prefetchK = 6.5
+      NOP  (*"PAIR"*);
+      DFMA R38, R136, R148, R38  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R160, [R242 + 0x3800]  (*"PAIR"*);
+      DFMA R36, R136, R150, R36  (*"HOLD_IFB_REORDER"*);
+      DFMA R46, R136, R156, R46  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R168, [R242 + 0x3900]  (*"PAIR"*);
+      DFMA R44, R136, R158, R44  (*"WAIT2_REORDER"*);
+
+// dfmaK = 6.5, ldsK = 6.4, prefetchK = 6.5
+      NOP  (*"PAIR"*);
+      DFMA R60, R138, R158, R60  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R176, [R242 + 0x3a00]  (*"PAIR"*);
+      DFMA R62, R138, R156, R62  (*"HOLD_IFB_REORDER"*);
+      DFMA R52, R138, R150, R52  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R184, [R242 + 0x3b00]  (*"PAIR"*);
+      DFMA R54, R138, R148, R54  (*"WAIT2_REORDER"*);
+
+// dfmaK = 6.5, ldsK = 6, prefetchK = 6.5
+      NOP  (*"PAIR"*);
+      DFMA R70, R144, R148, R70  (*"HOLD_IFB_REORDER"*);
+      LOP.XOR   R242, R242, 0x4000  (*"PAIR"*);
+      DFMA R68, R144, R150, R68  (*"HOLD_IFB_REORDER"*);
+      DFMA R78, R144, R156, R78  (*"HOLD_IFB_REORDER"*);
+      LOP.XOR   R244, R244, 0x4000  (*"PAIR"*);
+      DFMA R76, R144, R158, R76  (*"WAIT2_REORDER"*);
+
+// dfmaK = 6.5, ldsK = 6.9, prefetchK = 6.5
+(P0)  STS.64    [R226 + 0x2000], R212  (*"HOLD_IFB_FULL_REORDER"*);
+      DFMA R30, R130, R156, R30  (*"HOLD_IFB_REORDER"*);
+      DFMA R20, R130, R150, R20  (*"HOLD_IFB_REORDER"*);
+      DFMA R22, R130, R148, R22  (*"HOLD_IFB_REORDER"*);
+(P0)  STS.64    [R226 + 0x2800], R214  (*"HOLD_IFB_FULL_REORDER"*);
+      DFMA R92, R146, R158, R92  (*"HOLD_IFB_REORDER"*);
+      DFMA R94, R146, R156, R94  (*"WAIT2_REORDER"*);
+
+// dfmaK = 6.5, ldsK = 6.9, prefetchK = 6.5
+(P0)  STS.64    [R226 + 0x3000], R220  (*"HOLD_IFB_FULL_REORDER"*);
+      DFMA R84, R146, R150, R84  (*"HOLD_IFB_REORDER"*);
+      DFMA R86, R146, R148, R86  (*"HOLD_IFB_REORDER"*);
+      DFMA R102, R152, R148, R102  (*"HOLD_IFB_REORDER"*);
+(P0)  STS.64    [R226 + 0x3800], R222  (*"HOLD_IFB_FULL_REORDER"*);
+      DFMA R100, R152, R150, R100  (*"HOLD_IFB_REORDER"*);
+      DFMA R110, R152, R156, R110  (*"WAIT2_REORDER"*);
+
+// dfmaK = 6.5, ldsK = 6.9, prefetchK = 6
+      DFMA R108, R152, R158, R108  (*"HOLD_IFB_REORDER"*);
+      DFMA R124, R154, R158, R124  (*"HOLD_IFB_REORDER"*);
+      DFMA R126, R154, R156, R126  (*"HOLD_IFB_REORDER"*);
+      DFMA R116, R154, R150, R116  (*"HOLD_IFB_REORDER"*);
+      DFMA R118, R154, R148, R118  (*"HOLD_IFB_REORDER"*);
+      DFMA R2, R160, R164, R2  (*"HOLD_IFB_REORDER"*);
+      BAR.SYNC  0  (*"WAIT2"*);
+
+// dfmaK = 7.0, ldsK = 6.9, prefetchK = 7.5
+      NOP  (*"PAIR"*);
+      DFMA R0, R162, R164, R0  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R132, [R244 + 0x0]  (*"PAIR"*);
+      DFMA R34, R168, R164, R34  (*"HOLD_IFB_REORDER"*);
+      DFMA R32, R170, R164, R32  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R140, [R244 + 0x100]  (*"PAIR"*);
+      DFMA R66, R176, R164, R66  (*"WAIT2_REORDER"*);
+
+// dfmaK = 7.0, ldsK = 6.9, prefetchK = 7.5
+      NOP  (*"PAIR"*);
+      DFMA R104, R186, R166, R104  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R148, [R244 + 0x200]  (*"PAIR"*);
+      DFMA R106, R184, R166, R106  (*"HOLD_IFB_REORDER"*);
+      DFMA R72, R178, R166, R72  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R156, [R244 + 0x300]  (*"PAIR"*);
+      DFMA R74, R176, R166, R74  (*"WAIT2_REORDER"*);
+
+// dfmaK = 7.0, ldsK = 7.4, prefetchK = 7.5
+      DFMA R64, R178, R164, R64  (*"HOLD_IFB_REORDER"*);
+      DFMA R98, R184, R164, R98  (*"HOLD_IFB_REORDER"*);
+      DFMA R96, R186, R164, R96  (*"HOLD_IFB_REORDER"*);
+      DFMA R40, R170, R166, R40  (*"HOLD_IFB_REORDER"*);
+      DFMA R42, R168, R166, R42  (*"HOLD_IFB_REORDER"*);
+      DFMA R8, R162, R166, R8  (*"HOLD_IFB_REORDER"*);
+      DFMA R10, R160, R166, R10  (*"WAIT2_REORDER"*);
+
+// dfmaK = 7.0, ldsK = 7.4, prefetchK = 7.5
+      DFMA R18, R160, R172, R18  (*"HOLD_IFB_REORDER"*);
+      DFMA R16, R162, R172, R16  (*"HOLD_IFB_REORDER"*);
+      DFMA R50, R168, R172, R50  (*"HOLD_IFB_REORDER"*);
+      DFMA R48, R170, R172, R48  (*"HOLD_IFB_REORDER"*);
+      DFMA R82, R176, R172, R82  (*"HOLD_IFB_REORDER"*);
+      DFMA R80, R178, R172, R80  (*"HOLD_IFB_REORDER"*);
+      DFMA R114, R184, R172, R114  (*"WAIT2_REORDER"*);
+
+// dfmaK = 7.0, ldsK = 7.4, prefetchK = 7.5
+      DFMA R112, R186, R172, R112  (*"HOLD_IFB_REORDER"*);
+      DFMA R120, R186, R174, R120  (*"HOLD_IFB_REORDER"*);
+      DFMA R122, R184, R174, R122  (*"HOLD_IFB_REORDER"*);
+      DFMA R88, R178, R174, R88  (*"HOLD_IFB_REORDER"*);
+      DFMA R90, R176, R174, R90  (*"HOLD_IFB_REORDER"*);
+      DFMA R56, R170, R174, R56  (*"HOLD_IFB_REORDER"*);
+      DFMA R58, R168, R174, R58  (*"WAIT2_REORDER"*);
+
+// dfmaK = 7.0, ldsK = 7.4, prefetchK = 7.5
+      DFMA R24, R162, R174, R24  (*"HOLD_IFB_REORDER"*);
+      DFMA R26, R160, R174, R26  (*"HOLD_IFB_REORDER"*);
+      DFMA R6, R160, R180, R6  (*"HOLD_IFB_REORDER"*);
+      DFMA R4, R160, R182, R4  (*"HOLD_IFB_REORDER"*);
+      DFMA R14, R160, R188, R14  (*"HOLD_IFB_REORDER"*);
+      DFMA R12, R160, R190, R12  (*"HOLD_IFB_REORDER"*);
+      DFMA R28, R162, R190, R28  (*"WAIT2_REORDER"*);
+
+// dfmaK = 7.5, ldsK = 7.4, prefetchK = 7.5
+      NOP  (*"PAIR"*);
+      DFMA R38, R168, R180, R38  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R128, [R242 + 0x0]  (*"PAIR"*);
+      DFMA R36, R168, R182, R36  (*"HOLD_IFB_REORDER"*);
+      DFMA R46, R168, R188, R46  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R136, [R242 + 0x100]  (*"PAIR"*);
+      DFMA R44, R168, R190, R44  (*"WAIT2_REORDER"*);
+
+// dfmaK = 7.5, ldsK = 7.4, prefetchK = 7.5
+      NOP  (*"PAIR"*);
+      DFMA R60, R170, R190, R60  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R144, [R242 + 0x200]  (*"PAIR"*);
+      DFMA R62, R170, R188, R62  (*"HOLD_IFB_REORDER"*);
+      DFMA R52, R170, R182, R52  (*"HOLD_IFB_REORDER"*);
+      LDS.U.128 R152, [R242 + 0x300]  (*"PAIR"*);
+      DFMA R54, R170, R180, R54  (*"WAIT2_REORDER"*);
+
+// dfmaK = 7.5, ldsK = 8.5, prefetchK = 7.5
+      DFMA R30, R162, R188, R30  (*"HOLD_IFB"*);
+      DFMA R20, R162, R182, R20  (*"HOLD_IFB"*);
+      DFMA R70, R176, R180, R70  (*"HOLD_IFB"*);
+      DFMA R68, R176, R182, R68  (*"HOLD_IFB"*);
+      LOP.XOR   R226, R226, 0x4000  (*"PAIR"*);
+      DFMA R78, R176, R188, R78  (*"HOLD_IFB"*);
+      DFMA R76, R176, R190, R76  (*"WAIT2"*);
+
+// dfmaK = 7.5, ldsK = 8.5, prefetchK = 8.5
+      DFMA R22, R162, R180, R22  (*"HOLD_IFB_REORDER"*);
+      DFMA R92, R178, R190, R92  (*"HOLD_IFB_REORDER"*);
+      DFMA R94, R178, R188, R94  (*"HOLD_IFB_REORDER"*);
+      DFMA R84, R178, R182, R84  (*"HOLD_IFB_REORDER"*);
+      DFMA R86, R178, R180, R86  (*"HOLD_IFB_REORDER"*);
+      DFMA R102, R184, R180, R102  (*"HOLD_IFB_REORDER"*);
+      DFMA R100, R184, R182, R100  (*"WAIT2_REORDER"*);
+
+// dfmaK = 7.5, ldsK = 8.5, prefetchK = 8.5
+      DFMA R110, R184, R188, R110  (*"HOLD_IFB_REORDER"*);
+      DFMA R108, R184, R190, R108  (*"HOLD_IFB_REORDER"*);
+      DFMA R124, R186, R190, R124  (*"HOLD_IFB_REORDER"*);
+      DFMA R126, R186, R188, R126  (*"HOLD_IFB_REORDER"*);
+      DFMA R116, R186, R182, R116  (*"HOLD_IFB_REORDER"*);
+      DFMA R118, R186, R180, R118  (*"HOLD_IFB_REORDER"*);
+
+      BRA.U       LOOP  (*"WAIT1"*);
+EOL:
+      NOP.TRIG    2  (*"WAIT1"*);
+      MOV         R237, c[0][0x16c]  (*"WAIT10"*);
+      LOP.AND     R237.CC, R237, 7  (*"WAIT10"*);
+      CSETP.EQU   P2, CC  (*"WAIT13"*);
+(P2)  BRA.U       NO_REST_OF_K  (*"WAIT15"*);
+      CAL         REST_OF_K  (*"WAIT15"*);
+NO_REST_OF_K:
+      DSETP.NE    P2, R248, RZ  (*"WAIT1"*);
+      LDC.64      R202, c[0][0x150]  (*"WAIT4"*);
+      LDC.64      R218, c[0][0x158]  (*"WAIT1"*);
+      ISCADD      R242, R236, R227, 5  (*"WAIT10"*);
+      SHL         R242, R242, 4  (*"WAIT1"*);
+      LOP.AND     R238, R192, 31  (*"WAIT4"*);
+      SHR         R239, R192, 5  (*"WAIT10"*);
+      ISCADD      R244, R239, R238, 7  (*"WAIT10"*);
+      SHL         R244, R244, 3  (*"WAIT4"*);
+      ISCADD      R200, R240, R238, 7  (*"WAIT4"*);
+      ISCADD      R194, R241, R239, 5  (*"WAIT6"*);
+      SHL         R200, R200, 3  (*"WAIT4"*);
+      SHL         R194, R194, 2  (*"WAIT4"*);
+      IMAD.LO     R200.CC, R194, c[0][0x168], R200  (*"WAIT13"*);
+      IMAD.HI.X   R201, R194, c[0][0x168], RZ  (*"WAIT10"*);
+      IADD        R216.CC, R218, R200  (*"WAIT13"*);
+      IADD.X      R217, R219, R201  (*"WAIT1"*);
+      IADD        R200.CC, R202, R200  (*"WAIT13"*);
+      IADD.X      R201, R203, R201  (*"WAIT1"*);
+      IADD R210.CC, R216, c[0][0x168]  (*"WAIT13"*);
+      IADD.X R211, R217, RZ  (*"WAIT1"*);
+      IADD R194.CC, R200, c[0][0x168]  (*"WAIT13"*);
+      IADD.X R195, R201, RZ  (*"WAIT1"*);
+      IADD R224.CC, R210, c[0][0x168]  (*"WAIT13"*);
+      IADD.X R225, R211, RZ  (*"WAIT1"*);
+      IADD R208.CC, R194, c[0][0x168]  (*"WAIT13"*);
+      IADD.X R209, R195, RZ  (*"WAIT1"*);
+      IADD R218.CC, R224, c[0][0x168]  (*"WAIT13"*);
+      IADD.X R219, R225, RZ  (*"WAIT1"*);
+      IADD R202.CC, R208, c[0][0x168]  (*"WAIT13"*);
+      IADD.X R203, R209, RZ  (*"WAIT1"*);
+      MOV         R243, c[0][0x168]  (*"WAIT10"*);
+      SHL         R243, R243, 5  (*"WAIT10"*);
+      IADD        R193, R243, -768  (*"WAIT1"*);
+      PSETP.AND   P1, P2, P2  (*"WAIT1"*);
+(P2)  LDG.E.CG.64    R196, [R200]  (*"WAIT4"*);
+(P2)  LDG.E.CG.64    R198, [R194]  (*"WAIT4"*);
+(P2)  LDG.E.CG.64    R204, [R208]  (*"WAIT4"*);
+(P2)  LDG.E.CG.64    R206, [R202]  (*"WAIT4"*);
+      BAR.SYNC 0  (*"WAIT1"*);
+      IADD R200.CC, R200, 256  (*"WAIT13"*);
+      IADD.X R201, R201, RZ  (*"WAIT1"*);
+      IADD R194.CC, R194, 256  (*"WAIT13"*);
+      IADD.X R195, R195, RZ  (*"WAIT1"*);
+      IADD R208.CC, R208, 256  (*"WAIT13"*);
+      IADD.X R209, R209, RZ  (*"WAIT1"*);
+      IADD R202.CC, R202, 256  (*"WAIT13"*);
+      IADD.X R203, R203, RZ  (*"WAIT1"*);
+      DMUL        R228, R2, R246  (*"WAIT2"*);
+      DMUL        R230, R0, R246  (*"WAIT2"*);
+      DMUL        R232, R10, R246  (*"WAIT2"*);
+      DMUL        R234, R8, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x0000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x0100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      DMUL        R228, R34, R246  (*"WAIT2"*);
+      DMUL        R230, R32, R246  (*"WAIT2"*);
+      DMUL        R232, R42, R246  (*"WAIT2"*);
+      DMUL        R234, R40, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x2000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x2100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      DMUL        R228, R66, R246  (*"WAIT2"*);
+      DMUL        R230, R64, R246  (*"WAIT2"*);
+      DMUL        R232, R74, R246  (*"WAIT2"*);
+      DMUL        R234, R72, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x4000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x4100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      DMUL        R228, R98, R246  (*"WAIT2"*);
+      DMUL        R230, R96, R246  (*"WAIT2"*);
+      DMUL        R232, R106, R246  (*"WAIT2"*);
+      DMUL        R234, R104, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x6000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x6100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      CAL STORE4  (*"WAIT15"*);
+      DMUL        R228, R18, R246  (*"WAIT2"*);
+      DMUL        R230, R16, R246  (*"WAIT2"*);
+      DMUL        R232, R26, R246  (*"WAIT2"*);
+      DMUL        R234, R24, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x0000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x0100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      DMUL        R228, R50, R246  (*"WAIT2"*);
+      DMUL        R230, R48, R246  (*"WAIT2"*);
+      DMUL        R232, R58, R246  (*"WAIT2"*);
+      DMUL        R234, R56, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x2000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x2100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      DMUL        R228, R82, R246  (*"WAIT2"*);
+      DMUL        R230, R80, R246  (*"WAIT2"*);
+      DMUL        R232, R90, R246  (*"WAIT2"*);
+      DMUL        R234, R88, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x4000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x4100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      DMUL        R228, R114, R246  (*"WAIT2"*);
+      DMUL        R230, R112, R246  (*"WAIT2"*);
+      DMUL        R232, R122, R246  (*"WAIT2"*);
+      DMUL        R234, R120, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x6000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x6100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      CAL STORE4  (*"WAIT15"*);
+      DMUL        R228, R6, R246  (*"WAIT2"*);
+      DMUL        R230, R22, R246  (*"WAIT2"*);
+      DMUL        R232, R4, R246  (*"WAIT2"*);
+      DMUL        R234, R20, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x0000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x0100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      DMUL        R228, R38, R246  (*"WAIT2"*);
+      DMUL        R230, R54, R246  (*"WAIT2"*);
+      DMUL        R232, R36, R246  (*"WAIT2"*);
+      DMUL        R234, R52, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x2000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x2100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      DMUL        R228, R70, R246  (*"WAIT2"*);
+      DMUL        R230, R86, R246  (*"WAIT2"*);
+      DMUL        R232, R68, R246  (*"WAIT2"*);
+      DMUL        R234, R84, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x4000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x4100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      DMUL        R228, R102, R246  (*"WAIT2"*);
+      DMUL        R230, R118, R246  (*"WAIT2"*);
+      DMUL        R232, R100, R246  (*"WAIT2"*);
+      DMUL        R234, R116, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x6000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x6100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      CAL STORE4  (*"WAIT15"*);
+      DMUL        R228, R14, R246  (*"WAIT2"*);
+      DMUL        R230, R30, R246  (*"WAIT2"*);
+      DMUL        R232, R12, R246  (*"WAIT2"*);
+      DMUL        R234, R28, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x0000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x0100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      DMUL        R228, R46, R246  (*"WAIT2"*);
+      DMUL        R230, R62, R246  (*"WAIT2"*);
+      DMUL        R232, R44, R246  (*"WAIT2"*);
+      DMUL        R234, R60, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x2000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x2100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      DMUL        R228, R78, R246  (*"WAIT2"*);
+      DMUL        R230, R94, R246  (*"WAIT2"*);
+      DMUL        R232, R76, R246  (*"WAIT2"*);
+      DMUL        R234, R92, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x4000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x4100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      DMUL        R228, R110, R246  (*"WAIT2"*);
+      DMUL        R230, R126, R246  (*"WAIT2"*);
+      DMUL        R232, R108, R246  (*"WAIT2"*);
+      DMUL        R234, R124, R246  (*"WAIT4"*);
+      STS.128     [R242 + 0x6000], R228  (*"WAIT4_FULL_REORDER"*);
+      STS.128     [R242 + 0x6100], R232  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      PSETP.AND P1, PT, !PT  (*"WAIT1"*);
+      CAL STORE4  (*"WAIT15"*);
+      EXIT  (*"WAIT15"*);
+STORE4:
+(P2)  LDG.E.CG.64    R212, [R200]  (*"WAIT4"*);
+(P2)  LDG.E.CG.64    R214, [R194]  (*"WAIT4"*);
+(P2)  LDG.E.CG.64    R220, [R208]  (*"WAIT4"*);
+(P2)  LDG.E.CG.64    R222, [R202]  (*"WAIT4"*);
+      TEXDEPBAR 4  (*"WAIT4"*);
+      IADD R200.CC, R200, 256  (*"WAIT13"*);
+      IADD.X R201, R201, RZ  (*"WAIT1"*);
+      IADD R194.CC, R194, 256  (*"WAIT13"*);
+      IADD.X R195, R195, RZ  (*"WAIT1"*);
+      IADD R208.CC, R208, 256  (*"WAIT13"*);
+      IADD.X R209, R209, RZ  (*"WAIT1"*);
+      IADD R202.CC, R202, 256  (*"WAIT13"*);
+      IADD.X R203, R203, RZ  (*"WAIT1"*);
+      LDS.64      R228, [R244 + 0x0000]  (*"WAIT4"*);
+      LDS.64      R230, [R244 + 0x0100]  (*"WAIT4"*);
+      LDS.64      R232, [R244 + 0x0200]  (*"WAIT4"*);
+      LDS.64      R234, [R244 + 0x0300]  (*"WAIT16"*);
+(P2)  DFMA          R228, R248, R196, R228  (*"WAIT4"*);
+(P2)  DFMA          R230, R248, R198, R230  (*"WAIT4"*);
+(P2)  DFMA          R232, R248, R204, R232  (*"WAIT4"*);
+(P2)  DFMA          R234, R248, R206, R234  (*"WAIT4"*);
+      ST.E.CG.64  [R216 + 0x0000], R228  (*"WAIT4_FULL_REORDER"*);
+      ST.E.CG.64  [R210 + 0x0000], R230  (*"WAIT4_FULL_REORDER"*);
+      ST.E.CG.64  [R224 + 0x0000], R232  (*"WAIT4_FULL_REORDER"*);
+      ST.E.CG.64  [R218 + 0x0000], R234  (*"WAIT4_FULL_REORDER"*);
+(P2)  LDG.E.CG.64    R196, [R200]  (*"WAIT4"*);
+(P2)  LDG.E.CG.64    R198, [R194]  (*"WAIT4"*);
+(P2)  LDG.E.CG.64    R204, [R208]  (*"WAIT4"*);
+(P2)  LDG.E.CG.64    R206, [R202]  (*"WAIT4"*);
+      TEXDEPBAR 4  (*"WAIT4"*);
+      IADD R200.CC, R200, 256  (*"WAIT13"*);
+      IADD.X R201, R201, RZ  (*"WAIT1"*);
+      IADD R194.CC, R194, 256  (*"WAIT13"*);
+      IADD.X R195, R195, RZ  (*"WAIT1"*);
+      IADD R208.CC, R208, 256  (*"WAIT13"*);
+      IADD.X R209, R209, RZ  (*"WAIT1"*);
+      IADD R202.CC, R202, 256  (*"WAIT13"*);
+      IADD.X R203, R203, RZ  (*"WAIT1"*);
+      LDS.64      R228, [R244 + 0x2000]  (*"WAIT4"*);
+      LDS.64      R230, [R244 + 0x2100]  (*"WAIT4"*);
+      LDS.64      R232, [R244 + 0x2200]  (*"WAIT4"*);
+      LDS.64      R234, [R244 + 0x2300]  (*"WAIT16"*);
+(P2)  DFMA          R228, R248, R212, R228  (*"WAIT4"*);
+(P2)  DFMA          R230, R248, R214, R230  (*"WAIT4"*);
+(P2)  DFMA          R232, R248, R220, R232  (*"WAIT4"*);
+(P2)  DFMA          R234, R248, R222, R234  (*"WAIT4"*);
+      ST.E.CG.64  [R216 + 0x0100], R228  (*"WAIT4_FULL_REORDER"*);
+      ST.E.CG.64  [R210 + 0x0100], R230  (*"WAIT4_FULL_REORDER"*);
+      ST.E.CG.64  [R224 + 0x0100], R232  (*"WAIT4_FULL_REORDER"*);
+      ST.E.CG.64  [R218 + 0x0100], R234  (*"WAIT4_FULL_REORDER"*);
+(P2)  LDG.E.CG.64    R212, [R200]  (*"WAIT4"*);
+(P2)  LDG.E.CG.64    R214, [R194]  (*"WAIT4"*);
+(P2)  LDG.E.CG.64    R220, [R208]  (*"WAIT4"*);
+(P2)  LDG.E.CG.64    R222, [R202]  (*"WAIT4"*);
+      TEXDEPBAR 4  (*"WAIT4"*);
+      IADD R200.CC, R200, R193  (*"WAIT13"*);
+      IADD.X R201, R201, RZ  (*"WAIT1"*);
+      IADD R194.CC, R194, R193  (*"WAIT13"*);
+      IADD.X R195, R195, RZ  (*"WAIT1"*);
+      IADD R208.CC, R208, R193  (*"WAIT13"*);
+      IADD.X R209, R209, RZ  (*"WAIT1"*);
+      IADD R202.CC, R202, R193  (*"WAIT13"*);
+      IADD.X R203, R203, RZ  (*"WAIT1"*);
+      LDS.64      R228, [R244 + 0x4000]  (*"WAIT4"*);
+      LDS.64      R230, [R244 + 0x4100]  (*"WAIT4"*);
+      LDS.64      R232, [R244 + 0x4200]  (*"WAIT4"*);
+      LDS.64      R234, [R244 + 0x4300]  (*"WAIT16"*);
+(P2)  DFMA          R228, R248, R196, R228  (*"WAIT4"*);
+(P2)  DFMA          R230, R248, R198, R230  (*"WAIT4"*);
+(P2)  DFMA          R232, R248, R204, R232  (*"WAIT4"*);
+(P2)  DFMA          R234, R248, R206, R234  (*"WAIT4"*);
+      ST.E.CG.64  [R216 + 0x0200], R228  (*"WAIT4_FULL_REORDER"*);
+      ST.E.CG.64  [R210 + 0x0200], R230  (*"WAIT4_FULL_REORDER"*);
+      ST.E.CG.64  [R224 + 0x0200], R232  (*"WAIT4_FULL_REORDER"*);
+      ST.E.CG.64  [R218 + 0x0200], R234  (*"WAIT4_FULL_REORDER"*);
+(P1)  LDG.E.CG.64    R196, [R200]  (*"WAIT4"*);
+(P1)  LDG.E.CG.64    R198, [R194]  (*"WAIT4"*);
+(P1)  LDG.E.CG.64    R204, [R208]  (*"WAIT4"*);
+(P1)  LDG.E.CG.64    R206, [R202]  (*"WAIT4"*);
+      TEXDEPBAR 4  (*"WAIT4"*);
+(!P1) TEXDEPBAR 0  (*"WAIT4"*);
+      IADD R200.CC, R200, 256  (*"WAIT13"*);
+      IADD.X R201, R201, RZ  (*"WAIT1"*);
+      IADD R194.CC, R194, 256  (*"WAIT13"*);
+      IADD.X R195, R195, RZ  (*"WAIT1"*);
+      IADD R208.CC, R208, 256  (*"WAIT13"*);
+      IADD.X R209, R209, RZ  (*"WAIT1"*);
+      IADD R202.CC, R202, 256  (*"WAIT13"*);
+      IADD.X R203, R203, RZ  (*"WAIT1"*);
+      LDS.64      R228, [R244 + 0x6000]  (*"WAIT4"*);
+      LDS.64      R230, [R244 + 0x6100]  (*"WAIT4"*);
+      LDS.64      R232, [R244 + 0x6200]  (*"WAIT4"*);
+      LDS.64      R234, [R244 + 0x6300]  (*"WAIT16"*);
+(P2)  DFMA          R228, R248, R212, R228  (*"WAIT4"*);
+(P2)  DFMA          R230, R248, R214, R230  (*"WAIT4"*);
+(P2)  DFMA          R232, R248, R220, R232  (*"WAIT4"*);
+(P2)  DFMA          R234, R248, R222, R234  (*"WAIT4"*);
+      ST.E.CG.64  [R216 + 0x0300], R228  (*"WAIT4_FULL_REORDER"*);
+      ST.E.CG.64  [R210 + 0x0300], R230  (*"WAIT4_FULL_REORDER"*);
+      ST.E.CG.64  [R224 + 0x0300], R232  (*"WAIT4_FULL_REORDER"*);
+      ST.E.CG.64  [R218 + 0x0300], R234  (*"WAIT4_FULL_REORDER"*);
+      NOP  (*"WAIT8"*);
+      IADD R216.CC, R216, R243  (*"WAIT13"*);
+      IADD.X R217, R217, RZ  (*"WAIT1"*);
+      IADD R210.CC, R210, R243  (*"WAIT13"*);
+      IADD.X R211, R211, RZ  (*"WAIT1"*);
+      IADD R224.CC, R224, R243  (*"WAIT13"*);
+      IADD.X R225, R225, RZ  (*"WAIT1"*);
+      IADD R218.CC, R218, R243  (*"WAIT13"*);
+      IADD.X R219, R219, RZ  (*"WAIT1"*);
+      RET  (*"WAIT15"*);
+REST_OF_K:
+      ISETP.LT    P0, R192, 128  (*"WAIT1"*);
+      MOV         R239, c[0][0x16c]  (*"WAIT10"*);
+      LOP.AND     R239, R239, ~7  (*"WAIT1"*);
+      MOV         R193, c[0][0x164]  (*"WAIT12"*);
+(P0)  MOV         R193, c[0][0x160]  (*"WAIT10"*);
+      IMUL.LO     R200, R193, R239  (*"WAIT1"*);
+      IMUL.HI     R201, R193, R239  (*"WAIT1"*);
+      SEL         R238, R240, R241, P0  (*"WAIT1"*);
+      LOP.AND     R239, R192, 127  (*"WAIT10"*);
+      ISCADD      R238, R238, R239, 7  (*"WAIT10"*);
+      ISCADD      R200.CC, R238, R200, 3  (*"WAIT13"*);
+      IADD.X      R201, R201, RZ  (*"WAIT1"*);
+      LDC.64      R194, c[0][0x148]  (*"WAIT4"*);
+(P0)  LDC.64      R194, c[0][0x140]  (*"WAIT10"*);
+      IADD        R200.CC, R194, R200  (*"WAIT13"*);
+      IADD.X      R201, R195, R201  (*"WAIT1"*);
+      PSETP.AND   P1, PT, PT  (*"WAIT4"*);
+      SHL         R226, R192, 3  (*"WAIT4"*);
+      SHL         R242, R227, 4  (*"WAIT4"*);
+      ISCADD      R244, R236, 0x400, 4  (*"WAIT1"*);
+      LDG.E.CT.64    R196, [R200]  (*"WAIT12"*);
+REST_LOOP:
+(!P1) BRA.U REST_EOL  (*"WAIT12"*);
+      TEXDEPBAR 0  (*"WAIT4"*);
+      STS.64      [R226], R196  (*"WAIT4_FULL_REORDER"*);
+      BAR.SYNC    0  (*"WAIT9"*);
+      IADD        R237.CC, R237, -1  (*"WAIT8"*);
+      LOP.XOR     R226, R226, 0x800  (*"WAIT5"*);
+      CSETP.NE    P1, CC  (*"WAIT1"*);
+      IADD        R200.CC, R200, R193  (*"WAIT13"*);
+      IADD.X      R201, R201, RZ  (*"WAIT10"*);
+(P1)  LDG.E.CT.64    R196, [R200]  (*"WAIT4"*);
+      LDS.U.128 R128, [R242 + 0x000]  (*"WAIT4"*);
+      LDS.U.128 R132, [R244 + 0x000]  (*"WAIT4"*);
+      LDS.U.128 R136, [R242 + 0x100]  (*"WAIT4"*);
+      LDS.U.128 R140, [R244 + 0x100]  (*"WAIT4"*);
+      LDS.U.128 R144, [R242 + 0x200]  (*"WAIT4"*);
+      LDS.U.128 R148, [R244 + 0x200]  (*"WAIT4"*);
+      LDS.U.128 R152, [R242 + 0x300]  (*"WAIT4"*);
+      LDS.U.128 R156, [R244 + 0x300]  (*"WAIT4"*);
+      DFMA R2, R128, R132, R2  (*"WAIT2"*);
+      DFMA R10, R128, R134, R10  (*"WAIT2"*);
+      DFMA R18, R128, R140, R18  (*"WAIT2"*);
+      DFMA R26, R128, R142, R26  (*"WAIT2"*);
+      DFMA R6, R128, R148, R6  (*"WAIT2"*);
+      DFMA R4, R128, R150, R4  (*"WAIT2"*);
+      DFMA R14, R128, R156, R14  (*"WAIT2"*);
+      DFMA R12, R128, R158, R12  (*"WAIT2"*);
+      DFMA R0, R130, R132, R0  (*"WAIT2"*);
+      DFMA R8, R130, R134, R8  (*"WAIT2"*);
+      DFMA R16, R130, R140, R16  (*"WAIT2"*);
+      DFMA R24, R130, R142, R24  (*"WAIT2"*);
+      DFMA R22, R130, R148, R22  (*"WAIT2"*);
+      DFMA R20, R130, R150, R20  (*"WAIT2"*);
+      DFMA R30, R130, R156, R30  (*"WAIT2"*);
+      DFMA R28, R130, R158, R28  (*"WAIT2"*);
+      DFMA R34, R136, R132, R34  (*"WAIT2"*);
+      DFMA R42, R136, R134, R42  (*"WAIT2"*);
+      DFMA R50, R136, R140, R50  (*"WAIT2"*);
+      DFMA R58, R136, R142, R58  (*"WAIT2"*);
+      DFMA R38, R136, R148, R38  (*"WAIT2"*);
+      DFMA R36, R136, R150, R36  (*"WAIT2"*);
+      DFMA R46, R136, R156, R46  (*"WAIT2"*);
+      DFMA R44, R136, R158, R44  (*"WAIT2"*);
+      DFMA R32, R138, R132, R32  (*"WAIT2"*);
+      DFMA R40, R138, R134, R40  (*"WAIT2"*);
+      DFMA R48, R138, R140, R48  (*"WAIT2"*);
+      DFMA R56, R138, R142, R56  (*"WAIT2"*);
+      DFMA R54, R138, R148, R54  (*"WAIT2"*);
+      DFMA R52, R138, R150, R52  (*"WAIT2"*);
+      DFMA R62, R138, R156, R62  (*"WAIT2"*);
+      DFMA R60, R138, R158, R60  (*"WAIT2"*);
+      DFMA R66, R144, R132, R66  (*"WAIT2"*);
+      DFMA R74, R144, R134, R74  (*"WAIT2"*);
+      DFMA R82, R144, R140, R82  (*"WAIT2"*);
+      DFMA R90, R144, R142, R90  (*"WAIT2"*);
+      DFMA R70, R144, R148, R70  (*"WAIT2"*);
+      DFMA R68, R144, R150, R68  (*"WAIT2"*);
+      DFMA R78, R144, R156, R78  (*"WAIT2"*);
+      DFMA R76, R144, R158, R76  (*"WAIT2"*);
+      DFMA R64, R146, R132, R64  (*"WAIT2"*);
+      DFMA R72, R146, R134, R72  (*"WAIT2"*);
+      DFMA R80, R146, R140, R80  (*"WAIT2"*);
+      DFMA R88, R146, R142, R88  (*"WAIT2"*);
+      DFMA R86, R146, R148, R86  (*"WAIT2"*);
+      DFMA R84, R146, R150, R84  (*"WAIT2"*);
+      DFMA R94, R146, R156, R94  (*"WAIT2"*);
+      DFMA R92, R146, R158, R92  (*"WAIT2"*);
+      DFMA R98, R152, R132, R98  (*"WAIT2"*);
+      DFMA R106, R152, R134, R106  (*"WAIT2"*);
+      DFMA R114, R152, R140, R114  (*"WAIT2"*);
+      DFMA R122, R152, R142, R122  (*"WAIT2"*);
+      DFMA R102, R152, R148, R102  (*"WAIT2"*);
+      DFMA R100, R152, R150, R100  (*"WAIT2"*);
+      DFMA R110, R152, R156, R110  (*"WAIT2"*);
+      DFMA R108, R152, R158, R108  (*"WAIT2"*);
+      DFMA R96, R154, R132, R96  (*"WAIT2"*);
+      DFMA R104, R154, R134, R104  (*"WAIT2"*);
+      DFMA R112, R154, R140, R112  (*"WAIT2"*);
+      DFMA R120, R154, R142, R120  (*"WAIT2"*);
+      DFMA R118, R154, R148, R118  (*"WAIT2"*);
+      DFMA R116, R154, R150, R116  (*"WAIT2"*);
+      DFMA R126, R154, R156, R126  (*"WAIT2"*);
+      DFMA R124, R154, R158, R124  (*"WAIT2"*);
+      LOP.XOR     R242, R242, 0x800  (*"WAIT1"*);
+      LOP.XOR     R244, R244, 0x800  (*"WAIT1"*);
+      BRA.U REST_LOOP  (*"WAIT1"*);
+REST_EOL:
+      RET  (*"WAIT15"*);
+      EXIT  (*"WAIT15"*);
+      NOP  (*"WAIT1"*);
+      NOP  (*"WAIT1"*);
+      NOP  (*"WAIT1"*);
+      NOP  (*"WAIT1"*);
+      NOP  (*"WAIT1"*);
+      NOP  (*"WAIT1"*);
+NT_LDG_END:
+//--------------------- .lw.constant0.dgemm_sm_heavy_ldg_nt
+	.section	.lw.constant0.dgemm_sm_heavy_ldg_nt,"a",@progbits
+	.align 4
+NT_LDG_1:
+	.zero     388
+
+//--------------------- .lw.info.dgemm_sm_heavy_ldg_nt
+
+	.section	.lw.info.dgemm_sm_heavy_ldg_nt,"",@SHT_LWDA_INFO
+	// ---- lwinfo : EIATTR_PARAM_CBANK
+	.align 4
+NT_LDG_2:
+	.byte  0x04, 0xa
+	.short  (NT_LDG_4 - NT_LDG_3)
+	.align 4
+NT_LDG_3:
+	.word	index@(NT_LDG_1)
+	.short  0x0140
+	.short  0x44
+
+	// ---- lwinfo : EIATTR_CBANK_PARAM_SIZE
+	.align 4
+NT_LDG_4:
+	.byte	0x03, 0x19
+	.short  0x44
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+NT_LDG_5:
+	.byte  0x04, 0x17
+	.short (NT_LDG_7 - NT_LDG_6)
+NT_LDG_6:
+	.word	0x00000000
+	.short  0xa
+	.short  0x40
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+NT_LDG_7:
+	.byte  0x04, 0x17
+	.short (NT_LDG_9 - NT_LDG_8)
+NT_LDG_8:
+	.word	0x00000000
+	.short  0x9
+	.short  0x38
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+NT_LDG_9:
+	.byte  0x04, 0x17
+	.short (NT_LDG_11 - NT_LDG_10)
+NT_LDG_10:
+	.word	0x00000000
+	.short  0x8
+	.short  0x30
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+NT_LDG_11:
+	.byte  0x04, 0x17
+	.short (NT_LDG_13 - NT_LDG_12)
+NT_LDG_12:
+	.word	0x00000000
+	.short  0x7
+	.short  0x2c
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+NT_LDG_13:
+	.byte  0x04, 0x17
+	.short (NT_LDG_15 - NT_LDG_14)
+NT_LDG_14:
+	.word	0x00000000
+	.short  0x6
+	.short  0x28
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+NT_LDG_15:
+	.byte  0x04, 0x17
+	.short (NT_LDG_17 - NT_LDG_16)
+NT_LDG_16:
+	.word	0x00000000
+	.short  0x5
+	.short  0x24
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+NT_LDG_17:
+	.byte  0x04, 0x17
+	.short (NT_LDG_19 - NT_LDG_18)
+NT_LDG_18:
+	.word	0x00000000
+	.short  0x4
+	.short  0x20
+	.byte  0x00, 0xf0, 0x11, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+NT_LDG_19:
+	.byte  0x04, 0x17
+	.short (NT_LDG_21 - NT_LDG_20)
+NT_LDG_20:
+	.word	0x00000000
+	.short  0x3
+	.short  0x18
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+NT_LDG_21:
+	.byte  0x04, 0x17
+	.short (NT_LDG_23 - NT_LDG_22)
+NT_LDG_22:
+	.word	0x00000000
+	.short  0x2
+	.short  0x10
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+NT_LDG_23:
+	.byte  0x04, 0x17
+	.short (NT_LDG_25 - NT_LDG_24)
+NT_LDG_24:
+	.word	0x00000000
+	.short  0x1
+	.short  0x8
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+	// ---- lwinfo : EIATTR_KPARAM_INFO
+	.align 4
+NT_LDG_25:
+	.byte  0x04, 0x17
+	.short (NT_LDG_27 - NT_LDG_26)
+NT_LDG_26:
+	.word	0x00000000
+	.short  0x0
+	.short  0x0
+	.byte  0x00, 0xf0, 0x21, 0x00
+
+NT_LDG_27:
+//--------------------- .lw.shared.dgemm_sm_heavy_ldg_nt
+
+	.section	.lw.shared.dgemm_sm_heavy_ldg_nt,"aw",@nobits
+	.align 4
+	.zero 49148
+	.word shmem_reloc_dgemm_sm_heavy_ldg_nt
+//--------------------- .lw.callgraph             --------------------------
+	.section	.lw.callgraph,"",@"SHT_CALLGRAPH"
+	.sectionentsize	8
+	.align 4
+	.byte	0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xfe, 0xff, 0xff, 0xff
+	.byte	0x00, 0x00, 0x00, 0x00, 0xfd, 0xff, 0xff, 0xff
+
+// ------------------- lwinfo        --------
+	.section	.lw.info,"",@SHT_LWDA_INFO
+
+	// ---- lwinfo : EIATTR_MIN_STACK_SIZE
+	.align 4
+.L1:
+	.byte  0x04, 0x12
+	.short  (.L3 - .L2)
+	.align 4
+.L2:
+	.word	index@(dgemm_sm_heavy_ldg_nt)
+	.word  0x0
+
+	// ---- lwinfo : EIATTR_FRAME_SIZE
+	.align 4
+.L3:
+	.byte  0x04, 0x11
+	.short  (.L5 - .L4)
+	.align 4
+.L4:
+	.word	index@(dgemm_sm_heavy_ldg_nt)
+	.word  0x0
+
+.L5:

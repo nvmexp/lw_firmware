@@ -1,0 +1,97 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2014-2017 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+#
+# Top-level GSP makefile. This makefile is responsible for building the GSP
+# binary including projects it depends on (RTOS, bootloader, etc ...) across
+# all GSP config-profiles.
+#
+
+all: build
+
+###############################################################################
+# Use the flag to serialize per-profile builds (this does not prevent parallel
+# building within each profile). The flag decreases the speed a bit but avoid
+# the mess output of inter-profiles building. When an error is found, it makes
+# the build stop immediately.
+###############################################################################
+
+SERIALIZE_PROFILES ?= "true"
+
+ifneq ("$(SERIALIZE_PROFILES)","false")
+  .NOTPARALLEL:
+endif
+
+###############################################################################
+# Set GSPCFG_PROFILES to the list of GSPCFG profiles to build. The value is set
+# in one of three ways depending on defaults and user-overrides (if any).
+#
+# 1. Sourcing gsp-profiles.mk to get the full list of profiles (default)
+# 2. If GSPCFG_PROFILE is set on the command-line or as an elwvar, build that
+#    profile only.
+#
+# Setting GSPCFG_PROFILES in the shell or on the command-line will override the
+# profile(s) returned by the first two options above. GSPCFG_PROFILE trumps
+# everything.
+###############################################################################
+
+GSPCFG_PROFILES ?=
+
+ifndef GSPCFG_PROFILE
+  ifeq ("$(strip $(GSPCFG_PROFILES))", "")
+    include $(LW_SOURCE)/uproc/gsp/config/gsp-profiles.mk
+    override GSPCFG_PROFILES = $(GSPCFG_PROFILES_ALL)
+  endif
+else
+  GSPCFG_PROFILES = $(GSPCFG_PROFILE)
+endif
+
+###############################################################################
+# Create submake build/clean/clobber targets for profiles being built.
+###############################################################################
+
+PROFILES.build   = $(GSPCFG_PROFILES:=.build)
+PROFILES.clean   = $(GSPCFG_PROFILES:=.clean)
+PROFILES.clobber = $(GSPCFG_PROFILES:=.clobber)
+PROFILES.ls_sign = $(GSPCFG_PROFILES:=.ls_sign)
+PROFILES.check_guardword = $(GSPCFG_PROFILES:=.check_guardword)
+
+###############################################################################
+# Targets/Rules
+###############################################################################
+
+.PHONY: PROFILES.build   build
+.PHONY: PROFILES.clean   clean
+.PHONY: PROFILES.clobber clobber
+.PHONY: PROFILES.ls_sign ls_sign
+.PHONY: PROFILES.check_guardword check_guardword
+
+build::   $(PROFILES.build)
+clean::   $(PROFILES.clean)
+clobber:: $(PROFILES.clobber)
+ls_sign:: $(PROFILES.ls_sign)
+check_guardword:: $(PROFILES.check_guardword)
+
+$(PROFILES.build):
+	$(MAKE) -f make-profile.lwmk GSPCFG_PROFILE=$(basename $@) build
+
+$(PROFILES.ls_sign):
+	$(MAKE) -f make-profile.lwmk GSPCFG_PROFILE=$(basename $@) ls_sign
+
+$(PROFILES.check_guardword):
+	$(MAKE) -f make-profile.lwmk GSPCFG_PROFILE=$(basename $@) check_guardword
+
+$(PROFILES.clean):
+	$(MAKE) -f make-profile.lwmk GSPCFG_PROFILE=$(basename $@) clean
+
+$(PROFILES.clobber):
+	$(MAKE) -f make-profile.lwmk GSPCFG_PROFILE=$(basename $@) clobber
+

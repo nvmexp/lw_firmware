@@ -1,0 +1,399 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2014-2019 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+###############################################################################
+# Default build options
+###############################################################################
+
+NO_CHECK_BUILD      ?= false
+NO_RELEASE          ?= true
+INCLUDE_DT          ?= false
+PA_47_BIT_SUPPORTED ?= false
+IMEM_OFFS           ?= 0xfd00
+DMEM_OFFS           ?= 0x7900
+IS_SSP_ENABLED		?= true
+
+###############################################################################
+# Target inspecific paths: these are paths used by the build but not dependent
+# upon the build.
+###############################################################################
+
+LWUPROC             = $(LW_SOURCE)/uproc
+SOESW               = $(LWUPROC)/soe
+BOOTSW              = $(SOESW)/src/boot
+RESMAN_ROOT         = $(LW_SOURCE)/drivers/resman
+LWSWITCH_ROOT       = $(LW_SOURCE)/drivers/lwswitch
+LIB_UPROC_LWOS_SRC  = $(LWUPROC)/libs/lwos/$(LWOS_VERSION)
+LIB_UPROC_CMN_SRC   = $(LW_SOURCE)/uproc/libs/cmn
+SCP_SRC             = $(LWUPROC)/libs/scp
+SIG_GEN             = $(LWUPROC)/acr/utilities/siggen/siggen
+OPENSSL             = $(LWUPROC)/utilities/openssl/openssl
+BOOT_BUILD          = $(BOOTSW)/build
+BOOT_ARTIFACTS_DIR  = $(LW_SOURCE)/drivers/lwswitch/kernel/inc/soe/bin/boot
+BOOT_SIGN_CFG       = $(BOOT_BUILD)/sign
+SH                  = /bin/sh
+CAT                 = /bin/cat
+BUILD_SCRIPTS       = $(LWUPROC)/build/scripts
+RELEASE_SCRIPT      = $(BUILD_SCRIPTS)/release-imgs-if-changed.pl
+
+###############################################################################
+# Set profile-specific make vars. This includes things like the target falcon
+# architecture (ex. falcon4), the linker-script to use, the manual directory,
+# etc ...).
+###############################################################################
+
+SELWREBLCFG_PROFILE ?= selwrebl-soe
+include $(BOOTSW)/config/selwrebl-profiles.mk
+SIG_METADATA_FILE = $(CHIP_MANUAL_SW_PATH)/lwFalconSigParams.mk
+include $(SIG_METADATA_FILE)
+
+###############################################################################
+# Load common falcon make vars and host command definitions (ie. MKDIR, P4,
+# COPY, etc...).
+###############################################################################
+
+include $(LWUPROC)/build/common/lwFalconArch.lwmk
+override LW_TARGET_ARCH = $(FALCON_TOOLS_BUILD)
+override LW_TARGET_OS   = falcon
+include $(LW_SOURCE)/drivers/common/build/lwCommon.lwmk
+
+###############################################################################
+# Define the output directory paths for the LD build and all sub-make builds.
+###############################################################################
+
+##Using output directory from parent makefile
+OUTPUTDIR ?= _out/$(subst selwrebl-,,$(SELWREBLCFG_PROFILE))
+
+###############################################################################
+# Export variables used by sub-makefiles ilwoked by this makefile
+###############################################################################
+
+export LW_TARGET_ARCH
+export LW_TARGET_OS
+export MANUAL_PATHS
+
+###############################################################################
+# Define macros based on profile
+###############################################################################
+
+###############################################################################
+# RTOS Configuration
+###############################################################################
+
+include $(LWUPROC)/build/common/lwRtosVersion.lwmk
+
+##############################################################################
+# Additional include paths required
+##############################################################################
+
+LW_INCLUDES += $(SOESW)/inc
+LW_INCLUDES += $(BOOTSW)/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/swref
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc/hwref
+LW_INCLUDES += $(LWSWITCH_ROOT)/common/inc
+LW_INCLUDES += $(LWSWITCH_ROOT)/common/inc/soe
+LW_INCLUDES += $(RESMAN_ROOT)/kernel/inc
+LW_INCLUDES += $(LW_SOURCE)/drivers/common/inc
+LW_INCLUDES += $(LW_RTOS_INCLUDES)
+LW_INCLUDES += $(SCP_SRC)/inc
+LW_INCLUDES += $(RESMAN_ROOT)/arch/lwalloc/common/inc
+LW_INCLUDES += $(LIB_UPROC_LWOS_SRC)/inc
+LW_INCLUDES += $(LIB_UPROC_CMN_SRC)/inc
+LW_INCLUDES += $(FALCON_TOOLS)/include
+LW_INCLUDES += $(MANUAL_PATHS)
+LW_INCLUDES += $(OUTPUTDIR)
+
+
+###############################################################################
+# Define the names and locations for the various images that are generated
+# during the build-process (IMG_*). Also create the list of files that need
+# updated with those images when the install-mode is enabled.
+###############################################################################
+
+IMG_TARGET  := $(OUTPUTDIR)/g_$(SELWREBLCFG_PROFILE)
+IMG_ELF     := $(IMG_TARGET).out
+PRD_ELF     := $(IMG_TARGET)_prod.out
+DBG_ELF     := $(IMG_TARGET)_dbg.out
+IMG_READELF := $(IMG_TARGET).readelf
+IMG_H       := $(IMG_TARGET).h
+IMG_OBJDUMP := $(IMG_TARGET).objdump
+IMG_NM      := $(IMG_TARGET).nm
+IMG_DT      := $(IMG_TARGET).dt
+IMG_DBGLINE := $(IMG_TARGET).dbgline
+DBG_BIN     := $(OUTPUTDIR)/loader_dbg.bin
+PRD_BIN     := $(OUTPUTDIR)/loader_prd.bin
+IMG_MAP     := $(OUTPUTDIR)/loader.map
+
+
+IMG_SIGN            := $(IMG_TARGET)_sign.bin
+IMG_SIG_H           := $(IMG_TARGET)_sig.h
+IMG_PROD_HS_SIG_H   := $(IMG_TARGET)_prod_hs_sig
+IMG_DBG_HS_SIG_H    := $(IMG_TARGET)_dbg_hs_sig
+
+###############################################################################
+# Variables used for siggen
+###############################################################################
+# put these scripts in soe/src dir. This makefile is ilwoked with current dir as soe/src/boot/
+SIGN_PROD_SCRIPT     = "../tmpprodsig.sh"
+SIGN_DBG_SCRIPT      = "../tmpdbgsig.sh"
+
+# SIGGEN SCRIPT Accepts 4 parameters
+# $1 - Siggen tool 
+# $2 - Siggen CFG file and other args (see SIG_GEN_ARGS)
+# $3 - signing script (This is generated during this build process and later used for signing)
+# $4 - prod or dbg  (string), to be used as the suffix for generated files
+define SIGGEN_SCRIPT
+	$(ECHO) $(ECHO) "Doing HS Signing for $4" >> $3; \
+    $(foreach SIGGEN_CHIP, $(SIGGEN_CHIPS), \
+		set -x;\
+		$(ECHO) $(CAT) $(BOOT_ARTIFACTS_DIR)/$(notdir $2_$(SIGGEN_CHIP).h) ">"\
+			 $2_$(SIGGEN_CHIP).h >> $3; \
+		$(ECHO) $1  -chip lr10_rsa3k_fuse \
+			-app $2_patch_$(SIGGEN_CHIP).h \
+			-sig $2_$(SIGGEN_CHIP).h $(ENCRYPT_ARGS) \
+			-fuseVer $(SOE_HS_BOOT_VER) \
+			-calcPrevNSignatures $(SOE_NUM_PREV_SIGNATURES) \
+			-ucodeId $(SOE_HS_BOOT_ID) \
+			-engineId $(ENGINE_ID_SOE) \
+			-totAppFilePrefix $(BOOT_ARTIFACTS_DIR)/$(notdir $(IMG_TARGET)) \
+			-totAppFilePrefixDH $(BOOT_ARTIFACTS_DIR)/$(notdir $(IMG_TARGET)) \
+			-openssl $(OPENSSL) >> $3; \
+		$(ECHO) $(PERL) $(RELEASE_SCRIPT) --image $2_$(SIGGEN_CHIP).h \
+			--release-path $(BOOT_ARTIFACTS_DIR) \
+			--release-files $(IMG_TARGET)_$4.out,$2_$(SIGGEN_CHIP).h,$(IMG_TARGET).sections,$(IMG_TARGET).map >> $3;\
+		set +x;)
+endef
+
+###############################################################################
+# Application-specific compiler/linker flags
+###############################################################################
+
+# remove linking against all default libraries, including libssp
+# add required ones back
+LDFLAGS += -T $(LDSCRIPT) -lfalcon
+
+CFLAGS += -DLWL_UCODE_VERSION=$(LS_UCODE_VERSION)
+CFLAGS += -I$(LS_INCLUDE_DIR)
+CFLAGS += -DHS_INLINES=1
+CFLAGS += -fno-jump-tables
+CFLAGS += -DSOE_HS_BOOT_ID=$(SOE_HS_BOOT_ID)
+CFLAGS += -DSOE_HS_BOOT_VER=$(SOE_HS_BOOT_VER)
+CFLAGS += -DSOE_NUM_PREV_SIGNATURES=$(SOE_NUM_PREV_SIGNATURES)
+CFLAGS += -DRSA3K_SIZE_IN_BITS=$(RSA3K_SIZE_IN_BITS)
+
+ifeq ($(IS_SSP_ENABLED), true)
+CFLAGS += -DIS_SSP_ENABLED
+endif
+
+HS_IS_ENCRYPTED_DEF ?= 0
+ifeq ($(ENABLE_HS_SIGN),true)
+	ifeq ($(HS_UCODE_ENCRYPTION), true)
+		HS_IS_ENCRYPTED_DEF := 1
+	endif
+endif
+CFLAGS += -DHS_UCODE_ENCRYPTION=$(HS_IS_ENCRYPTED_DEF)
+
+ifdef SOE_RTOS
+CFLAGS += -DSOE_RTOS=$(SOE_RTOS)
+CFLAGS += -DSOE_CSB_ACCESS=$(SOE_RTOS)
+endif
+
+ifeq ($(LW_TARGET_OS),falcon)
+    CFLAGS += -DUPROC_FALCON
+endif
+
+# Enables Stack Canary on functions that satisfy conditions detailed here:
+# https://confluence.lwpu.com/pages/viewpage.action?pageId=71768632#EnablingSSP-Stepsforenablingstackcanaryprotection
+# -fno-omit-frame-pointer is required as suggested fix for Bug# 2205302
+ifeq ($(IS_SSP_ENABLED), true)
+CFLAGS += -fstack-protector-all -fno-omit-frame-pointer
+endif 
+
+###############################################################################
+# Set the GENERATED_SOURCES that need to be picked-up by the build
+###############################################################################
+
+SOURCES := $(SELWREBLSRC_ORIGINAL)
+
+###############################################################################
+# Make variable used to tell mkimage which changelist number to include in the
+# descriptor for the c-file image.
+###############################################################################
+
+ifneq ($(LW_DVS_BLD),1)
+  APP_P4_CL = $(word 2, $(shell $(PERL) -e 'chdir(qw(.)); delete $$ELW{PWD}; \
+          print `$(P4) changes -m1 "$(LW_SOURCE)/..."`;'))
+else
+  APP_P4_CL = $(CHANGELIST)
+endif
+
+###############################################################################
+# Define a string describing the project being built.  This string is used as
+# a prefix for the majority of the output from the build for tracking progress
+# and sanity-checking.
+###############################################################################
+
+BUILD_PROJECT_NAME = "[$(SELWREBLCFG_PROFILE)]"
+
+###############################################################################
+# Rules for building the ELF image and binary files
+###############################################################################
+
+build: $(addsuffix .build,$(SUBDIRS)) all
+
+all: $(IMG_ELF)
+
+all: $(DBG_BIN) $(PRD_BIN)
+
+###############################################################################
+# Rule to produce the ELF image. Building all object-files and preprocessing
+# linker script is the prerequisite for this rule.
+###############################################################################
+$(IMG_ELF): $(OBJECTS) $(LDSCRIPT)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $@)
+	$(CC) $(CFLAGS) $(OBJECTS) -o $(IMG_ELF) $(LDFLAGS)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_OBJDUMP).source
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_NM)
+	$(ECHO) "AppVersion: $(APP_P4_CL)" > $(IMG_READELF)
+	$(OBJDUMP) -d    $(IMG_ELF) > $(IMG_OBJDUMP)
+	$(OBJDUMP) -S -d $(IMG_ELF) > $(IMG_OBJDUMP).source
+	$(OBJDUMP) -t $(IMG_ELF) > $(IMG_ELF)_symbols.txt
+	$(NM)      -S -n $(IMG_ELF) > $(IMG_NM)
+	$(ECHO) Dumpexec is "$(DUMPEXEC) -img $(IMG_ELF) -b $(IMG_ELF)"
+	$(DUMPEXEC) -img $(IMG_ELF) -b $(IMG_ELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_READELF))
+	$(READELF) --all $(IMG_ELF) >> $(IMG_READELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_DBGLINE))
+	$(READELF) --debug-dump=decodedline $(IMG_ELF) >> $(IMG_DBGLINE)
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_TARGET).sections)
+	$(READELF) -S $(IMG_ELF) > $(IMG_TARGET).sections
+	$(ECHO) $(BUILD_PROJECT_NAME) generating $(notdir $(IMG_TARGET).map)
+	$(NM) $(IMG_ELF) > $(IMG_TARGET).map
+	$(COPY) $(IMG_TARGET).map $(IMG_MAP)
+	$(ECHO) $(BUILD_PROJECT_NAME) The ELF name is $(IMG_ELF)
+
+$(DBG_BIN): $(DBG_ELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) Copying $(DBG_ELF) to $(DBG_BIN)
+	$(ECHO) $(COPY) $(DBG_ELF) $(DBG_BIN) >> $(SIGN_DBG_SCRIPT)
+
+$(PRD_BIN): $(PRD_ELF)
+	$(ECHO) $(BUILD_PROJECT_NAME) Copying $(PRD_ELF) to $(PRD_BIN)
+	$(ECHO) $(COPY) $(PRD_ELF) $(PRD_BIN) >> $(SIGN_PROD_SCRIPT)
+
+###############################################################################
+# Rule to preprocess the linker script for current profile
+###############################################################################
+
+$(LDSCRIPT): $(LDSCRIPT_IN)
+	$(ECHO) $(BUILD_PROJECT_NAME) preprocessing $(notdir $@)
+	$(ECHO) IMG_ELF is $(IMG_ELF)
+	$(CPP) -x c -P -o $(LDSCRIPT) $(LD_DEFINES) $(LDSCRIPT_IN)
+
+#
+# When not building for DVS, the output image files need copied over to the RM
+# so that they get picked up by the driver/mods build. Trigger the process by
+# adding a phony prerequisite to 'all' called 'install'. The rule to rebuild
+# that target will perform the install process and will copy the files to the
+# RM if necessary.  Skip this process if the user has requested that files NOT
+# be installed via NO_INSTALL=true.
+#
+ifneq ($(LW_DVS_BLD),1)
+  ifneq ("$(NO_RELEASE)","true")
+    .PHONY: install
+    all: install
+  endif
+endif
+
+###############################################################################
+# Sign the IMEM HS overlays the binary. Uses the siggen signing tool (linux only
+# for now). Disable HS signing if this is a DVS build.
+###############################################################################
+ifeq ($(ENABLE_HS_SIGN),true)
+.PHONY: hs_sign hs_dbg_sign hs_prod_sign
+all: hs_sign
+
+$(DBG_ELF): hs_sign
+
+$(PRD_ELF): hs_sign
+
+SIG_GEN_ARGS    := $(IMG_TARGET) $(IMG_TARGET)
+
+# Skip prod signing if the makefile variable is set, or there is no prod-sign
+# siggen config
+ifneq ($(DEBUG_SIGN_ONLY),true)
+  ifneq ($(SIG_GEN_PROD_CFG),)
+    hs_sign: hs_dbg_sign hs_prod_sign
+  endif
+else
+  hs_sign: hs_dbg_sign
+endif
+
+ENCRYPT_ARGS := 
+ifeq ($(HS_UCODE_ENCRYPTION), true)
+	ENCRYPT_ARGS := "-encryptUcode"
+endif
+
+# Siggen looks for files of the type .out.<memory section>. But even if our
+# memory sections don't have anything starting at address 0x20000000, siggen
+# wants a file with that name and dumpexec won't generate it. Echo blank text
+# to it to create the file if it doesn't exist. If it exists, echo blank text
+# to the end of the file before ilwoking siggen.
+SIGGEN_DUMMY_TARGET   := $(IMG_TARGET).out.0x20000000
+
+hs_prod_sign: $(IMG_ELF)
+	$(ECHO) "" >> $(SIGGEN_DUMMY_TARGET)
+	$(ECHO) "Generating HS PROD Signing Script"
+	$(call SIGGEN_SCRIPT,$(SIG_GEN) $(BOOT_SIGN_CFG)/$(SIG_GEN_PROD_CFG) $(SIG_GEN_ARGS),$(IMG_PROD_HS_SIG_H),$(SIGN_PROD_SCRIPT),prod)
+
+hs_dbg_sign: $(IMG_ELF)
+	$(ECHO) "" >> $(SIGGEN_DUMMY_TARGET)
+	$(ECHO) "Generating HS DEBUG Signing Script"
+	$(call SIGGEN_SCRIPT,$(SIG_GEN) $(BOOT_SIGN_CFG)/$(SIG_GEN_DBG_CFG) $(SIG_GEN_ARGS),$(IMG_DBG_HS_SIG_H),$(SIGN_DBG_SCRIPT),dbg)
+
+endif
+
+###############################################################################
+# Rule for generating .dt/symdump file
+###############################################################################
+
+SYMDUMP_SCRIPT = $(LW_SOURCE)/pmu_sw/build/symdump/symdump.pl
+
+SYMDUMP_ARGS  += $(IMG_ELF) $(IMG_DT)
+SYMDUMP_ARGS  += --falcon-tools $(FALCON_TOOLS)
+SYMDUMP_ARGS  += --acl          $(APP_P4_CL)
+
+$(IMG_DT):
+	-$(PERL) $(SYMDUMP_SCRIPT) $(SYMDUMP_ARGS)
+
+ifeq ("$(INCLUDE_DT)","true")
+  all: $(IMG_DT)
+endif
+
+###############################################################################
+# Common/Shared Rules
+###############################################################################
+
+include $(LW_SOURCE)/drivers/common/build/lwCommonRules.lwmk
+
+#
+# The common rule for cleaning (provided by lwCommonRules.lwmk) only supports
+# flat output-directory structures and also expect object-files to be suffixed
+# with .obj instead of .o. Until the rule is improved, be safe and mimic the
+# behavior of clobber by simply deleting the output-directory. For falcon
+# builds, there is actually very little different between 'clean' and 'clobber'
+# anyway.
+#
+clean_ucode:
+	-$(RMDIR) -rf $(OUTPUTDIR)
+
+.PHONY: clean_ucode
+clean: clean_ucode

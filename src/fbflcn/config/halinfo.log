@@ -1,0 +1,172 @@
+Unknown option: halinfo
+
+
+chip-config.pl:  configure a Resource Manager (or possibly other) build.
+
+Usage:
+
+   perl rmconfig.pl [ options ]
+
+Options may be abbreviated.  Boolean options may be prefixed with 'no-'.
+
+    --help, -?            This message.
+    --verbose             Give info about our progress.
+
+    --mode op-mode        Operating mode for rmconfig.  Default is 'fbfalcon-config'.
+                          Must be *first* argument.
+                          Possible values are: acr-config, dpu-config, fbfalcon-config, lwmem-config, lwpep-config, lwwatch-config, pmu-config, rmconfig, se-config, i2c-config, dpaux-config, hdcp22wired-config, hdcp-config, sec2-config, vmioplugin-config.
+
+    --config FILE         rmconfig CONFIG file.   Default rmconfig.cfg.
+    --profile PROF        Use profile 'PROF', overriding any PROFILE statement
+                          in CONFIG file.    Default fbfalcon-gpus.
+
+    --platform PLATFORM   specify platform such as unix, windows_vista, osx.
+                          The platform must have a corresponding PLATFORM_x
+                          feature defined in Features.pm.
+
+    --arch ARCH           specify architecture such as x86, amd64, ppc.
+                          The architecture must have a corresponding ARCH_x
+                          feature defined in Features.pm.
+
+    --minimal             Omit support for features, engines, classes and api's
+                          not available on any supported chip or explicitly enabled.
+                          Default disabled.
+
+    --source-root DIR     Base of source tree, used to verify SRCFILES attributes.
+                          Default is same as --resman-root.
+
+    --output-directory DIR  Default output directory for generated files.
+
+    --update-only-if-changed
+                          Update generated files *only* if they changed.
+                          Default enabled.
+                          Applies to all generated files *except* for 'rmconfig.mk'
+                          which must be always be updated to ensure make(1) can
+                          keep moving forward.
+
+    --gen-header FILE     Generated header output, default 'fbfalcon-config.h'
+    --gen-makefile FILE   Generated make(1) RMCONFIG vars, default 'fbfalcon-config.mk'
+    --dry-run | -n        Do all analysis, but do not generate any files.
+
+    --for-client-use      Only do what is needed for typical resman client builds as
+                          opposed to what is needed for resman builds.
+
+    --gzip-cmd PATH       Path to the gzip command, this is used for normalizing binaries.
+
+    --halgen              Generate hal files based on hal definitions, default enabled.
+    --halgen-share        Share identical halinit sequences between chip's.
+                          Default enabled.
+    --halgen-share-similar
+                          Share "similar" halinit sequences between chip's.
+                          Default enabled.
+    --halgen-static-interfaces
+                          Make all hal generated functions 'static'.
+                          Default enabled.
+    --halgen-auto-stub    Use '_STUB' implementation if no interface specified for a given chip,
+                          otherwise error.  Ignored for interfaces with an explicit _STUB list.
+                          Default disabled.
+
+    --halgen-pageable
+                          Enable all "pageable" options, such as --halgen-pageable-setup.
+                          Lwrrently only supported on Windows.
+
+    --halgen-pageable-hals
+                          Hal sections will be marked pageable based on PAGEABLE_HALS definition
+                          Sources.def.   Lwrrently only supported on Windows.
+
+    --halgen-pageable-setup
+                          Generated "setup" code, eg. grObjIfacesSetup(), will be placed in pageable
+                          hal sections. Lwrrently only supported on Windows.
+
+    --halgen-exploded-hals CHIP-HALID
+                          Generate exploded form in fooBar_HAL(...) defines and specify the
+                          CHIP-HALID to select the target hal functions. Note it's only used in
+                          static analysis.
+
+    --direct-hal-calls    Colwerts hal method ilwocations into direct fn calls when possible.
+
+    --direct-hal-stub-calls
+                          Apply inline optimization for all possible STUB functions, default is disable.
+                          Note it only be enabled for PMU/DPU and Windows Release builds.
+
+    --mock MOCK-OPTION    Mark some interfaces as 'mock'd.  These will use the fn_MOCK()
+                          implementation, which must be provided at compile time by either
+                          including generated mock functions (ref: --emit-mock-functions)
+                          or using a "handwritten" implementation.
+
+                          For use by 'rmtest'.
+                          MOCK-OPTION is at least one field in the sequence:
+
+                               chip:engine:section:iface
+
+                          Missing fields default to all possibilities for that field.
+                          Example:
+
+                               gt299:hal-interfaces
+
+                          would mark all hal interfaces on GT299 as _MOCK'd.
+
+    --no-mock MOCK-OPTION
+                          Just like '--mock' option, except interfaces indicated will *not* be mocked.
+                          All '--no-mock' options are interpreted after all '--mock' options,
+                          regardless of their position in the argument list.
+
+    --emit-mock-functions
+                          Emit (empty) functions for all _MOCK'd interfaces into
+                          g_ENG_mock.c.  Intended as an aid to generating full
+                          mock routines.
+
+    --emit-iface-defines  Include #define's in the engine private headers that record
+                          which interface implementation is used by each chip.
+
+    --rmcontrols          Generate hal files based on hal definitions.  Default disabled.
+    --rmcontrols-only     Only generate rmcontrol files, do not generate fbfalcon-config.h, etc.
+                          Default disabled.
+
+    --rmcontrols-ignore-only-if
+                          When generating rmcontrol tables, ignore 'ONLY_IF' attributes
+                          so that all rmcontrol entries are visible.
+
+    --emit-source-list    Parse srcdefs/Sources.def and emit resulting sources list using
+                          gt_sources.mk based on enabled chips, engines, classes, etc.
+                          Default enabled.
+
+    --trim-srcfiles       rmconfig will omit source files not needed for the build
+                          based on srcdefs/Sources.def.
+                          If *disabled*, rmconfig ignores most ONLY_IF conditions in
+                          srcdefs/Sources.def and haldefs interfaces.  Default enabled.
+
+    --enable ITEM         Enable ITEM (feature, engine, chip, etc) after config file run.
+    --disable ITEM        Disable ""
+
+    --define SYM[=val]    Define SYM for use inside config-file.
+    --undefine SYM        Undefine SYM.
+
+    --halchk              Check halinfo for problems
+
+    --propchk             Check to ensure fixed properties of engines are not set in RM src code
+
+    --dump STATE          Dump various state, '--dump ?' for list
+    --dumphalinfo         Dump halinfo report, equivalent to '--dump halinfo'
+
+    --print ITEM          Print to stdout the requested item (example: 'all-chips')
+                          on a single line.  Used by Makefiles or other programs to
+                          query rmconfig state.  Multiple --print options accumulate.
+                          After printing all requested items in order, rmconfig exits
+                          without updating any files.
+
+                          Specify '--print ?' to display a list of supported ITEM's.
+
+    --veryverbose         Even more verbose...
+
+    --debug               Log lots of internal state (see also --debuglist).
+    --debuglist TAG-LIST  Selectively include debug output based on tags in the comma
+                          separated TAG-LIST.  Possible values include: opt, cmd, def,
+                          cfg, util, group, chip, feature, engine, api, class, hal.
+
+    --test                Run rmconfig's internal test suite and exit.
+
+
+Full documentation at
+    https://wiki.lwpu.com/engwiki/index.php/Resman/RM_Foundations/Lwrrent_Projects/CHIP-CONFIG
+

@@ -1,0 +1,50 @@
+#
+# _LWRM_COPYRIGHT_BEGIN_
+#
+# Copyright 2017-2018 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# _LWRM_COPYRIGHT_END_
+#
+
+TESTCFG_PERL ?= $(if $(findstring undefined,$(origin PERL)), perl, $(PERL))
+
+TEST_NAME := rvbl_simple
+
+include $(LW_SOURCE)/uproc/lwriscv/bootloader_tests/common/make-profile.lwmk
+
+TEST_PARAMS = $(IMG_TARGET).test0_params.bin \
+              $(IMG_TARGET).test1_params.bin \
+              $(IMG_TARGET).test2_params.bin
+
+all: $(IMG_BIN) $(TEST_PARAMS)
+
+$(IMG_BIN): $(LDR_BIN) $(IMG_ELF)
+	$(TESTCFG_PERL) $(BUILD_SCRIPTS)/mkimage/rvmkimg.pl \
+        --loaderFile        $(LDR_BIN) \
+        --elfFile           $(IMG_ELF) \
+        --readelf           $(IMG_READELF) \
+        --outFilePrefix     $(TEST_NAME) \
+        --outDir            $(OUTPUTDIR)
+
+### This program runs 3 tests:
+# 0: Basic Mbare IMEM exelwtion
+#    - 1 load base: 0x3000
+#    - Expected code: -1
+# 1: Ignores unused loadbases, execute from 0
+#    - 2 load bases: 0x0000, 0xBADF00D
+#    - Expected code: -1
+# 2: Disallowed exelwtion areas
+#    - 1 load base: 0x8180000000000000
+#    - Expected code: 0xBADE1F
+
+$(IMG_TARGET).test0_params.bin:
+	$(PARAMGEN) --loadBases 0x0000000000003000 --outFile $@
+
+$(IMG_TARGET).test1_params.bin:
+	$(PARAMGEN) --loadBases 0x0000000000000000,0x000000000BADF00D --outFile $@
+
+$(IMG_TARGET).test2_params.bin:
+	$(PARAMGEN) --loadBases 0x8180000000000000 --outFile $@

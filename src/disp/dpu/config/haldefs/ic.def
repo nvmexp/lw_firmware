@@ -1,0 +1,174 @@
+# -*- mode: perl; -*-
+
+# Interrupt Controller Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $icHal = [
+
+    # per-GPU defaults for IC for all interfaces below
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        INIT => [
+
+            DESCRIPTION    => "init",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _v02_00        => [ pre_GM20X, ],
+            _v02_05        => [ GM20X_thru_PASCAL, ],
+            _GV10X         => [ VOLTA_and_later, ],
+        ],
+
+        SERVICE => [
+            DESCRIPTION    => "service",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "void",
+            FLAGS          => ":NO_STUB",
+
+            _v02_00        => [ pre_VOLTA, ],
+            _GV10X         => [ VOLTA_and_later, ],
+        ],
+
+        CMD_QUEUE_INTR_UNMASK => [
+            DESCRIPTION    => "Unmask command-queue interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _v02_00        => [ GF11X_thru_PASCAL, ],
+            _GV10X         => [ VOLTA_and_later, ],
+        ],
+
+        CMD_QUEUE_INTR_MASK => [
+            DESCRIPTION    => "Mask command-queue interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => CMD_QUEUE_INTR_UNMASK,
+        ],
+
+        CMD_QUEUE_INTR_CLEAR => [
+            DESCRIPTION    => "Clear the command-queue interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_mgmt", "__FUNC__")',
+
+            _GV10X         => [ VOLTA_and_later, ],
+            _STUB          => [ pre_VOLTA, ],
+        ],
+
+        APPLY_WAR_743012 => [
+            DESCRIPTION    => "SW WAR for HW Bug 743012",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            _v02_00        => [ GF11X, ],
+            _STUB          => [ KEPLER_and_later, ],
+        ],
+
+        SERVICE_SW_INTR => [
+            DESCRIPTION    => "Programs ICD and IBRKPT registers",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            # 1461766 - this function should only be run on MAXWELL_and_later,
+            # but in order to merge the v0204 ucode into v0201, this function is
+            # now compiled for KEPLER_and_later
+            _v02_04        => [ KEPLER_thru_PASCAL, ],
+            _GV10X         => [ VOLTA_and_later, -DISPLAYLESS, ],
+            _STUB          => [ GF11X, ],
+        ],
+
+        SETUP_TIMER0_INTR => [
+            DESCRIPTION    => "set up Timer0 intr",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool bStartTimer, LwU32 intervalUs, LwBool bIsSrcPtimer, LwBool bIsModeOneShot",
+
+            _v02_05        => [ GM20X_thru_PASCAL, -DISPLAYLESS, ],
+            _STUB          => [ pre_GM20X, VOLTA_and_later, DISPLAYLESS, ],
+        ],
+
+        SETUP_RTTIMER_INTR => [
+            DESCRIPTION    => "set up RTTIMER intr",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERR_NOT_SUPPORTED ,
+            ARGUMENTS      => "LwBool bStartTimer, LwU32 intervalUs, LwBool bIsSrcPtimer, LwBool bIsModeOneShot",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_rttimer", "__FUNC__")',
+
+            _GV10X         => [ VOLTA_and_later, -DISPLAYLESS, ],
+            _STUB          => [ pre_VOLTA, DISPLAYLESS, ],
+        ],
+
+        SERVICE_OR_INTR => [
+            DESCRIPTION    => "Service OR intr",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            _v02_05        => [ GM20X_thru_PASCAL, -DISPLAYLESS, ],
+            _GV10X         => [ VOLTA_and_later, -DISPLAYLESS, ],
+            _STUB          => [ pre_GM20X, DISPLAYLESS, ],
+        ],
+
+        SERVICE_HEAD_INTR => [
+            DESCRIPTION    => "Service HEAD intr",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 headNum",
+
+            LIKE_INTERFACE => SERVICE_SW_INTR,
+        ],
+
+        SERVICE_VBIOS_ATTENTION_INTR => [
+            DESCRIPTION    => "Service VBIOS_ATTENTION intr",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            _v02_05        => [ GM20X_thru_PASCAL, -DISPLAYLESS, ],
+            _STUB          => [ pre_GM20X, VOLTA_and_later, DISPLAYLESS, ],
+        ],
+
+        SERVICE_SCANOUT_LINE_INTR => [
+            DESCRIPTION    => "Service the DMI/RG line intrs specific to head passed from RM",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_scanoutLogging", "__FUNC__")',
+
+            LIKE_INTERFACE => SERVICE_SW_INTR,
+        ],
+
+        SERVICE_PMU_RG_LINE_INTR => [
+            DESCRIPTION    => "Service the PMU RG line intrs specific to head passed from RM",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 head",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_vrr", "__FUNC__")',
+
+            _v02_07        => [ dPASCAL_and_later, ],
+            _STUB          => [ pre_dPASCAL, ],
+        ],
+
+        HALT_INTR_MASK => [
+            DESCRIPTION    => "Mask the HALT interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_mgmt", "__FUNC__")',
+
+            _v02_00        => [ pre_VOLTA, ],
+            _GV10X         => [ VOLTA_and_later, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $icHal;
+

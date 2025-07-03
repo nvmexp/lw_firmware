@@ -1,0 +1,211 @@
+# -*- mode: perl; -*-
+
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+
+my $filesRef = [
+
+    FBFALCON_SRC_CORE => [
+        FLAGS => ':CORE',                     # following are all part of core (non-hal)
+        'fbflcn_helpers.c',
+    ],  # FBFALCONSRC_CORE
+    
+    FBFALCON_CORE_FBFLCN => [
+        FLAGS => ':MUST_BE_REQUIRED',
+        'start.S',
+        'fbflcn_interrupts.c',
+        'fbflcn_timer.c',
+        'fbflcn_mutex.c',
+        'fbflcn_access.c',
+        'fbflcn_table.c',
+        'priv.c',
+        'revocation.c',
+        'interface.c',
+        CHIPS_SUPPORTED => [ GA10X_and_later, ],
+        'fbflcn_dummy_mclk_switch.c',
+    ],  # FBFALCON_CORE_FBFLCN
+
+    FBFALCON_CORE_AUTOMOTIVE_BOOT => [
+        FLAGS => ':MUST_BE_REQUIRED',
+        'boot/automotive/turing/main.c',
+    ],  # FBFALCON_CORE_AUTOMOTIVE_BOOT
+
+    FBFALCON_CORE_BOOT => [
+        FLAGS => ':MUST_BE_REQUIRED',
+        'boot/main.c',
+    ],  # FBFACLON_CORE_BOOT
+ 
+    PAFALCON_CORE => [
+        FLAGS => ':MUST_BE_REQUIRED',
+        'paflcn/main.c',
+    ],  # PAFACLON_CORE   
+
+    PAFALCON_VERIF => [
+        FLAGS => ':MUST_BE_REQUIRED',
+        'verif/paflcn/main.c',
+    ],  # PAFACLON_VERIF   
+
+    FBFALCON_CORE_RUNTIME => [
+        FLAGS => ':MUST_BE_REQUIRED',
+        'main.c',
+    ],  # FBFACLON_CORE_RUNTIME
+
+    FBFALCON_JOB_CMDQUEUE_SUPPORT =>
+    [
+        FLAGS => ':MUST_BE_REQUIRED',
+        'fbflcn_queues.c',
+    ],  # FBFALCON_JOB_CMDQUEUE_SUPPORT
+
+    FBFALCON_JOB_BOOT_TRAINING =>
+    [
+        FLAGS => ':MUST_BE_REQUIRED',
+        CHIPS_SUPPORTED => [TU10X, ],
+        'fbflcn_gddr_boot_time_training_tu10x.c',
+        CHIPS_SUPPORTED => [ GA10X, AD10X, GH20X, ],
+        'fbflcn_gddr_boot_time_training_ga10x.c',
+        CHIPS_SUPPORTED => [GH10X, ],
+        'fbflcn_hbm_boot_time_training_gh100.c',
+    ],  # FBFALCON_JOB_BOOT_TRAINING
+    
+    FBFALCON_JOB_TRAINING_DATA_SUPPORT =>
+    [
+        FLAGS => ':MUST_BE_REQUIRED',
+        'data.c',
+    ],  # FBFALCON_JOB_TRAINING_DATA_SUPPORT
+
+    FBFALCON_JOB_MCLK_HBM2 =>
+    [ 
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+        'fbflcn_hbm_mclk_switch.c',
+    ],   # FBFALCON_JOB_MCLK_HBM2
+
+    FBFALCON_JOB_MCLK_HBM_GH100 =>
+    [ 
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+        'fbflcn_hbm_mclk_switch_gh100.c',
+        'fbflcn_hbm_shared_gh100.c',
+    ],   # FBFALCON_JOB_MCLK_HBM_GH100
+    
+    FBFALCON_JOB_MCLK_GDDR =>
+    [ 
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+        CHIPS_SUPPORTED => [TU10X, ],
+        'fbflcn_gddr_mclk_switch_tu10x.c',
+        CHIPS_SUPPORTED => [ GA10X, AD10X, GH20X, ],
+        'fbflcn_gddr_mclk_switch_ga10x.c',
+    ],   # FBFALCON_JOB_MCLK_GDDR
+
+    FBFALCON_JOB_TREFI_HBM =>
+    [ 
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+        'fbflcn_ieee1500_gv100.c',
+    ],   # FBFALCON_JOB_TREFI_HBM
+
+    FBFALCON_JOB_TEMP_TRACKING =>
+    [ 
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+        'temp_tracking.c',
+    ],   # FBFALCON_JOB_TEMP_TRACKING
+
+    FBFALCON_JOB_HBM_PERIODIC_TR =>
+    [ 
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+        'fbflcn_hbm_periodic_training.c',
+    ],   # FBFALCON_JOB_HBM_PERIODIC_TR
+
+    FBFALCON_JOB_PRIV_PROFILING => [
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+    ],
+
+    PAFALCON_SEQUENCER =>
+    [ 
+        FLAGS => ':MUST_BE_REQUIRED',
+        'seq_decoder.c',
+        'segment.c',
+    ], 
+    
+    FBFALCONSRC_ENGINES => [
+    
+       # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+    FBFALCON =>
+    [
+        CHIPS_SUPPORTED => [GV100, ],
+        'fbfalcon/volta/fbfalcon_gv100.c',
+        'fbfalcon/volta/table_gv100.c',
+        CHIPS_SUPPORTED => [GV100_and_later, ],
+        'fbfalcon/volta/interrupts_gv100.c',
+        CHIPS_SUPPORTED => [TU10X_and_later, ],
+        'fbfalcon/turing/fbfalcon_tu10x.c',
+        'fbfalcon/turing/table_tu10x.c',
+        CHIPS_SUPPORTED => [TU10X, GA100, ],
+        'fbfalcon/turing/revocation_tu102.c',
+        CHIPS_SUPPORTED => [GA100_and_later, ],
+        'fbfalcon/ampere/interrupts_ga100.c',
+        'fbfalcon/ampere/fbfalcon_ga10x.c',
+        CHIPS_SUPPORTED => [GA102_and_later, ],
+        'fbfalcon/ampere/table_ga10x.c',
+        'fbfalcon/ampere/revocation_ga102.c',
+        'fbfalcon/ampere/temperature_ga102.c',
+        CHIPS_SUPPORTED => [GH100_and_later, ],
+        'fbfalcon/hopper/fbfalcon_gh100.c',
+        'fbfalcon/hopper/table_gh100.c',
+        'fbfalcon/hopper/revocation_gh100.c',
+    ],
+
+    MEMORY =>
+    [
+        CHIPS_SUPPORTED => [GV100, ],
+        'memory/volta/memory_gv100.c',
+        CHIPS_SUPPORTED => [TU10X, ],
+        'memory/turing/memory_tu10x_and_earlier.c', 
+        CHIPS_SUPPORTED => [TU10X_and_later, ],
+        'memory/turing/memory_tu10x.c',
+        'memory/turing/memory_gddr_tu10x.c',
+        CHIPS_SUPPORTED => [GA100_and_later, ],
+        'memory/ampere/memory_ga100.c',
+        CHIPS_SUPPORTED => [GA102_and_later, ],
+        'memory/ampere/memory_ga10x.c',
+        'memory/ampere/memory_gddr_ga10x.c',
+        CHIPS_SUPPORTED => [GH100, ],
+        'memory/hopper/ieee1500_gh100.c',
+        'memory/hopper/memory_hbm_gh100.c',
+        CHIPS_SUPPORTED => [GH100_and_later, ],
+        'memory/hopper/memory_gh100.c',
+    ],
+    
+    ],  # FBFALCONSRC_ENGINES
+
+    FBFALCONSRC_TASKS => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+    ],  # FBFALCON_SRC_TASKS
+
+];   # filesRef
+
+
+my $platformsRef = [
+
+    # the FBFALCON platform
+    PLATFORM_FBFALCON  => [
+        FBFALCON_SRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

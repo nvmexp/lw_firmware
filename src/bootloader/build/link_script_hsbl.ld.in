@@ -1,0 +1,75 @@
+OUTPUT_FORMAT("elf32-falcon", "elf32-falcon", "elf32-falcon")
+OUTPUT_ARCH(falcon)
+
+ENTRY(_start)
+
+MEMORY
+{
+    CODE  (X) : ORIGIN = 0x00000000, LENGTH = MAX_CODE_SIZE
+    DATA  (A) : ORIGIN = 0x10000000, LENGTH = MAX_DATA_SIZE
+    OVERLAYS  : ORIGIN = 0x20000000, LENGTH = 1M
+    DESC (A)  : ORIGIN = 0x30000000, LENGTH = 1K
+}
+
+PROVIDE (__stack = LENGTH(DATA));
+
+SECTIONS
+{
+
+    .text :
+    {
+    	BYTE(0x0)
+    } >CODE
+    . = IMAGE_BASE;
+   __imem_bootloader_code_start = IMAGE_BASE;
+
+
+   OVERLAY ALIGN(IMAGE_BASE): NOCROSSREFS
+    {
+        .imem_bootloader { *(.start) *(.text*) *.o(.imem_bootloader.*) *.o(.imem_bootloader) . = ALIGN(256); }
+        .imem_bootloader { *.o(.imem_bootloader_end)             . = ALIGN(256); }
+    } >CODE
+
+  __imem_bootloader_code_end = ALIGN(256);
+  __imem_bootloader_base     = __imem_bootloader_code_start;
+
+  imem_bootloaderBaseFB     = __imem_bootloader_code_start;
+  imem_bootloaderSize       = __imem_bootloader_code_end - __imem_bootloader_code_start;
+
+
+  .data    : { *(.data) *(.rodata) }
+
+   __bss_start = ALIGN(4);
+  .bss    : { *(.bss) *(COMMON)       }
+  __bss_end = ALIGN(4);
+
+
+  _dataBaseFB     = ADDR(.data);
+  _dataSize       = SIZEOF(.data);
+  _dataBaseDMEM   = ADDR(.data);
+
+  /*
+   * OVERLAY LOAD START/STOP ADDRESSES
+   */
+  __load_stop_bootloader      = LOADADDR(.imem_bootloader)     + SIZEOF(.imem_bootloader);
+  __load_start_bootloader    = LOADADDR(.imem_bootloader)     & ~(0xFF);
+
+  __num_overlays = 1;
+  /* DWARF2 debug sections.
+     Symbols in the DWARF debugging sections are relative to the beginning
+     of the section so we begin them at 0.  */
+  .debug_aranges  0 : { *(.debug_aranges) }
+  .debug_ranges   0 : { *(.debug_ranges) }
+  .debug_pubnames 0 : { *(.debug_pubnames) }
+  .debug_info     0 : { *(.debug_info .gnu.linkonce.wi.*) }
+  .debug_abbrev   0 : { *(.debug_abbrev) }
+  .debug_line     0 : { *(.debug_line) }
+  .debug_frame    0 : { *(.debug_frame) }
+  .debug_str      0 : { *(.debug_str) }
+  .debug_loc      0 : { *(.debug_loc) }
+  .debug_macinfo  0 : { *(.debug_macinfo) }
+  /DISCARD/ : { *(.note.GNU-stack) }
+}
+
+NOCROSSREFS(.bootloader);
+

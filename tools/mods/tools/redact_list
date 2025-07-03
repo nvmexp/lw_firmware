@@ -1,0 +1,97 @@
+
+# Note 1: Patterns should only contain:
+#         - dot
+#         - single characters
+#         - character classes, such as [0-9]
+#         - beginning or end of word: \< \>
+#         So other stuff like | or * or + is not allowed.
+# Note 2: BSD sed on MacOS does not support case-insensitive search
+#         so for this to always work, letters must be character ranges,
+#         for example '[Gg][Aa]' to always catch ga or GA etc.
+# Note 3: To correctly replace chip constants in JS without breaking scripts,
+#         we need to define some chip names explicitly the way the JS
+#         constants are declared, before defining the general pattern to
+#         catch other instances of chip-like names.
+
+# Blackwell
+CHIP_REGEX=(
+    "[Bb]lackwell"
+    "BLACKWELL"
+    "GB100"
+    "GB[0-2][0-2xX][0-9xX]"
+    "gb[0-2][0-2xX][0-9xX]"
+)
+
+# Hopper
+CHIP_REGEX+=(
+    "[Hh]opper"
+    "HOPPER"
+    "GH100"
+    "GH[0-2][0-2xX][0-9xX]"
+    "gh[0-2][0-2xX][0-9xX]"
+)
+
+# Laguna
+CHIP_REGEX+=(
+    "[Ll]aguna"
+    "LAGUNA"
+    "[Ll]aguna[Ss]eca"
+    "LAGUNASECA"
+    "LS10"
+)
+
+# TODO Bug 3244733: Add Ada guardwords
+CHIP_REGEX+=(
+    "AD10xFs"
+)
+
+# Ampere
+CHIP_REGEX+=(
+    "GA101"
+    "ga101"
+    "GA103"
+    "ga103"
+    "GA106"
+    "ga106"
+    "GA107"
+    "ga107"
+    "Ga[0-2][0-2xX][1356789xX]"
+    "GA[0-2][0-2xX][1356789xX]"
+    "ga[0-2][0-2xX][1356789xX]"
+)
+
+# Orin
+CHIP_REGEX+=(
+    "GA10B"
+    "GA10F"
+    "GA11B"
+    "[Tt]236"
+    "[Tt]239"
+    "[Tt]egra239"
+)
+
+# Fake test chips
+CHIP_REGEX+=(
+    "[Gg]000"
+    "[Gg]00[Xx]"
+)
+
+# Chip names which MODS can deobfuscate in run time
+# For all chip names here there should be an exact name in the CHIP_REGEX before
+# the generic regex which can match the chip name
+DEOBFUSCATE+=(
+    "GA103"
+    "ga103"
+    "GA106"
+    "ga106"
+    "GA107"
+    "ga107"
+)
+
+# DGX Product Names
+CHIP_REGEX+=(
+    "[Pp]ioneer"
+    "[Pp]458[4-8]"
+    "[Rr]edstone"
+    "[Ll]una"
+)

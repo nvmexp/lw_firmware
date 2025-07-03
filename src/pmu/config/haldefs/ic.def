@@ -1,0 +1,295 @@
+# -*- mode: perl; -*-
+
+# Interrupt Controller Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $icHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PRE_INIT => [
+            DESCRIPTION    => "init",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GMXXX         => [ MAXWELL_thru_VOLTA, USED_BY_TUXXX, ],
+            _TUXXX         => [ TURING_and_later, ],
+        ],
+
+        PRE_INIT_TOP_LEVEL => [
+            DESCRIPTION    => "Initializes the top-level interrupt sources",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GMXXX         => [ pre_AMPERE, GA100, USED_BY_GA10X, ],
+            _GA10X         => [ AMPERE_thru_ADA, -GA100, USED_BY_GHXXX,  ],
+            _GHXXX         => [ HOPPER_and_later, ],
+        ],
+
+        SERVICE => [
+            DESCRIPTION    => "service",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => "LwU32 pendingIrqMask",
+            FLAGS          => ":NO_STUB",
+
+            _GMXXX         => [ pre_AMPERE, GA100, USED_BY_GA10X, ],
+            _GA10X         => [ dAMPERE_thru_ADA, -GA100, USED_BY_GHXXX, ],
+            _GHXXX         => [ dHOPPER_and_later, ],
+        ],
+
+        SERVICE_MISCIO => [
+            DESCRIPTION    => "service io interrupts",
+            INTERFACE_TAG  => "icServiceMiscIO",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _GMXXX         => [ dMAXWELL_and_later, ],
+        ],
+
+        SERVICE_MISCIO_BANK0 => [
+            DESCRIPTION    => "service io bank 0 interrupts",
+            INTERFACE_TAG  => "icServiceMiscIOBank0",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => void,
+
+            _GMXXX         => [ dMAXWELL_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _STUB          => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        SERVICE_MISCIO_BANK1 => [
+            DESCRIPTION    => "service io bank 1 interrupts",
+            INTERFACE_TAG  => "icServiceMiscIOBank1",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => void,
+
+            _GPXXX         => [ dPASCAL_and_later, USED_BY_GM10X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _GM10X         => [ MAXWELL, ],
+            _STUB          => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        SERVICE_MISCIO_BANK2 => [
+            DESCRIPTION    => "service io bank 2 interrupts",
+            INTERFACE_TAG  => "icServiceMiscIOBank2",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => void,
+
+            _TUXXX         => [ dTURING_and_later, ],
+            _STUB          => [ pre_TURING, ],
+        ],
+
+        DISABLE_ALL_INTERRUPTS => [
+            DESCRIPTION    => "Disables all top-level interrupt sources; to be used during initialization",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            STUB_RETURNS   => void,
+
+            _GMXXX         => [ pre_AMPERE, GA100, USED_BY_GA10X, ],
+            _GA10X         => [ AMPERE_and_later, -GA100, ],
+        ],
+
+        DISABLE_DETACH_INTERRUPTS => [
+            DESCRIPTION    => "Disables interrupts for the detached state",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => void,
+
+            _GMXXX         => [ pre_AMPERE, GA100, USED_BY_GA10X, ],
+            _GA10X         => [ AMPERE_and_later, -GA100, ],
+        ],
+
+        ENABLE_MISCIO_BANK0 => [
+            DESCRIPTION    => "Enable Bank0 interrupts",
+            INTERFACE_TAG  => "icEnableMiscIOBank0",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            STUB_RETURNS   => void,
+
+            _GMXXX         => [ dMAXWELL_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _STUB          => [ TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, GV11B, ],
+        ],
+
+        ENABLE_PBI_INTERRUPT => [
+            DESCRIPTION    => "Enables PBI interrupts",
+            INTERFACE_TAG  => "icEnablePBIInterrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+
+            _GMXXX         => [ ALL, ],
+        ],
+
+        SERVICE_INTR1_MAIN_IRQ => [
+            DESCRIPTION    => "service the secondary interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _GMXXX         => [ MAXWELL_thru_VOLTA, USED_BY_TUXXX, ],
+            _TUXXX         => [ TURING_and_later, ],
+        ],
+
+        SERVICE_MISCIO_DEEPL1 => [
+            DESCRIPTION    => "service deepL1 interrupts",
+            INTERFACE_TAG  => "icServiceMiscIODeepL1",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 *pIrqEn, LwBool bRising, LwU32 pexSleepState",
+            STUB_RETURNS   => void,
+
+            _GMXXX         => [ ALL, ],
+        ],
+
+        SERVICE_SW_INTR => [
+            DESCRIPTION    => "Programs ICD and IBRKPT registers",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+
+            _GMXXX         => [ GM10X_and_later, ],
+            _STUB          => [ ALL, -GM10X_and_later, ],
+        ],
+
+        HALT_INTR_ENABLE => [
+            DESCRIPTION    => "Enable HALT interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION(LW_ARCH_VAL("imem_init", "imem_resident"), "__FUNC__")',
+
+            _GMXXX         => [ pre_AMPERE, GA100, USED_BY_GA10X, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, ],
+        ],
+
+        HALT_INTR_DISABLE => [
+            DESCRIPTION    => "Disable HALT interrupt",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION(LW_ODP_VAL("imem_resident", "imem_cmdmgmtRpc"), "__FUNC__")',
+
+            _GMXXX         => [ pre_AMPERE, GA100, USED_BY_GA10X, ],
+            _GA10X         => [ dAMPERE_and_later, -GA100, ],
+        ],
+
+        RISCV_SWGEN1_INTR_ENABLE => [
+            DESCRIPTION    => "Enable SWGEN1 interrupt on RISCV (no-op on Falcon)",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION(LW_ARCH_VAL("imem_init", "imem_resident"), "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, ],
+            _STUB          => [ ALL, -dAMPERE_and_later, GA100, ],
+        ],
+
+        RISCV_ICD_INTR_ENABLE => [
+            DESCRIPTION    => "Enable ICD interrupt on RISCV (no-op on Falcon)",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION(LW_ARCH_VAL("imem_init", "imem_resident"), "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, ],
+            _STUB          => [ ALL, -dAMPERE_and_later, GA100, ],
+        ],
+
+        RISCV_ICD_INTR_DISABLE => [
+            DESCRIPTION    => "Disable ICD interrupt on RISCV (no-op on Falcon)",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "void",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION(LW_ODP_VAL("imem_resident", "imem_cmdmgmtRpc"), "__FUNC__")',
+
+            _GA10X         => [ dAMPERE_and_later, -GA100, ],
+            _STUB          => [ ALL, -dAMPERE_and_later, GA100, ],
+        ],
+
+        XUSB_INTR_ENABLE => [
+            DESCRIPTION    => "Enable XUSB interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            STUB_RETURNS   => void,
+
+            _TUXXX         => [ TURING, ],
+            _STUB          => [ ALL, -TURING, ],
+        ],
+
+        ECC_IS_ENABLED => [
+            DESCRIPTION    => "Check if ECC/parity for PMU IMEM/DMEM is enabled in HW",
+            RETURN_TYPE    => LwBool,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            STUB_RETURNS   => LW_FALSE,
+
+            _TUXXX         => [ TURING_and_later, ],
+            _STUB          => [ pre_TURING, ],
+        ],
+
+        ECC_INTR_ENABLE => [
+            DESCRIPTION    => "Enable ECC interrupts, if possible",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            STUB_RETURNS   => void,
+
+            _TUXXX         => [ TURING, GA100, USED_BY_GA10X, ],
+            _GA10X         => [ AMPERE_and_later, -GA100, ],
+            _STUB          => [ pre_TURING, ],
+        ],
+
+        SERVICE_XUSB_INTR => [
+            DESCRIPTION    => "Service XUSB interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => void,
+
+            _TUXXX         => [ TURING, ],
+            _STUB          => [ ALL, -TURING, ],
+        ],
+
+        SERVICE_PRIV_BLOCKER_IRQ => [
+            DESCRIPTION    => "Service the Priv Blocker interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => LwU32,
+            STUB_RETURNS   => void,
+
+            _TUXXX         => [ TURING_and_later, -GA100, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GH100, -GB100, -G00X, ],
+            _STUB          => [ pre_TURING, GA100, GH100, GB100, G00X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        GET_PENDING_UPROC_INTERRUPTS => [
+            DESCRIPTION    => "Get the mask of interrupts pending to the PMU itself",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _GMXXX         => [ pre_AMPERE, GA100, USED_BY_GA10X, ],
+            _GA10X         => [ AMPERE_and_later, -GA100, ],
+        ],
+
+        SERVICE_LANE_MARGINING_INTERRUPTS => [
+            DESCRIPTION    => "Service lane margining interrupts",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => void,
+
+            _GHXXX         => [ GH100, GB100, ],
+            _STUB          => [ ALL, -GH100, -GB100, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $icHal;

@@ -1,0 +1,1334 @@
+******************************************************************
+*  WARNING                                              WARNING  *
+*                                                                *
+*                 ENGINEERING MODS RELEASE NOTES                 *
+*                   Not for use outside LWPU                   *
+*                                                                *
+*  WARNING                                              WARNING  *
+******************************************************************
+--------------------------------------------------------------------------------
+Version willow.4
+$Date: 2017/12/17 $
+Built at $Change: 23293799 $
+
+* Branch sim spec into fmodel and emulation specs
+* Add T194 UFS preinit function and pinmux configuration
+* summary: Remove deprecated tests(4,6,7) from run scripts
+* add Loops and NumBlocks for Ufs test in Js
+* PPC/ARM updates
+* Support KeepRunning in VkStress
+* Summary: T194 I2C Multimaster tested on  interposer board
+* Remove old implementation of SMMU userspace driver.
+* Enable Vulkan tests on CheetAh
+* summary: Remove test 7 from run_lwstomer_mods_*.sh
+* (i) Updated Fieldiag software guide to v26
+* Save i2cport vs displayId in a map for future reference
+* Remove cruft from amapv1fb.cpp
+* boards.db updates
+* Bpmp: Update timeout to 3000ms per loop.
+* Fix MemRepair lane repair type reporting
+* Use TU102 as our baseline Turing chip
+* Split CBU fmodel tests into two queues to reduce runtime
+* Resolved ambiguity between boost::system::system_error and std::system_error.
+* [DGX]: Relax allowed HBM temperature delta and turn verbose mode on for test 375
+* Summary: T194 mfg tests set update for I2C
+* Don't enable MLE by default on CheetAh
+* Added support for PG503 SKU 250
+* Fix I2c PreInit error on T194 fpga
+* Summary: I2C Test 6 updated, 1.8v and 3.3V (Moved from T214 branch to chips_a)
+* Add dependency on the generated opcode table
+* Skip configuring board voltage for T194
+* UPHY cleanup
+* ape: use native pinmux by default for ape
+* add a script to parsing SSG commands.
+* Restore the BoardMux settting after the I2c test on t194
+* 1. Add more mirrored virtual function registers to mods reghal.
+* Change artifacts folder while building by setting MODS_OUTPUT_DIR
+* Update the SD1 power enable pin
+* [MODS] - DPC - Add option to skip Display detach
+* Fix off-by-one-error and add reverse iterators
+* Change IsCfgUfsX2 value to false when defined.
+* Fixed parsing of GCC line number preprocessor directive in modsencsrc.
+* Summary: Enable T194 SC7 Test for T194
+* I2S BoardMux update to accormmodate to A01 board
+* Add new parameters stopBits and parityBitType to Uart test
+* Refactored LwDispControlSettings and added internal scan lock pin support
+* pull dev_lwl_ip.h from HW to SW tree
+* Adding a new CtrlLightWeightSupervisor for UDTA test to pick lightweight supervisor handler from RM
+* In LwlbwsCpuTraffic(257), map surfaces on T194 in loopback mode
+* Manully run m2m for ga000
+* Remove board JS files no longer required.
+* Remove unneeded checks for m_pVulkanDev in VkStress::Cleanup()
+* LwDispSurfaceParams related changes
+* Updating the emulation spec by removing some old tests
+* MODS DPC AssignSOR bug fix
+* [chips_a][RM/PMU][VOLT] : Add automated tests for voltage part of droopy 2.0
+* Allow decryptor bypass file to be pulled from the environment
+* [DGX]: Remove WAR added by CL: 23083033
+* TU10X/MODS: Removing rmt_perfmon.cpp from MODS build. This does not appear to be used anymore.
+* Remove trailing whitespace from a few files.
+* MODS Add full DSC support in DPC
+* Fixes for protoutil tograph:
+* Add Xusb FW for T214
+* Add user-defined literals for KB, MB and GB
+* Forcibly initialize GPU during MODS startup on CheetAh
+* [MODS] - DPC - Update DSC settings. DSC is only supported with Active Raster.
+* Integrate dev-t214 (Q)spi change to chips_a
+* MODS Added coverage support when building with INCLUDE_MODS_GTEST
+* Add function isPowerStateEnabled to lwlinkVerify class
+* Bug #200351953: LWSwitch: TX/RX throughput counter configuration
+* Eqos: Shutdown interface after test completes.
+* Rename MultiStreamMode to SingleHeadMultiStreamMode and its elements by adding "SH" prefix. No functional changes.
+* delete gv20x files from resman/manuals and hwref as these chips do not exist and were deleted from ref2h way back in cl 22008318
+* update xhci WrRdTest
+* Add primary CRC value to check in test 327 for turing fmodel
+* [Rce] Print firmware version.
+* Don't print device instance for SOC GPU
+* [RM-Core] [RM-Unix] Extend the interface of osMapPciMemory functions.
+* Update Linux image for dGPU systems
+* Remove files which are no longer required for CheetAh-MODS.
+* Don't map surfaces to GPU in LWENC test on CheetAh
+* Add -hot_reset to pstates 3.5 systems
+* Run 4 loops of VkStress on simulation (must be multiple of 4)
+* Added RgMergeMode in LwDisplay
+* Summary: T194 support.
+* Add DumpImages option to gsynclink test
+* Delete ONE_MB in favor of 1_MB
+* Remove LW_PFB_FBPA_NUM_ACTIVE_LTCS from RegHal
+* Enable LWLink L2 for PeerToPeerTest and QuickSuspendResumeGPU tests on emulation
+* Fix HOS build break caused by unused private members in ComputeTexFiller
+* RM: Adding dummy manuals for GA100 (cl 1/2)
+* It is a valid scenario to ask for INCLUDE_VKLAYERS=true when INCLUDE_OGL=false as the validation libraries themselves are not dependent on the OGL driver, so move CLIENTPATHS to a place where the missing paths will be listed in that case.
+* Add missing "break" statement
+* Added extracting LWLink routing information from .topo file in protoutil.
+* Fix static variable constructon order problem
+* pull lwlink header dev_lwltlc_ip.h for t194
+* Sort the I2C ctrl index after getting from file address_map.h
+* Fix detection of surfaces moved from Fb to Coherent on T194
+* Update Uphy to support T194
+* 1. Fast algorithm for subset sum search. For the algorithm of maximizing the traffic in LWLink to be efficient, we have to find all subsets of numbers in a every row of a matrix that add up to 1. An exhaustive search is exponential and became a bottleneck. The new algorithm is polynomial.
+* MODS : Add custom task path to BinaryTest util.
+* added LWHS support for UPHY
+* Remove trailing blanks and PriHigh
+* Print name of the missing lwbin file
+* [DGX]: Set PrintPerf to true in burnin spec
+* Make the nightly doxygen script run as svcmods, step 3
+* Bpmp: add support for built in firmware test.
+* tegramfg: remove cpu tests which are no longer required.
+* Summary: Mark customer mods run scripts, board  and cfg files as tegra_release_files
+* Update the I2c BoardMux setting on SLT A01 board
+* Remove board files which are no longer required.
+* Replace custom fill kernel with lwMemsetD32Async LWCA API call
+* Add drvUp/drvDwn support in test commands
+* Create regression spec for Emulation QA
+* Add SLT commands for OPE, AFC, SPKPROT and ARAD tests
+* Turing: RM-LWLink: Minion ucode version 008 to be integrated to chips_a
+* [MODS] - LwDisplayRandom - Enable Test Setup with dvsSpecWithDisplay
+* [Vkstress]  Add knobs for min and max texture sizes
+* Summary: [T194][MODS][SE] AES-XTS increase input size
+* Fix compilation issue when ENFORCE_LW_NETWORK is not defined
+* 629 changes for PPC
+* Add debug prints to PMGR Mutex aquire/release functions so that we can get timestamps in MLE
+* Summary: Make DDPX run script exelwtable
+* [MODS] DPC - Add support to set PREFERRED Lane Count and Link Rate
+* Remove multifieldiag.sh from PPC 629
+* wdt: improve wdt
+* Regress "Walking" Linpack mode, LwdaLinpackIgemm, and Linpack kernel configuration
+* Summary: [T194][MODS][SE] Add AES-XTS and EDDSA test
+* RM-GPU Adding a PDB property and debug registry string controlling SMC enablement
+* Fix creating floorsweep.egg
+* Added static_cast processing in SProperty definition. It is done by adding two new fields in the SPropInitValue structure, adding a local variable qi::locals<bool>to the m_initValue rule and modifying parsing rules for m_initValue.
+* Assorted fixes for issues with gcc-7.2
+* Summary: T194 MultiMaster, BusClear and Timeout features support
+* MODS Adding INCLUDE_MODS_GTEST to build gtests
+* Update SPI continuous mode test
+* 1. add x bit into modslogger.pl
+* Update TPC floorsweeping script for T194
+* Add bypass capability to decrytor
+* Fix PEX Error polling argument
+* Rename Platform::Cmodel to Platform::Fmodel
+* Change LwdaWrapper Instance::Synchronize() to sync the default stream
+* Update the GLRandom program generator to take into account built-in variables.
+* Program EqosTest.PhyID correctly based on value from board JS file.
+* Keep the enable-latic path from T186
+* Use -k when only rebuilding MODS exelwtable
+* Add regkey to skip restore of cached LWLink state during L2 exit
+* Reduce code duplication in TegraIsm by deriving from GVxxxGpuIsm
+* Update VIC version to 4.2
+* Enable AVFS subtests on the pstates 3.5 systems in DVS
+* Add TegraFullLoad test to cheetah.spc
+* tegradvfs: disbale sor1, tsec clock and print vdd-core.
+* ape: update boardmux setting of ape
+* Remove unused file
+* Restore original GetDefaultTimeoutMs() implementation in the "new" Tasker.
+* Implement Xavier LwLink functions that require register access
+* [DGX-1V][Field diag] Relax PCIE thresholds and skip Gen1/Gen2 in test 146
+* Update T194 (Q)spi pinmux & QSPI SLT test
+* Hw scrubber rmtest changes to add new arg for skipping clear before starting test.
+* Update the clk operations for the PWR_I2C (4) on T186
+* Summary: Add files for GPU MODS CRC test
+* Fix validation layer errors in VulkanImage and VulkanTexFiller
+* Added prebuilt gtest libs
+* Enabling HWLwrsor in tegrawin test
+* Print status "AUTO" when clocks are controlled by the system
+* Partially revert CL 23112372
+* More GL tests 135/136: GlrMrtRgbU/GlrMrtRgbF
+* Remove engr/official references
+* Summary: T194 I2C FIFO control register support
+* Implement DoDetectTopology()
+* RM/PMU: PERF: Moving old style VFE RPC-s to new style RPC-s
+* Vulkan APIs are designed to allow freeing NULL objects. Remove all checks and MASSERTS that are checking for VK_NULL_HANDLE prior to freeing objects because this is redundant code.
+* Cleanup obsolete tests
+* [RM][Limerock] Halification step 1.2: h files renaming
+* Add functions to lwlinkdrvexport.c sure to recent refactoring of LWLink core lib functions
+* Remove cpu_screen0_t124.
+* [T194] Configure max head count correctly for T194
+* Summary: timeoutInSec changed to testTimeInSec
+* [FWSEC] Add mods arg to bootstrap FWSEC on SEC2
+* Update VkStress and add LwdaXbar2 settings for CheetAh simulation
+* Enable SocTherm Test for T194
+* MODS DPC files have default values support
+* Summary: Board mux call moved to common validation function instead of in each funciton.
+* ape: add pinmux info for dmic and dspk
+* Disable SOR while testing FmaxVmin
+* Don't reference unused LW(X) and other Vulkan elements as it makes it hard for the driver to rename or remove them.
+* Summary: Add board/cfg files for 3550_b00 board
+* Summary: Mods clock driver made in sync with Kernel clocks macros
+* Routing in protoutil.
+* Integrated from R384 to Chips_A
+* Enable EQOS, SPE, RCE, and BPMP tests for t194.
+* [Turing] Enable testing of 20 bit comptagline change in PTE field
+* Add sensor Max96712 supporting on the E3381 module
+* Minor update on Sdmmc power on sequence
+* Don't use LW2080_CTRL_CMD_GPU_GET_ENGR_REV_INFO in the EUD. This control call is allowed only in the manufacturing MODS.
+* Remove MASK_PCI_* macros from platform.h, and use UINT32
+* delete tu105 and tu107 from M2M process, these are dead chips
+* Update T194 cfg variable for fuse test.
+* LwDisplay cleanup per input from ReSharper C++ (no functional changes):
+* Update xusb_sil_rel_fw to be p4 binary type
+* SR-IOV: Replace IS_VGPU_VF and IS_VGPU_PV with the more informative IS_VIRTUAL_WITH_SRIOV and IS_VIRTUAL_WITHOUT_SRIOV respectively.
+* Wait to contruct routes until post-discovery
+* Add lane mask to support single lane connection
+* Skip pex checks in emulation
+* T210: Update fuse blow sequence.
+* Eqos: setup tx eqos clock via debugfs path instead of register write.
+* Update BoardMux items according to A01 shematic
+* Add support for new test argument BufferCheckMs that will check the contents of the framebuffer every xx miliseconds.
+* Skip the lwlink linpack variant in 629.spc
+* Add LWLink L2 to the S/R sequence
+* [Turing] Adding LWENC Class ID B4B7 RM support
+* Change expected behavior of ld.cg instruction on T194
+* No yield poll in case of raised IRQL.
+* Traffic maximizing solution is added to protoutil.
+* Add GV100 files and remove non-GV100 files from "other_good_files" section  in modsbld_stealth_end_user.sh
+* Add more unit tests for dpc_file_parser.cpp
+* Really update xusb_sil_rel_fw to be p4 binary type
+* Change 'GpuDevMgr not initialized' print from PriNormal to PriLow
+* Fix for the Arad test stability issue
+* Added a few options to protoutil tograph command.
+* Change the URL printed when a perf error oclwrs
+* VkStress minor fog tweaks
+* Don't query p-states if they are disabled
+* Add FrameBuffer::GetSubpartitionBusWidth
+* Summary: T194 I2C support
+* Use new makefile define for shared library packaging
+* Fix for IBM NPU error injection
+* soctherm: raise GPU voltage before measuring GPU TSOSC temp
+* Copied powercable test from tesla.spc to dgxmfg.spc. Removed timecheck function. integrated changelist 23155731 from branch 384. Reviewed by:ybhosale
+* [T194][MODS] Add DLA and PVA SLT support
+* Update SPI to CPU set/restore feature
+* Start moving SRIOV functionality to base classes
+* T214: Add support for BlowFusesFromXML
+* Fix genbypass.sh
+* Remove AGP-specific code
+* More GL tests 132/133: GlrFsaa2x/GlrFsaa4x
+* RM Support for FUB binary.
+* Update the PeerToPeerTest for LWLink L2
+* Don't push duplicate VK_LW_glsl_shader extension
+* ape: use new device node for dmic and dspk
+* Summary: Enable Cpu Test for T194
+* Add enIoHv supporting on DP I2c controller [3,5,6,8] for T194
+* Updated AssignSOR to consider 2Head1OR case.
+* Added JSON output of the maximum traffic solution to prototutil.
+* Remove DVS warning
+* Fix cheetah build break
+
+   692777 Adding separate fifo stall for gxc/hxc/merger bugID:200370676
+   692777 Reverse integrate from //hw/lwgpu_gpm/... to //hw/lwgpu/...
+   692777 Reverse integrate from //hw/lwgpu_smv2@39544191 to //hw/lwgpu
+   692777 Reverse integrate from //hw/lwgpu_smv2@39766603 to //hw/lwgpu
+   692777 Reverse integrate from lwgpu_fsc @...39878870 tested against mainline 39839632
+   692777 dbi PRI bit update for individual arcs bugID:   200274944
+   692777,200274944 Changes to have the DBI init value to be AC Mode for FNIC to L2 segment.
+   692777,200342706 integrate bug 200342706. priv change DBI_{BYPASS,AC} init value to ON (try4).
+   692777,200342707 -Fix reset/PROD values for DBI registers.Align fields as per confluence page
+   692777,200363425 pipe cleaner bundle to setup co-dependency points between sw/hw
+   692777,2016518 Back integration from //hw/lwlink_lwswitch_int/...@39604147 tested with LWGPU CL39610139
+   692777,2032890 Setting initial value of DBI EN bits to AC enabled, BYPASS disabled. Also has the change for MMU test to allow randomly setting DBI_AC_EN=1 and DBI_DC_EN=1.BUG 2032890
+  1244325 Remove Kepler VBIOSes, refs and the trap handlers to decrease the size of the MODS tree (and number of files in sim/resources).
+  1244325 Remove no longer actively used Maxwell .rom (leaving just one still used by as2) and .spc files.
+  1439328 Add new ECC filter messages
+  1451486 Introduced format patterns in the fieldiag log file name.
+  1565461 #1 (3/3) [RMCTRL+MODS] Remove support for LwU32 clkDomainExclusionMask from LW2080_CTRL_PERF_CHANGE_SEQ_CONTROL
+  1565461 #4 (2/4) [CLK_DOMAINS][RMCTRL+MODS] For LW2080_CTRL_CLK_CLK_DOMAIN_{INFO & CONTROL} rmctrl interfaces send LW2080_CTRL_CLK_CLK_DOMAIN_TYPE_30* types and deprecate use of LW2080_CTRL_CLK_CLK_DOMAIN_TYPE_3X* types
+  1565461 #9 (2/4) [CLK_PROGS][RM+MODS]  Deprecate use of LW2080_CTRL_CLK_CLK_PROG_TYPE_1X_MASTER* and begin using LW2080_CTRL_CLK_CLK_PROG_TYPE_30_MASTER* for clocks 3.0
+  1565461 CHSEQ#04: Update the CLK LIST to get rid of unwanted params on PS 3.5
+  1576633 PMU: RPC: Introducing unified RPC infra: Colwerting SPI task
+  1583359,2001299 RM-Core Remove RMCFG DEBUG_MEM_TRACKER
+  1699486,1996638 RM Bus / Mac / MODS RM Test - SLI Next - Route remapper control calls to the appropriate GPU - introduce subdevice handles to the LW507F/LW907F control calls
+  1706402 Disable 32-bit winsim at runtime
+  1717400 Previously the aperture for a surface in amodel was infered from the upper bits of PA. This was done since MODS changed the aperture to video always because RM only supported Fb for amodel. Going ahead support for peer aperture was aalso needed. Adding more PA hackery would have made it a little messy.
+  1731143 [T186] Add support for Dynamic Window assignment for T186/T194
+  1755835 Add a GLSL pragma directive to unroll all shader loops in VkStress
+  1755835 Implement CheckSurface() to check the contents of the color and depth buffers for accuracy.
+  1756729 Fix CRC miscompare error
+  1820544 629 changes for Volta
+  1820544 Fix typo in multifieldiag.sh
+  1832500 [T194] Add new Tsec test (Phase 1)
+  1860962 Improve memory allocation in NewLwdaMats on CheetAh
+  1861010 T194 lwlink ioctl hookup
+  1861802 Clean up references to GV20X
+  1883276 Fix pseudo-channels config in GDDR6
+  1883276 TU10X:  Add new ecc-fmodel rom variants for G000, TU101, TU102, TU104 , all memory types
+  1890567,2022299 Fuses: Improve bootrom patch revision blowing process.
+  1898451 Don't capture CPU id and host name in fieldiag and EUD to keep customer's privacy.
+  1909256 TU106:  Add sim ecc rom variants
+  1910254 LWLinkCore : Rename lwlink_connection to lwlink_intranode_conn to make it explicit for intra/inter node connection
+  1916700 [P9 PMA NUMA] Support Eviction of PMA allocation
+  1919226,1996694 fix some intermittant mmu faults on linux
+  1919363 Add Barycentrics to GLRandom (part 1)
+  1919694 Add preliminary support for LwdaTTUStress (Test 340)
+  1919697 Implement HTEX & handle error conditions more robustly.
+  1928051 Added TNR2 support in TegraVic4.2
+  1929069 Reghal-ify LW_PDISP_VGA_BASE in standalone mats
+  1931241,1932687,2002548 Full GP100 MemRepair soft lane repair implementation and MemRepair HostToJTag fixes
+  1936465 Detach threads in LwdaLinpack when running on multi-GPU systems with -conlwrrent_devices
+  1939748 Make use of CopyValidTestArgValues
+  1949645 T194 MODS DLA test
+  1952760 Modify files which uses system python to use PYTHON from perforce.
+  1952760 Use Python from Perforce when exelwting createzip.py and mods_exports.py scripts while building MODS on Linux
+  1952923 Add MME64 Group generation configuration options
+  1952923 Fix interface to MME64 simulator
+  1952923 Improve support for valid MME64 Group generation
+  1952923 MME64 Test Stub
+  1955110,2002100,2002445 Enhancements to CheetAh Perf for T214
+  1955717 Summary: MODS: Mark all embedded board/cfg files as tegra_release_files
+  1955717 summary: Add golden binary to mods.tgz (both Customer and Internal)
+  1955717 summary: Changes to find mods.ko and then load the same
+  1955717 summary: Modify run scripts to use -old_gold instead of -no_gold for
+  1957398 Added HotReset method for IbmNpu devices
+  1958289 Add do not Retry option to AccessDpAuxChannel method
+  1963105 Added JavaScript interface for TestDevice class
+  1963105 Implemented TestDevice*GetDevice() in Pcie and LwLink interfaces
+  1963105 Replaced BindGpuDevice/BindGpuSubdevice/BindLwSwitchDevice with BindTestDevice
+  1963667 Update T210/T214SocDevice files.
+  1963905,2023452 TU102:  Add new files
+  1964298 LWLink: Set link rate (speed) on MODS as per device tree info'
+  1965706 add full GFXP support for RTV CB buffers on Turing+
+  1970555,1970804,1970872,1971827 Fix whitespace style violations in C/C++ files
+  1970563 RM Heap - Delete the LW0041_CTRL_CMD_SET_SURFACE_ATTR and LW0080_CTRL_CMD_FB_FREE_ZLWLL control calls
+  1972559 Implement MODS windows network authentication
+  1973240 Fix ReportFailingSmids for Dgemm and Hgemm
+  1973240 Implement reporting of failing SM/TPC in LwdaLinpack kernels
+  1973240 Refactor linpack.lw to report the location and number of miscompares
+  1973437 Enabling blocklinear and scaling in TegrawinTest which  were disabled before because of timeout error.
+  1973832 revise uefi console display restoration
+  1974350 Remove PMA-Managed pagetables workaround
+  1975411 FakeEdid when there is no default display.
+  1978034 Create a PID controller to regulate PwmFreqActor's duty cycle
+  1978336 Setup switch ports as early as possible
+  1980047 Remove GlrFermiTpc
+  1982314 RM: EventBuffer: Event buffer Add functionality
+  1982475 MODS need to skip test 24 on products with NO HDCP (e.g. PG500 sku201)
+  1983121 RM: Mods locking: Updating intr path to take correct locks.
+  1986699 Integrated changes from R384 to Chips_A
+  1986699 Integrating from R384 to Chips_A
+  1986704 Change IRQ parameters to be consistently 32 bits (needed for VF's in SR-IOV tests)
+  1987318 [DGX]: Add HBM temperature test spec to mfg diag
+  1988901 Add usbbwstress.cpp to MODS Linux builds.
+  1988901 Callwlate and Print bandwidth data for USB bandwidth stress test (test 395)
+  1988901 Change file name: usbbwstress.cpp -> usbstress.cpp
+  1988901 Revert a broken change: 23025267
+  1989006 Add more texture knobs to VkStress
+  1989006 Create VulkanTextureFiller utility class and use it in VkStress
+  1989379 ISM fixes for T194
+  1990170 - Add a method to override lwdisp control structures to SetModeOnSingleWindow
+  1991612 MODS - sec2rtossub.cpp: Revert WAR for bug 1991612
+  1991651 NewLwdaMats tests automatically callwlate the amount of shared memory it needs.
+  1993451 Add ability to directly scanout the primary VkStress image to display. With that we can see the actual drawn content without any need to synchronize with the presentation/swapchain meaning the perf impact is minimal.
+  1994302 Preparation for T194's LwLink loopback testing
+  1996768,2011455 More fixes for SR-IOV support
+  1997431 Add support for Vulkan validation layers 1.0.61.1 on LinuxMfg & Linux Sim builds (2 of 5)
+  1997937 Remove temporary Makefile settings
+  1999674 Fix delay in LwdaLinpack results check caused by temporarily allocating LWCA memory
+  2000118 Fix for the conflict between AHCI and XHCI in MultiIO test
+  2000118 Fix for the timeoutInSec not working on APE tests
+  2000118 Improve EQOS test.
+  2000179 Add TURING_CHANNEL_GPFIFO_A
+  2000797 Split compute.spc to allow reuse of Linpack tests in the fieldiag
+  2000799 p0only does not work in fieldiag from branch r384
+  2000828 Summary: Update Fuse SKU for 2382
+  2000925 Update bandwidth callwlation in Test 146 (PexBandWidth)
+  2001088 Add support for "dll_build = true" to mods.dll.
+  2001088 ModsServer export API is not needed in mods_dll.lib as none of the sub .dll are using it.
+  2001263 Update libstdc++.so from 6.0.15 to 6.0.21. The library has been built alongwith gcc-5.4.0 (glibc2.5)
+  2001299 RM: refactor osGetDmaStartAddress out of RM
+  2001299 RM: remove redundant RmInitCpuInfo calls
+  2001299 RM: remove unused osGetTvConnector interface
+  2001433 TU102 EMU:  Add new GDDR6 ECC rom variants
+  2003027 Add Memory Error and BgLogger units to MLE
+  2003062 RM-LPWR: FGC6 support in RMTEST
+  2003062 RM-LPWR: FGC6 support in RMTEST CL#3
+  2004330 Add Memory Error prefixes to MLE metadata
+  2005077 Don't report "Unknown Rank" if we don't have any "Unknown Rank" errors
+  2007836 Use CRC32 instruction in aarch64 builds
+  2007994 Summary: T194 MODS PVA test
+  2008035 Remove FP16 WAR
+  2008075 Report HBM ECIDs in MODS Header
+  2008919 Change default amount of tested RAM on CheetAh
+  2010506 Bug2010506 G000 fmod #9tests: level ltc/all : texsize CRC fails
+  2010767 Ignore failed reads of PEX device status
+  2010768 Fix race condition in ErrorMap::StoreTestContext
+  2010856 Adding Feature Override Feature in TegraWinTest
+  2011150 Disable the "-pstate_disable" sanity test
+  2011453 TU104/6:  Add new sim g5x cmos roms , and tu106 sim g5x roms
+  2011972 Add GV100 PcieEyeDiagram defaults
+  2014603 Made the global test database an ARG_STATE_VARIABLE
+  2014725,2016212,200366783 Use BlockLinearDirectTegra16BX2Raw class as default translation address for blocklinear surfaces on turing
+  2015555 [MODS DPMgr] Updating constructor for DPM Connector to add a flag to skip resume in constructor. This will fix bug  2015555.
+  2015996 Dump PEX error counts for all field diag tests
+  2016119 Remove 2 primary devices assert for sim
+  2016149 Skip PState sanity test 15 (SetRailClkDomainOffsets) on PStates 3.5 systems
+  2016177 Add additional TURING_CHANNEL_GPFIFO_A support.
+  2016483 Add preference to floorsweep GPC5:TPC0 and GPC3:TPC0 on GV100
+  2016584 [MODS]: [DGX]: Apply WAR for power tests suite
+  2016680 Add PrintPerf test argument to VkStress
+  2016680 Timeout correctly in MODS Vulkan tests
+  2016680 Use double-buffered command buffers in VkStress
+  2016691 Added testargs BerNumErrors and BerNumBlocks to test 248
+  2017212 TU102: Adding new build for HDMI on IFP F for USB-C UPHY test support. reviewed by jvalweghel. Bug 2017212
+  2017261 RM: Add GA000 2/2
+  2017434 [DGX]: Fix DGX scripts to pick up willow builds for explorers
+  2017434 [DGX]: Fix dgxqual.spc to be able to run lwswitch tests for DGX Explorer
+  2017552,2017566 RM - intr: Fix the non-stall intr disable/restore for both VF and post-LW_PMC interrupt tree
+  2017893 [subcontext] update WatermarkTest and TpcPartitionTest to free channel in use before freeing the subcontexts
+  2019099 Fix error counter allowed errors
+  2019197 Add missing elements to get test 84 (HDMI loopback) working on GV100.
+  2019205 Fix Surface2D::MapPhysMemToGpu to look at both PTE blocks to get the PTE kind.
+  2019340 Enforce device exclusivity for bgtests
+  2019340 [DGX-1V] Don't use StartBgTest for running test 246 with LwlinkEyeDiagram on multiple GPUs
+  2019537 Switch g000 to ga000 chip id for bug 2019537
+  2020007 Add error prints for debugging purpose upon SharedSysmem::Alloc failed to allocate a MODS SRIOV shared buffer.
+  2020150 Adding argument (log_hw_event_cpu_doorbell) to enable CPU Doorbell logging when the test requires it. Its disabled by default. This CL also makes the enum explicit to make it easier for debugging and to generate bitmasks to be hardcoded in simargs.js
+  2020765 RM: FERMI+tAURORA #10d: GPU: Geting rid of unused CheetAh stuff (tAURORA, tKEPLER)
+  2021543 Added Linpack SMID failure detection to floorsweep.egg
+  2021543 Fixed small bug in floorsweep.egg parsing Failing SMIDs
+  2021910 Detach display in hdcp test only when a valid head is attached to it.
+  2022187 Select the in/out window sizes explicitly in "DisplayMgr::TestContext::DisplayImage(GpuUtility::DisplayImageDescription...)" as "UpdateWindowPosition()" is using that values to position the window on the desktop.
+  2022299 Cleanup Fuse Test and add support for t19x.
+  2022299 Pmc: update fuse mirroring and redirection bit methods.
+  2022596 Remove PRINT macro from Vulkan sources per request in bug 2022596.
+  2022693 Changed gpulist.h to use variadic macros
+  2022704 VBIOS: branch GA100 sim ROMs from TU101 sim ROMs
+  2023696 Remove Fermi support.
+  2024063 TU117:  Add emu roms to chips_a
+  2024245 Fix HOS build break caused by CL 23155662
+  2024494 [T186/T194] Add support for testing Degamma as part of TegraWin
+  2025101 Drop support for ZLWLL floorsweeping in Turing
+  2025187 [RM][Limerock] Halification step 1.3 File Movement
+  2025187 [RM][Limerock]Halification step 1.3 File Movement (part 3)
+  2025429 [MODS]: Add a way to report temperature statistics in test 375
+  2027361 Re-enable some skipped pstate sanity sub-tests
+  2027465 [MODS]: [DGX]: Skip synchronous power mode in system level fieldiag
+  2027789 Add "negative" testing to VkStress by directly corrupting FB allocation at a selected time into the test run.
+  2027789 Add testarg control over location of injected image corruption for negative testing in VkStress.
+  2028477 Add perlink options for PEX rate thresholds (chips_a version)
+  2028611 Add SocPerfSwitch test based on TegraFullLoad
+  2028764 Add support to Rce and Spe tests to run with exelwtion time.
+  2028764 From f2471afed3950acf68cef08d55bbeab58734dca1
+  2028764 Integration From 9a7b6a157d32b160a5c1c1913647c89d57baf1d2 Mon Sep 17 00:00:00 2001
+  2028891 Provide MODS command-line argument for disabling the inclusion of ECC errors in -matsinfo reports
+  2030046 [MODS]: Fix lwpex2 tool in chips_a
+  2030531 Added LWDEC1/2 to GetEngineName()
+  2031841 Force the layout of the system memory allocation for generating window content in LwDisplayRandom to be always pitch linear. Mappings of block linear layout, which create reflection are no longer allowed.
+  2031889 After skipping tests 302 and 304 because of bug 2031889 the leak count went down to 0.
+  2032410 Fixed GpuTestConfiguration::BindGpuDevice
+  2032967 Fixed slifstest.js
+  2033203 Made modsencsrc not complain if a file doesn't have a line end in the end of the file.
+  2034632 Fixed devStr error in CheckPCIExpressBusDev
+  2034717 Fix Interactive display test in CheetAh
+ 23197054 RM: Turn on GA100
+200246106 RM-IMP GV100: IMPTest3: New Display Class to implement IMPQuery for GV100 on winmods.
+200246106 RM-IMP GV100: IMPTest3: cl 23174914 breaking the following build chips_a_mods-app_none_none_git-master_none_none
+200273492 1) Multiple LWDECs addition/support in RM
+200293385 Added Support to test streams H265 GENERIC and H265 TenBit 444 on T194
+200293385 Added Support to test streams H265 MultiRef B Frame and VP9 on T194
+200293385 T194 has two LWENC engines. Added support to fetch both the LWENC engine class IDs.
+200321151 MODS DPC update
+200328260 [DP Library] Updating compoundQueryAttach API for DSC
+200328260 [LwDisplayLib] Adding command line parameter to force DSC at particular bits per pixel value
+200328441 Add support for DP MST to LwDisplayRandom - work in progress.
+200329521 [RM-Security] Execute LS Devinit by sending SELWRE_BOOT command to FWSECLIC
+200332228 Enable test 327 on TU102 DFPGA
+200335183 [MODS LwCycleDisp2] Modify cycleLwDisp2 to have option to force DP lane count and link bandwidth
+200339650 Added SrcSurfMode to test 146
+200340181 [MODS] - UDTA - Add support to force hubclk
+200341144 MODS DPC Allow scaler taps configuration
+200341149 MODS DPC refactoring
+200341613 Increase MaxFbMb in nbmfg.spc from 8MB to 64MB to fix NwfMats failures
+200344718 1) DisplayPort::Address::append Out of bound access in hop array.
+200345632 Adding TU106 VBIOS binaries into sim resources. reviewed by jvalweghel.
+200349310 Test 305 stereo support in LwDisplay
+200353957 Add SendCoreMethod to LwDisplay for bug 200353957.
+200354687 Add prod setting functions for T194
+200354972 Add cfg/js for 3566-A00
+200356219 DVS: IMPTest3: IMPTest3 script changes to fix the vbios certificate error and config changes for changing the Nightly setup to GP107.
+200356219 DVS:IMPTest3: Modifying the DVS-Nightly script for the new chip (GP107) and adding a the new config file to avoid ambiguity of using PerCL. (fixing the previous submission)
+200356219 Include simargs.js with INCLUDE_RMTEST=true
+200357321 1> Update CRC callwlation method by including output of CRCgen tool as it is
+200357989 [Turing] Fix Sec2RtosHsSwitchTest
+200358647 [RM] move lwh file list from lwoc.lwmk to Sources.def
+200359557 [Turing] Fix Sec2rtosrttimer
+200359716 PG500 SKU0 Test 275 data
+200363005 Do not compile pre-kepler kernels
+200366139 RM/GC6/RTD3 Add proper delay between RmControl call and chiplib escape pexrst# write.
+200366780 [MODS]: Submit lwpex2 with ctrl-c fixes
+
+--------------------------------------------------------------------------------
+Version willow.3
+Date: 2017/10/26
+Built at Change: 23042832
+
+* boards.db updates
+* AS2Job for source session: 24733 and source session description: Some sanity tests fail with tABREF because of the incorrect refresh settings.
+* Improve PF/VF sync-up robust by making an iterator for RemoteData of TestSync.
+* Make PerfSweep (test 145) sweep down the VF lwrve
+* Remove trailing blanks and PriHigh
+* RM/PMU: BOARDOBJ+RPC #108: Removing RM_PMU_THERM_CMD
+* Add //sw/mods/shared_files to required paths
+* Add UARTH self-loopback test supporting on stardust-slt board
+* Fix incorrect string concatenation from CL 22998023
+* Fix TestDeviceMgr::InitializeAll() on CheetAh
+* [MODS] - ( Minor Change )  Set Interpolate ON for CSC0/1 LUT
+* RM: Event Buffer: Restructuring to move generic functionality in common path
+* Detach BgLogger print thread
+* AS2Job for source changelist: 23005954 and source changelist description: core90:  Force new TOT AS2 submissions for all chips
+* [mdiag] Add RMDisplayOverrideElvStart regkey for mdiag
+* Do not encrypt cheetah files for internal package
+* Add "format printf" to the vktest build.
+* Updated UFS/mphy to support one lane condition
+* Add rm_dup_enc_files.sh tool for cheetah
+* A few vkmodssub.cpp improvements based on feedback from previous reviews.
+* Add Tasker::Mutex
+* Introduce RTL Fast Forward into UDTA
+* Bpmp: update bpmp test to remove stray print
+* Use atomic ops to access m_Owner and m_LockCount members of mutex
+* revert for 23012405
+* [RCE] inherit rcetask_t19x from rcectask.
+* Fix detection of multiple GPUs with kernel mode RM
+* RM: Adding ga000 to ref2h part 2 - checking in the script changes to trigger hw manual colwersion
+* Simplify Tasker::CreateThread() variant with function object
+* AS2Job for source changelist: 23005954 and source changelist description: core90:  Force new TOT AS2 submissions for all chips
+* Revert LwdaLinpack to inheiriting from LwdaStreamTest
+* ufs, uphy to support only has one lane situation. 
+* [BUGFIX][MODS BREAK] #1 (1/3) [PMU/RM/RMCTRL] Change sequencer structure update to use BOARDOBJGRP_E32 masks and introduce an inclusion mask
+* Command line update for DVS TU102 fmodel sanity
+* Update [Print the INA measured voltages (CPU GPU SOC CV) on stardust-slt board]
+* Add T194 preinit sequence for Sdmmc
+* Enable use of nputest.js on CheetAh
+* support physical & virtual flr test
+* AS2Job for source changelist: 23036352 and source changelist description: core90: LW_FUSE_STATUS_OPT_FBPA_IDX_ENABLE_UNSHIFTED macro is removed from latest refman so replace it by callwlating FBPA_DATA_FIELD_MASK and _FBPA_DATA_INIT_UNSHIFTED. 
+* RM - intr: Remove the bProcess flag from nonstall interrupt servicing
+* [MODS] : DPC - Add support for " -sync_scanout " . 
+* In vmiopmods, VF MODS should not read PCIe config.
+* RM-Unix Preparation in Linux layer for onlining all of FB 
+* Enable lwlink mappings since the header changes are in
+* revert  cl-22998898
+* Update ga000 manuals files by running manuals_to_mods by hand
+* Fixes for internal MODS build for CheetAh.
+* Update XUSB_PADCTL_UPHY_USB3_PAD*_ECTL_1_0 value 
+* Add -patternIndex to specify pre-defined pattern
+* LWLink L2 exit and LWLinkLowPowerTest updates
+* Fix Tasker::CreateThread() variant with lambda
+* AS2Job for source changelist: 23005954 and source changelist description: core90:  Force new TOT AS2 submissions for all chips
+* Use atomic ops for accessing counting event's counter and exit thread ID
+* Update PeerToPeerTest to fail if links do not transition to ACTIVE when P2P object is created
+* AS2Job for source changelist: 23038022 and source changelist description: core90: UDE: don't check pre-OS DMEM verification status
+* Bring the VkStress tessellation evaluation shader a bit closer to the equivalent GlStress shader by:
+* Use clean_official_build instead of clean_official_build_all
+* Print bit number when an SBE ECC error oclwrs
+* 629 changes for Volta support.
+* GLRandom: Remove park/unpark feature
+* [TURING QOS] Enable/handle runlist acquire and idle pending interrupt for mods testing
+* Add I2c boarMux supporting on interposer board
+* RM: Adding ga000 to ref2h part 3 - add manually copied manuals
+* Fix a bug with "-disable_freq_controllers all"
+* bpmp: increase timeout per loop.
+* Added testname logging at various point to facilitate FCRA to support multiple tests
+* RM-LWLink: Regkey overrides to disable Receiver Detect in Turing
+* T19x: rename sce files to rce files.
+* AS2Job for source changelist: 22992420 and source changelist description: core90/tu102f:  Force new TOT AS2 submission
+* Print the INA measured voltages (CPU GPU SOC CV) on stardust-slt board
+* Update the PMU sysfs method and enable the PrintVoltClock function
+* ape: enable ape power for kernel4.9
+* RM/PMU: BOARDOBJ+RPC #104: UNIT_FAN+CLK+PMGR+PERF
+* AS2Job for source changelist: 23036352 and source changelist description: core90: LW_FUSE_STATUS_OPT_FBPA_IDX_ENABLE_UNSHIFTED macro is removed from latest refman so replace it by callwlating FBPA_DATA_FIELD_MASK and _FBPA_DATA_INIT_UNSHIFTED. 
+* Fix typo in IFF fusing
+* Add SNIC Test Framework Support
+* Fail lwenc test if all supported streams are being skipped
+
+   692777 Adding helper define for SW as to the number of leafs per function.
+   692777 Bug#1918119: cleaned dead dll registers
+   692777 Bug#200328510: updated dram/refm/hbm pll jtag mask registers
+   692777 Bugs 1992945 : Initial RTL changes for training with shifted pattern per setting.
+   692777 Changes to dev_ram.ref for something.
+   692777 Enabling PLC by default in glit0 (Reverting unintended PLC_DISABLEMENT in CL39468939) 
+   692777 Fix init value of refmpll/drampll bypass, removing ptrim override in design/TB
+   692777 PRI source isolation: HSHUB and FBHUB.  Updated the HSHUB and FBHUB manuals with SOURCE_ENABLE and other fields for PRI source isolation.
+   692777 PRI source isolation: PJTAG.  Updated the PJTAG manuals with SOURCE_ENABLE and other fields for PRI source isolation.
+   692777 PRI source isolation: PMGR.  Updated the PMGR manual with SOURCE_ENABLE and other fields for PRI source isolation for the new registers:
+   692777 PRI source isolation: SM.  Updated the SM manual with SOURCE_ENABLE and other fields for PRI source isolation for the new registers:
+   692777 Remove the L1 TLB prefetcher.
+   692777 Removing DMEM_TAG size as minion doesn't have DMEM VA feature
+   692777 Reverse integrate from //hw/lwgpu_hshub@39533180 to //hw/lwgpu      
+   692777 TU10x HWPM Tool data pointer update : Added generation of pm_defines.yaml , only for verification after script . No RTL changes 
+   692777 Transition FECS registers to new PLM format.
+   692777 Transition all pri_ring and config registers to new PLM format
+   692777 Updating manual init value to match updated libola spec
+   692777 add PM_CATPURE_CTL_ILWERT register to switch Idle signals to Active signals for easier perf debug
+   692777 add description, and fix some defines
+   692777 cleaned up pri reg by removing managed since it was redundant (and confusing) when enabling the CAU
+   692777 connect FBP observability clocks to FR counter.
+   692777 fix the glit0 fuse manual 
+   692777 fixed a #priv_level_mask_define so that the PLM connectivity would show up correctly in the manuals.
+   692777 fixed quiescent mode when all of the datapaths are not in sync. for example, when only one datapath is sending data
+   692777 fixed typo in the SOURCE_ENABLE default value.
+   692777 flush record and overflow support added to pri and trigger logic
+   692777 hooked up a bunch of pm signals to CAU
+   692777 moved CTXSW controls out of CONTROL reg and put into CTXSW reg
+   692777 lwgpu_ltc -> lwgpu integrate upto CL39492621
+   692777 lwgpu_ltc -> lwgpu integrate upto CL39496640
+   692777 lwgpu_ltc -> lwgpu integrate upto CL39511101
+   692777 lwgpu_ltc -> lwgpu integrate upto CL39521158 (w/o CL39517224 , w/o fmodel) 
+   692777 lwgpu_pwr@39504810 -> lwgpu integration
+   692777 lwgpu_smv2 branch reverse integrate from //hw/lwgpu_smv2@39498803 to //hw/lwgpu
+   692777 update PG regs reset domain
+   692777 updated tpulse register definitions to get ready for the feature addition
+   692777 widen CCDMW arbiter weight to allow upto tCCDMW = 8*tCCD
+   692777,1526173 Bug 1526173 : remove DI/DT manual definition
+   692777,1847900,1950298,1952978,1962403,1977777,1982130,1982368,1986024,1990778,1991503,1994339,1999969,2000576,2002306,2004768,2004775,200312990,200344484 Back integration from //hw/lwlink_lwswitch_int/...@39513109 tested with LWGPU CL39516643 
+   692777,1867961 bug 1867961 : Adding 2UI crossing for interp
+   692777,1869229 Submitting change to add the sideband methods to set the global priv access map physcial address.
+   692777,1870165,1870166 Clean Lint errors from CTXSW manuals bug 1870165 bug 1870166
+   692777,1870172,1870173,1870182,1870183,1870208,1870257,1870258,1998589 bug 1870172
+   692777,1870178,1963647,1993669,2005006,2006584,200328520,200332967,200354178,200355373,200356139,200356360,200356499 bug 200332967 : update FUSE/FPF manual format
+   692777,1870239 Bug  1870239:	PROD value updates related to Manuals Lint cleanup.
+   692777,1870241 bug 1870241: dev_perf.ref manuals lint cleanup (tool_pointer update)
+   692777,1870247,1870271,1870272 Bug 1870247 Bug 1870271 Bug 1870272
+   692777,1904262 BUG 1904262: remove dead LW_PTRIM_FBPA_DRAMPLL/REFMPLL/DLL registers from clocks
+   692777,1910471 BUG 1910471 
+   692777,1910471 BUG 1910471 Instance PLMs on PLLs that can cause physical damage as identified in security review
+   692777,1944139 BUG 1944139: fix opens from 1NL manuals review
+   692777,1955273 Submitting change in GK107 to ctxsw the MMU_DEBUG_CTRL register.
+   692777,1955273 Submitting change in GK110 to ctxsw the MMU_DEBUG_CTRL register.
+   692777,1955273 Submitting change in GK208 to ctxsw the MMU_DEBUG_CTRL register.
+   692777,1955273,2007672 Back out changelist 23001310 due to build and as2 break.
+   692777,1961725 Adding define protection back for the BASIC_KIND macros as they are deprecated and no one is supposed to use them anymore. Ref bug: 1961725
+   692777,1965119,2007235 sddr4 priv registers for sddrdqs mode = Bug 1965119 ififo rollover bug 2007235 
+   692777,1977065 add protection(PLM) to couple of priv regs - bug 1977065
+   692777,1987153,200346666 Bug 200346666 : Accommodate MSCG programming while improving PRIV security
+   692777,1987153,200354150 Bug 200354150 : Fixed a bug introduced ( during Bug 1987153 ) as a result of reusing PRIV_HOLDOFF PLM with specific 
+   692777,1997383 Submitting change to remove the manuals definition of the TEX and L1C exceptions.     
+   692777,1997549 adding CYA for early pushback on adrtr fifo - bug 1997549
+   692777,1999526 Submitting a manuals change to add the REDUCED_SPEED defines for the new SM_SPEED_SELECT feature override registers.
+   692777,2000558 switch fecs logic to use host defines out of projects.spec, bug 2000558
+   692777,2000942 updated the pm signals (bug 2000942)
+   692777,2001840 Bug  2001840
+   692777,2002718 extend stop_fb until pending refresh is issued completely - bug 2002718
+   692777,200291256 Tu10x- Manual lint warnings/error fixes in SWDX and WWDX.
+   692777,200350653 Bug  200350653
+   692777,200356268 bug 200356268 - Add jtag override for LW_CLK_pwrslowdown ina_req. 
+   692777,2003748 tulit1 latency spec back integration
+   692777,2003749,2007440 Back integrate tulit1/2/3 latency specs - bug 2007440 
+   692777,2003871 expand idle_delay and cmd2mcidle_dramc for SDDR4
+   692777,2006302 Bug  2006302
+   704633,1997937 MODS build improvements
+  1821694 Add adc_therm_connection test.
+  1833237 22936616 RM-VF3.5:VF_POINTS#12 : Create CLK_VF_POINT_30_(FREQ | VOLT) class as child of CLK_VF_POINT_30 in place of CLK_VF_POINT_(FREQ | VOLT)
+  1860968,1990458 Use LWSWITCH_CTRL_CONFIG_EOM in test 248
+  1866385 Remove LW_XVE_BAR1_CONFIG ifdefs
+  1904474 ape:update dmic/dspk device node path for kernel4.9
+  1910254 LWLinkCore : Implement internode connection training IOCTLs
+  1916726,1988130 Update file to include tu102_sim_gddr6.rom for TU102 fmodel sanity.
+  1927268,2003548 RM RC Add MODS arg/regkey to disable BAR fault RC handling
+  1928051 Adding Vic4.2 support in DmaWrapper
+  1936903,1966222 Adding IsAlias flag to register field to filter out field alias when getting fields' read/write mask
+  1940861 Detect two LWDEC engines on T194
+  1940861 Test multiple LWDEC engines simultaneously on CheetAh
+  1949474 Add RCVY_AC support to NPU devices
+  1952923 MME64 Group generation and disassembly
+  1952923 MME64 Group representation
+  1952923 MME64 Simulator warpper for MODS
+  1955110 tegradvfs: lower system clocks prior to fmax@vmin tests.
+  1955717 summary: Modified run files to load MODS module during exelwtion.
+  1957606 Changed the wording of LwLink errors print outs.
+  1972518 Use timeout from -timeout_ms for polling on simulation
+  1972559 Remove OFFICIAL_BUILD
+  1973240 Update Linpack kernels and add Turing LwdaLinpack support
+  1973931 Implemented Low Power functions for IbmNpu
+  1973953 Allow multiple LWCA tests to be run simulataneously
+  1978034 Add Power APIs to change the clkUpScale factor
+  1978034 Change clkUpScale factor to 1 in PwmFreqActor
+  1978034 [Turing]: [PWM]: Implement user interfaces to be able to run PWM from spec files
+  1978626 If R3 is enabled then rectify frame offset for CRC measurement
+  1985175 Disable FB Console allocation in reserved memory if there is no display.
+  1985175 Force vidmem USERD and PMU message buffer to be allocated from TOP in case it's SRIOV PF mode, which is in same way as RM. Thus, mods doesn't need to reserve a seperate vmmu segment.
+  1986477 Update sockchip binaries to pick up CL 22999331
+  1986593,1993000 Bug 1986593 : Moving all GMK initilization by MODS to use XBAR_RAW. Display tests still use Pitch Within GOB.
+  1986704,2010979 Hardcoding thread scale factor until bug 2010979 to replace configEx call to fetch Gpu info is fixed.
+  1988065 Add conditional variable as thread synchronization primitive to Tasker
+  1988901 Add Test 395 - USB bandwidth stress test for Turing (Part 5)
+  1988901 Add Test 395 - USB bandwidth stress test for Turing (Part 6)
+  1989379 Update TegraIsm for T194.
+  1989573 Use blocklinear-to-pitch copy in v2d with -dmacheck_ce and generic memory (Turing).
+  1989616 MODS: Remove use of LwRmAllocDevice
+  1990170 Fix compilation warning for linux_aarch64 platform
+  1990170 Move ColorSpace enum to Display class
+  1990783 Bug 1990783: Turing: Move to 3 bit kind out of MMU
+  1993179 Add fog
+  1994537 TU102: Adding tu102 emu_gddr6 dcb_ultimate variant as well.  Bug 1994537. Reviewed by jvalweghel.
+  1994994 Implement HBM voltage control
+  1997431 Fix validation errors reported by the 1.0.61.1 validation layers.
+  1997590,2000537,2003638 AS2Job for source changelist: 22995713 and source changelist description: core90/tu102,4:  Force new TOT AS2 submission
+  1998111 Fix for bug 1998111 SRIOV: VF MODS hangs when triggering a VGPU register read from ISR thread
+  2000537 AS2Job for source changelist: 23030023 and source changelist description: core90/tu102,4:  Kick off new TOT AS2 bundle
+  2000537 AS2Job for source changelist: 23030023 and source changelist description: core90/tu102,4:  Kick off new TOT AS2 bundle
+  2000537 AS2Job for source changelist: 23030023 and source changelist description: core90/tu102,4:  Kick off new TOT AS2 bundle
+  2000537 AS2Job for source changelist: 23030023 and source changelist description: core90/tu102,4:  Kick off new TOT AS2 bundle
+  2001299 RM: Remove osLw_wrmsr from os interface. 
+  2001299 RM: remove RmInitBusInfo and related code
+  2001299 RM: remove more unused OS typedefs/interfaces
+  2002883 Allow ATE to be used in IFF records
+  2002924 Avoid specifying Alpha and Beta when adding test 212 to the fieldiag
+  2003091 Bug: 2003091
+  2004070 Add PITCH PTE kind to Turing (also INVALID and SMSKED_MESSAGE).
+  2004270 RM - MODS OS layer: Drop reading the LW_PMC_INTR register in osInterruptPending
+  2005092 TU102:  Add new GDDR6 variant roms for GDDR6 netlists with 16GB FB
+  2006978 Change PTE kinds in amaplib on Turing+
+  2007672 update ref2h-getreglist.pl to not dump the debug prints to stdout, on newer perl the writes to the dupe of stdout and stdout end up in same output stream and then we end up with a corrupt .h file that can't be compiled.
+  2008285 AS2Job for source changelist: 23013232 and source changelist description: core90/tu102: Adding TU106 sim gddr6 as variant. Adding dcb_ultimate rom as well. Bug 2008285.
+  2008285 TU106 Adding tu106 sim_gddr6 build. Adding dcb_ultimate variant as well.  Bug 2008285. Reviewed by jvalweghel.
+  2008555 Allow fieldiag to run on systems with Pascal-based Tesla boards installed in PCIe Gen. 1 or 2 slots
+  2008915 Fix below compiling error.
+  2008915 Remove "override" keyword for GetKindTraits for gv11b. Otherwise, all overrided virtual
+  2009328 Call FindPexDevice for switches
+200242835 MODS ImpQueryInput struct's void * to RasterSettings
+200245238 #review-22974502 @cissyl @mwoodpatrick @yujianh @rzboinski @saml @pkazarian
+200245238 According to the decision in http://lwbugs/200245238/112, Back out changelist 22998239.
+200277465 add dp 1280x1024 edid entry
+200312237,200313785 AS2Job for source changelist: 23037984 and source changelist description: Removal of WAR "[TU10x RM netlist] Disable MSIX-CPL ordering to work-around XVE issue"
+200312237,200313785 AS2Job for source changelist: 23037984 and source changelist description: Removal of WAR "[TU10x RM netlist] Disable MSIX-CPL ordering to work-around XVE issue"
+200312237,200313785 AS2Job for source changelist: 23037984 and source changelist description: Removal of WAR "[TU10x RM netlist] Disable MSIX-CPL ordering to work-around XVE issue"
+200312237,200313785 AS2Job for source changelist: 23037984 and source changelist description: Removal of WAR "[TU10x RM netlist] Disable MSIX-CPL ordering to work-around XVE issue"
+200326083 AS2Job for source changelist: 23023083 and source changelist description: core90/ucode: Unify all GFW Image accesses to a single function gfwImageRead() which will read from either EEPROM or sysmem depending on the media type input... Bug 200326083
+200326083 AS2Job for source changelist: 23023083 and source changelist description: core90/ucode: Unify all GFW Image accesses to a single function gfwImageRead() which will read from either EEPROM or sysmem depending on the media type input... Bug 200326083
+200326083 AS2Job for source changelist: 23028551 and source changelist description: core90/ucode: Adding SYSMEM DMA support... Bug 200326083
+200332921 Adding support to dump a text file specified on cmd line into fieldiag log
+200335209 Bug 200335209. Extend _MIN/_MAX temperature define for TSENSE/TSOSC since we want support 150C.
+200335970 AS2Job for source changelist: 22982507 and source changelist description: Core90 - Port CPI memory setting for MSR7[9:8] based on MEMVENDID from Core89.
+200346917 Golden File submission for DVI and DP SDR.
+200346917 Switch the DFPGA DVS sanity to use Turing.
+200347335 AS2Job for source changelist: 23036635 and source changelist description: core90: manual/fmodel changes for pri source isolation has changed Write/read protection level Macros.
+200347335 AS2Job for source changelist: 23036635 and source changelist description: core90: manual/fmodel changes for pri source isolation has changed Write/read protection level Macros.
+200348479 Lock a simulated temperature in PwrRegCheck (test 394)
+200351781 TU102f: Adding tu102f build for DPMST 2head1sor tests. Bug 200351781. Reviewed by jvalweghel.
+200353358 Allow blocklinear-to-pitch mode of -dmacheck_ce to split lines if a single line can't fit in the dma buffer size.
+200355745 Updating PMU register addresses. Bug 200355745
+200357654 AS2Job for source changelist: 23035776 and source changelist description: core90: LW_PFB_FBPA_MC_1_DLL_CFG is removed from refman, so cleaning it up from VBIOS code. Bug 200357654. verified by gbhatia. 
+200357654 AS2Job for source changelist: 23035776 and source changelist description: core90: LW_PFB_FBPA_MC_1_DLL_CFG is removed from refman, so cleaning it up from VBIOS code. Bug 200357654. verified by gbhatia. 
+200357654 AS2Job for source changelist: 23035776 and source changelist description: core90: LW_PFB_FBPA_MC_1_DLL_CFG is removed from refman, so cleaning it up from VBIOS code. Bug 200357654. verified by gbhatia. 
+200357654 AS2Job for source changelist: 23035776 and source changelist description: core90: LW_PFB_FBPA_MC_1_DLL_CFG is removed from refman, so cleaning it up from VBIOS code. Bug 200357654. verified by gbhatia. 
+200357654 AS2Job for source changelist: 23035776 and source changelist description: core90: LW_PFB_FBPA_MC_1_DLL_CFG is removed from refman, so cleaning it up from VBIOS code. Bug 200357654. verified by gbhatia. 
+
+--------------------------------------------------------------------------------
+Version willow.2
+Date: 2017/10/12
+Built at Change: 22979858
+
+* boards.db updates
+* t214: support new features in t214_f.xml
+* Add missing support for V8U8 format
+* Move VkStress JS code to vkstress.js
+* RM/PMU: BOARDOBJ+RPC #102: UNIT_VOLT
+* Allow SW fusing to use the SKU definition with overrides
+* Remove unused function
+* Updates for production diagnostic for PG610SKU210
+* Fix definition of GetNumNewBlacklisted JS function
+* Fix integer overflow in LaunchDelay kernel
+* Prevent IDDQ/Speedo0 from being ever being printed with -display_fuses
+* Regress LwdaLinpack SynchronousMode and LaunchDelay
+* Fix LwLinkBwStressTwod setup
+* MODS Display Pipe Configurator (json based) added 
+* Remove usage of QUAL_BUILD from scripts
+* AS2Job for source session: 24626 and source session description: http://lwbugs/1997590
+* Re-add tegrasim.spc to internal packages
+* Fix uninitialized variables reported by valgrind
+* Remove declaration of operator new. There is no implementation of this operator and it creates compiler errors when enabling the leak detector code.
+* AS2Job for source session: 24573 and source session description: 
+* AS2Job for source session: 24563 and source session description: - Apply recent updates to this GAS.  Includes:  GPIO, Therm, and simplified VFE equations
+* AS2Job for source changelist: 22874006 and source changelist description: core90: Correct wrong logging syntex
+* Sanket's lwjpg change to match hailin's hw change.
+* AS2Job for source session: 24493 and source session description: Fixing G6 CML and CMOS settings. Reviewed by jvalweghel
+* AS2Job for source session: 24453 and source session description: Setting FBIO_MODE_SWITCH correctly for CML VBIOSes. GAS will use this field to differentiate between CML and CMOS vbioses. Reviewed by jvalweghel
+* AS2Job for source session: 24546 and source session description: [GAS]  (172)
+* AS2Job for source session: 24614 and source session description: http://lwbugs/200348370/reply/34
+* Re-enable VIC 4.2 ucode
+* Enable NewLwdaMats tests in fmodel
+* AS2Job for source session: 24603 and source session description: [GAS] &nbsp;- EMU - Display: &nbsp;Taken by diffing GV100 emu hbm rom against tu102 emu gddr5 rom and pulling the display diffs. &nbsp;tu102 rom was branched from gp104 emu.<br /><br />- EMU - GPIOs, Therm, Voltage, etc: &nbsp;Taken by diffing GV100 emu hbm rom against tu102 emu gddr5x rom and pulling these diffs. &nbsp;tu102 rom was branched from gp104 emu. &nbsp;Excluding thermal devinit changes from gv100 made by Guru Nilajagi.<br /><br />- SIM - Simple VFE: &nbsp;Simplifies the VFE lwrve as much as possible so that RM PMU processing of the lwrve takes as little time as possible. &nbsp;Should only apply to cmos_p-states roms (other roms have different clocks config and would need this tweaked accordingly) (135)
+* [MODS] - DPC - Add support 
+* [MODS] - CRTC - Engage standard degamma lwrve for SDR
+* LWENC 6.6 (TU117) intial ucode 
+* Summary: MultiIO test innerLoops and exelwtion timeout added.
+* Remove SM62-specific HGEMM kernel
+* AS2Job for source session: 24603 and source session description: [GAS] &nbsp;- EMU - Display: &nbsp;Taken by diffing GV100 emu hbm rom against tu102 emu gddr5 rom and pulling the display diffs. &nbsp;tu102 rom was branched from gp104 emu.<br /><br />- EMU - GPIOs, Therm, Voltage, etc: &nbsp;Taken by diffing GV100 emu hbm rom against tu102 emu gddr5x rom and pulling these diffs. &nbsp;tu102 rom was branched from gp104 emu. &nbsp;Excluding thermal devinit changes from gv100 made by Guru Nilajagi.<br /><br />- SIM - Simple VFE: &nbsp;Simplifies the VFE lwrve as much as possible so that RM PMU processing of the lwrve takes as little time as possible. &nbsp;Should only apply to cmos_p-states roms (other roms have different clocks config and would need this tweaked accordingly) (135)
+* Add option to specify how surfaces are mapped for CheetAh engines
+* Tasker: Plugin register reads by VF mods leads into Tasker::Yield in ISR thread resulting in an assert. The assert is put in place to check for IRQL to be non-isr which isnt required since all except SIM mods have migrated to new tasker model and SIM mods runs in usermode with ISR as a separate thread.
+* Add -dump_fuses option to fuseblow
+* Sync up SRIOV tests of PF MODS and VF MODS.
+* Added Support to test all the H264 streams for LWENC in T194.
+* #review-22951021 SDR and HDR Changes
+* Dump -matsinfo in Cleanup if Setup fails
+* Delete tegramfg.spc and include CheetAh spec files only in CheetAh builds
+* AS2Job for source changelist: 22907630 and source changelist description: Core90/tulit: Updates to perf_g5.scp
+* Update the I2c 1 PinMux values on stardust board
+* [RM DISPLAY] Turing LwDisplay class Halification.
+* Added Board settings for UFS and XHCI.
+* 22964927 Add Error Check condition to see if Lutsettings are created before using them.
+* Disable LwlbwsBgPulse if INCLUDE_LWDA=false
+* Auto-generate default constructor in DmaWrapper
+* ape: add mixer support
+* Call RunLiveFbioTuning indirectly
+* MODS Add a test wrapper for Disp Pipe Configurator
+* Disable RTL SW-EOS check at the end of VF mods run.
+* Improve error messages in vktest.exe
+* AS2Job for source session: 24499 and source session description: - g5x and g6 cmos pstates roms were branched from gp104 g5x cmos pstates rom.  Bringing in the non-FB settings from the more updated Turing rom.
+* [chips_a] RM/PMU: FAN - Colwert FAN1X commands to RPC
+* AS2Job for source session: 24614 and source session description: http://lwbugs/200348370/reply/34
+* Use new gcc-7.2 toolchain for Linux aarch64 builds
+* PerfSweep (test 145) and LwvddStress (test 300) bug fixes
+* (Null Integration) Update Callback mechanism to be more explicit about when to stop
+* AS2Job for source session: 24475 and source session description: . Reviewed by jvalweghel
+* HULK cert cleanup in the contrib directory
+* Update the test items according to the DVT request
+* Handle surfaces larger than what VIC can handle
+* AS2Job for source session: 24563 and source session description: - Apply recent updates to this GAS.  Includes:  GPIO, Therm, and simplified VFE equations
+* AS2Job for source session: 24583 and source session description: Disabling training 
+* (Null Integration) Enable -matsinfo dump in all GpuMemTest subclasses
+* fix build error
+* Back out changelist 22949797
+* Change methods that return static data to static methods.
+* [MODS]: Fix incorrect machine name for pstates 3.0 sanity test
+* RM/PMU: BOARDOBJ+RPC #101: UNIT_THERM
+* MODS DispPipeConfig Parser added
+* Fix a bug where ps30test.js would not run any tests
+* AS2Job for source changelist: 22968237 and source changelist description: core90/tu102:  sync_service_force_update
+* tegravic4.2 class initial skeleton
+* Fix the comma format for the JS ECMA-262 warning
+* Remove unused code
+* Remove plumbing for tegramfg.spc, which has already been deleted
+* Remove unreachable section
+* Add PwrRegCheck to DVS sanities
+* AS2Job for source session: 24583 and source session description: Disabling training 
+* MODS: make ISR unicast
+* Integrating https://git-p4swmirror.lwpu.com/r/#/c/48534/ from dev-t214 to chips_a
+* Fix LWDisplay tests on T186
+* #review-22914484 @cissyl @mwoodpatrick @yujianh @rzboinski @saml @pkazarian
+* [MODS] LwDisplay Lib support for DSC
+* LwDiagUtils network authentication update
+* AS2Job for source changelist: 22907630 and source changelist description: Core90/tulit: Updates to perf_g5.scp
+* Update the PinMux and PADCTL's mapping according the t194 IAS doc
+* AS2Job for source session: 24649 and source session description: http://lwbugs/2000522
+* [MODS] - HDR -  Add support to update FMT Coefficients.
+* AS2Job for source changelist: 22948735 and source changelist description: core90: custom vbios for DP over USB - for simulation and fpga purposes. 
+* Prevent UINT32 overflow in pclk callwlation
+* PMU:  Updating support for traditional api for sending pmu commands [Phase 1] 
+* AS2Job for source changelist: 22970450 and source changelist description: Core90: Enabling FWSECLIC in simulation Tot to fix DVS break... 
+* Fix HGEMM kernel initialization for SM53
+* Add background LwLinkBwStress to LwLinkEyeDiagram
+* Return empty list from GetDeviceErrorList on NPU
+* Replaced the variable g_RiskReduceTestTime with one used to indicate whether the set of tests that never fail on the production line have been identified
+* Include xavierlwlink.h implementation
+* Ajust Sdmmc controller map on t194
+* Force checking of internal fuses when running fuseblow.js
+* Add support for VIC in LwLink b/w stress test suite
+* Add I2S/SDMMC board mux for 3360/3365
+* Summary: Removing PADCTL_A3 and PADCTL_A9 as they are not relevant for T194
+* AS2Job for source changelist: 22969955 and source changelist description: core90/tu102:  sync_service_force_update
+* AS2Job for source changelist: 22948735 and source changelist description: core90: custom vbios for DP over USB - for simulation and fpga purposes. 
+* Add support for GetAtsTargetAddressRange on T194
+* AS2Job for source changelist: 22904680 and source changelist description: core90/tu102f:  Force new TOT AS2 submission
+* Allow MODS to initialize Perf30 when PStates 3.5 is supported
+* AS2Job for source changelist: 22874164 and source changelist description: Back out revision 6 from //sw/main/bios/core90/chip/tu102/etc/perf_g6.scp. Reviewed by jvalweghel
+* Update QSPI SetMode API to support multiple QSPI controllers
+* Added BrdMux settings for UFS and XHCI
+* Check if surface offset is correctly aligned
+* Update the PADCTL's index on t194 
+* AS2Job for source session: 24563 and source session description: - Apply recent updates to this GAS.  Includes:  GPIO, Therm, and simplified VFE equations
+* Remove GPU_FB_{RD,WR} accessors and associated machinery
+* AS2Job for source session: 24573 and source session description: 
+* Add CPU stress for CheetAh (with T194 in mind)
+* AS2Job for source changelist: 22874164 and source changelist description: Back out revision 6 from //sw/main/bios/core90/chip/tu102/etc/perf_g6.scp. Reviewed by jvalweghel
+* Update Gpio test to support expanders on different i2c instance and mods directions
+* Remove LZO Test
+* [MODS] - DPC - Remove Left/Right/Top/Bottom Border from vertical and horizontal timings . Update CRCs after removing borders.
+* Flattening MMU_FMT_LEVEL in PAGE_LEVEL_INFO control call.
+* AS2Job for source session: 24440 and source session description: . Reviewed by jvalweghel
+* Remove code for unsupported VIC 3.0 and prepare for VIC 4.2.
+* AS2Job for source session: 24449 and source session description: [GAS]  (172) Remedy session to fix settings that differ and are understood.. Reviewed by jvalweghel
+* Update the SPI pinMux item on stardust board
+* Add Hbm Site Channel to FBIO Subpartition mapping.
+* Modify unpackaged_release_files
+* Program UARTF & UARTH PinMux registers on T194
+* Update Callback mechanism to be more explicit about when to stop
+* Add t214 darcy board js & cfg
+* AS2Job for source changelist: 22846698 and source changelist description: Core90.tulit: Fix the INIT_XMEMSEL_ZM_LW_REG_ARRAY write to _CONFIG10 register.. Reviewed by jvalweghel
+* LwDisplay methods update for turing
+* Add XavierLwLink - initial implementation
+* RM - intr/mc: Moving PMU interrupts to new interrupt tree.
+* Added Controller.IsEnRegLog() to enable register access log
+* Updating LwdaXbar/Cbu/NewLwdaMats/LwdaRandom tests and kernels so we can run them on Turing fmodel
+* Enable -matsinfo dump in all GpuMemTest subclasses
+* Fix issue where number of JOBS is not being set correctly while building 629 fielddiag
+* AS2Job for source session: 24546 and source session description: [GAS]  (172)
+* Minor enhancement for LWLink testing
+* Improve catching incorrect make version and print the version required
+* TU102: Adding tu102_sim_gddr5_dp-ifpf build. Reviewed by jvalweghel.
+* AS2Job for source session: 24616 and source session description: Missed updating CMOS vbios in my last update.
+* Skip powergating DSIA partition if we are on T214.
+* rtc: improve rtc
+* Remove the I2c 1 PinMux setting since kernle is supported
+* MODS Updated DPC Configurator for CRC capture
+* AS2Job for source session: 24577 and source session description: [GAS]  (181)
+* [DGX-1V] Add support for -test_gpu to system level GPU field diag
+* AS2Job for source changelist: 22970450 and source changelist description: Core90: Enabling FWSECLIC in simulation Tot to fix DVS break... 
+* Remove unnecessary and partially incorrect comment for a MASSERT
+* Fix access beyond the end of array in LWPR test
+* Remove test 5
+* Sdmmc Changes from t214 branch
+* Enable test 327 on tu102 fmodel display sanity
+* AS2Job for source session: 24586 and source session description: Current setting configures dram to 2K page size, causing some Fmodel runs to fail. Locally hacked VBIOS passed for them. Moving this setting to GAS as golden.
+* Sim MODS packaging
+* Add syncpoint interface and remove old/unused channel functions.
+* Update the UART PinMux info to support T194
+* Rollback Mahavir's change, reverting CL 22901812 and CL 22901904
+* Remove usage of QUAL_BUILD from scripts
+* Add 10 milliseconds delay during Gpio pin-to-pin loopback test
+* AS2Job for source changelist: 22875169 and source changelist description: Core90/tu102: Fix the strap count perf_g6.scp . Reviewed by jvalweghel
+* MODS ViewPort data structs change
+* Remove jsdbstub
+* Fix the pass window valid range
+* Fix DVS errors.
+* AS2Job for source changelist: 22846698 and source changelist description: Core90.tulit: Fix the INIT_XMEMSEL_ZM_LW_REG_ARRAY write to _CONFIG10 register.. Reviewed by jvalweghel
+* RM: Remove exelwtable bit from regular files
+* AS2Job for source changelist: 22846698 and source changelist description: Core90.tulit: Fix the INIT_XMEMSEL_ZM_LW_REG_ARRAY write to _CONFIG10 register.. Reviewed by jvalweghel
+* Validate various VkStress test arguments
+* Output version of validation layers being activated
+* AS2Job for source changelist: 22875169 and source changelist description: Core90/tu102: Fix the strap count perf_g6.scp . Reviewed by jvalweghel
+* Fix SynchronousMode for LwdaLinpack
+* t194 (q)spi preinit
+* MODS/PMU:  Adding support to fuzzer for sending  RPC commands with new ctrl call and updating fuzzer interface [Phase 2]
+* Remove VulkanFreedResource
+
+   692777 "XUSB release with latency spec update"
+   692777 "XUSB-XVE release"
+   692777 "serial priv changes"
+   692777 1. FGC6 fuse sense/ram repair changes
+   692777 <1>integrate ip tree 39396183.
+   692777 <1>integrate the latest code from gpu ip tree.
+   692777 <trial promotion on 9/20, falcon CL is: Change 39355969 on 2017/09/20 by soberl@AS2_client6910677_2001 'Abstract priv blocker CG1_SLCG ' >
+   692777 Add INIT value and enumerations for fr_counter REGINTFCLK_TYPE.
+   692777 Add readback for half_ltc_enable.
+   692777 Add req ovr regs for quick_slowdown module.
+   692777 Added an alias of OCC_PIXELS to OCC_BYTES for RM code.
+   692777 Added some spare CYA bits for PD_p2. SInce this adds ports to P2 we need to push this in before PFNL.
+   692777 Adding clocks gates for FGC6 on alt_lwl_common_clk and alt_xclk
+   692777 Enable PLC define (fmodel/SW support) but keep PRI disabled in L2 (so no PLC by default)
+   692777 Enable the L1 TLB prefetcher.
+   692777 Enabling LW_LITTER_HOST_BAR_REMOVAL_IN_XVE
+   692777 Fix and waive manuals lint errors.
+   692777 Fix lint error:
+   692777 Fixing the number of ranges for GR/MS from 64 to 32.	
+   692777 IST Clocking for UPHY misc updates. Adding clock gate on RX clock and sending xdigclk to tx/xclk
+   692777 Increasing the lwltl2hsh response vc credits to factor in higher burst for CE responses.
+   692777 Integrate from lwgpu_ce branch
+   692777 MXBAR_DBI_ENABLE define ON and related changes bugID: 200274944 
+   692777 Manuals lint cleanup.
+   692777 Modify LWLipt to use (base + offset) to find register address instead of using fully resolved address
+   692777 Moved Major Rev to 2.0 for non HBM chips  (e.g GDDR5+ should all be Rev 2.0 base)	
+   692777 LWJPG ip tree->LWGPU fullchip tree integration
+   692777 PME changes ( on behalf of Narendra)
+   692777 PMs added for new features in VSC and Stri.
+   692777 PRI source isolation: FBPPWR and GPCPWR.  Updated the FBPPWR and GPCPWR manual with SOURCE_ENABLE and other fields for PRI source isolation.
+   692777 PRI source isolation: MMU.  Updated the MMU manual with SOURCE_ENABLE and other fields for PRI source isolation.
+   692777 PRI source isolation: PTRIM.  Updated the PTRIM templates with SOURCE_ENABLE and other fields for PRI source isolation.
+   692777 Promotion of dev tree changes in PCIe to mainline
+   692777 Removing PLL_READY from all register. 
+   692777 Removing TSL2 PM ports from GCC IP's top-level. 
+   692777 Replace tu107 with tu117 in new_include_locations.txt
+   692777 Resubmitting L2 XBAR DBI Bundle
+   692777 Reverse integrate from //hw/lwgpu_fe...@39344318 to mainline.
+   692777 Reverse integrate from //hw/lwgpu_gpm/... to //hw/lwgpu/...
+   692777 Reverse integrate from //hw/lwgpu_gpm/... to //hw/lwgpu/...
+   692777 Reverse integrate from //hw/lwgpu_gpm/... to //hw/lwgpu/...
+   692777 Reverse integrate from //hw/lwgpu_hshub@39320621 to //hw/lwgpu 
+   692777 Reverse integrate from //hw/lwgpu_hshub@39337261 to //hw/lwgpu
+   692777 Reverse integrate from //hw/lwgpu_hshub@39378361 to //hw/lwgpu
+   692777 Reverse integrate from //hw/lwgpu_hshub@39413433 to //hw/lwgpu
+   692777 Reverse integrate from //hw/lwgpu_hshub@39456583 to //hw/lwgpu
+   692777 Reverse integrate from //hw/lwgpu_smv2@39291471 to //hw/lwgpu
+   692777 Reverse integrate from //hw/lwgpu_smv2@39380342 to //hw/lwgpu
+   692777 Reverse integrate from //hw/lwgpu_smv2@39415488 to //hw/lwgpu
+   692777 Reverse integrate from //hw/lwgpu_smv2@39468397 to //hw/lwgpu
+   692777 Reverse integrate from CE branch
+   692777 Reverse integrate from lwgpu_fe@39461491 to lwgpu
+   692777 Reverse integration from //hw/lwgpu_prop_rop/...@39320427 to //hw/lwgpu/...
+   692777 Reverse integration from //hw/lwgpu_prop_rop/...@39369370 to //hw/lwgpu/...\n With fixes for pc_fmodel_build and pml_files (actually) and swdx/ds vcaa fixes (CLs 39435312, 39435536), and CROP Makeppfile fix (CL 39440443)
+   692777 Reverse integration from //hw/lwgpu_prop_rop/...@39455022 to //hw/lwgpu/...
+   692777 Test bundle for DBI field to tpcarb2utlbfold interface.(dbi switched off) (all changes in)
+   692777 Update all USB tests to remove local re-definitions of registers and to instead refer to the source-generated header files.
+   692777 XUSB Clocks FSM changes. Clean up some redundant registers. Add handshaking between clks<->XUSB.
+   692777 add interrupt vectors to mmu pri
+   692777 added PM register to CAU
+   692777 added dbi in gpcarb, for gnic2xbar, xbar2gnic, gnic2tpc. with ifdefs.
+   692777 added quiescent timeout counters
+   692777 another set of aggregator changes to get area complete.
+   692777 cleanup plls_o_src manuals entries and gunk
+   692777 fix lwjpg manual issue
+   692777 integrating manuals changes to 1.0 to keep them in sync with 2.0
+   692777 integrating to 1.0 for parity
+   692777 mass integration from IP tree @ 39328382
+   692777 mass integration from LWDEC IP tree @ 39370671
+   692777 mass integration from LWDEC IP tree @ 39407845
+   692777 moving livelock creq back to tier2, in preparation for new livelock mode
+   692777 lwgpu_ltc -> lwgpu integrate upto 39451918 
+   692777 lwgpu_ltc -> lwgpu integrate upto CL39370887 + CL39377549 & w/o CL39352304 (assert in tu117 trim build) + remove as2 protection for plc (temp)
+   692777 lwgpu_ltc -> lwgpu integrate upto CL39403867 + w/o CL39352304 (assert in tu117 trim build)
+   692777 lwgpu_pwr@39327634 -> lwgpu integration
+   692777 lwgpu_pwr@39391297 -> lwgpu integration
+   692777 lwgpu_pwr@39412335 -> lwgpu integration 
+   692777 lwgpu_smv2 branch reverse integrate from //hw/lwgpu_smv2@39442316 to //hw/lwgpu
+   692777 ome cleanupi, added xbar trigger mode to the data generator
+   692777 owner nluan starts backward integration from //hw/lwgpu_display/...@39318710 to //hw/lwgpu and maybe //arch/traces/ip/display/3.0/mainline_trace/... if branch spec includes it
+   692777 owner nluan starts backward integration from //hw/lwgpu_display/...@39370595 to //hw/lwgpu and maybe //arch/traces/ip/display/3.0/mainline_trace/... if branch spec includes it
+   692777 owner nluan starts backward integration from //hw/lwgpu_display/...@39380487 to //hw/lwgpu and maybe //arch/traces/ip/display/3.0/mainline_trace/... if branch spec includes it
+   692777 owner susharma starts backward integration from //hw/lwgpu_display/...@39397689 to //hw/lwgpu and maybe //arch/traces/ip/display/3.0/mainline_trace/... if branch spec includes it
+   692777 owner susharma starts backward integration from //hw/lwgpu_display/...@39410019 to //hw/lwgpu and maybe //arch/traces/ip/display/3.0/mainline_trace/... if branch spec includes it
+   692777 owner susharma starts backward integration from //hw/lwgpu_display/...@39428790 to //hw/lwgpu and maybe //arch/traces/ip/display/3.0/mainline_trace/... if branch spec includes it
+   692777 remove afalcon from fbhub
+   692777 remove raster defines for g000 for vpes
+   692777 split LOCAL_SOURCE into 4 seperate LOCAL_SOURCE
+   692777 typo fix: LW_PLTS_TSTG_SET_MGMT_1_PLC_DISABLE related defines	
+   692777 update fuse and PLM regs for PG feature
+   692777 update mmu2host_intr vectors in hubmmu_pri
+   692777,1585754,1889806,1987616,200228977,200317967,200341861,200343887,200347306 bug 1585754: clean up fuse output hash
+   692777,1710576,1980603 Bug 1710576 - Enable primary SystemVerilog changes within viva and plugins in lwgpu
+   692777,1774988,1870237,1934178,1952989,1956781,1982368,1987785,1990778,1992694,1994339,1997282,1999919,1999969,2000560,2000576,200332515,200351955 Back integration from //hw/lwlink_lwswitch_int/...@39457739 tested with LWGPU CL39463709 
+   692777,1778476 Bug 1778476
+   692777,1783021,1868232,1954297,1963066,1986014,1987785,1990192,1991503,1994223,1994226,1994227,1994339,1996567,1997443,200312990,200332515,200345094 Back integration from //hw/lwlink_lwswitch_int/...@39415106 tested with LWGPU CL39417745 
+   692777,1801717 Manuals define-only: Bug 1801717, add define for LANESHUTDOWN DLCMD.
+   692777,1813563 Adding Ampere chipip defines - bug 1813563
+   692777,1854408,200325737 gv11b promotion based on //hw/lwgpu_gvlit5/...39455664
+   692777,1865896 adding CYA to disable adr termination - bug 1865896
+   692777,1870171 CalMaster fixme/todo cleanup
+   692777,1870175 Bug 1870175 - clean up Manuals Lint errors
+   692777,1870178,200307253,200333389 bug 200333389 , bug 200307253 , bug 1870178: update fusegen tool pointer
+   692777,1870189,1954497,1992524,1994539,1996464 update gendftmodule and ieee1500 lwtools for bug 1954497 , bug 1996464 , bug 1870189, bug 1992524, bug 1994539 
+   692777,1870232 fix lwdec manual issue, refer to bug 1870232. 
+   692777,1870244 #review-39433528 @ajsingh
+   692777,1870264 push lwQ manuals through plpp processor
+   692777,1885401 Added independent priv level protection for mutex registers
+   692777,1886860 Lwlink ref cleanup, removing special case for lwlink since register definations are in lw_ref_generated.h, Bug 1886860.
+   692777,1887614 //     turing.mfs Version=108
+   692777,1894909 Routing gpc_id and pe_id into another PM bus
+   692777,1896973,1902091,1924332,1934178,1962403,1969840,1987785,1992148,1992305,1992694,1993638,1993763,1993795,200315777,200328520,200335231,200338367,200344484 Back integration from //hw/lwlink_lwswitch_int/...@39389478 tested with LWGPU CL39392580 
+   692777,1897120 [I] gvlit1->lwgpu: Implement Mode-E ctxsw
+   692777,1902091,1914144,1946166,1946167,1962403,1962953,1975120,1982333,1983589,1986024,1988751,1989058,1990113,1990749,1990791,1991070,1992387,200290250,200324904,200338352,200345110,200345380 Back integration from //hw/lwlink_lwswitch_int/...@39358961 tested with LWGPU CL39370433 
+   692777,1910575 Bug 1910575: Enabling BUG_1910575 #define to turn on FE's new PM interfaces.
+   692777,1917253 bug 1917253 Eleavate the security of the pri transactions from ucode to PRIV_HOLDOFF registers. 
+   692777,1920808,1937088,1960304,1971711,1973714,1986024,1990778,1993674,1994339,1997932,1999339,200307135,200315777,200351582 Back integration from //hw/lwlink_lwswitch_int/...@39433694 tested with LWGPU CL39446367 
+   692777,1921927 Routing override half fbpa enable - Bug 1921927
+   692777,1924332,1959069,1982333,1987813,1987871,1987949,1988464,1988714,1988751,200315777 Back integration from //hw/lwlink_lwswitch_int/...@39319393 tested with LWGPU CL39324474 
+   692777,1927601 TU10x HWPM Bug 1927601 : Adding a bit to disable FLAG_BIT in the perfmons
+   692777,1928512 bug 1928512 : fix perfmon address unrolling for broadcast ranges
+   692777,1928512 bug 1928512 : perfmux tool pointer update for mkpmhdr_new
+   692777,1937088 Steve's bundle loaded with HSHUB credit value update - Bug 1937088 
+   692777,1940117 bug 1940117: PWR/THERM manual/fmodel changes for pri source isolation
+   692777,1940117,1989521,1993904,200334607 Updated mkprivblk2 for new specs of PRI source isolation
+   692777,1949720 Bug 1949720 colwert SCI PLMs to new pri source isolation format
+   692777,1950344,1989900,200349705,200349708 Submitting change to add new 3 bit SM_SPEED_SELECT fuses and remove the older 1 bit fuses (except SM_SPEED_SELECT_DP).
+   692777,1954503,1962443,1975900,1976215,1987237,1989209,1991621,1992987 Reverse integrate from //hw/lwgpu_host@39463983 to //hw/lwgpu
+   692777,1955069 Remove hack from a few PRIV_MASK reset values. BUG 1955069.
+   692777,1955921 BUG 1955921: cleanup LUT_ram_ctrl and add new regs for sw override on DVCO/NAFLL_OFFSET. Add VFGAIN register to NAFLL reg.
+   692777,1955921 BUG 1955921: extend lut_w/r_data regs to 32 bits. update all non-parity ram instances to 32 bits.
+   692777,1957154,200312990 Bug 1957154 : Update MIF buffers based on latency number feedback.
+   692777,1957167 integrate from CE branch
+   692777,1959089,1972371 add per byte rx data trim - Bug 1959089
+   692777,1971372 bug 1971372 - Increasing the number of decode traps in SYS from 22 to 32. We already have the required address space for it in the manuals. Defines non-indexed registers because vpref flow does not support defines for sizes yet. Filed http://lwbugs/1998321 to track that issue. Synthesis is in progress w and w/o changes to see if we have any adverse effect that needs more pipe stages. 
+   692777,1972170 bug 1972170, WAR removal
+   692777,1972170 bug 1972170, remove old macro LW_PMGR_GPIO_OUTPUT_CNTL_SEL_SOR_TMDS_OUT__SIZE_1 
+   692777,1973152,1987585 BUG 1987585: fix clocks connectivity errors for disp_2clk signals
+   692777,1973463 Bug 1973463 - add CCDMW weight into WriteArb arbiter
+   692777,1977200 updated livelock settings to WAR#1 values, from bug 1977200, since Turing does not have P9 coherent traffic.
+   692777,1978671 PLC level file update: 
+   692777,1981982 [TU10x] USB Clocks reset connections for xv2clk_hot_reset_, pwron_reset_stretch_ . xv2xusb_reset_ for UPHY FSM
+   692777,1982566 moving calmaster priv target to mkprivblk2 +
+   692777,1982911,200330741 Double Minion DMEM and IMEM
+   692777,1983185 bug 1983185 - wid_lwll, exclusive_scissor_lwll, prim/vtx/prim_plus_vtx packet PMs for VPC
+   692777,1985257 bug 1985257: correct a typo and add utilsclk to misc fr clk cntr.
+   692777,1986632 Bug 1986632 : update AWP sizing to reflect correct sizing in projects.spec instead of floorsweep multiplication factor in latency.spec
+   692777,1987403,1987629 BUG 1987629: fix SYNC_PULSEN/P connections between drampll and CDB
+   692777,1987556 BUG 1987556 Fix UTILSCLK_LDIV/SWITCH PLM assignment, caught by visual verification
+   692777,1987595 remove bond package type register from top_reg since it will not used by SW in future chips, bug 1987595
+   692777,1987762 added support for cau_pri.ref to the chip level covers bug 1987762
+   692777,1988776 RTL ECO for bug 1988776
+   692777,1988776 gv11b promotion based on //hw/lwgpu_gvlit5/...39359743
+   692777,1989521 FB verif enhancemnet for Priv source Isolation/Priv level for fb/2.0 only. Bug:1989521
+   692777,1990901 Move LW_VIRTUAL_FUNCTION after other definitions that are substrings of it. Required by Bug 1990901.
+   692777,1991487 Bug 1991487  : Increase default value of training_timing2_priv_delay to 0xa from 0x8. 
+   692777,1992462 Moving LW_PGPC_PRI_GPM_PD_SM_ID register to engine_reset_
+   692777,1993431 obsolete out REFCTRL2 - bug 1993431
+   692777,1993723 adjust fb_latency per latest fabric update - bug 1993723
+   692777,1994528,200350839 bug 200350839: connect fuse opt_selwre_fbpa_iobist_wr_selwre
+   692777,1995125 BUG 1995125: add a counter to count the +hysteresis req sent to NAFLL.
+   692777,1996743,1996746 Retiming back integration for gtb_f0 chiplet + latency spec update for tulit2 - bug 1996746 
+   692777,2000054 allow dramc_idle when refresh pending in PBR enabled and tr_stall is set - bug 2000054
+   692777,2000942 add pm support to CAU - covers PFNL bug 2000942
+   692777,2002201 Bug 2002201 : Moving PLL and vauxc controls to serial priv 
+   692777,200223995 bug 200223995.  Remove all files under defs/dp2 and manuals/dp2.
+   692777,200257941 Bug 200257941 add secure sw status register to SCI
+   692777,200271636 adding some more testcmd defines for sref entry - bug 200271636
+   692777,200280482 [TU10X clks] Bug 200280482 Fix USB clks register overlap, cleanup LDIV codes' comments, fix stopcllk
+   692777,200285313 Bug  200285313
+   692777,200304141 bug 200304141: interchiplet connections (topgun)
+   692777,200308311 Added reset_IB_dly to some secure registers. Bug 200308311.
+   692777,200318679 BUG 200318679: change PLDIV register width for all PLLs. 6th bit is unused and therefore dead, causing DFT programming issues
+   692777,200322056 BUG 200322056: connect REFMPLL.LD_PULSE to the CDB 
+   692777,200324911,200344279,200351649,200351970 TU10x PFNL Blocker: Falcon  Promotion
+   692777,200325737 Adding PROD For ZPASS_WKUP 
+   692777,200334768 bug 200334768: changing clock frequency for LW_FPF to 27MHz
+   692777,200335128 Changing PROD value of PG SLCG as a WAR in lwgpu_gmlit4 branch for bug  200335128  
+   692777,200335129 Changing PROD value of PG SLCG as a WAR in lwgpu_gp102,lwgpu_gp106,lwgpu_gplit3,lwgpu_gplit4 and lwgpu_gp108 branches  for Bug 200335129
+   692777,200335130 Changing PROD value of PG SLCG as a WAR for bug 200335130 
+   692777,200335131 Changing PROD value of PG SLCG as a WAR in lwgpu_gvlit1 branch for bug 200335131
+   692777,200342646 Fix for bug 200342646 
+   692777,200346902 drampll/refmpll pwrgood, cdb test connections = Bug 200346902    
+   692777,200347431 [TU10X clks] Bug 200347431 Add priv registers for xusb_vaux_ao_clk divider
+   692777,200347431 add xusb_vaux_ao_clk_divsel_val override support for sw and dft
+   692777,200348945 bug 200348945, revise LWDEC pri reg address range
+   692777,200351943 Falcon:TU10x:PFNL: Falcon config match for PFNL. Credit FIFO and FBIF FIFO not matched yet, waiting for HUB team. bug 200351943
+   692777,200353293 Added selwre_wr_scratch and selwre_rd_wr_scratch with PLM and fuse connections
+   692777,831583,1668129,1679710,1822087,1841933,1846599,1869648,1870160,1870261,1870265,1887372,1891460,1892377,1899585,1900949,1910618,1915797,1919041,1919948,1948207,1950211,1955635,1956846,1964381,1965988,1970589,1970595,1970752,1971906,1973733,1975900,1976739,1977001,1977740,1977801,1977893,1977923,1977998,1978666,1981739,1981834,1982934,1982936,1984666,1985880,1986007,1986599,1987237,1987303,1987307,1988813,1989562,1989637,1990319,200343881 Reverse integrate from //hw/lwgpu_host@39415627 to //hw/lwgpu
+  1734798 AS2Job for source changelist: 22894892 and source changelist description: core90: write a build system profiler.
+  1734798 AS2Job for source changelist: 22894892 and source changelist description: core90: write a build system profiler.
+  1738692,1869158 AS2Job for source changelist: 22872957 and source changelist description: core90: Adding new connector type USB Type - C. 
+  1738692,1869158 AS2Job for source changelist: 22872957 and source changelist description: core90: Adding new connector type USB Type - C. 
+  1738692,1869158 AS2Job for source changelist: 22872957 and source changelist description: core90: Adding new connector type USB Type - C. 
+  1755835 Vulkan Core & VkStress Updates: (CreateSwapChainImageViews() is COLOR_ATTACHMENT_OPTIMAL)
+  1808253 vulkan: Remove references to legacy and removed "KHX" functions
+  1810907 RM-IMP Add glitchless modeset support for for EVO (Pascal and Maxwell).
+  1821694 Bug  1821694
+  1838387 Fix for SMMU errors or system crashes in TegraVic test
+  1848375 RM: Adding a class to bind an event to an EventBuffer
+  1855331,1917594 AS2Job for source changelist: 22937366 and source changelist description: core90/tulit: backout CL 22030464 now that HW fix is there:
+  1855331,1917594 AS2Job for source changelist: 22937366 and source changelist description: core90/tulit: backout CL 22030464 now that HW fix is there:
+  1855331,1917594 AS2Job for source changelist: 22937366 and source changelist description: core90/tulit: backout CL 22030464 now that HW fix is there:
+  1866385 Fix the code for LW_XVE_BAR1_CONFIG
+  1867294 AS2Job for source changelist: 22840634 and source changelist description: Core90/tulit: Remove the Implemented Devinit L2 WAR for "[Emulation][NET22] OGL Superstress assertion hit"
+  1867294 AS2Job for source changelist: 22840634 and source changelist description: Core90/tulit: Remove the Implemented Devinit L2 WAR for "[Emulation][NET22] OGL Superstress assertion hit"
+  1867294 AS2Job for source changelist: 22840634 and source changelist description: Core90/tulit: Remove the Implemented Devinit L2 WAR for "[Emulation][NET22] OGL Superstress assertion hit"
+  1868065 Add Walking Mode to LwdaLinpack (Full Implementation)
+  1868065 Back out changelist 22637978 (Walking Linpack Part 2)
+  1884207 AS2Job for source changelist: 22931593 and source changelist description: core90/ucode: updated ram scrubbing status check in vpr to evaluate register define instead of hard-coded 0xFFFFFFFF. Also removed deprecated non-static functions in header. 
+  1886861 AS2Job for source changelist: 22849817 and source changelist description: Core90: [RFE]Check for NAFLL lock or NAFLL DVCO_MIN_REACHED signal
+  1886861 AS2Job for source changelist: 22849817 and source changelist description: Core90: [RFE]Check for NAFLL lock or NAFLL DVCO_MIN_REACHED signal
+  1888064,200327974 Enable parallel group on GV100 (with WAR for the hypothesis)
+  1888064,200327974 Enable parallel group on GV100 (with WAR for the hypothesis)
+  1890766 Turing VPR changes:
+  1892562,200344597 Fix LwlbwsBgPulse when run on multiple GPUs for Volta
+  1899051,1916726 Update file to include tu102_sim_gddr5.rom for TU102 fmodel sanity. 
+  1904474 Fix VI test sanity error on kernel 4.9
+  1905719 Support runlist ID in CLEAR_FAULTED method data. Since CLEAR_FAULTED expects the data to be same as doorbell, using ringToken to populate CLEAR_FAULTED data field. This change is temporary and needs to be reverted once we have proper support for TURING_CHANNEL_GPFIFO_A class in MODS and support new fields in CLEAR_FAULTED method.
+  1909256 Add TU104 sim gddr6 roms to TOT MODS
+  1910254 LWLinkCore : Implement add/remove internode connection IOCTL for multi-node systems. This is required for training and RM also needs to know who is connected to the other end of the link.
+  1910254 LWLinkCore : Implement internode connection training IOCTLs
+  1922105,1962391 Add error logger interrupt trigger and wait action to policy manager
+  1928051 Upgrade for tegravic to use VIC4.2 
+  1933298 Add support to look in an elw var directory when using the "-hulk_cert" arg
+  1936462 Rename power_cap_tgp command line argument to power_cap_tgp_mw	
+  1940992 Use metadata to determine test start and end in MLA
+  1940992 Use metadata to determine test start and end in MLA (Part 3/3)
+  1942273 T214: Fuses: Skip TZ protected fuses.
+  1942273 T214: Fuses: Skip TZ protected fuses.
+  1945003 Create LwdaXbar2 dummy files
+  1949470,1965298 Add check to differentiate array registers from scalar registers
+  1949720 Bug 1949720 update GC6 priv_level_test to support new PLM format
+  1952819 Add argument to set minimum interval between TestProgress prints
+  1952923 Add MME configuration registers
+  1952923 MME64 Instruction/Group definitions
+  1956737 Remove msdec (test 25) and all the related elements.
+  1958765,200350643 Protect Lane Repairs with mutex
+  1963105 Added TestDevice and TestDeviceMgr
+  1963105 Created the Pcie Interface
+  1963105 Refactor Topology functions into LwLink interface
+  1963105 Replace GpusubInterfaces with DeviceInterfaces
+  1963694 Add board id for 2371 in tegracomnfunc.js
+  1963853 (chips_a)GV100: Adding Xid 81 for VGA subsystem Error.
+  1963987 [DIAG/MODS]: (3/6) Modify testing infrustructure to use voltage inputs of OVERVOLTAGE, RELIABILITY, RELIABILITY_ALT, and VMIN limits as the checked value instead of the output values (can now sometimes be frequency). 
+  1964298 LWLink: Set link rate (speed) as per device tree info
+  1968742,1983173 AS2Job for source changelist: 22843482 and source changelist description: core90: HOSTNAFLL sequence added. 
+  1968742,1983173 AS2Job for source changelist: 22843482 and source changelist description: core90: HOSTNAFLL sequence added. 
+  1968742,1983173 AS2Job for source changelist: 22843482 and source changelist description: core90: HOSTNAFLL sequence added. 
+  1968742,1983173 AS2Job for source changelist: 22843482 and source changelist description: core90: HOSTNAFLL sequence added. 
+  1968766 Implement a Flip interface that uses lwdcFlipSyncFd2 for T186 boards and later, lwdcFlip for older chips
+  1970533 Store the full test context during CheckPCIExpressBus
+  1971077 Moving the turing kinds to occupy the first 16 entries in the 8 bit kind field Needed to move the interfaces to use 3 bit kinds bug 1971077 
+  1971448 (Null Integration) Enable ECC SBE bit position in r361-r370
+  1972559 Add bypass.INTERNAL.bin to android package/exelwtion
+  1972559 Add certificate authority file to internal MODS package
+  1972559 Allow internal only chip skus with bypass.bin
+  1972559 Alter the "zip" target to align with merged builds
+  1972559 Enable MODS_ENG_BUILD keys in LW_MODS instead
+  1972559 Make lwpu network level slightly more restrictive than current engineering build
+  1972559 Normalize official and non-official build compilation
+  1972559 Remove Qual Build
+  1972823 [MODS][T194] Add support for fake DP <-> HDMI switching (each SOR)
+  1976311 AS2Job for source changelist: 22845297 and source changelist description: Core90/tulit: Remove entries from perf_g5.scp whose values match ToT base rom.
+  1976311 AS2Job for source changelist: 22845297 and source changelist description: Core90/tulit: Remove entries from perf_g5.scp whose values match ToT base rom.
+  1977260 AS2Job for source changelist: 22845721 and source changelist description: Core90: Clean dead LW_PTRIM_FBPA_DRAMPLL/REFMPLL/DLL registers
+  1977260 AS2Job for source changelist: 22845721 and source changelist description: Core90: Clean dead LW_PTRIM_FBPA_DRAMPLL/REFMPLL/DLL registers
+  1977260 AS2Job for source changelist: 22862899 and source changelist description: core90:  Back out CL 22845721, "Core90: Clean dead LW_PTRIM_FBPA_DRAMPLL/REFMPLL/DLL registers - Bug 1977260 "
+  1977260 AS2Job for source changelist: 22862899 and source changelist description: core90:  Back out CL 22845721, "Core90: Clean dead LW_PTRIM_FBPA_DRAMPLL/REFMPLL/DLL registers - Bug 1977260 "
+  1977260 AS2Job for source changelist: 22928703 and source changelist description: Core90: Clean dead LW_PTRIM_FBPA_DRAMPLL/REFMPLL/DLL registers
+  1977260 AS2Job for source changelist: 22928703 and source changelist description: Core90: Clean dead LW_PTRIM_FBPA_DRAMPLL/REFMPLL/DLL registers
+  1978034 [Turing]: [PWM]: Add basic infrastructure for PWM
+  1978034 [Turing]: [PWM]: Follow up comments for PWM classes
+  1980047 Remove CheckChil test
+  1980047 Remove ChilVoltageTest
+  1980047 Remove GpuDma test
+  1980047 Remove MultiGpu test
+  1980325 bug1980325
+  1982314 RM: EventBuffer: Control call implementation
+  1983045 Detach surface fills and checks in LwLinkBwStress and PexBandwidth
+  1983049 AS2Job for source changelist: 22896384 and source changelist description: Core90/tulit: Remove the self-refresh exit sequence.
+  1983049 AS2Job for source changelist: 22896384 and source changelist description: Core90/tulit: Remove the self-refresh exit sequence.
+  1983049 AS2Job for source changelist: 22896384 and source changelist description: Core90/tulit: Remove the self-refresh exit sequence.
+  1983049 AS2Job for source changelist: 22896384 and source changelist description: Core90/tulit: Remove the self-refresh exit sequence.
+  1983049 AS2Job for source changelist: 22896384 and source changelist description: Core90/tulit: Remove the self-refresh exit sequence.
+  1983049 AS2Job for source changelist: 22907618 and source changelist description: Core90/tulit: updates to perf_g6.scp.
+  1983049 AS2Job for source changelist: 22907618 and source changelist description: Core90/tulit: updates to perf_g6.scp.
+  1983049 AS2Job for source changelist: 22907963 and source changelist description: Core90/tu102: Restore writes that were removed by mistake from perf_g6.scp
+  1983049 AS2Job for source changelist: 22907963 and source changelist description: Core90/tu102: Restore writes that were removed by mistake from perf_g6.scp
+  1983049 AS2Job for source changelist: 22931162 and source changelist description: Core90/tu102: Update perf_g6.scp with changes to _CONFIG3.
+  1983049 AS2Job for source changelist: 22941982 and source changelist description: Core90/tulit: Fix the condition to remove SRE/SRX sequence. 
+  1983049 AS2Job for source changelist: 22941982 and source changelist description: Core90/tulit: Fix the condition to remove SRE/SRX sequence. 
+  1983515 Add error to Linpack tests when a user selects Alpha/Beta values that are invalid for a specific variant
+  1983515 Allow user to skip Alpha/Beta verification check for LwdaLinpack tests
+  1985175 #review-22881835 @cissyl @dmerget @mwoodpatrick @yujianh @rzboinski @saml @pkazarian @kamild
+  1985323 RMTest-FB Reducing the number of surfaces to be allocated
+  1985912 Show progress during vkStress
+  1986168 Reviewed by: pkazarian
+  1986669 Skip subtest 18 in the pstates 3.5 regression
+  1987431 AS2Job for source changelist: 22845762 and source changelist description: Core90: Clean up dead PLL_READY register fields and conditions.
+  1987431 AS2Job for source changelist: 22845762 and source changelist description: Core90: Clean up dead PLL_READY register fields and conditions.
+  1987431 AS2Job for source changelist: 22845762 and source changelist description: Core90: Clean up dead PLL_READY register fields and conditions.
+  1987827 Update Azalia supported address bits
+  1988130,200328886 Update command line to add display spec -notest
+  1988901 Add Test 395 - USB bandwidth stress test for Turing
+  1988901 Add Test 395 - USB bandwidth stress test for Turing (Part 3)
+  1988901 Add Test 395 - USB bandwidth stress test for Turing (Part 4)
+  1989006 Create a separate VulkanSampler class from VulkanTexture
+  1989006 VkStress texture enhancements
+  1989138 Updated the test to point to new manuals.
+  1989573 Generic memory support for Turing -dmacheck_ce. Submitting for Peter Kazarian as part of co-dependent HW/SW checkin.
+  1990521 AS2Job for source changelist: 22896587 and source changelist description: core90: only apply LW_P2P_RREQ_CTRL after upstream credits are advertised indicating DL_Up
+  1990521 AS2Job for source changelist: 22896587 and source changelist description: core90: only apply LW_P2P_RREQ_CTRL after upstream credits are advertised indicating DL_Up
+  1990901 To remove the logic which checks the substr of the name, if it is the substr of the one have been added it will replace the original string. All logic is to keep the vector own the substr of the name in ref manual. 
+  1991063 Revert CL 20828423
+  1991612 MODS - sec2rtossub.cpp: Change temporary WAR to just yield instead of sleep (applies a slightly smaller hammer than sleeping which does multiple yields)
+  1991669 AS2Job for source changelist: 22896451 and source changelist description: Core90/etc: Remove the FB ACPD check from gc6-fixup.scp script.
+  1991669 AS2Job for source changelist: 22896451 and source changelist description: Core90/etc: Remove the FB ACPD check from gc6-fixup.scp script.
+  1991669 AS2Job for source changelist: 22896451 and source changelist description: Core90/etc: Remove the FB ACPD check from gc6-fixup.scp script.
+  1991728 For raw mode test on gv11b/t194, mods uses a static variable to save raw mode parameter value.
+  1992205 Add tessellation support and enable it by default in VkStress:
+  1993140 Add error mode for flagging misaligned MNK values in Linpack tests
+  1993140 Add option to ignore automatic alignment of LwdaLinpack Msize, Nsize, and Ksize test parameters
+  1993784 AS2Job for source changelist: 22895802 and source changelist description: Core90/Tulit: Remove write to LW_PFB_FBPA_MC_1_REFCTRL2
+  1993784 AS2Job for source changelist: 22895802 and source changelist description: Core90/Tulit: Remove write to LW_PFB_FBPA_MC_1_REFCTRL2
+  1993784 AS2Job for source changelist: 22895802 and source changelist description: Core90/Tulit: Remove write to LW_PFB_FBPA_MC_1_REFCTRL2
+  1993784 AS2Job for source changelist: 22895802 and source changelist description: Core90/Tulit: Remove write to LW_PFB_FBPA_MC_1_REFCTRL2
+  1993784 AS2Job for source changelist: 22895802 and source changelist description: Core90/Tulit: Remove write to LW_PFB_FBPA_MC_1_REFCTRL2
+  1994537 Add TU102 EMU GDDR5 displayful rom variant to TOT MODS.
+  1994980 PLX updates
+  1996759 [MODS]: Starting pstates 3.0, don't rename a perfpoint to max based on gpc clock range
+  1997052 AS2Job for source changelist: 22913148 and source changelist description: core90/tulit: Add writes to LW_PFB_FBPA_DIR_ARB_CFG3
+  1997052 AS2Job for source changelist: 22913148 and source changelist description: core90/tulit: Add writes to LW_PFB_FBPA_DIR_ARB_CFG3
+  1997052 AS2Job for source changelist: 22913148 and source changelist description: core90/tulit: Add writes to LW_PFB_FBPA_DIR_ARB_CFG3
+  1997052 AS2Job for source changelist: 22913148 and source changelist description: core90/tulit: Add writes to LW_PFB_FBPA_DIR_ARB_CFG3
+  1997431 Vulkan Updates 1 of 4
+  1997431 Vulkan updates 2 of 4 
+  1997431 Vulkan updates 4 of 4
+  1997918,2001939,200331286 TU104 G5:  Revert TU104 sim GDDR5 roms to chips_a CL 22911425
+  1998328,200330861,200335226 Removed some tests that never fail in the functional test on PG503 SKU 201 (bug 200335226)
+  1998814 Fix ability to enable Vulkan Validation Layers on per test basis.
+  1998845 Add support for up to 10 loose limits in Perf30
+  1998929 AS2Job for source changelist: 22932161 and source changelist description: TU10x manual updates.
+  1998929 AS2Job for source changelist: 22932606 and source changelist description: core90/tulit: Add writes to LW_PLTCG_LTCS_LTSS_TSTG_CFG_2.
+  1998929 AS2Job for source changelist: 22932606 and source changelist description: core90/tulit: Add writes to LW_PLTCG_LTCS_LTSS_TSTG_CFG_2.
+  1998929 AS2Job for source changelist: 22932606 and source changelist description: core90/tulit: Add writes to LW_PLTCG_LTCS_LTSS_TSTG_CFG_2.
+  1999240 Add vkstress.js to the list of files for Android
+  1999775 Update TU102 emu roms to latest TOT (~ .07 release)
+  1999966 Eqos: Add support for Marvell PHY.
+  2000118 Fix spi test read vector not clear in loops bug
+  2000297 AS2Job for source changelist: 22937620 and source changelist description: Core90/tulit:Add new writes to LW_PFB_FBPA_FBIO_CFG14. 
+  2000297 AS2Job for source changelist: 22937620 and source changelist description: Core90/tulit:Add new writes to LW_PFB_FBPA_FBIO_CFG14. 
+  2001222 Remove Volta PTE kinds from Turing.  Fix UncompressedRawSurfaceReadHelper to check for GENERIC_MEMORY.
+  2001299 RM: remove unused os interfaces
+  2001854 TU102 G5X:  Revert roms to previous revision (#61) to fix TOT break
+200273484 [Turing] LWJPG new engine addition/support in RM
+200291467 AS2Job for source changelist: 22881402 and source changelist description: core90/pmu:  Disable pre-si IFR enforcement in GC6 ucode
+200291467 AS2Job for source changelist: 22881402 and source changelist description: core90/pmu:  Disable pre-si IFR enforcement in GC6 ucode
+200321151 Setup ILUT and OLUT Lwrves in CrtcManager
+200326274 Fix ADX group run failure
+200326279 Update Uart PROD values on t214 according to ASIC doc
+200327308 AcrTest modified to run LWENC tests only on supported GPUs
+200328886 Setup LUT settings for composition mode and mods console
+200331983,200341148 Fix dynamic windows allocation.
+200332462 Fix for the USB compliance test issue
+200341143 MODS DPC configurator updated
+200341143 MODS Disp Pipe Configurator final CL for initial release
+200341143 MODS/MDIAG Integrate Display Pipe Configurator in mdiag.
+200341144 MODS CSC LUTs programmed.
+200341144 MODS Enabled Precomp scaling in DPC
+200341144 MODS Set CSC0 and CSC1 LUT 
+200342562 [MODS] LwDisplay modesetlib window ownership automatic setup 
+200343055 Added SrcSurfModePercent argument to T246
+200343190 RmTest: RegOps test fails as it accesses MME_MAX_INSTRUCTIONS
+200344597 Detach thread during LwdaLinpack batch operations
+200346917 [MODS] update LWDisplayC* to check _SUPPORT_FLEXIBLE_WIN_MAPPING cap register
+200347700 Exclude VIC 4.2 ucode until it is mirrored in git
+200347700 Remove deleted file from list of files for Android package
+200347983 [MODS] - SDR - Remove methods deprecated in Lwdisplay30
+200349235 MODS DPC Bug-Fix during window allocation 
+200350052 TURING RM DISPLAY.
+200350407 RegHal changes for Sec2RtosFakeIdleTest on turing.
+200350643 Fix errors in MemRepair script
+200351252 Back out changelist 22908915
+200351252 Remove tegrasim.spc from android packages
+200352324 Eqos: Add support for MDIO PHY Read/Write via socket ioctls
+
+--------------------------------------------------------------------------------
+Version willow.1
+2017 09 14
+Built at Change: 22846266
+
+* Initial willow release

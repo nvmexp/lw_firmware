@@ -1,0 +1,120 @@
+# -*- mode: perl; -*-
+
+#
+# Source file list
+# For a brief introduction to file format, see README in this directory.
+#
+# IMPORTANT: New source files must be added to both Engines.pm and Sources.def.
+#
+
+my $filesRef = [
+
+    ACRSRC_CORE => [
+
+        FLAGS => ':CORE',             # following are all part of core (non-hal)
+
+        'init/lw/acr.c',
+        'hal/lw/acr_halstub.c',
+        'init/lw/acrinit.c',
+        'acr_utils/acrutils.c',
+
+    ],  # ACRSRC_CORE
+
+    ACRSRC_ENGINES => [
+
+        # include these files only if they show up in a SRCFILES list
+        FLAGS => ':MUST_BE_REQUIRED',
+
+        HAL =>
+        [
+            # These are the files that install the hal support for a given gpu.
+            # The files may be shared across multiple gpus, but every gpu must
+            # be represented by exactly 1 file.
+
+            FLAGS => ':HAL_IMPLEMENTATION'    # mark these files as the hal implementation
+                   . ':HAL_SETUP'
+                   . '',
+
+            CHIPS_SUPPORTED => [ GM20X, ],
+                'hal/maxwell/acr_halgm20x.c',
+
+            CHIPS_SUPPORTED => [ GP10X, ],
+                'hal/pascal/acr_halgp10x.c',
+
+            CHIPS_SUPPORTED => [ GV11X, ],
+                'hal/volta/acr_halgv11x.c',
+
+            CHIPS_SUPPORTED => [ T21X, ],
+                'hal/t21x/acr_halt21x.c',
+
+            CHIPS_SUPPORTED => [ T18X, ],
+                'hal/t18x/acr_halt18x.c',
+
+            CHIPS_SUPPORTED => [ T19X, ],
+                'hal/t19x/acr_halt19x.c',
+
+            CHIPS_SUPPORTED => [ T23X, ],
+                'hal/t23x/acr_halt23x.c',
+        ],
+
+        ACR =>
+        [
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, ],
+                'boot_falcon/t21x/acr_boott210.c',
+                'acr/maxwell/acrulucgm200.c',
+                'sig_verif/t21x/acr_verift210.c',
+
+            CHIPS_SUPPORTED => [ tMAXWELL_and_later, GV11B, ],
+                'init/t21x/acrluct210.c',
+                'security/t21x/acr_sspt210.c',
+                'wpr/t21x/acr_wprt210.c',
+
+            CHIPS_SUPPORTED => [ T234, ],
+                'security/t23x/acr_sect234.c',
+                'wpr/t23x/acr_wprt234.c',
+
+            CHIPS_SUPPORTED => [ T194, GV11B, T234, ],
+                'security/volta/acr_secgv11b.c',
+
+            CHIPS_SUPPORTED => [ T186, ],
+                'security/pascal/acr_sect186.c',
+
+            CHIPS_SUPPORTED => [ T210, ],
+                'security/t21x/acr_sect210.c',
+
+        ],
+
+        ACRLIB =>
+        [
+            CHIPS_SUPPORTED => [ MAXWELL_and_later, ],
+                'acrlib/maxwell/acruclibgm200.c',
+                'falcon/maxwell/acr_falct210.c',
+		        'dma/maxwell/acr_dmagm200.c',
+
+            CHIPS_SUPPORTED => [ T194, GV11B, T234, ],
+                'dma/volta/acr_dmagv11b.c',
+
+            CHIPS_SUPPORTED => [ T234, ],
+                'dma/t23x/acr_dmat234.c',
+        ],
+
+    ],  # ACRSRC_ENGINES
+
+];   # filesRef
+
+
+my $platformsRef = [
+
+    # the ACR platform
+    PLATFORM_ACR  => [
+        ACRSRC_ALL =>  [
+            FLAGS => ':CORE',
+            CHIPS_SUPPORTED => [ ALL, ],                 # monolithic
+        ],
+    ],
+
+];
+
+
+# return the file and platform lists
+return [ $filesRef, $platformsRef ];

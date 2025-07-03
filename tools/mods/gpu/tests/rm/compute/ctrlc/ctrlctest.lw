@@ -1,0 +1,38 @@
+/*
+ * LWIDIA_COPYRIGHT_BEGIN
+ *
+ * Copyright 2011-2011 by LWPU Corporation.  All rights reserved.  All
+ * information contained herein is proprietary and confidential to LWPU
+ * Corporation.  Any use, reproduction, or disclosure without the written
+ * permission of LWPU Corporation is prohibited.
+ *
+ * LWIDIA_COPYRIGHT_END
+ */
+ 
+#include "ctrlctest.h"
+
+/* Device (gpu) source code for the kernels used by the 
+ * LwdaCtrlc rm test.
+ */
+ 
+// Lwca infinite kernel function
+// this function gets killed & rm rc error recovery will get triggered.
+
+extern "C" __global__ void ctrlctest(int *idata, int *odata) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    odata[i] = idata[i];
+    int f = 1<<16;
+    idata[i] = f;
+    while (1)
+    {
+       f--; 
+       odata[i]++;
+       idata[i]--;
+       if (f == 0)
+       {
+         odata[i] = 0;
+         f = 1<<16;
+         idata[i] = f; 
+       } 
+    }
+}

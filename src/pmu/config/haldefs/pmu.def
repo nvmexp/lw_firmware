@@ -1,0 +1,698 @@
+# -*- mode: perl; -*-
+
+# PMU Chip Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $pmuHal = [
+
+    DEFAULTS => [
+        GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+        FLAGS           => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # **************************************************************************
+
+    HAL_INTERFACES => [
+
+        PRE_INIT_DMEM_APERTURE => [
+            DESCRIPTION    => "Set up DMEM APERTURE (ext2priv)",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GMXXX         => [ ALL, ],
+        ],
+
+        PRE_INIT_CHIP_INFO => [
+            DESCRIPTION     => "Cache chip information (arch, impl, netlist)",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            FLAGS           => ":NO_STUB",
+
+            _GMXXX         => [ dMAXWELL_thru_ADA, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _GH100         => [ dHOPPER_and_later, ],
+            _GA10B         => [ GV11B, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        PRE_INIT_DEBUG_FEATURES => [
+            DESCRIPTION     => "Enable support for debug features",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM20X          => [ GM20X, PASCAL, ],
+            _GV10X          => [ VOLTA_and_later, ],
+            _STUB           => [ GM10X, ],
+        ],
+
+        PRE_INIT_G_P_TIMER => [
+            DESCRIPTION     => "Configure GPTimer",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            FLAGS           => ":NO_STUB",
+
+            _GMXXX         => [ ALL, ],
+        ],
+
+        PRE_INIT_VBIOS_SELWRITY_BYPASS_REGISTER_CACHE => [
+            DESCRIPTION     => "Cache the VBIOS secure register value",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM20X          => [ GM20X, ],
+            _GP100          => [ GP10X_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _STUB           => [ GV11B, GM10X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        PRE_INIT_WAR_FOR_FECS_BUG_1333388 => [
+            DESCRIPTION    => "PMU GM10X War for FECS DECODE_TRAP9",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM10X         => [ GM10X, ],
+            _STUB          => [ ALL, -GM10X, ],
+        ],
+
+        PRE_INIT_ENABLE_PRECISE_EXCEPTIONS => [
+            DESCRIPTION    => "Enable precise exceptions for DMEM VA",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "_FUNC__")',
+
+            _TU10X         => [ TURING_and_later, ],
+            _STUB          => [ pre_TU10X, ],
+        ],
+
+        PRE_INIT_VERIFY_ENGINE => [
+            DESCRIPTION    => "Verifies that the microcode is running on the expected engine (the PMU)",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            STUB_RETURNS   => FLCN_OK,
+
+            _TUXXX         => [ TURING_and_later, ],
+            _STUB          => [ pre_TURING, ],
+        ],
+
+        PRE_INIT_VERIFY_CHIP => [
+            DESCRIPTION    => "Verifies that the microcode is running on an expected GPU",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            STUB_RETURNS   => FLCN_OK,
+
+            _GA100  => [ GA100, ],
+            _GA10X  => [ GA10X, -GA100, AD10X, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB   => [ ALL, -GA10X, -AD10X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        DETACH => [
+            DESCRIPTION    => "PMU detach routine",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+
+            _GMXXX         => [ MAXWELL_and_later, ],
+        ],
+
+        IDLE_COUNTER_GET => [
+            DESCRIPTION    => "Get the value of a PMU idle counter register",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "LwU8 index",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libEngUtil", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GMXXX         => [ MAXWELL_and_later, ],
+        ],
+
+        IDLE_COUNTER_RESET => [
+            DESCRIPTION    => "Reset a PMU idle counter register",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 index",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libEngUtil", "__FUNC__")',
+            FLAGS          => ":NO_STUB",
+
+            _GMXXX         => [ MAXWELL_and_later, ],
+        ],
+
+        IDLE_COUNTER_DIFF  => [
+            DESCRIPTION    => "Get the value of a PMU idle counter register and difference",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 index, LwU32 *pDiff, LwU32 *pLast",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfCfTopology", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _GP10X         => [ TURING_and_later, ],
+            _STUB          => [ pre_TU10X, ],
+        ],
+
+        IDLE_COUNTER_SIZE => [
+            DESCRIPTION    => "Get the total number of HW idle-counters",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfCfBoardObj", "__FUNC__")',
+            STUB_RETURNS   => ZERO,
+
+            _GP10X         => [ TURING_and_later, ],
+            _STUB          => [ pre_TU10X, ],
+        ],
+
+        IDLE_COUNTER_INIT  => [
+            DESCRIPTION    => "Setup a PMU idle counter",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU8 index, LwU32 idleMask0, LwU32 idleMask1, LwU32 idleMask2",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfCfTopology", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _TU10X         => [ TURING_and_later, ],
+            _STUB          => [ pre_TU10X, ],
+        ],
+
+        IDLE_COUNTER_FB_INIT  => [
+            DESCRIPTION    => "Setup PMU FB idle PWM signal",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfCfTopology", "__FUNC__")',
+            STUB_RETURNS   => FLCN_ERROR,
+
+            _GP10X         => [ TURING_and_later, ],
+            _STUB          => [ pre_TU10X, ],
+        ],
+
+        QUEUE_CMD_PROTECT => [
+            DESCRIPTION    => "Assign protection for the head and tail pointers of a CMD queue",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 queueIdx",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _TU10X         => [ TURING_and_later, ],
+            _STUB          => [ pre_TU10X, ],
+        ],
+
+        QUEUE_MSG_PROTECT => [
+            DESCRIPTION    => "Assign protection for the head pointer of the MSG queue",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            LIKE_INTERFACE => QUEUE_CMD_PROTECT,
+        ],
+
+        PROCESS_QUEUES => [
+            DESCRIPTION    => "Process all PMU incoming queues",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_cmdmgmt", "__FUNC__")',
+
+            _GMXXX         => [ ALL, ],
+        ],
+
+        QUEUE_PMU_TO_RM_HEAD_GET => [
+            DESCRIPTION    => "Retrieve PMU to RM (MSG) queue head register",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB".
+                              ":GEN_FNPTR_DEFINE", # generate pmuQueuePmuToRmHeadGet_HAL_FNPTR
+
+            _GMXXX         => [ ALL, ],
+        ],
+
+        QUEUE_PMU_TO_RM_HEAD_SET => [
+            DESCRIPTION    => "Update PMU to RM (MSG) queue head register and trigger interrupt to host",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 head",
+            FLAGS          => ":NO_STUB".
+                              ":GEN_FNPTR_DEFINE", # generate pmuQueuePmuToRmHeadSet_HAL_FNPTR
+
+            LIKE_INTERFACE => QUEUE_PMU_TO_RM_HEAD_GET,
+        ],
+
+        QUEUE_PMU_TO_RM_TAIL_GET => [
+            DESCRIPTION    => "Retrieve PMU to RM (MSG) queue tail register",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => void,
+            FLAGS          => ":NO_STUB".
+                              ":GEN_FNPTR_DEFINE", # generate pmuQueuePmuToRmTailGet_HAL_FNPTR
+
+            LIKE_INTERFACE => QUEUE_PMU_TO_RM_HEAD_GET,
+        ],
+
+        QUEUE_PMU_TO_RM_INIT => [
+            DESCRIPTION    => "Initializes the head and tail pointers of the PMU to RM (MSG) queue",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 start",
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_cmdmgmtMisc", "__FUNC__")',
+
+            LIKE_INTERFACE => QUEUE_PMU_TO_RM_HEAD_GET,
+        ],
+
+        QUEUE_RM_TO_PMU_HEAD_GET => [
+            DESCRIPTION    => "Retrieve RM to PMU (CMD) queue head register",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "LwU32 queueId",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => QUEUE_PMU_TO_RM_HEAD_GET,
+        ],
+
+        QUEUE_RM_TO_PMU_TAIL_GET => [
+            DESCRIPTION    => "Retrieve RM to PMU (CMD) queue tail register",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => "LwU32 queueId",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => QUEUE_PMU_TO_RM_HEAD_GET,
+        ],
+
+        QUEUE_RM_TO_PMU_TAIL_SET => [
+            DESCRIPTION    => "Update RM to PMU (CMD) queue tail register",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 queueId, LwU32 tail",
+            FLAGS          => ":NO_STUB",
+
+            LIKE_INTERFACE => QUEUE_PMU_TO_RM_HEAD_GET,
+        ],
+
+        QUEUE_RM_TO_PMU_INIT => [
+            DESCRIPTION    => "Initializes the head and tail pointers of the RM to PMU (CMD) queue",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU32 queueId, LwU32 start",
+            FLAGS          => ":NO_STUB",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_cmdmgmtMisc", "__FUNC__")',
+
+            LIKE_INTERFACE => QUEUE_PMU_TO_RM_HEAD_GET,
+        ],
+
+        FBFLCN_RPC_EXELWTE => [
+            DESCRIPTION    => "Issues a request to the FBFLCN and awaits for a response",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_ERROR,
+            ARGUMENTS      => "LwU8 cmd, LwU16 *pData16, LwU32 *pData32, LwU32 timeoutus",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfDaemon", "__FUNC__")',
+
+            _GV10X         => [ dVOLTA_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, -GV11B, ],
+            _STUB          => [ GV11B, pre_VOLTA, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        PRE_INIT_GC6_EXIT => [
+            DESCRIPTION    => "Pre-initialize GC6 exit before main PMU init",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_OK,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GMXXX         => [ dMAXWELL_and_later, ],
+        ],
+
+        INIT_GC6_EXIT => [
+            DESCRIPTION    => "Initialize GC6 exit procedure",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GMXXX         => [ MAXWELL, GP100, USED_BY_GPXXX, ],
+            _GPXXX         => [ dPASCAL_and_later, -GP100, ],
+        ],
+
+        BAR_BLOCK_REGISTERS_RESTORE => [
+            DESCRIPTION    => "Restores the BAR1 and BAR2 block addresses.",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_OK,
+            ARGUMENTS      => "RM_PMU_PCI_CONFIG_ADDR *pPciCfgAddr",
+            FLAGS          => ":STUB_ASSERT",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GMXXX         => [ dMAXWELL_thru_dADA, ],
+            _STUB          => [ dHOPPER_and_later, ],
+        ],
+
+        UPDATE_GC6_EXIT_STATS => [
+            DESCRIPTION    => "Update the GC6 exit stats and send an event to RM",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_disp", "__FUNC__")', # TODO: gc6lib ovly?
+
+            LIKE_INTERFACE => PRE_INIT_GC6_EXIT,
+        ],
+
+        PRE_INIT_GC6_ALLOC_BSOD_CONTEXT => [
+            DESCRIPTION    => "Allocate GC6 Conext in Pre-initialize GC6 exit section",
+            RETURN_TYPE    => FLCN_STATUS,
+            STUB_RETURNS   => FLCN_OK,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GPXXX         => [ dPASCAL_and_later, -GP100, ],
+            _STUB          => [ MAXWELL, GP100, ],
+        ],
+
+        UPDATE_CHECK_POINT => [
+            DESCRIPTION    => "Update the RM/PMU checkpoint",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "PMU_RM_CHECKPOINTS",                    # TODO: gc6lib ovly?
+
+            _GMXXX         => [ dMAXWELL_and_later, ],
+        ],
+
+        PEX_CNT_INIT => [
+            DESCRIPTION     => "Enable utilization counters",
+            INTERFACE_TAG   => 'pmuPEXCntInit',   # 'PEX' instead of 'Pex'
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libEngUtil", "__FUNC__")',
+
+            # TODO: hopper+ doesn't support XVE. Add a non-XVE impl.
+            _GMXXX          => [ dMAXWELL_thru_dADA, ],
+            _STUB           => [ dHOPPER_and_later, ],
+        ],
+
+        PEX_CNT_SAMPLE_TX => [
+            DESCRIPTION     => "Generate PEX busy percentage for Tx",
+            INTERFACE_TAG   => 'pmuPEXCntSampleTx',   # 'PEX' instead of 'Pex'
+            RETURN_TYPE     => LwU16,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libEngUtil", "__FUNC__")',
+
+            LIKE_INTERFACE  => PEX_CNT_INIT,
+        ],
+
+        PEX_CNT_SAMPLE_RX => [
+            DESCRIPTION     => "Generate PEX busy percentage for Rx",
+            INTERFACE_TAG   => 'pmuPEXCntSampleRx',   # 'PEX' instead of 'Pex'
+            RETURN_TYPE     => LwU16,
+            ARGUMENTS       => void,
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libEngUtil", "__FUNC__")',
+
+            LIKE_INTERFACE  => PEX_CNT_INIT,
+
+        ],
+
+        PEX_CNT_SAMPLE_TX_NO_RESET => [
+            DESCRIPTION     => "Generate PEX busy percentage for Tx, Counters are not reset",
+            INTERFACE_TAG   => 'pmuPEXCntSampleTxNoReset', # 'PEX' instead of 'Pex'
+            RETURN_TYPE     => LwU16,
+            ARGUMENTS       => "FLCN_TIMESTAMP *pTimestamp, LwU32 *pPrevTxCount",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libEngUtil", "__FUNC__")',
+
+            # TODO: hopper+ doesn't support XVE. Add a non-XVE impl.
+            _GPXXX          => [ GP10X_thru_dADA, -GP100, ],
+            _STUB           => [ MAXWELL, GP100, dHOPPER_and_later, ],
+        ],
+
+        PEX_CNT_SAMPLE_RX_NO_RESET => [
+            DESCRIPTION     => "Generate PEX busy percentage for Rx, Counters are not reset",
+            INTERFACE_TAG   => 'pmuPEXCntSampleRxNoReset', # 'PEX' instead of 'Pex'
+            RETURN_TYPE     => LwU16,
+            ARGUMENTS       => "FLCN_TIMESTAMP *pTimestamp, LwU32 *pPrevRxCount",
+            STUB_RETURNS    => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libEngUtil", "__FUNC__")',
+
+            # TODO: hopper+ doesn't support XVE. Add a non-XVE impl.
+            _GPXXX          => [ GP10X_thru_dADA, -GP100, ],
+            _STUB           => [ MAXWELL, GP100, dHOPPER_and_later, ],
+        ],
+
+        PEX_CNT_GET_RX => [
+            DESCRIPTION    => "Get current Rx counter value",
+            INTERFACE_TAG  => 'pmuPEXCntGetRx',      # 'PEX' instead of 'Pex'
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => ZERO,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_libEngUtil", "__FUNC__")',
+
+            # TODO: hopper+ doesn't support XVE. Add a non-XVE impl.
+            _GPXXX          => [ GP10X_thru_dADA, -GP100, ],
+            _STUB           => [ MAXWELL, GP100, dHOPPER_and_later, ],
+        ],
+
+        PEX_CNT_GET_TX => [
+            DESCRIPTION    => "Get current Tx counter value",
+            INTERFACE_TAG  => 'pmuPEXCntGetTx',      # 'PEX' instead of 'Pex'
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => ZERO,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_libEngUtil", "__FUNC__")',
+
+            # TODO: hopper+ doesn't support XVE. Add a non-XVE impl.
+            _GPXXX          => [ GP10X_thru_dADA, -GP100, ],
+            _STUB           => [ MAXWELL, GP100, dHOPPER_and_later, ],
+        ],
+
+        PEX_CNT_GET_DIFF => [
+            DESCRIPTION    => "Get current RX/TX counter value and difference",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwBool bRx, LwU32 *pDiff, LwU32 *pLast",
+            STUB_RETURNS   => FLCN_ERROR,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_perfCfTopology", "__FUNC__")',
+
+            # TODO: hopper+ doesn't support XVE. Add a non-XVE impl.
+            _GPXXX         => [ TURING_thru_dADA, ],
+            _STUB          => [ pre_TU10X, dHOPPER_and_later, ],
+        ],
+
+        PRIV_LEVEL_VALIDATE => [
+            DESCRIPTION    => "Validates the allowed core privilege levels",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "void",
+            STUB_RETURNS   => FLCN_OK,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION(LW_ARCH_VAL("imem_init", "kernel_code_init"), "__FUNC__")',
+
+            _GA10X         => [ AMPERE_and_later, -GA100, ],
+            _STUB          => [ pre_AMPERE, GA100, ],
+        ],
+
+        FLCN_PRIV_LEVEL_SET => [
+            DESCRIPTION    => "Sets the core privilege level (separate Ext/CSB accesses priv for Falcon, full core priv for RISCV as max of the two)",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwU8 privLevelExt, LwU8 privLevelCsb",
+
+            _GM20X         => [ GM20X_thru_TURING, GA100, USED_BY_GA10X, ],
+            _GA10X         => [ AMPERE_and_later, -GA100, ],
+            _STUB          => [ GM10X, ],
+        ],
+
+        PRE_INIT_FLCN_PRIV_LEVEL_CACHE_AND_CONFIGURE => [
+            DESCRIPTION    => "Cache the core default privilege level (S-mode priv level for RISCV) and LS mode status, and configure the PLM for reset",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION(LW_ARCH_VAL("imem_init", "kernel_code_init"), "__FUNC__")',
+
+            _GM20X         => [ GM20X_thru_TURING, GA100, USED_BY_GA10X, ],
+            _GA10X         => [ AMPERE_and_later, -GA100, ],
+            _STUB          => [ GM10X, ],
+        ],
+
+        RAISE_PRIV_SEC_LEVEL_FOR_REGISTERS => [
+            DESCRIPTION    => "Write the priv level mask for selected registers to block level 0 and 1 access",
+            RETURN_TYPE    => void,
+            ARGUMENTS      => "LwBool bRaisePrivSec",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM20X         => [ GM20X, ],
+            _STUB          => [ ALL, -GM20X, ],
+        ],
+
+        DMEM_VA_INIT => [
+            DESCRIPTION     => "Initialize DMEM VA",
+            RETURN_TYPE     => FLCN_STATUS,
+            STUB_RETURNS    => FLCN_OK,
+            ARGUMENTS       => "LwU32 boundInBlocks",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GP10X          => [ GP10X_and_later, -GP100, -GV11B, ],
+            _STUB           => [ GV11B, MAXWELL, GP100, ],
+        ],
+
+        GET_OS_TICK_INTR_MASK => [
+            DESCRIPTION     => "Return the IRQSTAT mask for the OS timer",
+            RETURN_TYPE     => LwU32,
+            ARGUMENTS       => 'void',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GMXXX          => [ ALL, ],
+        ],
+
+        PRE_INIT_RAISE_PRIV_LEVEL_MASKS => [
+            DESCRIPTION     => "Raise priv level masks to prevent RM from messing around with our operation",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => 'void',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GM20X          => [ MAXWELL, GP100, ],
+            _GP10X          => [ GP10X_and_later, -GP100, -GV11B, ],
+            _STUB           => [ GV11B, ],
+        ],
+
+        LOWER_PRIV_LEVEL_MASKS => [
+            DESCRIPTION     => "Lower priv level masks when we unload",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => 'void',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION(LW_ODP_VAL("imem_resident", "imem_libPrivSec"), "__FUNC__")',
+
+            LIKE_INTERFACE  => PRE_INIT_RAISE_PRIV_LEVEL_MASKS,
+        ],
+
+        PRE_INIT_RAISE_EXT_PRIV_LEVEL_MASKS => [
+            DESCRIPTION     => "Raise external priv level masks to prevent RM from messing around with our operation",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => 'void',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+
+            _GHXXX          => [ HOPPER_and_later, ],
+            _STUB           => [ MAXWELL_thru_ADA, ],
+        ],
+
+        LOWER_EXT_PRIV_LEVEL_MASKS => [
+            DESCRIPTION     => "Lower external priv level masks when we unload",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => 'void',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION(LW_ODP_VAL("imem_resident", "imem_libPrivSec"), "__FUNC__")',
+
+            LIKE_INTERFACE  => PRE_INIT_RAISE_EXT_PRIV_LEVEL_MASKS,
+        ],
+
+        DETACH_UNLOAD_SEQUENCE => [
+            DESCRIPTION     => "Necessary unload actions to take on detach: enter critical if ODP, stall external interfaces if needed, apply mining WAR if needed, and lower reset PLM.",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => 'LwBool bIsGc6Detach',
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION(LW_ODP_VAL("imem_resident", "imem_libPrivSec"), "__FUNC__")',
+
+            _GM20X          => [ MAXWELL, GP10X_thru_GA100, -GV11B, ],
+            _GA10X          => [ GA102_and_later, ],
+            _STUB           => [ GV11B, ],
+        ],
+
+        INIT_DEVID_KEYS => [
+            DESCRIPTION     => "Initialize the keys required for DEVID name encryption",
+            RETURN_TYPE     => FLCN_STATUS,
+            ARGUMENTS       => 'RM_PMU_DEVID_ENC_INFO *',
+            STUB_RETURNS    => FLCN_OK,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_gid", "__FUNC__")',
+
+            _GM20X          => [ GM20X_and_later, -GA102_and_later, USED_BY_GA10X, -GV11B, ],
+            _GA10X          => [ GA102_and_later, -TEGRA_DGPU_AMPERE, -TEGRA_DGPU_ADA, ],
+            _STUB           => [ GV11B, GM10X, TEGRA_DGPU_AMPERE, TEGRA_DGPU_ADA, ],
+        ],
+
+        FB_FLUSH  => [
+            DESCRIPTION    => "Flush all DMA write",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+            STUB_RETURNS   => FLCN_OK,
+
+            _GP100 => [ PASCAL_and_later, -GV11B, ],
+            _STUB  => [ GV11B, MAXWELL, ],
+        ],
+
+        CTX_BIND => [
+            DESCRIPTION    => "Bind PMU context",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => "LwU32 ctxBindAddr",
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_init", "__FUNC__")',
+            STUB_RETURNS   => FLCN_OK,
+
+            _GA100 => [ GA100_and_later, ],
+            _STUB  => [ ALL, -GA100_and_later, ],
+        ],
+
+        FUSE_VERSION_GET => [
+            DESCRIPTION    => "Retrieves the fuse version from hardware.",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => void,
+            FLAGS          => ":STUB_ASSERT",
+            STUB_RETURNS   => ZERO,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GA10X => [ GA10X_and_later, -GA100, ],
+            _STUB  => [ pre_GA10X, GA100, ],
+        ],
+
+        FPF_VERSION_GET => [
+            DESCRIPTION    => "Retrieves the FPF version from hardware.",
+            RETURN_TYPE    => LwU32,
+            ARGUMENTS      => void,
+            FLAGS          => ":STUB_ASSERT",
+            STUB_RETURNS   => ZERO,
+            GCC_ATTRIBUTES => 'GCC_ATTRIB_SECTION("imem_resident", "__FUNC__")',
+
+            _GA10X => [ GA10X_and_later, -GA100, ],
+            _STUB  => [ pre_GA10X, GA100, ],
+        ],
+
+        # PBI related HALs
+
+        PBI_REQUEST_RD => [
+            DESCRIPTION     => "Read PBI request from message box registers",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "POSTBOX_REGISTERS *pRequest",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_cmdmgmtMisc", "__FUNC__")',
+
+            # TODO: hopper+ doesn't support XVE. Add a non-XVE impl.
+            _GM10X          => [ pre_HOPPER, ],
+            _GH100          => [ HOPPER_and_later, ],
+        ],
+
+        PBI_STATUS_UPDATE => [
+            DESCRIPTION     => "Update the provided PBI command with given status",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 command, LwU8 status",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_cmdmgmtMisc", "__FUNC__")',
+
+            LIKE_INTERFACE  => PBI_REQUEST_RD,
+        ],
+
+        PBI_DATA_OUT_WR => [
+            DESCRIPTION     => "Write the PBI DATA_OUT register",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU32 dataOut",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_cmdmgmtMisc", "__FUNC__")',
+
+            LIKE_INTERFACE  => PBI_REQUEST_RD,
+        ],
+
+        PBI_IRQ_RELAY_TO_RM => [
+            DESCRIPTION     => "Relay PBI interrupt to the RM",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => void,
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_cmdmgmtMisc", "__FUNC__")',
+
+            LIKE_INTERFACE  => PBI_REQUEST_RD,
+        ],
+
+        UPDATE_PBI_STATUS => [
+            DESCRIPTION     => "Update PBI status and clear interrupt bit",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwBool bSuccess",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_disp", "__FUNC__")',   # Lwrrently only DISP use this
+
+            _GM20X          => [ GM20X_thru_ADA, ],
+            _GH100          => [ HOPPER_and_later, ],
+            _STUB           => [ GM10X, ],
+        ],
+
+        PBI_SEND_ACK => [
+            DESCRIPTION     => "Send ACK for PBI interrupt",
+            RETURN_TYPE     => void,
+            ARGUMENTS       => "LwU8 status",
+            GCC_ATTRIBUTES  => 'GCC_ATTRIB_SECTION("imem_cmdmgmtMisc", "__FUNC__")',
+
+            LIKE_INTERFACE  => PBI_REQUEST_RD,
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $pmuHal;
+

@@ -1,0 +1,1445 @@
+= Overview =
+
+The '''PolicyManager''' is an event-driven module in MODS that modifies the behavior of trace3d tests.  It allows you to you specify [[#Action|actions]] that will take place when an indicated [[#Trigger|trigger]] happens.
+
+To use PolicyManager, you need to write a '''policy file''' and pass it to mods via the "-policy_file ''filename''" command-line argument.  A basic policy file consists of a standard header, followed by a series of [[#Policy.Define|Policy.Define(trigger, action)]] statements.  The remainder of this page dislwsses the syntax of policy files in greater depth.
+
+= Syntax =
+
+== Comments ==
+
+A comment starts with "//", and continues to the end of the line.
+Just like C++.
+
+<pre>
+    // This is a comment.
+    Policy.Version(2); // So is this
+</pre>
+
+== Header ==
+
+The following three-line header should occur at the start of every policy file:
+
+<pre>
+    Policy.Version(2);
+    #include "default.pcy"
+    AddFileId(Out.PriNormal, "$Id: $");
+</pre>
+
+Policy.Version() should be the first statement in the policy file.
+Policy files are versioned so that the format can evolve over time.
+The version number rolls as new keywords are added and as older
+keywords are deprecated and eventually removed.  Policy files should
+follow the same philosophy for when/how to roll revisions as trace_3d:
+https://engwiki/index.php/MODS/GPU_Verification/trace_3d/File_Format#Versioning_Philosophy
+
+AddFileId() record the version of the policy file for future
+reporting.  To set this up properly, be sure that you p4 add the file
+with +ko in the file type.  This causes p4 to update the file with the
+revision number each time you check in an update.
+
+== Policy ==
+*
+*; Policy.Define([[#Trigger|''trigger'']], [[#Action|''action'']])<span id="Policy.Define"></span>
+*: This command tells PolicyManager to perform some action every time a trigger oclwrs.
+
+<pre>
+    // Unmap all surfaces starting with "C" when the test starts.
+    Policy.Define(Trigger.Start(), Action.UnmapSurfaces("C.*"));
+
+    // Run the "my_page_fault" action block whenever a page fault
+    // oclwrs in the first 4096 bytes of surface "a1".
+    Policy.Define(Trigger.OnPageFault("a1", 0, 4096), "my_page_fault");
+</pre>
+
+* Policies controlling [[#Action.SetPState|''Action.SetPState'']].  These Policies can be set prior using [[#Action.SetPState|''Action.SetPState'']] to change its behavior.
+*; Policy.SetPStateFallbackError() <span id="Policy.SetPStateFallbackError"></span>
+*: If setting the requested PState fails, then an error will be returned (and [[#Action.SetPState|''Action.SetPState'']] will fail).
+*; Policy.SetPStateFallbackLower() <span id="Policy.SetPStateFallbackLower"></span>
+*: If setting the requested PState fails, then choose a lower performace state that can be set.
+*; Policy.SetPStateFallbackHigher() <span id="Policy.SetPStateFallbackHigher"></span>
+*: If setting the requested PState fails, then choose a higher performace state that can be set.
+
+* Policies controlling [[#Action.PowerWait|''Action.PowerWait'']].  These Policies can be set prior using [[#Action.PowerWait|''Action.PowerWait'']] to change its behavior.
+*; Policy.SetPowerWaitHWUs(''timeUs'') <span id="Policy.SetPowerWaitHWUs"></span>
+*: Change the time to wait for power gating to occur on hardware to the specified time in microseconds
+*; Policy.SetPowerWaitRTLUs(''timeUs'') <span id="Policy.SetPowerWaitRTLUs"></span>
+*: Change the time to wait for power gating to occur on RTL simulations to the specified time in microseconds
+*; Policy.SetPowerWaitModelUs(''timeUs'') <span id="Policy.SetPowerWaitModelUs"></span>
+*: Change the time to wait for power gating to occur on fmodel simulations to the specified time in microseconds
+*; Policy.SetPowerWaitBusy() <span id="Policy.SetPowerWaitBusy"></span>
+*: Use a busy wait for [[#Action.PowerWait|''Action.PowerWait'']].
+*; Policy.SetPowerWaitSleep() <span id="Policy.SetPowerWaitSleep"></span>
+*: Use a yielding sleep for [[#Action.PowerWait|''Action.PowerWait'']].
+
+* Policies controlling [[#Action.MoveSurfaces|''Action.MoveSurfaces'']], [[#Action.MovePages|''Action.MovePages'']], etc.  These Policies can be set prior using Action.MoveXxx to change its behavior.
+*; Policy.SetDeferTlbIlwalidate(bool)
+*: Tell Action.MoveSurfaces()/Action.MapSurface/Action.MapPages et. mmu entry modification actions whether to skip the implicit embedded TLBs ilwalidate after modifying mmu entries. Default: false(not skip). If [[#Policy.SetInbandSurfaceMove|Policy.SetInbandSurfaceMove()]] is in effect, this policy is ignored and the implicit TLB ilwalidate is always skipped.
+*; Policy.SetDeleteMovedSurfaces() <span id="Policy.SetDeleteMovedSurfaces"></span>
+*: When the surface is moved, delete the old physical memory so that it can be re-used by another surface.  Mutually exclusive with [[#Policy.SetScrambleMovedSurfaces|''Policy.SetScrambleMovedSurfaces'']], [[#Policy.SetDumpMovedSurfaces|''Policy.SetDumpMovedSurfaces'']], and [[#Policy.SetCrcMovedSurfaces|''Policy.SetCrcMovedSurfaces'']].  This is the default.
+*; Policy.SetScrambleMovedSurfaces() <span id="Policy.SetScrambleMovedSurfaces"></span>
+*: When the surface is moved, overwrite the old physical memory with bad data (lwrrently 0x0badbeef).  This policy is incompatible with [[#Policy.SetInbandSurfaceMove|Policy.SetInbandSurfaceMove()]] .
+*; Policy.SetDumpMovedSurfaces() <span id="Policy.SetDumpMovedSurfaces"></span>
+*: When the surface is moved, save the old physical memory and write a hex-dump to the gild file at the end of the test.
+*; Policy.SetCrcMovedSurfaces() <span id="Policy.SetCrcMovedSurfaces"></span>
+*: When the surface is moved, save the old physical memory and write a CRC of the surface to the gild file at the end of the test.
+*; Policy.DisablePlcOnSurfaceMove(bool)
+*: Tell in-band move surface and move page actions whether to disable post L2 Compression. Only applicable to Turing and later chips, and only if [[#Policy.SetInbandSurfaceMove|Policy.SetInbandSurfaceMove()]] is in effect. Default: false(do not disable).
+
+* Policies controlling surface allocation.
+*; Policy.SetOptimalAlloc() <span id="Policy.SetOptimalAlloc"></span>
+*: Use the optimal memory location when allocating all subsequent surfaces in policy manager (default).
+*; Policy.SetFramebufferAlloc() <span id="Policy.SetFramebufferAlloc"></span>
+*: Use the framebuffer memory when allocating all subsequent surfaces in policy manager.
+*; Policy.SetCoherentAlloc() <span id="Policy.SetCoherentAlloc"></span>
+*: Use the coherent system memory when allocating all subsequent surfaces in policy manager.
+*; Policy.SetNonCoherentAlloc() <span id="Policy.SetNonCoherentAlloc"></span>
+*: Use the non-coherent system memory when allocating all subsequent surfaces in policy manager.
+*; Policy.SetPhysContig()
+*: Allocate surfaces with physically-contiguous pages.
+*; Policy.ClearPhysContig()
+*: Allocate surfaces with possibly physically-noncontiguous pages.
+*; Policy.SetAlignment(alignment)
+*: Allocate surfaces such that the address is a multiple of the indicated alignment.
+*; Policy.ClearAlignment()
+*: Allocate surfaces with any memory alignment.
+*; Policy.SetDualPageSize()
+*: Allocate surfaces with both small and big PTEs.
+*; Policy.ClearDualPageSize()
+*: Allocate surfaces with just the PTEs that match the surface's page size.
+*; Policy.SetLoopBack() <span id="Policy.SetLoopBack"></span>
+*: Force all subsequent surfaces allocated by policy manager to be in peer to peer loopback mode.  This only applies if the surface is also allocated in framebuffer memory.
+*; Policy.ClearLoopBack() <span id="Policy.ClearLoopBack"></span>
+*: Force all subsequent surfaces allocated by policy manager to be allocated locally (i.e. not in peer to peer loopback mode).
+*; Policy.UseTestLoopBack() <span id="Policy.UseTestLoopBack"></span>
+*: Use the loop back setting provided to policy manager by the test when allocating surfaces (default).
+*; Policy.SetLwrrentPageSize() <span id="Policy.SetLwrrentPageSize"></span>
+*: When modifying PTE flags or PDE fields that apply to big, small or huge pages, modify for the page-size used by the surface.
+*; Policy.SetAllPageSizes()
+*: When modifying PTE flags or PDE fields that apply to big, small or huge pages, modify the info for both page sizes.
+*; Policy.SetSmallPageSize()
+*: When modifying PTE flags or PDE fields that apply to big, small or huge pages, modify the info for small pages.  Also controls preferred page size for Action.CreateSurface.
+*; Policy.SetBigPageSize()
+*: When modifying PTE flags or PDE fields that apply to big, small or huge pages, modify the info for big pages.  Also controls preferred page size for Action.CreateSurface.
+*; Policy.SetHugePageSize()
+*: When modifying PTE flags or PDE fields that apply to big, small or huge pages, modify the info for huge pages.  Also controls preferred page size for Action.CreateSurface.
+*; Policy.SetPhysicalPageSize(pagesize)
+*: Specify the physical pagesize for Action.CreateSurface. It will active the specified pagesize and inactive others. Policy.SetSmallPageSize(), Policy.SetBigPageSize() and Policy.SetHugePageSize() is to specify the virtual page size. If one of them is specified, only this page size table will been explored.
+*; Policy.SetClearNewSurfacesOn()
+*: Subsequent calls to Action.CreateSurface will initialize the surface contents to 0 (default). Policy.SetInbandSurfaceClear() can direct mods to use in-band way to clear the surface.
+*; Policy.SetClearNewSurfacesOff()
+*: Subsequent calls to Action.CreateSurface will not initialize the contents of the new surface.
+*; Policy.SetVaSpace([[#VaSpace|''vaspace'']]) <span id = "Policy.SetVaSpace"></span>
+*: Subsequent calls to Action.CreateSurface will create the surface at the specified vaspace.
+*; Policy.SetSmcEngine([[#SmcEngine|''smcengine'']]) <span id = "Policy.SetSmcEngine"></span>
+*: Subsequent calls to PRI register action (Action.PriWriteReg32, Action.PriWriteField32, Action.PriWriteMask32, Action.WaitPriReg32) will use the specified smcengine.
+*: Subsequent calls to Action.CreateChannel will create the channel using the specified smcengine.
+*: Subsequent calls to Action.ResubmitRunlist/PreemptRunlist("GRAPHICS") will use the specified smcengine.
+*: Subsequent calls to Action.CreateSurface will create the surface in the smcengine's partition.
+*: Subsequent calls to ActionBlock.OlwEIDMatchesFault will match the event's smcengine with this policy setting.
+*: Subsequent calls to Action.TlbIlwalidateVA will match the fault handling to the specified smcengine.
+*: Subsequent calls to ActionBlock.OnEngineIsExisting will match the engine id to the specified smcengine.
+*; Policy.SetTargetRunlist([[#Channel|''channel'']]) <span id ="Policy.SetTargetRunlist"></span>
+*: For per runlist PRI registers, subsequent calls to PRI register action (Action.PriWriteReg32, Action.PriWriteField32, Action.PriWriteMask32, Action.WaitPriReg32) will access register according to the engine type of the specified channel
+*: If this is used, regSpace argument is not required for per runlist PRI register action calls.
+*; Policy.SetChannelEngine([[#Engine_Names|''engineName'']]) <span id = "Policy.SetChannelEngine"></span>
+*: Subsequent calls to Action.CreateChannel will create the channel using the specified engine. It is an indication that the channel is created without a subchannel
+*; Policy.SetTlbIlwalidateTarget([[#Aperture|''aperture'']]) <span id="Policy.SetTlbIlwalidateTarget"></span>
+*: Set the target for Action.TlbIlwalidate.  Peer is illegal. Works for Pascal and later GPUs. Default: All.
+*; Policy.SetTlbIlwalidatePdbAll(bool)
+*: Tell Action.TlbIlwalidate whether to ilwalidate all PDBs, or just one. Works for Pascal and later GPUs. Default: true.
+*; Policy.SetTlbIlwalidateChannelPdb([[#Channel|''channel'']]) <span id="Policy.SetTlbIlwalidateChannelPdb"></span>
+*: Tell Action.TlbIlwalidate to ilwalidate one channel PDB. Combined with Policy.SetTlbIlwalidatePdbAll(false). Works for Pascal and later GPUs.
+*; Policy.SetTlbIlwalidateBar1() <span id="Policy.SetTlbIlwalidateChannelPdb"></span>
+*: Tell Action.TlbIlwalidate to ilwalidate Bar1 PDB. Combined with Policy.SetTlbIlwalidatePdbAll(false). Works for Pascal and later GPUs.
+*; Policy.SetTlbIlwalidateGpc(bool)
+*: Tell Action.TlbIlwalidate whether to ilwalidate GPC-MMU TLBs. For inband version, it works for Maxwell and later GPUs. For out-of-band version, it works for Pascal and later GPUS. Default: true.
+*; Policy.SetTlbIlwalidateReplayNone() <span id="Policy.SetTlbIlwalidateReplayNone"></span>
+*: Tell Action.TlbIlwalidate to no attempt a replay (default).  Works for Pascal and later GPUs.
+*; Policy.SetTlbIlwalidateReplayStart() <span id="Policy.SetTlbIlwalidateReplayStart"></span>
+*: Tell Action.TlbIlwalidate to attempt a replay. Works for Pascal and later GPUs.
+*; Policy.SetTlbIlwalidateReplayCancelVaGlobal([[#AccessType|''AccessType'']], VEID) <span id="Policy.SetTlbIlwalidateReplayCancelVaGlobal"></span>
+*: Tell Action.TlbIlwalidateVA to cancel all existing SM replay attempts which the virtual address, accessType, VEID can match replay attempts. Works for Volta and later GPUs.
+*: Note:
+*: It must be combined with followings. Make sure the channel and surface have the same virtual address space.If not specify the Policy.SetTlbIlwalidateChannelPdb(<Channel>), the pdb which surface is used in Action.TlbIlwalidateVA(Surface.Name(<name>), offset) will be ilwalidate.
+*: Policy.SetTlbIlwalidateChannelPdb(<Channel>);
+*: Action.TlbIlwalidateVA(Surface.Name(<name>), offset).
+*; Policy.SetTlbIlwalidateReplayCancelGlobal() <span id="Policy.SetTlbIlwalidateReplayCancelGlobal"></span>
+*: Tell Action.TlbIlwalidate to cancel all existing replay attempts. Works for Pascal and later GPUs.
+*; Policy.SetTlbIlwalidateReplayCancelTargeted([[#Fancy_Picker|''GPC'']],[[#Fancy_Picker|''ClientUnit'']]) <span id="Policy.SetTlbIlwalidateReplayCancelTargeted"></span>
+*: Tell Action.TlbIlwalidate to cancel the replay attempt of a specific SM. Works for Pascal and later GPUs.
+*; Policy.SetTlbIlwalidateReplayCancelTargetedFaulting() <span id="Policy.SetTlbIlwalidateReplayCancelTargetedFaulting"></span>
+*: Tell Action.TlbIlwalidate to cancel the replay attempt of GPCId and Cliene in the faulting buffer. Works for Pascal and later GPUs.
+*; Policy.SetTlbIlwalidateReplayStartAckAll() <span id="Policy.SetTlbIlwalidateReplayStartAckAll"></span>
+*: Tell Action.TlbIlwalidate to attempt a replay with acknowledgment. Works for Pascal and later GPUs.
+*; Policy.SetTlbIlwalidateSysmembar(bool) <span id="Policy.SetTlbIlwalidateSysmembar"></span>
+*: Tell Action.TlbIlwalidate whether to enable sysmembar. Works for Pascal and later GPUs.Default: false.
+*; Policy.SetTlbIlwalidateAckTypeNone() <span id="Policy.SetTlbIlwalidateAckTypeNone"></span>
+*: Tell Action.TlbIlwalidate to use ACK_TYPE_NONE (default). Works for Pascal and later GPUs.
+*; Policy.SetTlbIlwalidateAckTypeGlobally() <span id="Policy.SetTlbIlwalidateAckTypeGlobally"></span>
+*: Tell Action.TlbIlwalidate to use ACK_TYPE_GLOBALLY. Works for Pascal and later GPUs.
+*; Policy.SetTlbIlwalidateAckTypeIntranode() <span id="Policy.SetTlbIlwalidateAckTypeIntranode"></span>
+*: Tell Action.TlbIlwalidate to use ACK_TYPE_INTRANODE. Works for Pascal and later GPUs.
+*; Policy.SetTlbIlwalidateLevel([[#Level|''Level'']]) <span id="Policy.SetTlbIlwalidateLevel"></span>
+*; Tell Action.TlbIlwalidate to ilwalidate up to specified level tlb. Works for Pascal and later GPUs.
+*; Policy.SetTlbIlwalidateIlwalScope(IlwalScope) <span id="Policy.SetTlbIlwalidateIlwalScope"></span>
+*; Tell Action.TlbIlwalidate which TLBs to ilwalidate. It is applicable only when REPLAY is REPLAY_NONE. Options are ALL_TLBS (default), LINK_TLBS, and NON_LINK_TLBS. Works for Ampere and later GPUs.
+*; Policy.SetDefaultGpuCacheMode()
+*: New surfaces created by Action.CreateSurface will use the default GPU cache mode for their memory location and properties (default)
+*; Policy.SetGpuCacheable()
+*: New surfaces created by Action.CreateSurface will attempt to enable GPU cacheing
+*; Policy.SetCEAllocAsync([[#Fancy_Picker|''ceInstPicker'']])
+*: Tell Action.CreateCESubchannel to allocate CE subchannel object among Async CEs. ceInstPicker specifies the Async-CE instance number. For example, 0 - the 1st Async-CE; 1 - the 2nd Async-CE.
+*; Policy.SetCEAllocDefault()
+*: Tell Action.CreateCESubchannel to allocate CE subchannel object on default CE. Default CE is selected by RM.
+
+* Miscellaneous policies.
+*; Policy.SetRandomSeedDefault() <span id="Policy.SetRandomSeedDefault"></span>
+*: Use an appropriate "name" string which is hashed into a random seed for all Policy Manager Actions or ActionBlocks which use a fancy picker (default).
+*; Policy.SetRandomSeed(''seed'') <span id="Policy.SetRandomSeed"></span>
+*: Use the specified 32-bit random seed for all Policy Manager Actions or ActionBlocks which use a fancy picker.
+*; Policy.SetRandomSeedTime() <span id="Policy.SetRandomSeedTime"></span>
+*: Use the current time in ms (rounded to 32-bits) as the random seed for all Policy Manager Actions or ActionBlocks which use a fancy picker.
+*; Policy.SetChannelSubdeviceMask(mask) <span id="Policy.SetChannelSubdeviceMask"></span>
+*: Use specified subdevice mask when sending methods for the following actions: Action.InsertMethods, Action.InsertSubchMethods, Action.TlbIlwalidate, Action.L2Flush, Action.L2SysmemIlwalidate, Action.L2PeermemIlwalidate, Action.L2WaitForSysPendingRead, Action.L2VidmemIlwalidate, Action.HostSempahoreAcquire, Action.HostSemaphoreRelease, Action.HostSemaphoreReduction, Action.EngineSemaphoreRelease and Action.EngineSemaphoreAcquire.
+*; Policy.SetChannelAllSubdevicesMask() <span id="Policy.SetChannelAllSubdevicesMask"></span>
+*: Send methods to all subdevices for the following actions: Action.InsertMethods, Action.InsertSubchMethods, Action.L2Flush, Action.L2SysmemIlwalidate, Action.L2PeermemIlwalidate, Action.L2WaitForSysPendingReads, Action.L2VidmemIlwalidate, Action.HostSempahoreAcquire, Action.HostSemaphoreRelease, Action.HostSemaphoreReduction, Action.EngineSemaphoreAcquire and Action.EngineSemaphoreRelease.  (default)
+*; Policy.SetSurfaceAccessRemoteGpu([[#GPU|''gpu'']]) <span id="Policy.SetSurfaceAccessRemoteGpu"></span>
+*: Set the remote GPU to use when accessing surfaces.  Affects the following actions: Action.HostSempahoreAcquire, Action.HostSemaphoreRelease, Action.HostSemaphoreReduction, Action.EngineSemaphoreAcquire and Action.EngineSemaphoreRelease.
+*; Policy.SetSurfaceAccessLocal() <span id="Policy.SetSurfaceAccessLocal"></span>
+*: Clear the remote GPU to use when accessing surfaces (force surface access to be on the allocated GPU).  Affects the following actions: Action.HostSempahoreAcquire, Action.HostSemaphoreRelease, Action.HostSemaphoreReduction, Action.EngineSemaphoreAcquire and Action.EngineSemaphoreRelease. (default)
+*; Policy.SetSemaphoreReleaseWithTime() <span id="Policy.SetSemaphoreReleaseWithTime"></span>
+*: Semaphore releases do so with timestamps.  Affects the following actions: Action.HostSemaphoreRelease, Action.HostSemaphoreReduction, and Action.EngineSemaphoreRelease.  (default)
+*; Policy.SetSemaphoreReleaseWithoutTime() <span id="Policy.SetSemaphoreReleaseWithoutTime"></span>
+*: Semaphore releases do so without timestamps.  Affects the following actions: Action.HostSemaphoreRelease, Action.HostSemaphoreReduction, and Action.EngineSemaphoreRelease.
+*; Policy.SetSemaphoreReleaseWithWFI()
+*: Semaphore releases do so with WFI.  Affects the following actions: Action.HostSemaphoreRelease, Action.HostSemaphoreReduction, and Action.EngineSemaphoreRelease.  (default)
+*; Policy.SetSemaphoreReleaseWithoutWFI()
+*: Semaphore releases do so without WFI.  Affects the following actions: Action.HostSemaphoreRelease, Action.HostSemaphoreReduction, and Action.EngineSemaphoreRelease.
+*; Policy.SetReqEventWaitMs(timeMs) <span id="Policy.SetReqEventWaitMs"></span>
+*: Set the time in milliseconds for policy manager to wait for required events prior to ending testing.
+*; Policy.EnableNonStallInt(enableSemaphore, enableInterrupt)
+*: Action.NonStallInt() normally writes a semaphore followed by a non stall int.  This setting enables/disables the two halves.
+*; Policy.SetInbandMemOp()<span id="Policy.SetInbandMemOp"></span>
+*: Causes mem op actions to be performed as in-band methods on the pushbuffer, instead of out-of-band register-writes by the CPU.  The default is out-of-band.  The following are mem op actions:
+*:* [[#Action.TlbIlwalidate|Action.TlbIlwalidate()]]
+*:* [[#Action.TlbIlwalidateVA|Action.TlbIlwalidateVA()]]
+*:* [[#Action.L2Flush|Action.L2Flush()]]
+*:* [[#Action.HostMembar|Action.HostMembar()]]
+*:* [[#Action.L2SysmemIlwalidate|Action.L2SysmemIlwalidate()]]
+*:* [[#Action.L2PeermemIlwalidate|Action.L2PeermemIlwalidate()]]
+*:* [[#Action.L2WaitForSysPendingReads|Action.L2WaitForSysPendingReads()]]
+*:* [[#Action.L2VidmemIlwalidate|Action.L2VidmemIlwalidate()]]
+*:* [[#Action.Action.RestartEngineFaultedChannel|Action.RestartEngineFaultedChannel()]]
+*:* [[#Action.Action.RestartPbdmaFaultedChannel|Action.RestartPbdmaFaultedChannel()]]
+*:* [[#Action.Action.ClearAccessCounter|Action.ClearAccessCounter()]]
+*; Policy.SetInbandPte()<span id="Policy.SetInbandPte"></span>
+*: Causes PTE-related actions to be performed as in-band methods on the pushbuffer, instead of out-of-band writes by the CPU.  The default is out-of-band.  The following are PTE-related actions:
+*:* [[#Action.UnmapSurfaces|Action.UnmapSurfaces()]]
+*:* [[#Action.UnmapPages|Action.UnmapPages()]]
+*:* [[#Action.UnmapPde|Action.UnmapPde()]]
+*:* [[#Action.SparsifyPages|Action.SparsifyPages()]]
+*:* [[#Action.RemapSurfaces|Action.RemapSurfaces()]]
+*:* [[#Action.RemapPages|Action.RemapPages()]]
+*:* [[#Action.RemapPde|Action.RemapPde()]]
+*:* [[#Action.RandomRemapIlwalidPages|Action.RandomRemapIlwalidPages()]]
+*:* [[#Action.SetReadOnly|Action.SetReadOnly()]]
+*:* [[#Action.ClearReadOnly|Action.ClearReadOnly()]]
+*:* [[#Action.SetShaderDefaultAccess|Action.SetShaderDefaultAccess()]]
+*:* [[#Action.SetShaderReadOnly|Action.SetShaderReadOnly()]]
+*:* [[#Action.SetShaderWriteOnly|Action.SetShaderWriteOnly()]]
+*:* [[#Action.SetShaderReadWrite|Action.SetShaderReadWrite()]]
+*:* [[#Action.SetPteAperture|Action.SetPteAperture()]]
+*:* [[#Action.SetVolatileBit|Action.SetVolatileBit()]]
+*:* [[#Action.ClearVolatileBit|Action.ClearVolatileBit()]]
+*:* [[#Action.SetPrivSurfaces|Action.SetPrivSurfaces()]]
+*:* [[#Action.ClearPrivSurfaces|Action.ClearPrivSurfaces()]]
+*:* [[#Action.SetPrivPages|Action.SetPrivPages()]]
+*:* [[#Action.ClearPrivPages|Action.ClearPrivPages()]]
+*; Policy.SetInbandSurfaceMove()<span id="Policy.SetInbandSurfaceMove"></span>
+*: Causes surface moving actions to be performed as in-band methods on the pushbuffer, instead of out-of-band writes by the CPU.  The default is out-of-band.  The following are surface move actions:
+*:* [[#Action.MoveSurfaces|Action.MoveSurfaces()]]
+*:* [[#Action.MovePages|Action.MovePages()]]
+*:* [[#Action.MoveFaultingSurface|Action.MoveFaultingSurface()]]
+*:* [[#Action.MoveFaultingPage|Action.MoveFaultingPage()]]
+*; Policy.SetInbandSurfaceClear()<span id="Policy.SetInbandSurfaceClear"></span>
+*: Causes surface clear actions to be performed as in-band methods on the pushbuffer, instead of out-of-band writes by the CPU.  The default is out-of-band.  The following are surface move actions:
+*:* [[#Action.CreateSurface|Action.CreateSurface()]]
+*:* [[#Action.FillSurface|Action.FillSurface()]]
+*; Policy.SetInband()
+*: This is the same as [[#Policy.SetInbandMemOp|Policy.SetInbandMemOp()]].  It's use is now deprecated.
+*; Policy.SetInbandChannel([[#Channel|''channel'']])<span id="Policy.SetInbandChannel"></span>
+*: Sets the channel that will be used when sending in-band methods to a pushbuffer. By default, in-band methods are sent on the first active channel of the corresponding GPU.  Only applies if any of  [[#Policy.SetInbandMemOp|Policy.SetInbandMemOp()]], [[#Policy.SetInbandPte|Policy.SetInbandPte()]], or [[#Policy.SetInbandSurfaceMove|Policy.SetInbandSurfaceMove()]] are in effect.
+*; Policy.SetOutOfBandMemOp()<span id="Policy.SetOutOfBandMemOp"></span>
+*: Sets the default out-of-band behavior for actions affected by [[#Policy.SetInbandMemOp|Policy.SetInbandMemOp()]].
+*; Policy.SetOutOfBandPte()<span id="Policy.SetOutOfBandPte"></span>
+*: Sets the default out-of-band behavior for actions affected by [[#Policy.SetInbandPte|Policy.SetInbandPte()]].
+*; Policy.SetOutOfBandSurfaceMove()<span id="Policy.SetOutOfBandSurfaceMove"></span>
+*: Sets the default out-of-band behavior for actions affected by [[#Policy.SetInbandSurfaceMove|Policy.SetInbandSurfaceMove()]].
+*; Policy.SetOutOfBandSurfaceClear()<span id="Policy.SetOutOfBandSurfaceClear"></span>
+*: Sets the default out-of-band behavior for actions affected by [[#Policy.SetInbandSurfaceClear|Policy.SetInbandSurfaceClear()]].
+*; Policy.SetOutOfBand()
+*: This is the same as [[#Policy.SetOutOfBandMemOp|Policy.SetOutOfBandMemOp()]].  It's use is now deprecated.
+*; Policy.SetNonBlockingCtxSwInt()<span id="Policy.SetNonBlockingCtxSwInt"></span>
+*: The interrupt caused by [[#Trigger.OnContextSwitch|Trigger.OnContextSwitch()]] will not block the channel.  The default is for the interrupt to block until the associated action block has exelwted.  Unlike most triggers, which only affect subsequent triggers & actions until the end of the current scope, this is a global setting that affects the entire policy file.
+*; Policy.SetBlockingCtxSwInt()
+*: Sets the default blocking behavior for interrupts affected by [[#Policy.SetNonBlockingCtxSwInt|Policy.SetNonBlockingCtxSwInt()]].
+*; Policy.SetGmmuVASpace()
+*: Set Gmmu as target VA space to be changed for the following actions:
+*:* [[#Action.UnmapSurfaces|Action.UnmapSurfaces()]]
+*:* [[#Action.UnmapPages|Action.UnmapPages()]]
+*:* [[#Action.RemapSurfaces|Action.RemapSurfaces()]]
+*:* [[#Action.RemapPages|Action.RemapPages()]]
+*:* [[#Action.TlbIlwalidate|Action.TlbIlwalidate()]]
+*; Policy.SetDefaultVASpace()
+*: Set Default VA space to be changed for actions listed in Policy.SetGmmuVASpace().
+*; Policy.SetSurfaceAllocationType(Value)
+*: Set surface allocation type for surface created by Action.CreateSurface() or donating surface needed in surface movement action.
+*: Actions imapct:
+*:* [[#Action.CreateSurface|Action.CreateSurface()]]
+*:* [[#Action.MoveSurfaces|Action.MoveSurfaces()]]
+*:* [[#Action.MovePages|Action.MovePages()]]
+*:* [[#Action.MoveFaultingSurface|Action.MoveFaultingSurface()]]
+*:* [[#Action.MoveFaultingPage|Action.MoveFaultingPage()]]
+*:  Value: Surface allocation type
+*:          DefaultVASpace     = 0
+*:          GPUVASpace         = 1
+*; Policy.SetInbandCELaunchFlushEnable(bool)
+*: Enable or Disable the CE flush. All Action which can choose inband version will use CE to do the memory copy. It is a global control at pcy file. It must have the same scope as Policy.Define. The default value: true.
+*; Policy.SetAccessCounterNotificationWaitMs(timeMs)
+*: Change the time to wait for access counter notification packet to be valid to the specified time in microseconds. If it's not specified, -timeout_ms will be used as default value. If both are not specified, MODS will pick timeout value based on some policies which could vary depend on underlying simulators. If WRITE_NACK_TRUE is set, the packet will never be valid then stop waiting valid bit. If it times out, MODS will stop processing access counter notification and it could be used for any intended faults which break access counter notification function and let test exit gracefully.
+
+<span id="Trigger"></span>
+== Trigger ==
+A trigger is used to indicate when something should happen.  It may be
+any of the following:
+
+; Trigger.Start() <span id="Trigger.Start"></span>
+: At the start of the test.
+; Trigger.End()
+: At the end of the test. When this trigger is hit, it means all the event for this test has been launched. Note: Trigger.Start()/End() will be triggered on every test start/end if there are multiple tests running conlwrrently. User can use condition block to limit the trigger only happens on specified test.
+ Example:
+ ActionBlock.Define("test_end");
+    ActionBlock.OnTestNum([1,0]); // [1,0] is equal to ["list", 1, 0];
+        Action.Print("This is the first test end.\n");
+    ActionBlock.End();
+ ActionBlock.End();
+ Policy.Define(Trigger.End(),"test_end");
+; Trigger.OnTraceEventCpu(''traceEventName'',''afterTraceEvent'')<span id="Trigger.OnTraceEventCpu"></span>
+: Trigger that fires at trace command EVENT/PMTRIGGER_SYNC_EVENT/PMTRIGGER_EVENT matching the event name. "afterTraceEvent" is a boolean that can be false to trigger before the event, or true to trigger after.
+: Notes: 1. In case there are actions hooked on the trace event, "before" is really different from "after"; 2. For trace command EVENT, no attched channel information, Channel.Faulting() doesn't work.
+; Trigger.OnPageFault([[#Channel|''channel'']])
+: A page fault oclwred on the indicated channel(s).
+: For VOLTA, fatal fault in register will also be trapped by it. Since RM will always clear VALID bit of faulting info register before it notifies MODS, then there is a potential racing issue that when test checks register value it could be overwritten by following fault.
+: Channel.Faulting is supported if this fault binds to any channels. So in the action block associated with this trigger, Channel.Faulting will refer to all faulting channels.
+; Trigger.OnReplayablePageFault([[#GPU|''gpu'']]) <span id="Trigger.OnReplayablePageFault"></span>
+: Trigger that fires when a replayable page fault oclwrs on the indicated GPU(s).
+: This trigger will fire once for each fault in the fault event buffer.
+: Channel.Faulting is supported. So in the action block associated with this trigger, Channel.Faulting will refer to all faulting channels.
+; Trigger.OnCERecoverableFault([[#GPU|''gpu'']]) <span id="Trigger.OnCERecoverableFault"></span>
+: Trigger that fires when a non-replayable recoverable CE fault oclwrs on the indicated GPU(s).
+: This trigger will fire once for each fault in the fault event buffer.
+: Different from replayable fault, since RM has already copied fault buffer packet from HW into shadow buffer in MODS, when action block associated with this trigger is exelwted, HW can generate another fault. This mechanism also applies for fatal page fault in VOLTA.
+: Channel.Faulting is supported. So in the action block associated with this trigger, Channel.Faulting will refer to all faulting channels.
+; Trigger.OnFaultBufferOverflow([[#GPU|''gpu'']]) <span id="Trigger.OnFaultBufferOverflow"></span>
+: Trigger that fires when the fault event buffer overflows on the indicated GPU(s).
+; Trigger.OnResetChannel([[#Channel|''channel'']])
+: The indicated channel(s) were reset, presumably by Action.ResetChannel().
+; Trigger.OnChannelRemoval([[#Channel|''channel'']])
+: The indicated channel(s) were removed.
+; Trigger.OnGrErrorSwNotify([[#Channel|''channel'']])
+: A graphics error software notify oclwrred on the indicated channel.
+; Trigger.OnGrFaultDuringCtxsw([[#Channel|''channel'']])
+: A graphics fault oclwrred during context switch on the indicated channel.
+; Trigger.OnCeError([[#Channel|''channel'']], [#Engine_Names|''ce engine names''])
+: A ce fault oclwrred during ce got an error on the indicated channel. Just support the ce engine in the [#Engine_Names|''ce engine names''].
+; Trigger.OnNonStallInt([[#Regex|''intRegex'']], [[#Channel|''channel'']]) <span id="Trigger.OnNonStallInt"></span>
+: A non-stalling interrupt oclwrred.  See [[#Action.NonStallInt|Action.NonStallInt]] and [[#Restrictions|Restrictions]].
+; Trigger.OnSemaphoreRelease([[#Surface|''surfaces'']], ''offset'', ''payload'')<span id="Trigger.OnSemaphoreRelease"></span>
+: The four-byte semaphore at the indicated surface/offset was released with the indicated payload.  Offset and payload can be either constant values or fancy pickers.  See [[#Restrictions|Restrictions]].
+; Trigger.OnWaitForChipIdle()<span id="Trigger.OnWaitForChipIdle"></span>
+: A wait for idle oclwrred on all channels (trace_3d only).
+; Trigger.OnWaitForIdle([[#Channel|''channel'']])<span id="Trigger.OnWaitForIdle"></span>
+: A wait for idle oclwrred on a particular channel.
+; Trigger.OnMethodWrite([[#Channel|''channel'']], [[#Pick_Counter|''counter'']])<span id="Trigger.OnMethodWrite"></span>
+: A method was written on the specified channels that matches the count from the fancy picker.  Each channel maintains its own count and generates its own triggers (i.e. the fpicker specifies the methods on each channel rather than cumulative across all channels).  See [[#Restrictions|Restrictions]].
+; Trigger.OnPercentMethodsWritten([[#Channel|''channel'']], [[#Fancy_Picker|''fpicker'']])<span id="Trigger.OnPercentMethodsWritten"></span>
+: A method was written on the specified channels that matches the percentage of methods from the fancy picker.  Each channel maintains its own percentage and generates its own triggers (i.e. the fpicker specifies the percentage of methods on each channel rather than cumulative across all channels).  See [[#Restrictions|Restrictions]].
+; Note:
+: 1. For the trace method number smaller than 100, the trigger maybe skip some percentage since different percentage will map to the same method count. Only the first hit will be triggered. For example, assume a trace has 10 methods, [list, [9, 1]] generates 1%, 2%, 3%... 9%, and all of these percentages mean the 1st trace method. The trigger will only be triggered once although there are 9 percentages.
+: 2. It's triggered before the method write. For example, trace has total 100 method, 0% trigger will happen before the first method write and 99.99% will happen before the last method write.
+: 3. This trigger also support one specify case, 100% which means it will happen after the last method. Policymanager will inject an NOP to help trigger before the NOP write into pb.
+; Trigger.OnMethodExelwte([[#Channel|''channel'']], [[#Pick_Counter|''counter'']])<span id="Trigger.OnMethodExelwte"></span>
+: A method was exelwted on the specified channels that matches the count from the fancy picker.  Each channel maintains its own count and generates its own triggers (i.e. the fpicker specifies the methods on each channel rather than cumulative across all channels).  See [[#Restrictions|Restrictions]].
+; Trigger.OnMethodExelwteEx([[#Channel|''channel'']], [[#Pick_Counter|''counter'']], bool bWfiOnRelease, bool bWaitEventHandled)<span id="Trigger.OnMethodExelwteEx"></span>
+: This is an extended version based on Trigger.OnMethodExelwte(). bWfiOnRelease = true: wfi before releasing semaphore value when host exelwtes the injected semaphore method. bWaitEventHandled = true: stop host processing until event is handled.
+; Trigger.OnPercentMethodsExelwted([[#Channel|''channel'']], [[#Fancy_Picker|''fpicker'']])<span id="Trigger.OnPercentMethodsExelwted"></span>
+: A method was exelwted on the specified channels that matches the percentage of methods from the fancy picker.  Each channel maintains its own percentage and generates its own triggers (i.e. the fpicker specifies the percentage of methods on each channel rather than cumulative across all channels).  See [[#Restrictions|Restrictions]].
+; Trigger.OnPercentMethodsExelwtedEx([[#Channel|''channel'']], [[#Fancy_Picker|''fpicker'']], bool bWfiOnRelease, bool bWaitEventHandled)<span id="Trigger.OnPercentMethodsExelwtedEx"></span>
+: This is an extended version based on Trigger.OnPercentMethodsExelwted(). bWfiOnRelease = true: wfi before releasing semaphore value when host exelwtes the injected semaphore method. bWaitEventHandled = true: stop host processing until event is handled.
+; Trigger.OnMethodIdWrite([[#Channel|''channel'']], ''classes'', ''methods'', ''afterWrite'')
+: This trigger oclwrs when a specific class method is written to the indicated channel[s].  ''classes'' can be a list of class numbers, such as [0x9097, 0x9197, 0x9297], or a single class number, or a class type string (Gr, Compute, Lwdec, Lwenc, Ce, Lwjpg, Ofa (all case-insensitive)).  ''methods'' is either a list of method numbers or a single method number.  These two parameters determine the type of method that will activate the trigger, e.g. class 0x9097 and method 0x1144 would trigger every time LW9097_FLUSH_PENDING_WRITES is written.  ''afterWrite'' is a boolean that can be false to trigger before the write, or true to trigger after.  See [[#Restrictions|Restrictions]].
+; Trigger.OnTimeUs(''timerName'', [[#Pick_Counter|''hwCounter'']], [[#Pick_Counter|''modelCounter'']], [[#Pick_Counter|''rtlCounter'']])
+: The indicated time, in microseconds, has elapsed since Action.StartTimer().  The times are given by FancyPickers, with one picker used for HW, one for amodel or fmodel, and one for RTL.  See [[#Restrictions|Restrictions]].
+; Trigger.OnPmuElpgEvent([[#GPU|''gpu'']], ''engineId'', ''interruptStatus'')
+: Trigger that fires when a matching PMU ELPG event oclwrs.
+; Trigger.OnPmuNotifierEvent([[#GPU|''gpu'']], ''msgType'', ''engineId'')
+: Trigger that fires when a matching PMU Notifer event oclwrs.
+; Trigger.OnRmEvent([[#GPU|''gpu'']])<span id="Trigger.OnRmEvent"></span>
+: A trigger that fires when RM issues a RM Event through ModsDrv calls.
+: Defines:
+ enum Events
+ {
+    ON_POWER_DOWN_GRAPHICS_ENTER,
+    ON_POWER_DOWN_GRAPHICS_COMPLETE,
+    ON_POWER_UP_GRAPHICS_ENTER,
+    ON_POWER_UP_GRAPHICS_COMPLETE,
+    ON_POWER_DOWN_VIDEO_ENTER,
+    ON_POWER_DOWN_VIDEO_COMPLETE,
+    ON_POWER_UP_VIDEO_ENTER,
+    ON_POWER_UP_VIDEO_COMPLETE,
+    ON_POWER_DOWN_VIC_ENTER,
+    ON_POWER_DOWN_VIC_COMPLETE,
+    ON_POWER_UP_VIC_ENTER,
+    ON_POWER_UP_VIC_COMPLETE,
+    ON_POWER_DOWN_MSPG_ENTER,
+    ON_POWER_DOWN_MSPG_COMPLETE,
+    ON_POWER_UP_MSPG_ENTER,
+    ON_POWER_UP_MSPG_COMPLETE
+ };
+ Example:
+ Policy.Define(Trigger.OnRmEvent(Gpu.Inst(".*", ".*"), Constants.ON_POWER_UP_GRAPHICS_ENTER), "MyRmEventAction2");
+; Trigger.OnChannelReset()<span id="Trigger.OnChannelReset"></span>
+: A trigger that fires before RM reset channel.Do not use actions that require RM within this trigger, otherwise the test will hang.
+; Trigger.OnTraceEventCpu(''traceEventName'')<span id="Trigger.OnTraceEventCpu"></span>
+: Trigger that fires when MODS encounters a trace event with name ''traceEventName'' in trace header exelwtion.
+; Trigger.PluginEventTrigger(''eventName'')<span id="Trigger.PluginEventTrigger"></span>
+: Trigger that fires when plugin sends an event with name ''eventName'', only two events supported: "UnmapSurface" and "MapSurface".
+; Trigger.OnAccessCounterNotification([[#GPU|''gpu'']])<span id="Trigger.OnAccessCounterNotification"></span>
+; Trigger.OnErrorLoggerInterrupt([[#GPU|''gpu'']], ''interrupt'')<span id="Trigger.OnInterrupt"></span>
+: Trigger that fires when a matching interrupt with matching regex gets reported to the error logger.
+: NOTE: Not supported for Multi-GPU.
+; Trigger.OnT3dPluginEvent(''traceEventName'')<span id="Trigger.OnT3dPluginEvent"></span>
+: Trigger that fires when MODS is sending a trace event to trace3d plugin with name ''traceEventName'', for example "BeforeFlushMethodsInWaitForIdle".
+: The current list of trace events which is supported in policy manager, includes:
+   TraceSurfacesDownloaded
+   BeforeRunTraceOps
+   AfterRunTraceOps
+   BeforeFlushMethodsInWaitForIdle
+   BeforeWaitForIdle
+   AfterWaitForIdle
+   BeforeMethodWrite
+   AfterMethodWrite
+   BeforeCheckPassFail
+   AfterCheckPassFail
+; Trigger.OnNonfatalPoisonError([[#Channel|''channel'']], <[[#PoisonType|''poisonType'']]>)
+: A non fatal posion error oclwred on the indicated channel(s), which matches the expected poison type.
+: Note: poisonType is optional.
+; Trigger.OnFatalPoisonError([[#Channel|''channel'']], <[[#PoisonType|''poisonType'']]>)
+: A fatal posion error oclwred on the indicated channel(s), which matches the expected poison type.
+: Note: poisonType is optional.
+
+<span id="Action"></span>
+== Action ==
+
+An "action" may be one of the following [[#Simple_Actions|simple actions]], or it may be the name of a previously-defined [[#Action_Block|action block]].
+
+<span id="Simple_Actions"></span>
+=== Simple Actions ===
+
+* Actions to unmap, remap, move, and modify memory:
+*; Action.UnmapSurfaces([[#Surface|''surface'']]) <span id="Action.UnmapSurfaces"></span>
+*: Unmap the indicated surface(s).
+*; Action.UnmapPages([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.UnmapPages"></span>
+*: Unmap the indicated page(s).
+*; Action.UnmapPde([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']], [[#Level|''level'']]) <span id="Action.UnmapPde"></span>
+*: Unmap the indicated pde.
+*; Action.RemapSurfaces([[#Surface|''surface'']]) <span id="Action.RemapSurfaces"></span>
+*: Remap the indicated surface(s).  Do nothing if the surface(s) are already mapped.
+*; Action.RemapPages([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.RemapPages"></span>
+*: Remap the indicated page(s).  Do nothing if the surface(s) are already mapped.
+*; Action.RemapPde([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']], [[#Level|''level'']]) <span id="Action.RemapPde"></span>
+*: Remap the indicated pde.  Do nothing if the pde is already mapped.
+*; Action.RemapFaultingSurface()
+*: Remap the faulting surface.
+*; Action.RemapFaultingPage()
+*: Remap the faulting page.
+*; Action.RandomRemapIlwalidPages([[#Surface|''surface'']], [[#Fancy_Picker|''percentage fpicker'']])
+*: Randomly map a percentage of unmapped pages in specified surface. RemapPageCount = (TotalIlwalidPageCount * percentage + 99) / 100
+*; Action.ChangePageSize([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']], ['BIG' or 'SMALL' or 'HUGE'])
+*: Change page size in a specified range to BIG or SMALL or HUGE. "BIG" means big page size(64k or 128k); "SMALL" means small page size(4k);"HUGE" means huge page size(2m). "BIG"/"SMALL"/"HUGE" are case insensitive.
+*; Action.CreateSurface(''name'', ''size'', [[#GPU|''gpu'']])
+*: Create a surface with the indicated name and size on the indicated GPU. After surface creation, user can select in-band or out-of-band surfacle clear to 0. For out-of-band clear, PolicyManager will map the surface and keep the cpu map until mapping changes. Related PolicyCommand: Policy.SetClearNewSurfacesOn(), Policy.SetInbandSurfaceClear() and Policy.SetOutOfBandSurfaceClear(). For SMC mode, if the user specifies Policy.SetVaSpace and Policy.SetSmcEngine, then channel will be created only on the SmcEngine's partition and for the VaSpace within that partition. For SMC Mode, if only Policy.SetVaSpace is specified then channel will be created for all the matching VaSpaces regardless of GpuPartition.
+*; Action.MoveSurfaces([[#Surface|''surface'']])<span id="Action.MoveSurfaces"></span>
+*: Move the indicated surface(s) to a new physical address
+*; Action.MovePages([[#Surface|''surface'']], ''offset'', ''size'')<span id="Action.MovePages"></span>
+*: Move the indicated page(s) to a new physical address
+*; Action.MovePagesToDestSurf([[#Surface|''srcSurface'']], ''srcOffset'', ''size'', [[#Surface|''dstSurface'']], ''dstOffset'')<span id="Action.MovePagesToDestSurf"></span>
+*: Move the indicated page(s) to a pre-allocated surface. This action is similiar to Action.MovePages() except that it has a pre-allocated dst-surface passed in. There are some conditions for the pre-allocated surface to be a surface donate the physical address to the surface to be moved. And unlike Action.MovePages(), Policy.SetxxxxAlloc() can't impact it.
+*: Action.MovePagesToDestSurf() has almost same function as [[#Action.AliasPagesFromSurface|Action.AliasPagesFromSurface()]]. Action.MovePagesToDestSurf() immegrates surface data from src to dst, but Action.AliasPagesFromSurface doesn't.
+*: This action has limitations on the sruface which is less than 1 page.
+*; Action.MoveFaultingSurface()
+*: Move the faulting surface to a new physical address
+*; Action.MoveFaultingPage()
+*: Move the faulting page to a new physical address
+*; Action.AliasPages([[#Surface|''surface'']], ''destination offset'', ''size'', ''source offset'')
+*: Remap the page(s) at the destination to point to the physical memory lwrrently mapped to the source.
+*: Pages alias happens on page boundary. This action does nothing if the sruface is less than 1 page.
+*; Action.AliasPagesFromSurface([[#Surface|''destination surface'']], ''destination offset'', ''size'', [[#Surface|''source surface'']], ''source offset'')
+*: Remap the page(s) at the destination to point to the physical memory lwrrently mapped to the source surface
+*; Action.FillSurface([[#Surface|''surface'']], [[#Fancy_Picker|''offset fpicker'']], ''size'', [[#Fancy_Picker|''value fpicker'']])
+*: Fill a portion of the surface with a given value. [[#Policy.SetInbandSurfaceClear|Policy.SetInbandSurfaceClear]] and [[#Policy.SetOutOfBandSurfaceClear|Policy.SetOutOfBandSurfaceClear]] can specify the way of filling the surface. Range is defined by the offset and size.  Both the offset and value are fancy pickers which update per action exelwtion.  Size must be a multiple of four, as values are 32 bit integers.
+*: Notes: the fill value must be 32bit. If the fill size is not a multiple of four, each byte of the 32-bit fill value must be identical.
+*; Action.CpuMapSurfacesDirect([[#Surface|''surface'']])
+*: Use direct-map mode to map the cpu address of specified surface. Then all cpu access to the surface in policy manager will go through the direct-mapped address.
+*; Action.CpuMapSurfacesReflected([[#Surface|''surface'']])
+*: Use reflected-map mode to map the cpu address of specified surface. Then all cpu access to the surface in policy manager will go through the reflected-mapped address.
+*; Action.CpuMapSurfacesDefault([[#Surface|''surface'']])
+*: Use default-map mode to map the cpu address of specified surface
+*; Action.GpuSetClock([[#GPU|''gpu'']], ''regex'', ''valueHz'')
+*: Change clock in clock domain whose name matches the regular expression. valueHz/1000 sends to hw. Clock domain names are case-insensitive: "ClkLW","ClkG", "ClkS", "ClkR", "ClkM", "ClkHost","ClkDisp","ClkH","ClkPA","ClkPB","ClkPrivAgp","ClkVPV","ClkVPS","ClkBYP","ClkX".
+*; Action.StopFb([[#GPU|''gpu'']])
+*: Stop/halt the fb engine on the indicated gpu(s).
+*; Action.RestartFb([[#GPU|''gpu'']])
+*: Restart the fb engine from a stopped state on the indicated gpu(s).
+*; Action.CreateChannel(''name'', [[#GPU|''gpu'']], [[#Test|''test'']]) <span id="Action.CreateChannel"></span>
+*: Create a channel with the indicated name, on the indicated GPU, and for the indicated test. From Ampere onwards, if a channel is created without a subchannel then Policy.SetChannelEngine needs to be set so as to give a hint for the engineId for this channel. For SMC mode, if the user specifies Policy.SetVaSpace and Policy.SetSmcEngine, then channel will be created only on the SmcEngine's partition and for the VaSpace within that partition. For SMC Mode, if only Policy.SetVaSpace is specified then channel will be created for all the matching VaSpaces regardless of GpuPartition.
+*; Action.CreateSubchannel([[#Channel|''channel'']], ''HW class'', ''subchannel number'') <span id="Action.CreateSubchannel"></span>
+*: Create a subchannel on the indicated channel, with the indicated HW class and the indicated subchannel number.
+*; Action.CreateCESubchannel([[#Channel|''channel'']]) <span id="Action.CreateCESubchannel"></span>
+*: Create a CE subchannel on the indicated channel. CE engine type can be selected by Policy.SetCEAllocAsync(FancyPicker).
+*; Action.SetUpdateFaultBufferGetPointer(bool) <span id="Action.SetUpdateFaultBufferGetPointer"></span>
+*: Enable/disable updating the fault event buffer pointer when processing replayable faults.  Defaults to true.
+*: This is used for fault event buffer overflow testing.
+*; Action.ClearFaultBuffer([[#GPU|''gpu'']]) <span id="Action.ClearFaultBuffer"></span>
+*: Clear the fault buffer by 1. tag the entries between GET and PUT as invalid; 2. setting the get pointer equal to the put pointer. NO PTE/PDE/TLBilwalidate/L2 operations in this action.
+*; Action.ForceNonReplayableFaultBufferOverflow() <span id="Action.ForceNonReplayableFaultBufferOverflow"></span>
+*: Set GET = PUT + 1 % SIZE for all the subdevice, then next fault will cause overflow. This is used for non-replayable fault buffer overflow testing.
+*; Action.CreateVaSpace(''name'', [[#GPU|''gpu'']])
+*: Create a virtual address space with the indicated name on the indicated GPU.
+*; Action.StartVFTest([[#VF|''vf'']])
+*: Start a VF with the indicated VF information.
+*; Action.WaitProcEvent(''message'',[[#VF|''vf'']])
+*: Polling the indicated VF with the indicated message.
+*; Action.SendProcEvent(''message'',[[#VF|''vf'']])
+*: Send the indicated VF with the indicated message.
+
+
+
+* Actions to cause memory faults:
+*; Action.InsertMethods([[#Channel|''channel'']], ''numMethods'', [[#Fancy_Picker|''methodPicker'']], [[#Fancy_Picker|''dataPicker'']])
+*: Write method/data pairs from the fancy pickers into the channel.
+*; Action.InsertSubchMethods([[#Channel|''channel'']], ''subch'', ''numMethods'', [[#Fancy_Picker|''methodPicker'']], [[#Fancy_Picker|''dataPicker'']])
+*: Similar to Action.InsertMethods, but allows you to explicitly specify the subchannel.
+
+* Actions to control runlists:
+*; Action.PreemptRunlist([[#Runlist|''runlist'']])
+*: Preempt the indicated runlist(s).
+*; Action.PreemptChannel([[#Channel|''channel'']], ''pollPreemptComplete'', ''timeoutMs'')
+*: Preempt the indicated channel waiting ''timeoutMs'' for each preemption to complete if ''pollPreemptComplete'' is true.  Returns an error if more than one channel is found to preempt.
+*; Action.RemoveEntriesFromRunlist([[#Runlist|''runlist'']], [[#Entries_Sequence_Description|''firstEntry'']], ''numEntries'')
+*: Remove entries from the indicated runlist(s) which is preempted by Action.PreemptRunlist().  For example, a preempted runlist has entries like ABCDEF, F is the most recent entry(entry 0). RemoveEntriesFromRunlist(rl, 1, 2) will generate a new preempted runlist entries ABCF. ABCDEF: RemoveEntriesFromRunlist(rl, 1, -2) --> ABCD. If numEntries = 0, remove all entries from firstEntry to [[#Entries_Sequence_Description|the end]]. For example, RemoveEntriesFromRunlist(rl, 1, 0) on ABCDEF will leave F.
+*; Action.RestoreEntriesToRunlist([[#Runlist|''runlist'']], ''insertPos'', [[#Entries_Sequence_Description|''firstEntry'']], ''numEntries'')
+*: Restore entries which are removed by Action.RemoveEntriesFromRunlist() and saved in policymanager. For example, RemoveEntriesFromRunlist(rl, 1, 2) on ABCDEF would leave ABCF, and DE will be saved in policymanager. RestoreEntriesToRunlist(rl, 0 , 0, 1) -> ABCFE. RestoreEntriesToRunlist(rl, 1, 1, 1) -> ABCDF. numEntries = 0 is similar to RemoveEntriesFromRunlist().
+*; Action.RemoveChannelFromRunlist([[#Channel|''channel'']], [[#Entries_Sequence_Description|''firstEntry'']], ''numEntries'')
+*: Similar to RemoveEntriesFromRunlist(), except that it only removes entries for the specified channel. For example, a preempted runlist looks like ABABABAB, then RemoveChannelFromRunlist(A, 1, 2) would leave ABBBAB. ABABABAB: RemoveChannelFromRunlist(A, 2, -2) --> ABBBAB. Another example for numEntries=0, ABABABAB: RemoveChannelFromRunlist(A, 0, 0) will remove all channel A and leave BBBB.
+*; Action.RestoreChannelToRunlist([[#Channel|''channel'']], ''insertPos'', [[#Entries_Sequence_Description|''firstEntry'']], ''numEntries'')
+*: Similar to RestoreEntriesToRunlist(), except that it only removes entries for the specified channel. For example, RemoveChannelFromRunlist(A, 1, 2) on ABABAB would leave BBAB, and AA will be saved in policymanager. RestoreChannelToRunlist(A, 0 , 0, 1) -> BBABA. RestoreEntriesToRunlist(B, 1, 1, 1) will do nothing since no channel A in removed entry list. Another example for numEntries=0, RestoreEntriesToRunlist(A, 0, 0, 0) will restore all channel A from removedlist to most recent entry in preemptedlist-> BBABAA
+*; Action.MoveEntryInRunlist([[#Runlist|''runlist'']], [[#Entries_Sequence_Description|''entryIndex'']], ''relPri'')
+*: Move the indicated entryIdex in the runlist(s) by relPri, so that the entry moves from (entryNum) to (entryNum+relPri).  For example, if a runlist looks like ABCDEF, then MoveEntryInRunlist(runlist, 1, 3) would leave AEBCDF, while MoveEntryInRunlist(runlist, 4, -3) would leave ACDEBF. Note: entries for the same channel should not be moved out-of-order, so this action will keep the order of same channel. For example, MoveEntryInRunlist(runlist, 1, 2) on ABEDEF would leave AEEBDF. Another example, MoveEntryInRunlist(runlist, 3, -2) on ABEDEF would leave ABDFEE. If relPri = 0, the specified entry will be moved to [[#Entries_Sequence_Description|the end]] of entry list. For example, ABEDEF:MoveEntryInRunlist(runlist, 3, 0) -> EABDEF.
+*; Action.MoveChannelInRunlist([[#Channel|''channel'']], [[#Entries_Sequence_Description|''entryIndex'']], ''relPri'')
+*: Similar to MoveEntryInRunlist, but moves the n'th entry for the specified channel instead of the n'th entry in the runlist. For example, if a runlist looks like ABABABAB, then MoveChannelInRunlist(A, 1, 3) would leave AAABBBAB, while MoveEntryInRunlist(A, 3, -3) on ABABABAB would leave BBBAAAAB. relPri=0 case is similar to MoveEntryInRunlist(). For example, ABABABAB:MoveEntryInRunlist(A, 0, 0)->AAAABBBB.
+*; Action.ResubmitRunlist([[#Runlist|''runlist'']])
+*: Resubmit the entries to the indicated runlist(s).
+*; Action.FreezeRunlist([[#Runlist|''runlist'']])
+*: Freeze the indicated runlist(s), so that RL_PUT is not updated when entries are added.
+*; Action.UnfreezeRunlist([[#Runlist|''runlist'']])
+*: Unfreeze the indicated runlist(s).  RL_PUT is advanced to include all entries that were added while frozen.
+*; Action.WriteRunlistEntries([[#Runlist|''runlist'']], ''numEntries'')
+*: Advance RL_PUT if the indicated runlist(s) is frozen, with queued-up entries, so that the entries gets read by the GPU.
+*; Action.WaitErrorLoggerInterrupt([[#GPU|''gpu'']], ''name'', ''timeoutMs'')
+*: Wait ''timeoutMs'' for interrupt with regex ''name'' to be reported to the error logger.
+*: NOTE: Not supported for Multi-GPU.
+*; Action.Flush([[#Channel|''channel'']])
+*: Flush the indicated channel(s).
+*; Action.ResetChannel([[#Channel|''channel'']], [[#Engine_Names|''engineName'']])
+*: Reset the indicated channel(s) and the indicated engine. Starting Ampere onwards, engine name will be ignored rather Channel's engineId will be used. Since Ampere-10 requires Channel to be allocated with an engineId, channel in MODS already stores an engineId.
+*; Action.EnableEngine([[#GPU|''gpu'']], ''engineType'', ''hwInstance'', ''enable'')
+*: Enable/Disable indicated engine (eg. Action.EnableEngine(Gpu.All(), "GRAPHICS", 0, 0) resets gr0)
+*; Action.UnbindAndRebindChannel([[#Channel|''channel'']])
+*: Unbinds and rebinds the indicated channel(s).
+*; Action.DisableChannel([[#Channel|''channel'']])
+*: Disables a channel so that we ignore channel errors, methods won't get sent to it, and it's surfaces won't get CRC'ed.  Used for cases in which we want to abort one channel and let the rest run to completion.
+*; Action.BlockChannelFlush([[#Channel|''channel'']], ''blocked'')
+*: Pause a channel by blocking the flush.  Still allows channel writes.  Set ''blocked'' to true to block the flush, and false to unblock.
+* Traps and fences: NOTE: Actions belong to this section will not flush channel implicitly. So user should not depend on implicit flush in different Actions. Recommend user to always add [[#Action.Flush|Action.Flush()]] explicitly to make sure host is kicked off to fetch methods.
+*; Action.HostSemaphoreAcquire([[#Channel|''channel'']], [[#Surface|''surface'']], [[#Fancy_Picker|''offsetPicker'']], [[#Fancy_Picker|''payloadPicker'']])
+*: Acquire a host semaphore on the indicated channel(s) with offset/payload pairs from the fancy pickers.
+*; Action.HostSemaphoreRelease([[#Channel|''channel'']], [[#Surface|''surface'']], [[#Fancy_Picker|''offsetPicker'']], [[#Fancy_Picker|''payloadPicker'']])
+*: Release a host semaphore on the indicated channel(s) with offset/payload pairs from the fancy pickers.
+*; Action.HostSemaphoreReduction([[#Channel|''channel'']], [[#Surface|''surface'']], [[#Fancy_Picker|''offsetPicker'']], [[#Fancy_Picker|''payloadPicker'']], ''reduction'', ''reductionType'')
+*: Do a reduction on a host semaphore on the indicated channel(s) with offset/payload pairs from the fancy pickers. ''reduction'' is one of Constants.REDUCTION_MIN, Constants.REDUCTION_MAX, Constants.REDUCTION_XOR, Constants.REDUCTION_AND, Constants.REDUCTION_OR, Constants.REDUCTION_ADD, Constants.REDUCTION_INC, or Constants.REDUCTION_DEC. ''reductionType'' is one of Constants.REDUCTION_SIGNED or Constants.REDUCTION_UNSIGNED.
+*; Action.EngineSemaphoreRelease([[#Channel|''channel'']], [[#Surface|''surface'']], [[#Fancy_Picker|''offsetPicker'']], [[#Fancy_Picker|''payloadPicker'']])
+*: Release an engine specific semaphore on the indicated channel(s) with offset/payload pairs from the fancy pickers.  Uses the engine that the channel is lwrrently running on.
+*; Action.EngineSemaphoreAcquire([[#Channel|''channel'']], [[#Surface|''surface'']], [[#Fancy_Picker|''offsetPicker'']], [[#Fancy_Picker|''payloadPicker'']])
+*: Insert Engine specific semaphore acquire on the indicated channel(s) with offset/payload pairs from the fancy pickers.  Uses the engine that the channel is lwrrently running on. Only supported for GRAPHICS and COMPUTE(AMPERE_COMPUTE_B onwards) channels.
+*; Action.WaitForSemaphoreRelease([[#Surface|''surface'']], ''offset'', ''payloadValue'', ''timeout_ms'')
+*: Wait for the 32-bit or 64-bit payload value to be present on the indicated surface(s).  Note: It is very easy to deadlock with this command, since it causes PolicyManager to wait indefinitely and blocks all other triggers and actions in the meantime.  [[#Trigger.OnSemaphoreRelease|Trigger.OnSemaphoreRelease]] is preferred for any remotely complex test.
+*; Action.NonStallInt("''trap_name''", [[#Channel|''channel'']]) <span id="Action.NonStallInt"></span>
+*: Push a non-stalling interrupt method on the indicated channel(s).  The interrupts can be named, so that you can specify different triggers for different ints.  See [[#Trigger.OnNonStallInt|Trigger.OnNonStallInt]].  (The named-int feature is implemented by inserting a semaphore-release just before the int.)
+*; Action.EngineNonStallInt("''trap_name''", [[#Channel|''channel'']])
+*: Works exactly like Action.NonStallInt(), except that it uses engine methods rather than host methods to write the semaphore and request the interrupt.  The PolicyManager uses the SET_OBJECT and other methods written to the channel to decide which engine to use.  See [[#Restrictions|Restrictions]].
+
+* Actions to control cache entries
+*; Action.TlbIlwalidate([[#GPU|''gpu'']]) <span id="Action.TlbIlwalidate"></span>
+*: Ilwalidate all TLB entries on the indicated GPU.
+*; Action.TlbIlwalidateVA([[#Surface|''surface'']], offset) <span id="Action.TlbIlwalidateVA"></span>
+*: Ilwalidate targeted virtual address of TLB entries on the indicated GPU correspond to the specified surface.
+*; Action.HostMembar([[#GPU|''gpu'']], isMembar) <span id="Action.HostMembar"></span>
+*: Wait for all write finished on indicated GPU. Please reference method LWC06F_MEM_OP_C_MEMBAR for more detail. This action is only supported after pascal.
+*; Action.ChannelWfi([[#Channel|''channel'']], [[#Wfi|''wfi'']]) <span id="Action.ChannelWfi"></span>
+*: Wait for the specific channel idel. It only support in-band version.
+*; Action.L2Flush([[#GPU|''gpu'']]) <span id="Action.L2Flush"></span>
+*: Flush all L2 cache entries on the indicated GPU.
+*; Action.L2SysmemIlwalidate([[#GPU|''gpu'']]) <span id="Action.L2SysmemIlwalidate"></span>
+*: Ilwalidate all sysmem L2 entries on the indicated GPU.
+*; Action.L2PeermemIlwalidate([[#GPU|''gpu'']]) <span id="Action.L2PeermemIlwalidate"></span>
+*: Ilwalidate all peermem L2 entries on the indicated GPU.
+*; Action.L2WaitForSysPendingReads([[#GPU|''gpu'']])<span id="Action.L2WaitForSysPendingReads"></span>
+*: L2 wait for sysmem pending reads on the indicated GPU. This action supports both in-band and out-of-band version. For in-band version, method LWC06F_MEM_OP_D_OPERATION_L2_WAIT_FOR_SYS_PENDING_READS is used; For out-of-band version, this action triggers LW_UFLUSH_L2_WAIT_FOR_SYS_PENDING_READS and waits _PENDING/_OUTSTANDING bit cleared.
+*: <span style="color:red"><B> Deprecated starting from Ampere, details in <bug>200479687</bug>.</B></span>
+*; Action.L2VidmemIlwalidate([[#GPU|''gpu'']])<span id="Action.L2VidmemIlwalidate"></span>
+*: Ilwalidate the specified GPU vidmem L2 cache. This action lwrrently only supports out-of-band version.
+* Actions to perform FB Copy for vGpu Migration:
+*; Action.SaveFB([[#SmcEngine|''smcengine'']], [[#FileName|''fileName'']])<span id="Action.SaveFB"></span>
+*: Save FB mem of an SMC partition having the SmcEngine to a specified file for later restoring back.
+*; Action.RestoreFB([[#SmcEngine|''smcengine'']], [[#FileName|''fileName'']])<span id="Action.RestoreFB"></span>
+*: Restore FB mem from a specified file back to FB mem for an SMC partition having the SmcEngine.
+*; Action.SaveFB([[#VF|''vf'']], [[#FileName|''fileName'']])<span id="Action.SaveFB"></span>
+*: Save FB mem of an SRIOV VF having the VfSeqId to a specified file for later restoring back.
+*; Action.RestoreFB([[#VF|''vf'']], [[#FileName|''fileName'']])<span id="Action.RestoreFB"></span>
+*: Restore FB mem from a specified file back to FB mem for an SRIOV VF having the VfSeqId.
+*; Action.DmaCopyFB([[#SmcEngine|''smcengineFrom'']], [[#SmcEngine|''smcengineTo'']])<span id="Action.DmaCopyFB"></span>
+*: Single step DMA copy FB mem of an SMC partition to anoter one's, as specified by SmcEngine smcengineFrom and smcengineTo respectively.
+*; Action.DmaCopyFB([[#VF|''vfFrom'']], [[#VF|''vfTo'']])<span id="Action.DmaCopyFB"></span>
+*: Single step DMA copy FB mem of an SRIOV VF to anoter one's, as specified by VfSeqId seqIdFrom and seqIdTo respectively.
+*; Action.DmaSaveFB([[#VF|''vf'']])<span id="Action.DmaSaveFB"></span>
+*: DMA save FB mem of an SRIOV VF to a temp buffer for later restore.
+*; Action.DmaRestoreFB([[#VF|''vf'']])<span id="Action.DmaRestoreFB"></span>
+*: DMA restore mem from temp buffer back to FB mem for an SRIOV VF.
+*; Action.SaveRunist([[#Channel|''channel'']])<span id="Action.SaveRunlist"></span>
+*: Save a runlist FB mem specified by channel to MODS local buffer for later restoring back within the same single MODS run.
+*; Action.RestoreRunlist([[#Channel|''channel'']])<span id="Action.RestoreRunlist"></span>
+*: Restore a runlist FB mem of a specified channel back to vidmem previously saved by SaveRunlist Action.
+*; Action.SaveSmcPartFbInfo([[#FileName|''fileName'']])<span id="Action.SaveSmcPartFbInfo"></span>
+*: Save all SMC partition FB mem info including start offset and size as a list to a specified file.
+* Actions to control PTE bits:
+*; Action.SetReadOnly([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.SetReadOnly"></span>
+*: Set the read-only bit on the indicated page(s).
+*; Action.ClearReadOnly([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.ClearReadOnly"></span>
+*: Clear the read-only bit on the indicated page(s).
+*; Action.SetAtomicDisable([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.SetAtomicDisable"></span>
+*: Set the atomic bit on the indicated page(s).
+*; Action.SetShaderDefaultAccess([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.SetShaderDefaultAccess"></span>
+*: Set the shader-access bits (read-disable and write-disable) on the indicated page(s) to their default values.
+*; Action.SetShaderReadOnly([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.SetShaderReadOnly"></span>
+*: Set the shader-access bits (read-disable and write-disable) on the indicated page(s) to read-only.
+*; Action.SetShaderWriteOnly([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.SetShaderWriteOnly"></span>
+*: Set the shader-access bits (read-disable and write-disable) on the indicated page(s) to write-only.
+*; Action.SetShaderReadWrite([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.SetShaderReadWrite"></span>
+*: Set the shader-access bits (read-disable and write-disable) on the indicated page(s) to read/write.
+*; Action.SetPdeSize([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']], ''pdeSize'')
+*: Set the "size" field in the PDEs for the indicated page(s).  ''pdeSize'' can be 1.0, 0.5, 0.25, or 0.125.
+*: Obsolete action. Pde size can't be changed in new mmu format.
+*; Action.SetPdeAperture([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']], [[#Aperture|''aperture'']])
+*: Obsolete action. It doesn't make sense to set aperture seperately from address. Action.UnmapPde() can be used to set ILWALID_APERTURE. Set the "aperture" field in the PDEs for the indicated page(s).  Use [[#Policy.SetLwrrentPageSize|''Policy.Set*PageSize()'']] to select big-page aperture or small-page; default is current.
+*; Action.SparsifyPde([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']])
+*: Set the sparse-ness in the PDEs for the indicated page(s).  Use [[#Policy.SetLwrrentPageSize|''Policy.Set*PageSize()'']] to select big-page aperture or small-page; default is current.
+*; Action.SparsifyMmuLevel([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']], [[#Level|''level''])
+*: Set the sparse-ness in the specified PDEs/PTEs for the indicated page(s). Level can be "PTE", "PDE0", "PDE1", "PDE2", "PDE3". Level "ALL" in this action is not supported.
+*; Action.SparsifyPages([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']])
+*: Set the "sparse-ness" in the specified page(s).
+*; Action.SetPteAperture([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']], [[#Aperture|''aperture'']]) <span id="Action.SetPteAperture"></span>
+*: Set the "aperture" field in the PTEs for the indicated page(s).
+*: Obsolete action. It doesn't make sense to set aperture seperately from address.
+*; Action.SetVolatile([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.SetVolatile"></span>
+*: Set the GPU_CACHE_TRUE bit on the indicated page(s). This action actually clears the volatile bit.  This action is deprecated; use Action.ClearVolatileBit instead.
+*; Action.ClearVolatile([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.ClearVolatile"></span>
+*: Clear the GPU_CACHE_TRUE bit on the indicated page(s). This action actually sets the volatile bit.  This action is deprecated; use Action.SetVolatileBit instead.
+*; <span id="Action.SetVolatileBit">Action.SetVolatileBit([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']])</span>
+*: Sets the volatile bit in the PTEs of the indicated page(s).
+*; <span id="Action.ClearVolatileBit">Action.ClearVolatileBit([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']])</span>
+*: Clears the volatile bit in the PTEs of the indicated pages(s).
+*; Action.SetKind([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']], ''kind'')
+*: Set the kind field for the indicated page(s) to the indicated numerical kind.
+*; Action.IlwalidatePdbTarget([[#Channel|''channel'']])
+*: Set the PDB target field to an invalid value for the indicated channel(s).
+*; Action.ResetEngineContext([[#Channel|''channel'']], [[#Engine_Names|''engineName'']])
+*: Reset the engine context on the indicated channel(s) to an invalid value.  ''engineName'' is a [[#Regex|regular expression]] that can match multiple engines.
+*; Action.ResetEngineContextNoPreempt([[#Channel|''channel'']], [[#Engine_Names|''engineName'']])
+*: Same as Action.ResetEngineContext, but does not preempt the channel.
+*; Action.SetPrivSurfaces([[#Surface|''surface'']]) <span id="Action.SetPrivSurfaces"></span>
+*: Set the priv bit on each page of the indicated surface(s).
+*; Action.ClearPrivSurfaces([[#Surface|''surface'']]) <span id="Action.ClearPrivSurfaces"></span>
+*: Clear the priv bit on each page of the indicated surface(s).
+*; Action.SetPrivPages([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.SetPrivPages"></span>
+*: Set the priv bit on each page of the indicated surface(s).
+*; Action.ClearPrivPages([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.ClearPrivPages"></span>
+*: Clear the priv bit on each page of the indicated surface(s).
+*; Action.SetPrivChannels([[#Channel|''channel'']])
+*: Specify that all subsequent GPFIFO entries on the indicated channel(s) should have the priv bit set, until overridden by ClearPrivChannels.
+*; Action.ClearPrivChannels([[#Channel|''channel'']])
+*: Specify that all subsequent GPFIFO entries on the indicated channel(s) should have the priv bit clear, until overridden by SetPrivChannels.
+* Actions to write PRI register:
+*; Action.PriWriteReg32([[#GPU|''gpu'']], ''regname'', ''regvalue'', <''regspace''>)
+*: Write data to PRI register specified by name.
+*: Note: For SRIOV virtualized priv register(regname starting with LW_VIRTUAL_FUNCTION_PRIV), mods will add LW_VIRTUAL_FUNCTION_FULL_PHYS_OFFSET automatically if it's PF/Default mods.
+*: Note: Register names starting with LW_ are parsed from the reference manuals.  Names starting with MODS_ are from RegHal.
+*: Note: regspace is optional.
+*; Action.PriWriteField32([[#GPU|''gpu'']], ''regname'', ''fieldname'', ''fieldvalue'', <''regspace''>)
+*: Write data to PRI register field specified by name.
+*: Note: For SRIOV virtualized priv register(regname starting with LW_VIRTUAL_FUNCTION_PRIV), mods will add LW_VIRTUAL_FUNCTION_FULL_PHYS_OFFSET automatically if it's PF/Default mods.
+*: Note: Register names starting with LW_ are parsed from the reference manuals.  Names starting with MODS_ are from RegHal.
+*: Note: regspace is optional.
+*; Action.PriWriteMask32([[#GPU|''gpu'']], ''regname'', ''andmask'', ''regvalue'', <''regspace''>)
+*: Write masked data to PRI register specified by name.
+*: Note: For SRIOV virtualized priv register(regname starting with LW_VIRTUAL_FUNCTION_PRIV), mods will add LW_VIRTUAL_FUNCTION_FULL_PHYS_OFFSET automatically if it's PF/Default mods.
+*: Note: Register names starting with LW_ are parsed from the reference manuals.  Names starting with MODS_ are from RegHal.
+*: Note: regspace is optional.
+*: Note: Error checking is sparse here without manuals support so this action should be avoided if the same can be achieved with an alternative (eg. PriWriteField32)
+*; Action.PhysWr32(''physAddr64'', ''data32'')
+*: Write a 32bit data to a specified address. This action can be used to write non-gpu cheetah registers.
+*; Action.WaitPriReg32([[#GPU|''gpu'']], ''regname'', ''mask'', ''value'', ''timeoutMs'', <''regspace''>)
+*: Wait ''timeoutMs'' for the PRI register (specified by name) with ''mask'' applied to be ''value''.
+*: Specially, when timeoutMs is 0, PRI register will read once.
+*: Note: For SRIOV virtualized priv register(regname starting with LW_VIRTUAL_FUNCTION_PRIV), mods will add LW_VIRTUAL_FUNCTION_FULL_PHYS_OFFSET automatically if it's PF/Default mods.
+*: Note: Register names starting with LW_ are parsed from the reference manuals.  Names starting with MODS_ are from RegHal.
+*: Note: regspace is optional.
+*; Action.StartTimer(''timerName'')
+*: Start the indicated timer, for use by Trigger.OnTimeUs().  ''timerName'' is a string.
+
+* Actions to control gpu:
+*; Action.FreezeHost([[#GPU|''gpu'']], ''timeoutMs'')
+*: Freeze host via LW_PFIFO_FREEZE register and wait freeze done. timeoutMs is the time limit to wait.
+*; Action.UnFreezeHost([[#GPU|''gpu'']])
+*: UnFreeze host via LW_PFIFO_FREEZE register.
+*; Action.SwReset([[#GPU|''gpu'']])
+*: Issue a fullchip SW reset to the GPU device.  Usually requires aborting the test.
+*; Action.SecondaryBusReset([[#GPU|''gpu'']])
+*: Issue a secondary bus reset to the GPU device.  Usually requires aborting the test.
+*; Action.FundamentalReset([[#GPU|''gpu'']])
+*: Issue a fundamental reset to the GPU device.  Usually requires aborting the test.
+*; Action.SetGpioUp([[#Channel|''channel'']], ''gpioPorts'')
+*: Set the directions of gpio port numbers listed in ''gpioPorts'' to up, by sending falcon methods through ''channel''(s). Note that when you are using Channel.Name("xxx") to query a channel, if xxx matches a channel name, the first subchannel whose class is either graphics or compute will be used to send the falcon methods. In case a user wants to control the method sending more aclwrately, xxx could be a subchannel name, so the specified subchannel will be used. ''gpioPorts'' could be a single gpio port number or a list such as [0, 1, 31]. Note that a valid gpio port number should be in range of 0 to 31, inclusively.
+*; Action.SetGpioDown([[#Channel|''channel'']], ''gpioPorts'')
+*: Same as '''Action.SetGpioUp''' except the direction is down instead of up.
+
+* Actions to control test:
+*; Action.AbortTests([[#Test|''test'']]) <span id="Action.AbortTests"></span>
+*: Abort the indicated test(s).  Useful after forcing a fault, such as a page fault, that makes it impossible for the test to complete normally.  This command does not cancel any methods that are already on the pushbuffer(s), but it does cause the test to ignore any GPU errors caused by the pending fault and exit at the next available opportunity.
+*; Action.AbortTest()
+*: Abort the faulting test.  Basically the same as [[#Action.AbortTests|Action.AbortTests]]([[#Test.Faulting|Test.Faulting()]])".
+*; Action.SendTraceEvent(''traceEventName'',[[#Surface|''surface'']])
+*: Test to send a trace event to plugin.
+
+* Actions to control the PMU:
+*; Action.EnableElpg([[#GPU|''gpu'']], ''EngineId'', ''bToEnableElpg)
+*: Enable or disable an ELPG on GPU(s)
+*; Action.PowerWait()<span id="Action.PowerWait"></span>
+*: Delay for a period of time that varies depending upon the platform.  The wait time for each type of platform can be set individually via the following policies: [[#Policy.SetPowerWaitHWUs|Policy.SetPowerWaitHWUs]], [[#Policy.SetPowerWaitRTLUs|Policy.SetPowerWaitRTLUs]], and [[#Policy.SetPowerWaitModelUs|Policy.SetPowerWaitModelUs]].  The default is 1ms on Hardware, 1us on RTL, and 1us on Model.  The type of wait (busy wait or yielding sleep) is set via [[#Policy.SetPowerWaitBusy|Policy.SetPowerWaitBusy]] or [[#Policy.SetPowerWaitSleep|Policy.SetPowerWaitSleep]].  The default is to use a yielding sleep.
+
+* Actions to control the Performance State:
+*; Action.SetPState(''gpus'', ''PState'')<span id="Action.SetPState"></span>
+*: Set the specified performance state on the specifed gpus.  Current valid values for PState are 0, 1, 2, 3, 8, 10, and 12.  Valid PStates are defined in sdk/lwpu/inc/ctrl/ctrl2080/ctrl2080perf.h.  Setting an invalid value for PState will cause Action.SetPState to fail.  Not all PStates will be available on all platforms/boards.  Setting an unavailable PState will cause a PState to be set based on the current PState fallback mode (default is to return an error).  See [[#Policy.SetPStateFallbackError|Policy.SetPStateFallbackError]], [[#Policy.SetPStateFallbackLower|Policy.SetPStateFallbackLower]], and [[#Policy.SetPStateFallbackHigher|Policy.SetPStateFallbackHigher]] for fallback mode specification.
+
+* RTL specific actions:
+*; Action.EscapeRead(''path'', ''index'', ''size'')<span id="Action.EscapeRead"></span>
+*: Perform an RTL escape read with the specified parameters.  The result of the read is gilded via the policy manager gild mechanism.
+*; Action.EscapeWrite(''path'', ''index'', ''size'', ''data'')<span id="Action.EscapeWrite"></span>
+*: Perform an RTL escape write with the specified parameters.
+*; Action.GpuEscapeRead(''gpus'', ''path'', ''index'', ''size'')<span id="Action.GpuEscapeRead"></span>
+*: Perform an RTL escape read on a specific set of Gpus with the specified parameters.  The result of the read is gilded via the policy manager gild mechanism.
+*; Action.GpuEscapeWrite(''gpus'', ''path'', ''index'', ''size'', ''data'')<span id="Action.GpuEscapeWrite"></span>
+*: Perform an RTL escape write on a specific set of Gpus with the specified parameters.
+
+* ATS-related actions:
+*; Action.SetAtsReadPermission([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']], bool) <span id="Action.SetAtsReadPermission"></span>
+*: Set the read permission for the indicated ATS pages.
+*; Action.SetAtsWritePermission([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']], bool) <span id="Action.SetAtsWritePermission"></span>
+*: Set the write permission for the indicated ATS pages.
+*; Action.UnmapAtsPages([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.UnmapAtsPages"></span>
+*: Unmap the indicated ATS pages.
+*; Action.RemapAtsPages([[#Surface|''surface'']], [[#startsize|''start'']], [[#startsize|''size'']]) <span id="Action.RemapAtsPages"></span>
+*: Remap the indicated ATS pages.
+*; Action.RemapFaultingAtsPage() <span id="Action.RemapFaultingAtsPage"></span>
+*: Remap the lwrrently faulting ATS page.
+*; ActionBlock.OnAtsIsEnabledOnChannel([[#Channel|''channel'']]) <span id="ActionBlock.OnAtsIsEnabledOnChannel"></span>
+*: Execute the conditional code if any of the specified channels support ATS.
+*; <span id="Action.SetPhysAddrBits">Action.SetPhysAddrBits([[#Surface|''surface'']], offset, size, value, mask)</span>
+*: Set the specified physical address bits of the indicated pages.  The value parameter is written to the physical address field of the PTE entries for each specified page.  The mask indicates which bits of the value to write; all other bits are left untouched.  An example usage of this action is to write the upper 10 bits of a 47-bit compute peer physical address.
+
+* Non-replayable fault handling:
+*; Action.RestartEngineFaultedChannel([[#Channel|''channel'']])
+*: Reset LW_PCCSR_CHANNEL_ENG_FAULTED bit via either sending down method LW_UDMA_CLEAR_FAULTED (in-band) or modifying PRI registers (out-of-band) so that Host can reschedule the channels. Note: channels will be flushed implicitly after in-band methods are sent down.
+*; Action.RestartPbdmaFaultedChannel([[#Channel|''channel'']])
+*: Reset LW_PCCSR_CHANNEL_PBDMA_FAULTED bit via either sending down method LW_UDMA_CLEAR_FAULTED (in-band) or modifying PRI registers (out-of-band) so that Host can reschedule the channels. Note: channels will be flushed implicitly after in-band methods are sent down.
+
+* Clear Access Counter:
+*; Action.ClearAccessCounter([[#GPU|''gpu'']], [[#CounterType|''type'']]) <span id="Action.ClearAccessCounter"></span>
+*: Clear access counter where counter type could be one of mimc, momc, all, targeted for given GPU.
+*; Action.ResetAccessCounterCachedGetPointer([[#GPU|''gpu'']]) <span id="Action.Action.ResetAccessCounterCachedGetPointer"></span>
+*: Reset cached GET pointer for notification buffer reset.
+
+* Virtualizaiton Testing:
+*; Action.VirtFunctionLevelReset(VF_Descriptor)
+*: Triger Virtual FLR (PF only action)
+*; Action.WaitFlrDone(VF_Descriptor)
+*: Waiting FLR_PENDING bit clear if it's not cleared by user; wait vgpu plugin is unloaded. (PF only action)
+*; Action.ClearFlrPendingBit(VF_Descriptor)
+*: Clear FLR_PENDING bit; Mods will set RM registry key to avoid RM clears the bit once this action is seen. (PF only action)
+*; Action.ExitLwrrentVfProcess()
+*: Exit VF process without triggering any hw transaction(VF only action)
+
+* Miscellaneous:
+*; Action.Block([[#Action_Block|action block name]])
+*: Execute a previously-defined action block.
+*; Action.TriggerUtlUserEvent([key1, value1, key2...])
+*: Trigger UserEvent in UTL and transport data to the same event.
+*; Action.Print(string)
+*: Print the indicated string.  Mostly used for debugging.  The following runtime replacements are performed on the print string:
+*:: '''%c%''' is replaced with the channel name from the event that triggered the print
+*:: '''%m%''' is replaced with the method number from the event that triggered the print
+*:: '''%s%''' is replaced with the names of the faulting surfaces that triggered the print
+*:: '''%rpe%''' is replaced with [[#Entries_Sequence_Description|sequenctial]] channel names of the entries in preempted runlist which will be resubmitted by Action.ResubmitRunlist()
+*:: '''%ree%''' is replaced with [[#Entries_Sequence_Description|sequenctial]] channel names of the entries in removed runlist which stors those entries removed by Action.RemoveEntriesFromRunlist() and Action.RemoveChannelFromRunlist()
+*:: '''%physrd:[[#Aperture|Aperture]]:<address>:<size>%''' is to dump the specified physaddress value via pramin read
+*:: '''%mmu:surface_name%''' is to dump the specified surface mmu information like PTE/PDE entries. Note: the printed entry data comes from PTE/PDE image saved in sw other than real memory. You can use %physrd% above to verify it if necessary.
+*:: '''%surfacedata:surface_name:<offset>:<size>%''' is to dump the specified surface range data
+*:: '''%faultTimeStamp%''' is to dump the timestamp of the fault entry which is triggered by the replayable fault
+*:: NOTE:
+*:: 1. %physrd% uses PRAMIN to access physicall address directly; it will not work if PRAMIN is not supported well. As far as I can tell, access sysmem through PRAMIN on fmodel doesn't(didn't) work now/before.
+*:: 2. %surfacedata% accesses surface through bar1 mappings if fb. It's a different way to access fb as %physrd%
+*:: 3. %mmu% prints the GMMU infomation to be happening in in-band mode of some actions. Please use %physrd% to check the real data in memory. In out-of-band mode, the printed information consists with the mmu data in memory.
+*:: 4. %mmubit% prints the GMMU infomation to be happening in in-band mode of some actions. This function only be valid for the v3 mmu and it can help to decode each mmu bit.Else it is same as %mmu% as below.
+*: Examples of Action.Print()
+*: Examples of Action.Print()
+*:: Example1: Action.Print("UVM: Entering replay_fault routine");
+*::           Ouput the message to mods.log: "UVM: Entering replay_fault routine"
+*:: Example2: Action.Print("Mmu entries - %mmu:chunk_GMEM_DST.lwt%");
+*::           Messages look like this:
+*::           [1118327] Mmu entries - %mmu:chunk_GMEM_DST.lwt%
+*::           Level = 0
+*::           PA = 0x3fdfa3e80
+*::           tableBasePA = 0x3fdfa3000
+*::           levelPageSize = 0x1000
+*::           location = 0x0
+*::           surfSegmentSize = 0x80
+*::           surfaceStartOffset = 0x0
+*::           pCpuAddress = 0x7ffff7fd0e80
+*::           pageCount = 0x1
+*::           mmuEntriesData[0x2] = { 0x00000000 0x00000000 }
+*::           Level = 1
+*::           PA = 0x3fdfa1fe8
+*::           tableBasePA = 0x3fdfa1f00
+*::           levelPageSize = 0x10000
+*::           location = 0x0
+*::           surfSegmentSize = 0x80
+*::           surfaceStartOffset = 0x0
+*::           pCpuAddress = 0x7ffff7fcefe8
+*::           pageCount = 0x1
+*::           mmuEntriesData[0x2] = { 0x00040001 0x00000000 }
+*:: Example3: Action.Print("PhysRd - %physrd:Aperture.Framebuffer():0x3fdfa1fe8:16%");
+*::           Messages look like this:
+*::           [1118329] PhysRd - phyrd 16 byte at aperture Aperture.Framebuffer() 0x3fdfa1fe8 =
+*::           0x00040001 0x00000000 0x00041001 0x00000000
+*:: Example4: Action.Print("SurfaceRd - %surfacedata:chunk_GMEM_DST.lwt:0:16%");
+*::           [1252697] SurfaceRd - chunk_GMEM_DST.lwt at offset 0 size 16
+*::           0x00000000 0x00000001 0x00000002 0x00000003
+
+=== Action Block ===
+
+An action block lets you specify a series of actions to perform.  Each
+action block must have a unique name.
+
+Syntax:
+: ActionBlock.Define("''action_block_name''");
+:: [[#Simple_Actions|simple action]] or [[#Conditional_Action_Block|conditional action block]];
+:: [[#Simple_Actions|simple action]] or [[#Conditional_Action_Block|conditional action block]];
+:: <math>\vdots</math>
+: ActionBlock.End();
+
+Example:
+<pre>
+    ActionBlock.Define("surface_fault_action");
+        Action.RemapFaultingSurface();
+        Action.ResubmitRunlist();
+    ActionBlock.End();
+
+    Policy.Define(Trigger.OnPageFault(Channel.All()), "page_fault_action");
+</pre>
+
+<span id="Conditional_Action_Block"></span>
+=== Conditional Action Block ===
+
+Within an action block, you can specify that some actions only occur
+some of the time.  It's basically like putting an "if" statement in
+an action block.
+
+For example, one such condition defined at this time is "trigger
+count".  Any actions between ActionBlock.OnTriggerCount() and
+ActionBlock.End() are only exelwted if the trigger has fired ''n''
+times, where ''n'' is determined by a [[#Pick_Counter|counter]].
+
+Syntax:
+: ActionBlock.Define("''action_block_name''");
+:: <math>\vdots</math>
+:: ActionBlock.OnTriggerCount([[#Pick_Counter|counter]]);
+::: <math>\vdots</math>
+:: ActionBlock.End();
+:: <math>\vdots</math>
+: ActionBlock.End();
+
+Example:
+<pre>
+    ActionBlock.Define("surface_fault_action");
+        ActionBlock.OnTriggerCount(["list", 10]);
+            // Remap the surface every 10th time the surface-fault oclwrs
+            Action.RemapFaultingSurface();
+        ActionBlock.End();
+        Action.ResubmitRunlist();
+    ActionBlock.End();
+</pre>
+
+Other conditional code blocks have the same syntax:
+* ActionBlock.OnTriggerCount([[#Pick_Counter|''counter'']])
+*: Execute the conditional code if the trigger has fired ''n'' times, where ''n'' is determined by ''counter''.
+* ActionBlock.OnTestNum([[#Pick_Counter|''counter'']]) <span id="ActionBlock.OnTestNum"></span>
+*: Execute the conditional code only on the ''Nth'' test, where ''N'' is determined by ''counter''.  Note that ''N'' only counts serial tests; if two tests run conlwrrently, they have the same test number.
+* ActionBlock.OnTestId(testId)
+*: Execute the conditional code if the trigger can match the testId in the cfg file. Example, 1st trace in cfg file which testId is 0, 2nd trace in cfg file which testId is 1. The trigger will not care whether it is running on conlwrrent mode.
+*: testId is a unsigned integer.
+* ActionBlock.OnSurfaceIsFaulting([[#Surface|''surface'']])<span id="ActionBlock.OnSurfaceIsFaulting"></span>
+*: Execute the conditional code if one of the specified surfaces is the lwrrently faulting surface.
+* ActionBlock.OnPageIsFaulting([[#Surface|''surface'']], ''offset'', ''size'')<span id="ActionBlock.OnPageIsFaulting"></span>
+*: Execute the conditional code if one of the specified pages is the lwrrently faulting page.
+* ActionBlock.OnGPCIDIsFaulting(''GPCID'')<span id="ActionBlock.OnGPCIDIsFaulting"></span>
+*: Execute the conditional code if one of the specified GPCID is the lwrrently faulting GPCID.
+* ActionBlock.OnClientIDIsFaulting(''ClientID'')<span id="ActionBlock.OnClientIDIsFaulting"></span>
+*: Execute the conditional code if one of the specified ClientID is the lwrrently faulting ClientID.
+* ActionBlock.OnFaultTypeIsFaulting(''faultType'')<span id="ActionBlock.OnFaultTypeIsFaulting"></span>
+*: Execute the conditional code if one of the specified faultType is the lwrrently faulting faultType.
+* ActionBlock.OlwEIDMatchesFault(''tsgName'', ''VEID number'')<span id="ActionBlock.OlwEIDMatchesFault"></span>
+*: Execute the conditional code if one of the specified veid in this tsg is the lwrrently faulting veid in that tsg.
+* ActionBlock.OnEngineIsExisting([[#Engine_Names|''engineName'']])<span id="ActionBlock.OnEngineIsExisting"></span>
+*: Execute the conditional code if one of the specified engine existed.
+
+====Access Counter Notification Action Blocks====
+* ActionBlock.OnNotificationFromPage([[#Surface|''surface'']], ''offset'', ''size'')<span id="ActionBlock.OnNotificationFromPage"></span>
+*: Execute the conditional code if one the specified pages is the page that triggered the notification
+
+====Mutex Action Blocks====
+* ActionBlock.OnMutex([[#RegExp|''mutexName'']])<span id="ActionBlock.OnMutex"></span>
+*: Execute the mutex acquire at the beginning of this action block scope and execute the mutex release at the end of this action block scope.
+*: This ActionBlock is not condition action block so it don't allow ActionBlock.Else sentense. It is a block action.
+* ActionBlock.TryMutex([[#RegExp|''mutexName'']])<span id="ActionBlock.OnMutex"></span>
+*: Execute the mutex acquire at the beginning of this action block scope and execute the mutex release at the end of this action block scope or ActionBlock_Else.
+*: This ActionBlock is condition action block and it can co-work with ActionBlock_Else. It is a non-block action.
+
+A conditional block can also be followed by a block that only exelwtes when the condition is false.  This is done by using ActionBlock.Else().
+
+Example:
+<pre>
+    ActionBlock.Define("example_action");
+        ActionBlock.OnTestNum(["list", 1, 0]);
+            Action.Print("This is the first test.");
+        ActionBlock.Else();
+            Action.Print("This is not the first test.");
+        ActionBlock.End();
+    ActionBlock.End();
+</pre>
+
+=== Overlapping Triggers ===
+
+Under normal cirlwmstances, PolicyManager uses a mutex to prevent two triggers from firing at once.  This keeps ActionBlocks from running at the same time, and avoids a bunch of problems in general.
+
+However, in some rare cirlwmstances, you need a trigger to fire in the middle of an action.  In that case, you can temporarily disable the mutexing for one or more actions.  The syntax is the same as [[#Conditional_Action_Block|conditional action block]]:
+: ActionBlock.Define("''action_block_name''");
+:: <math>\vdots</math>
+:: ActionBlock.AllowOverlappingTriggers();
+::: <math>\vdots</math>
+:: ActionBlock.End();
+:: <math>\vdots</math>
+: ActionBlock.End();
+
+This will only work in cases where the triggers exelwtes in two different threads.
+
+Please note that this syntax is dangerous and error-prone.  It should only be used in cases where one action absolutely has to "interrupt" another.  It should '''not''' be used as a general band-aid for hanging tests, under the logic of, "My test is failing for some reason, so I'll throw a bunch of AllowOverlappingTriggers into my file and see if that fixes it."  That just avoids dealing with the real problem, and it's about as safe as, "Triffic is backed up for some reason, so I'll turn all the traffic lights in the city green for a while and see if that helps."
+
+<span id="Surface"></span>
+== Surface ==
+
+<span id="Simple_Surface_Description"></span>
+=== Simple Surface Description ===
+
+A set of surfaces may be described by any of the following:
+; Surface.Defined([[#defined-surface|''name'']])
+: Matches a predefined surface description.
+; Surface.Name([[#Regex|''regex'']], <[[#Test|''test'']]>)
+: Matches any surface whose name matches the regular expression; test description is optional.
+; Surface.NotName([[#Regex|''regex'']])
+: Matches any surface whose name does not match the regular expression.
+; Surface.Type([[#Regex|''regex'']])
+: Matches any surface whose surface-type matches the regular expression.
+; Surface.NotType([[#Regex|''regex'']])
+: Matches any surface whose surface-type does not match the regular expression.
+; Surface.Gpu([[#GPU|''gpu'']])
+: Matches any surface on the indicated GPU.
+; Surface.Faulting()
+: Matches the surfaces associated current trigger.
+: E.g. when [[#Trigger.OnReplayablePageFault|''Trigger.OnReplayablePageFault'']] is triggered, Surface.Faulting() will refer to faulting surface.
+; Surface.All()
+: Same as '''Surface.Name(.*)'''.
+; NOTE: It's unsupported to use nested XXXX.Faulting. E.g. Surface.Name("ColorA", Test.Faulting()) is unsupported.
+
+=== Defined Surface ===
+
+You can combine several surface descriptions into one named
+definition.  The simple descriptions within a definition are logically
+AND-ed together.
+
+Syntax:
+: Surface.Define("''surface_description_name''");
+:: [[#Simple_Surface_Description|simple surface description]]
+:: [[#Simple_Surface_Description|simple surface description]]
+:: <math>\vdots</math>
+: Surface.End();
+
+<span id="Channel"></span>
+== Channel ==
+
+<span id="Simple_Channel_Description"></span>
+=== Simple Channel Description ===
+
+A set of channels may be described by any of the following:
+; Channel.Defined([[#Defined_Channel|''name'']])
+: Matches a predefined channel description.
+; Channel.Name([[#Regex|''regex'']], <[[#Test|''test'']]>)
+: There are two usages and [[#Test|''test'']] is alternative.
+: 1. Matches any channel whose name matches the regular expression.
+: 2. Matches any channel whose name matches the regular expression and whose test description matches the specifed test.
+Example:
+: If same channel name oclwrs in different traces, you can add testDesc to distinguish them.
+: Test 1 - uvm
+: CHANNEL ch_0
+: Test 2 - comp_one_tri
+: CHANNEL ch_0
+: In pcyfile, you can use below to distinguish them
+: Channel.Name("ch_0", Test.Name("uvm"));
+; Channel.Number([''num1'', ''num2'', ...])
+: Matches any channel whose number appears in the list.  Channels are numbered sequentially starting at 0.
+; Channel.Gpu([[#GPU|''gpu'']])
+: Matches any channel on the indicated GPU.
+; Channel.Faulting()
+: Matches the channel associated current trigger.
+: E.g. when [[#Trigger.OnMethodExelwte|''Trigger.OnMethodExelwte'']] is triggered, Channel.Faulting() will refer to channel that matches the count from the fancy picker.
+; Channel.All()
+: Matches all channels.
+; NOTE: It's unsupported to use nested XXXX.Faulting. E.g. Channel.Name("ch_0", Test.Faulting()) is unsupported.
+
+<span id="Defined_Channel"></span>
+=== Defined Channel ===
+
+You can combine several channel descriptions into one named
+definition.  The simple descriptions within a definition are logically
+AND-ed together.
+
+Syntax:
+: Channel.Define("''channel_description_name''");
+:: [[#Simple_Channel_Description|simple channel description]]
+:: [[#Simple_Channel_Description|simple channel description]]
+:: <math>\vdots</math>
+: Channel.End();
+
+<span id="VaSpace"></span>
+== VaSpace ==
+
+<span id="Simple_VaSpace_Description"></span>
+=== Simple VaSpace Description ===
+
+A set of vaspaces may be described by any of the following:
+; VaSpace.Name([[#Regex|''regex'']], <[[#Test|''test'']]>)
+: There are two usages and [[#Test|''test'']] is alternative.
+: 1. Matches any vaspace whose name matches the regular expression.
+: 2. Matches any vaspace whose name matches the regular expression and whose test description matches the specifed test.
+Example:
+: If same vaspace name oclwrs in different traces(partitions), you can add testDesc to distinguish them.
+: Test 1 - uvm
+: ADDRESS_SPACE vas_0
+: Test 2 - comp_one_tri
+: ADDRESS_SPACE vas_0
+: In pcyfile, you can use below to distinguish them
+: VaSpace.Name("vas_0", Test.Name("uvm"));
+
+<span id="VF_Descriptor"></span>
+== VF_Descriptor ==
+
+<span id="Simple_VF_Descriptor"></span>
+=== Simple VF_Description ===
+
+A set of VF tests may be described by any of the following:
+; VF.GFID([[#Regex|''regex'']])
+: Matches any VF whose GFID matches the regular expression.
+; VF.SeqId([[#Regex|''regex'']])
+: Matches any VF whose sequence Id in the vf_testlist.yml matches the regular expression.
+; VF.All()
+: Matches all VFs.
+
+<span id="SmcEngine"></span>
+== SmcEngine ==
+SmcEngine may be described by:
+; SmcEngine.SysPipe(''SysPipe number'')
+: Matches the SmcEngine whose SysPipe Id matches the SysPipe number.
+; SmcEngine.Test(<[[#Test|''test'']]>)
+: Matches the SmcEngines of all the tests in the test description specified.
+; SmcEngine.Name(''SmcEngineName'')
+: Matches the SmcEngine whose Name matches the SmcEngineName.
+
+<span id="GPU"></span>
+== GPU ==
+
+<span id="Simple_GPU_Description"></span>
+=== Simple GPU Description ===
+
+A set of GPUs may be described by any of the following:
+; Gpu.Defined([[#Defined_GPU|''name'']])
+: Matches a predefined GPU description.
+; Gpu.Inst([[#Regex|''devRegex'']], [[#Regex|''subdevRegex'']])
+: Matches any GPU whose device-instance number matches devRegex, and whose subdevice-instance matches subdevRegex.
+; Gpu.DevInst([[#Regex|''devRegex'']])
+: Matches any GPU whose device-instance number matches devRegex.
+; Gpu.SubdevInst([[#Regex|''subdevRegex'']])
+: Matches any GPU whose subdevice-instance number matches subdevRegex.
+; Gpu.Faulting()
+: Matches the GPU associated current trigger.
+: E.g. when [[#Trigger.OnCERecoverableFault|''Trigger.OnCERecoverableFault'']] is triggered, Gpu.Faulting() will refer to the faulting GPU.
+; Gpu.All()
+: Matches all GPUs.
+
+<span id="Defined_GPU"></span>
+=== Defined GPU ===
+
+You can combine several GPU descriptions into one named definition.
+The simple descriptions within a definition are logically AND-ed
+together.
+
+Syntax:
+: Gpu.Define("''gpu_description_name''");
+:: [[#Simple_GPU_Description|simple gpu description]]
+:: [[#Simple_GPU_Description|simple gpu description]]
+:: <math>\vdots</math>
+: Gpu.End();
+
+<span id="Runlist"></span>
+== Runlist ==
+
+<span id="Simple_Runlist_Description"></span>
+=== Simple Runlist Description ===
+A set of runlists may be described by any of the following:
+; Runlist.Defined([[#Defined_Runlist|''name'']])
+: Matches a predefined runlist description.
+; Runlist.Name([[#Regex|''regex'']])
+: Matches any runlist whose name matches the regular expression.  See [[#Engine_Names|engine names]] for the runlist names, with the caveat that there is no runlist for the sw engine.
+; Runlist.Channel([[#Channel|''channel'']])
+: Matches any runlist that the indicated channel(s) are using.
+; Runlist.Gpu([[#GPU|''gpu'']])
+: Matches any runlist on the indicated GPU.
+; Runlist.All()
+: Matches all runlists.
+
+=== Defined Runlist ===
+
+You can combine several runlist descriptions into one named
+definition.  The simple descriptions within a definition are logically
+AND-ed together.
+
+Syntax:
+: Runlist.Define("''runlist_description_name''");
+:: [[#Simple_Runlist_Description|simple runlist description]]
+:: [[#Simple_Runlist_Description|simple runlist description]]
+:: <math>\vdots</math>
+: Runlist.End();
+
+=== Entries Sequence Description ===
+
+Entries in runlist are counted from the most recent, with zero being the most recent. For example, a runlist has entries like A(5)B(4)C(3)D(2)E(1)F(0), F is the most recent entry(entry 0, begin of the list) and A is oldest entry(entry 5, end of the list).
+
+<span id="Test"></span>
+== Test ==
+
+This syntax lets you specify one or more tests.  This syntax only applies to conlwrrent tests; serial tests are normally selected by [[#ActionBlock.OnTestNum|ActionBlock.OnTestNum()]].
+
+<span id="Simple_Test_Description"></span>
+=== Simple Test Description ===
+; Test.Defined([[#Defined_Test|''name'']])
+: Matches a predefined test description.
+; Test.Name([[#Regex|''regex'']])
+: Matches any test whose name matches the regular expression.
+; Test.Id(Id)
+: Matches test which is associated with this Id. Test id is 0 indexed. 1st trace in <test>.cfg file will be assigned with id 0.
+; Test.Type([[#Regex|''regex'']])
+: Matches any test whose type (e.g. "Trace3DTest") matches the regular expression.
+; Test.Channel([[#Channel|''channel'']])
+: Matches any test that the indicated channel(s) are on.
+; Test.Gpu([[#GPU|''gpu'']])
+: Matches any test running on the indicated GPU.
+; Test.Faulting() <span id="Test.Faulting"></span>
+: Matches the test associated current trigger.
+: E.g. when [[#Trigger.Start|''Trigger.Start'']] is triggered, Test.Faulting() will refer to which test is starting.
+; Test.All()
+: Matches all tests.
+
+<span id="Defined_Test"></span>
+=== Defined Test ===
+
+You can combine several test descriptions into one named
+definition.  The simple descriptions within a definition are logically
+AND-ed together.
+
+Syntax:
+: Test.Define("''test_description_name''");
+:: [[#Simple_Test_Description|simple test description]]
+:: [[#Simple_Test_Description|simple test description]]
+:: <math>\vdots</math>
+: Test.End();
+
+<span id="Engine_Names"></span>
+== Engine Names ==
+
+A few commands take an engine name, either as a string or as a regular expression that matches one or more engine names.  The engine names are taken from the LW2080_ENGINE_TYPE constants in //sw/<branch>/class/cl2080.h:
+
+* bsp
+* cipher (alias name for TSEC)
+* copy0
+* copy1
+* copy2
+* graphics
+* me
+* mpeg
+* msenc (alias name for LWENC0)
+* lwenc1
+* ppp
+* sw
+* vic
+* vp
+* sec2
+
+Engine names are case-insensitive.  Not all engines may be available on a given GPU.
+
+<span id="Aperture"></span>
+== Aperture ==
+
+An aperture may be described by one of the following.  Some values may be illegal for some commands.
+; Aperture.Framebuffer()
+: Frame buffer, a.k.a. video memory
+; Aperture.Coherent()
+: System coherent memory
+; Aperture.NonCoherent()
+: System noncoherent memory
+; Aperture.Peer()
+: Peer memory
+; Aperture.Invalid()
+: Used to set aperture fields to an invalid value.  Illegal for some commands.
+; Aperture.All()
+: All apertures.  This value is illegal for some commands, such as commands that set the PTE or PDE aperture field.
+
+<span id="Fancy_Picker"></span>
+== Fancy Picker ==
+
+A fancy picker is used to generate a sequence of numbers in mods.
+
+; Syntax: [ MODE, [OPTIONS], ITEMS ]
+Heere are some common types of fancy pickers.  Click
+[[MODS/FancyPickers | here]] for links to more complete documentation:
+
+; ["list", ITEMS]
+: Return a list of values, with wraparound.  For example, ["list", 4, 1, 2] returns the sequence {4, 1, 2, 4, 1, 2, 4, 1, 2, ...}.  A list item can be a simple value (as in the previous example) or a [repeat_count, value] tuple; for example, ["list", 1, [3, 10], 7] returns the sequence {1, 10, 10, 10, 7, 1, 10, 10, 7, ...}.
+; ["list", OPTIONS, ITEMS]
+: For example, ["list", "int64", "0x8000000000000000"] return 64bit values
+: It's same as ["list", "uint64", "0x8000000000000000"]
+; ["step", BEGIN, STEP, END]
+: Returns numbers from BEGIN to END in increments of STEP.  For example, ["step", 1, 5, 16] returns the sequence {1, 6, 11, 16, 1, 6, 11, 16, ...}.
+; ["random", ITEMS]
+: Returns pseudo-random numbers.  Each item must either be a tuple [ relative_probability, value ] or [ relative_probability, min, max ].
+; [ITEMS]
+: Use fuzzy logic to deduce whether this is a "list", "step", or "random" picker.  If all the items are numbers, it's usually the same as ["list", ITEMS] unless there are exactly three numbers, in which case it's the same as ["step", BEGIN, STEP, END].  If you want to be sure the fuzzy logic won't trip you up, explicitly specify "list", "step", or "random".
+; NOTE: Javascript cannot pass the full range of 64 bit integers. Maximum number that can be passed without losing precision is 2^53. In order to work around this limitation, 64 bit integers may be specified with strings.
+
+<span id="Pick_Counter"></span>
+=== Pick Counter ===
+
+One problem with [[#Fancy_Picker|fancy pickers]] is that they generate
+an infinte sequence of unordered numbers.  That's because they were
+designed for things like drawing pseudo-random triangles by using a
+fancy picker to generate the vertices
+
+But most pseudo-random sequences in PolicyManager need to be
+monotonically-increasing, and may be either finite or infinite.  Take
+[[#Trigger.OnMethodExelwte|Trigger.OnMethodExelwte]], for example.
+Method counts are monotonically increasing: the first method exelwtes,
+then the second, then the third, and so on.  It doesn't make sense to
+trigger on the 7th method and then trigger on the 2nd method, because
+the 2nd method oclwrred before the 7th.
+
+Rather than create a new syntax for fancy pickers, we cheated and used
+the fancy picker syntax for monotonically-increasing sequences, by
+using the ''sum'' of all numbers generated by the fancy picker.  (More
+precisely, we take the sum minus 1, since most of the things we
+sequence over are zero-based.)  One way to think of this is that the
+fancy picker generates the intervals between successive triggers.
+
+In order to make a finite sequence, have the fancy picker generate a
+0.  The conter stops incrementing when it gets a 0.  It's a bit
+clunky, but it works.
+
+For example, Trigger.OnMethodExelwte(["list", 10]) exelwtes on every
+10th method, on method numbers 9, 19, 29, 39, 49, etc.
+Trigger.OnMethodExelwte(["list", 10, 20, 10, 0]) exelwtes on method
+numbers 9, 29, and 39, and then never exelwtes again because the fancy
+picker returned 0.
+
+<span id="Restrictions"></span>
+= Restrictions =
+
+Some PolicyManager features are incompatible with other mods features.  Here's a list of known issues:
+
+; -wfi_intr
+: This command-line option should not be used with Action.EngineNonStallInt().  -wfi_intr makes the test use an interrupt to determine when the GPU is finished running the test, and the interrupt is identical to Action.EngineNonStallInt() for some engines.  This can "trick" mods into thinking the test is done, and do the CRC callwlations and cleanup prematurely.
+; -wfi_poll
+: This command-line option is risky with Trigger.OnMethodExelwte, Trigger.OnPercentMethodsExelwted, Trigger.OnTimeUs, Trigger.OnNonStallInt, and Trigger.OnSemaphoreRelease.  -wfi_poll makes the test call IdleChannels in the RM to determine when the GPU is done, and while the RM is waiting in IdleChannels, all other RM functions will block.  Those triggers run in a separate thread, so if they trigger any actions that call the RM, the action will block and probably deadlock.
+; -wfi_notify
+: At this time, -wfi_notify has no known incompatibilities with PolicyManager.
+;SLI
+: Will not work correctly with Trigger.OnMethodExelwte or Trigger.OnPercentMethodsExelwted.  There's no per-subdevice OnMethodExelwte; these trigger only poll on the first subdevice.
+;Subroutines
+: Will not work correctly with Trigger.OnMethodWrite, Trigger.OnPercentMethodsWritten, Trigger.OnMethodIdWrite, Trigger.OnMethodExelwte, or Trigger.OnPercentMethodsExelwted.
+
+= Gilding =
+
+The PolicyManager gilding mode (controlled by the "-policy_gild" command line option) can operate either with or without a gild file (specified via "-policy_gildfile") on the command line.  When running without a gild file, Policy Manager keeps a log of the potential & actual events that occur during the test, and uses them to validate the results and/or write an output file (sometimes called the "gild file") at the end of the test.
+
+The gilder has 4 modes that it uses to validate the results which perform as follows when no gild file has been specified:
+
+; REQUIRED:
+:The actual events may be a superset of the potential events.  All potential events must have oclwrred, but any extra (either unexpected or overoclwrred) events are ignored
+; INCLUDE:
+:The actual events must be a subset of the potential events.  For example, if you unmap a page (a potential page fault), then you may or may not get an actual page fault, because the test might not access that page.  But it's an error to get a page fault on any page that wasn't unmapped.
+; EQUAL:
+:The actual events must be the same as the potential events.  For example, if you unmap a page, you *must* get a page fault on that page, and vice-versa.
+; NONE:
+:Do not compare the potential and actual events.  This mode is mostly for users that prefer to analyze the output file via a perl script.
+
+When an input file is supplied, it should be the output file from a previous run of mods with the same test(s).  The output file from a previous test is just a text file and can be edited to remove events or mark events as required (by adding a '+' prior to the event line in the gild file).  When processing with an input file, the gilder ignores the potential events, and just compares the actual events to the input file.
+
+; REQUIRED:
+:The actual events may be a superset of the events in the input file, possibly in a different order, but must include all events from the input file.  In this mode all events listed in the gild file are required (regardless of the presence or absence of a '+' at the start of an event in the gild file)
+; INCLUDE:
+:The actual events must be a subset of the events in the input file, possibly in a different order.  Any events marked as required (i.e. with a '+') must be present during the test or gilding will fail
+; EQUAL:
+:The actual events must be the same as the events in the input file, in the same order.  In this mode all events listed in the gild file are required (regardless of the presence or absence of a '+' at the start of an event in the gild file)
+; NONE:
+:Do not compare the events with the input file.
+
+In all gilding modes, when an event line is preceeded with a '-' it marks the event as forbidden (i.e. if a matching event oclwrs, it will cause the test to fail).
+
+When policy manager matches events, normally each field in the event line is checked for an exact string match, however if a field is preceeded by a '/' it indicates that the field should be considered a regular expression when matching instead.  For all event types, the first field on the line may never be a regular expression and for PMU events the first 3 fields may not be a regular expression.
+
+Prior to exiting, PolicyManager can attempt to wait for any required  events that have not oclwrred.  By default, PolicyManager will not wait for events, however a wait time in milliseconds may be added by specifying [[#Policy.SetReqEventWaitMs|''Policy.SetReqEventWaitMs(timeMs)'']] in the policy file.
+
+<span id="Level"></span>
+= Level =
+
+The level specified the level num of the tlb while different action will have different meaning.
+For Action.TlbIlwalidate()/Action.TlbIlwalidateVA(),the level is defined as following.
+
+; "PTE":
+: if the tlb ilwalidate the PTE, the only pte level will be ilwalidated.
+; "PDE0":
+: if the tlb ilwalidate the PDE0, the pte / pde0 level will be be ilwalidated.
+; "PDE1":
+: if the tlb ilwalidate the PDE1, the pte / pde0 / pde1 level will be be ilwalidated.
+; "PDE2":
+: if the tlb ilwalidate the PDE2, the pte / pde0 / pde1 / pde2 level will be be ilwalidated.
+; "PDE3":
+: if the tlb ilwalidate the PDE3, the pte / pde0 / pde1 / pde2 / pde3 level will be be ilwalidated.
+; "ALL" 
+: if the tlb ilwalidate the ALL, all tlb level will be be ilwalidated.
+
+For Action.UnmapPde() / Action.RemapPde(), the level is defined as following.
+
+; "PTE":
+: if the pagesize is 4k or 64k, the pte means the 4k_pte or the 64k_pte which is decided by the pagesize of the surface.
+; "PDE0":
+: if the pagesize is 4k or 64k, the pde0 means the pde below the 4k_pte and 64k_pte. while the pagesize is the 2m, the pde0 means the pte_2M.
+; "PDE1":
+: the pde1 means the pde below the pde0.
+; "PDE2":
+: the pde2 means the pde below the pde1.
+; "PDE3":
+: the pde3 means the pde below the pde2.
+; "ALL":
+: not supported.
+
+<span id="Wfi"></span>
+= Wfi =
+
+The support wfi for the specific channel.
+
+; "WFI_SCOPE_ALL":
+:insert host wfi method without polling. Details are in clb06f.h.
+; "WFI_SCOPE_LWRRENT_SCG_TYPE":
+:insert host wfi method without polling. Details are in clb06f.h.
+; "WFI_POLL_HOST_SEMAPHORE":
+:insert host semaphore method and polling it. Not support now.
+
+<span id="AccessType"></span>
+= AccessType =
+
+; "VIRT_READ":
+:The type of access that caused the fault is virtual read
+; "VIRT_WRITE":
+:The type of access that caused the fault is virual write
+; "VIRT_ATOMIC_STRONG":
+:The type of access that caused the fault is virtual atomic strong
+; "VIRT_RSVRVD":
+:The type of access that caused the fault is virtual rsvrvd
+; "VIRT_ATOMIC_WEAK":
+:The type of access that caused the fault is virtual atomic weak
+; "VIRT_ATOMIC_ALL":
+:The type of access that caused the fault is any type of virtual atomic access
+; "VIRT_WRITE_AND_ATOMIC":
+:The type of access that caused the fault is virtual write and atomic
+; "VIRT_ALL":
+:The type of access that caused the fault is virtual access
+
+<span id="PoisonType"></span>
+= PoisonType =
+
+; "E10" :
+:SM poison HWW, the type of poison error which can be triggered by Trigger.OnNonfatalPoisonError
+; "E12" :
+:CE poison error, the type of poison error which can be triggered by Trigger.OnNonfatalPoisonError
+; "E13" :
+:MMU poisoned fault, the type of poison error which can be triggered by Trigger.OnNonfatalPoisonError
+; "E06" :
+:L2 unsupported client poison, the type of poison error which can be triggered by Trigger.OnFatalPoisonError
+; "E09" :
+:FBHUB poison interrupt, the type of poison error which can be triggered by Trigger.OnFatalPoisonError
+More in //hw/doc/gpu/ampere/ampere/design/Functional_Descriptions/Ampere_GPU_Fault_Containment_Functional_Description.docx
+
+= Debug tips =
+
+The support for dump the specified Action or Action block debug information and physical transaction via command line -message_enable <name>.
+The usage and syntax you can check the below wiki.
+
+[[https://wiki.lwpu.com/gpuhwdept/index.php/GPU_Verification_Infrastructure_Group/MODS_Verification_Infrastructure/modules#Syntax|
+Related wiki]]

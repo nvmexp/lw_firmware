@@ -1,0 +1,943 @@
+AppVersion: 30154926. 
+
+_out/gsp/t23xd/g_sepkern_gsp_t23xd_riscv.elf:     file format elf64-littleriscv
+
+
+Disassembly of section .monitor_code:
+
+0000000000100000 <startup>:
+///////////////////////////////////////////////////////////////////////////////////////////////////
+    .section .text.startup
+    .global startup
+startup:
+    // Validate mcause = instruction access fault
+    csrr    t0, mcause
+  100000:	342022f3          	csrr	t0,mcause
+    li      t1, 1
+  100004:	00100313          	li	t1,1
+    bne     t0, t1, halt
+  100008:	0c629263          	bne	t0,t1,1000cc <halt>
+    csrr    t0, mtvec
+  10000c:	305022f3          	csrr	t0,mtvec
+    la      t1, startup
+  100010:	00000317          	auipc	t1,0x0
+  100014:	ff030313          	addi	t1,t1,-16 # 100000 <startup>
+    bne     t0, t1, halt
+  100018:	0a629a63          	bne	t0,t1,1000cc <halt>
+
+#if BOOT_PROFILING
+    // TODO
+#endif
+
+    la      t0, trapEntry
+  10001c:	00000297          	auipc	t0,0x0
+  100020:	41028293          	addi	t0,t0,1040 # 10042c <trapEntry>
+    csrw    mtvec, t0
+  100024:	30529073          	csrw	mtvec,t0
+
+    // mscratch2 always contains the monitor ISR stack
+    la      t0, __monitor_isr_stack_top
+  100028:	00080297          	auipc	t0,0x80
+  10002c:	2d828293          	addi	t0,t0,728 # 180300 <__monitor_isr_stack_top>
+    csrw    LW_RISCV_CSR_MSCRATCH2, t0
+  100030:	7c029073          	csrw	0x7c0,t0
+
+    la      sp, __monitor_main_stack_top
+  100034:	00080117          	auipc	sp,0x80
+  100038:	2cc10113          	addi	sp,sp,716 # 180300 <__monitor_isr_stack_top>
+    jal     partitionBootInitial
+  10003c:	120000ef          	jal	ra,10015c <partitionBootInitial>
+    // Set up arguments
+    // return value is in a0, and has the SBI version
+    csrr    a1, misa
+  100040:	301025f3          	csrr	a1,misa
+    csrr    a2, marchid
+  100044:	f1202673          	csrr	a2,marchid
+    csrr    a3, mimpid
+  100048:	f13026f3          	csrr	a3,mimpid
+    csrr    a4, mhartid
+  10004c:	f1402773          	csrr	a4,mhartid
+    mv      a5, x0
+  100050:	00000793          	li	a5,0
+    mv      a6, x0
+  100054:	00000813          	li	a6,0
+    mv      a7, x0
+  100058:	00000893          	li	a7,0
+
+    // Clear branch predictors
+    li      t0, LW_RISCV_CSR_MBPCFG_ALL_FLUSH
+  10005c:	003b02b7          	lui	t0,0x3b0
+    csrw    LW_RISCV_CSR_MBPCFG, t0
+  100060:	7dd29073          	csrw	0x7dd,t0
+
+    // Clear remaining registers to avoid leaking state
+    mv      t0, x0
+  100064:	00000293          	li	t0,0
+    mv      t1, x0
+  100068:	00000313          	li	t1,0
+    mv      t2, x0
+  10006c:	00000393          	li	t2,0
+    mv      t3, x0
+  100070:	00000e13          	li	t3,0
+    mv      t4, x0
+  100074:	00000e93          	li	t4,0
+    mv      t5, x0
+  100078:	00000f13          	li	t5,0
+    mv      t6, x0
+  10007c:	00000f93          	li	t6,0
+    mv      s0, x0
+  100080:	00000413          	li	s0,0
+    mv      s1, x0
+  100084:	00000493          	li	s1,0
+    mv      s2, x0
+  100088:	00000913          	li	s2,0
+    mv      s3, x0
+  10008c:	00000993          	li	s3,0
+    mv      s4, x0
+  100090:	00000a13          	li	s4,0
+    mv      s5, x0
+  100094:	00000a93          	li	s5,0
+    mv      s6, x0
+  100098:	00000b13          	li	s6,0
+    mv      s7, x0
+  10009c:	00000b93          	li	s7,0
+    mv      s8, x0
+  1000a0:	00000c13          	li	s8,0
+    mv      s9, x0
+  1000a4:	00000c93          	li	s9,0
+    mv      s10,x0
+  1000a8:	00000d13          	li	s10,0
+    mv      s11,x0
+  1000ac:	00000d93          	li	s11,0
+    mv      ra, x0
+  1000b0:	00000093          	li	ra,0
+    mv      sp, x0
+  1000b4:	00000113          	li	sp,0
+    mv      gp, x0
+  1000b8:	00000193          	li	gp,0
+    mv      tp, x0
+  1000bc:	00000213          	li	tp,0
+
+    fence
+  1000c0:	0ff0000f          	fence
+    fence.i
+  1000c4:	0000100f          	fence.i
+
+    // Transfer exelwtion
+    mret
+  1000c8:	30200073          	mret
+
+00000000001000cc <halt>:
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+    .global halt
+halt:
+    // Wait loop forever
+    wfi
+  1000cc:	10500073          	wfi
+    j       halt
+  1000d0:	ffdff06f          	j	1000cc <halt>
+
+00000000001000d4 <_partitionEntrypointSet>:
+}
+
+static LW_FORCEINLINE LwU32
+intioRead(LwU32 addr)
+{
+    return *(volatile LwU32*)((LwUPtr) addr);
+  1000d4:	0145a637          	lui	a2,0x145a
+  1000d8:	b0062583          	lw	a1,-1280(a2) # 1459b00 <__monitor_isr_stack_top+0x12d9800>
+  1000dc:	50062783          	lw	a5,1280(a2)
+  1000e0:	e0062683          	lw	a3,-512(a2)
+  1000e4:	f0062703          	lw	a4,-256(a2)
+    LwU32 fmcHi      = 0;
+
+    fmcLo   = intioRead(LW_PRGNLCL_RISCV_BCR_DMAADDR_FMCCODE_LO);
+    fmcHi   = intioRead(LW_PRGNLCL_RISCV_BCR_DMAADDR_FMCCODE_HI);
+
+    LwU64 partitionOffset = ((LwU64)fmcHi) << 32 | fmcLo;
+  1000e8:	02071713          	slli	a4,a4,0x20
+  1000ec:	02069693          	slli	a3,a3,0x20
+  1000f0:	0206d693          	srli	a3,a3,0x20
+  1000f4:	00d76733          	or	a4,a4,a3
+    partitionOffset      <<= 8;
+  1000f8:	00871693          	slli	a3,a4,0x8
+    partitionOffset      += (LwU64)(&__monitorCodeSize);
+  1000fc:	60000713          	li	a4,1536
+  100100:	00d70733          	add	a4,a4,a3
+
+    // Align up to 4K
+    partitionOffset = LW_ALIGN_UP(partitionOffset, 0x1000);
+  100104:	000016b7          	lui	a3,0x1
+  100108:	fff68693          	addi	a3,a3,-1 # fff <__monitorCodeSize+0x9ff>
+  10010c:	00d70733          	add	a4,a4,a3
+  100110:	fffff6b7          	lui	a3,0xfffff
+  100114:	00d77733          	and	a4,a4,a3
+
+    switch (fmcSource)
+  100118:	0035f693          	andi	a3,a1,3
+  10011c:	02069a63          	bnez	a3,100150 <_partitionEntrypointSet+0x7c>
+  100120:	0107d79b          	srliw	a5,a5,0x10
+  100124:	01f7f793          	andi	a5,a5,31
+    {
+        case LW_PRGNLCL_RISCV_BCR_DMACFG_TARGET_LOCAL_FB:
+            partitionOffset += LW_RISCV_AMAP_FBGPA_START;
+#ifdef USE_GSCID
+            // For TFBIF, set bit 41 to select physical streamid
+            partitionOffset += (1ull << 41);
+  100128:	00300693          	li	a3,3
+  10012c:	02969693          	slli	a3,a3,0x29
+  100130:	00d70733          	add	a4,a4,a3
+            // Invalid specification
+            shutdown();
+            break;
+    }
+
+    csr_write(LW_RISCV_CSR_MEPC, partitionOffset);
+  100134:	34171073          	csrw	mepc,a4
+
+    // Set bare-mode access attributes (cacheable = 1, wpr + coherent inherited)
+    csr_write(LW_RISCV_CSR_MFETCHATTR, DRF_NUM64(_RISCV_CSR, _MFETCHATTR, _CACHEABLE, 1) |
+  100138:	01879793          	slli	a5,a5,0x18
+  10013c:	00040737          	lui	a4,0x40
+  100140:	00e7e7b3          	or	a5,a5,a4
+  100144:	7df79073          	csrw	0x7df,a5
+                                       DRF_NUM64(_RISCV_CSR, _MFETCHATTR, _COHERENT, bCoherent) |
+                                       DRF_NUM64(_RISCV_CSR, _MFETCHATTR, _WPR, accessId) |
+                                       0);
+    csr_write(LW_RISCV_CSR_MLDSTATTR, DRF_NUM64(_RISCV_CSR, _MLDSTATTR, _CACHEABLE, 1) |
+  100148:	7c879073          	csrw	0x7c8,a5
+  10014c:	00008067          	ret
+{
+  100150:	ff010113          	addi	sp,sp,-16
+  100154:	00113423          	sd	ra,8(sp)
+            shutdown();
+  100158:	200000ef          	jal	ra,100358 <shutdown>
+
+000000000010015c <partitionBootInitial>:
+                                      DRF_NUM64(_RISCV_CSR, _MLDSTATTR, _WPR, accessId) |
+                                      0);
+}
+
+LwU64 partitionBootInitial(void)
+{
+  10015c:	ff010113          	addi	sp,sp,-16
+  100160:	00113423          	sd	ra,8(sp)
+    //
+    // Initialize LS mode
+    // TODO: Check for errors and propagate to RM
+    selwrityInitLS();
+  100164:	29c000ef          	jal	ra,100400 <selwrityInitLS>
+    // As implemented by https://confluence.lwpu.com/display/LW/LWWATCH+Debugging+and+Security+-+GA10X+POR
+    // Lock registers should really be programmed by the manifest, but reprogram just in case.
+#if ICD_MODE == 2
+    // Maximum ICD privilege: Mem(Match core) CSR(Machine) PLM(Match core). Halt in M.
+    // Typical use case: Debug
+    csr_write(LW_RISCV_CSR_MDBGCTL, DRF_DEF64(_RISCV_CSR, _MDBGCTL, _ICDPL, _USE_LWR) |
+  100168:	00100713          	li	a4,1
+  10016c:	7de71073          	csrw	0x7de,a4
+    *(volatile LwU32*)((LwUPtr) addr) = value;
+  100170:	0144f6b7          	lui	a3,0x144f
+  100174:	000207b7          	lui	a5,0x20
+  100178:	ffb7879b          	addiw	a5,a5,-5
+  10017c:	20f6a023          	sw	a5,512(a3) # 144f200 <__monitor_isr_stack_top+0x12cef00>
+#error "ICD_MODE must be 0,1,2"
+#endif
+
+    // Setup interrupt delegation
+    // Apparently timer delegation is required for some reason and I don't understand.
+    csr_write(LW_RISCV_CSR_MIDELEG, DRF_DEF64(_RISCV_CSR, _MIDELEG, _SSID, _DELEG) |
+  100180:	22200793          	li	a5,546
+  100184:	30379073          	csrw	mideleg,a5
+                                    DRF_DEF64(_RISCV_CSR, _MIDELEG, _STID, _DELEG) |
+                                    DRF_DEF64(_RISCV_CSR, _MIDELEG, _SEID, _DELEG) |
+                                    0);
+
+    // Setup exception delegation
+    csr_write(LW_RISCV_CSR_MEDELEG, DRF_DEF64(_RISCV_CSR, _MEDELEG, _USS, _DELEG) |
+  100188:	1000b7b7          	lui	a5,0x1000b
+  10018c:	1ff78793          	addi	a5,a5,511 # 1000b1ff <__monitor_isr_stack_top+0xfe8aeff>
+  100190:	30279073          	csrw	medeleg,a5
+  100194:	014556b7          	lui	a3,0x1455
+  100198:	01c807b7          	lui	a5,0x1c80
+  10019c:	fff7879b          	addiw	a5,a5,-1
+  1001a0:	d0f6a023          	sw	a5,-768(a3) # 1454d00 <__monitor_isr_stack_top+0x12d4a00>
+                                             DRF_DEF64(_PRGNLCL_RISCV, _IRQDELEG, _IOPMP, _RISCV_SEIP) |
+                                             DRF_DEF64(_PRGNLCL_RISCV, _IRQDELEG, _CORE_MISMATCH, _RISCV_SEIP) |
+                                             0);
+
+    // Enable timer CSR, no other performance counters
+    csr_write(LW_RISCV_CSR_MCOUNTEREN, DRF_DEF64(_RISCV_CSR, _MCOUNTEREN, _TM, _ENABLE));
+  1001a4:	00200793          	li	a5,2
+  1001a8:	30679073          	csrw	mcounteren,a5
+
+    // S-mode may flush d-cache
+    csr_write(LW_RISCV_CSR_MMISCOPEN, DRF_DEF64(_RISCV_CSR, _MMISCOPEN, _DCACHEOP, _ENABLE) |
+  1001ac:	7f971073          	csrw	0x7f9,a4
+    return *(volatile LwU32*)((LwUPtr) addr);
+  1001b0:	0144e7b7          	lui	a5,0x144e
+  1001b4:	4007a783          	lw	a5,1024(a5) # 144e400 <__monitor_isr_stack_top+0x12ce100>
+                                      0);
+
+    // Enable all operations (if msysopen exists on this core)
+    if (FLD_TEST_DRF_NUM64(_PRGNLCL_RISCV, _LWCONFIG, _SYSOP_CSR_EN, 1,
+  1001b8:	0097d79b          	srliw	a5,a5,0x9
+  1001bc:	0017f793          	andi	a5,a5,1
+  1001c0:	00078663          	beqz	a5,1001cc <partitionBootInitial+0x70>
+                           intioRead(LW_PRGNLCL_RISCV_LWCONFIG)))
+    {
+        csr_write(LW_RISCV_CSR_MSYSOPEN, DRF_DEF64(_RISCV_CSR, _MSYSOPEN, _L2FLHDTY, _ENABLE) |
+  1001c4:	0ff00793          	li	a5,255
+  1001c8:	7f879073          	csrw	0x7f8,a5
+                                         DRF_DEF64(_RISCV_CSR, _MSYSOPEN, _BIND, _ENABLE) |
+                                         0);
+    }
+
+    // Enable branch prediction (and flush to avoid errors)
+    csr_write(LW_RISCV_CSR_MBPCFG, DRF_DEF64(_RISCV_CSR, _MBPCFG, _RAS_EN, _TRUE) |
+  1001cc:	003b07b7          	lui	a5,0x3b0
+  1001d0:	00778793          	addi	a5,a5,7 # 3b0007 <__monitor_isr_stack_top+0x22fd07>
+  1001d4:	7dd79073          	csrw	0x7dd,a5
+                                   DRF_DEF64(_RISCV_CSR, _MBPCFG, _BTB_FLUSHM, _TRUE) |
+#endif
+                                   0);
+
+    // Copy MPLM field to SPLM and UPLM
+    unsigned int privilegeMask = DRF_VAL64(_RISCV_CSR, _MSPM, _MPLM, csr_read(LW_RISCV_CSR_MSPM));
+  1001d8:	7d9027f3          	csrr	a5,0x7d9
+  1001dc:	00c7d793          	srli	a5,a5,0xc
+  1001e0:	0007879b          	sext.w	a5,a5
+  1001e4:	00f7f713          	andi	a4,a5,15
+    csr_clear(LW_RISCV_CSR_MSPM, DRF_SHIFTMASK64(LW_RISCV_CSR_MSPM_SPLM) |
+  1001e8:	0ff00693          	li	a3,255
+  1001ec:	7d96b073          	csrc	0x7d9,a3
+                                 DRF_SHIFTMASK64(LW_RISCV_CSR_MSPM_UPLM)); // Clear out old S/UPLM
+    csr_set(LW_RISCV_CSR_MSPM, DRF_NUM64(_RISCV_CSR, _MSPM, _SPLM, privilegeMask) |
+  1001f0:	02071713          	slli	a4,a4,0x20
+  1001f4:	02075713          	srli	a4,a4,0x20
+  1001f8:	00471693          	slli	a3,a4,0x4
+  1001fc:	00d76733          	or	a4,a4,a3
+  100200:	7d972073          	csrs	0x7d9,a4
+                               DRF_NUM64(_RISCV_CSR, _MSPM, _UPLM, privilegeMask));
+
+    // Set S/URPL to highest privilege enabled
+    csr_clear(LW_RISCV_CSR_MRSP, DRF_SHIFTMASK64(LW_RISCV_CSR_MRSP_SRPL) |
+  100204:	00f00713          	li	a4,15
+  100208:	7da73073          	csrc	0x7da,a4
+                                 DRF_SHIFTMASK64(LW_RISCV_CSR_MRSP_URPL)); // Clear out old S/URPL
+    if (privilegeMask & 8)
+  10020c:	0087f713          	andi	a4,a5,8
+  100210:	04070c63          	beqz	a4,100268 <partitionBootInitial+0x10c>
+    {
+        csr_set(LW_RISCV_CSR_MRSP, DRF_DEF64(_RISCV_CSR, _MRSP, _SRPL, _LEVEL3) |
+  100214:	00f00793          	li	a5,15
+  100218:	7da7a073          	csrs	0x7da,a5
+        csr_set(LW_RISCV_CSR_MRSP, DRF_DEF64(_RISCV_CSR, _MRSP, _SRPL, _LEVEL0) |
+                                   DRF_DEF64(_RISCV_CSR, _MRSP, _URPL, _LEVEL0));
+    }
+
+    // Enable timer interrupt only
+    csr_write(LW_RISCV_CSR_MIE, DRF_NUM64(_RISCV_CSR, _MIE, _MTIE, 1));
+  10021c:	08000793          	li	a5,128
+  100220:	30479073          	csrw	mie,a5
+
+    // Setup mstatus (clear all, except return to S-mode)
+    csr_write(LW_RISCV_CSR_MSTATUS, DRF_DEF64(_RISCV_CSR, _MSTATUS, _MPP, _SUPERVISOR));
+  100224:	000017b7          	lui	a5,0x1
+  100228:	80078793          	addi	a5,a5,-2048 # 800 <__monitorCodeSize+0x200>
+  10022c:	30079073          	csrw	mstatus,a5
+
+    // Setup S-mode temporary trap vector
+    csr_write(LW_RISCV_CSR_STVEC, halt);
+  100230:	00000797          	auipc	a5,0x0
+  100234:	e9c78793          	addi	a5,a5,-356 # 1000cc <halt>
+  100238:	10579073          	csrw	stvec,a5
+    *(volatile LwU32*)((LwUPtr) addr) = value;
+  10023c:	014187b7          	lui	a5,0x1418
+  100240:	00200713          	li	a4,2
+  100244:	00e7a023          	sw	a4,0(a5) # 1418000 <__monitor_isr_stack_top+0x1297d00>
+#elif defined(LW_PRGNLCL_TFBIF_CTL)
+    intioWrite(LW_PRGNLCL_TFBIF_CTL,
+               DRF_DEF(_PRGNLCL_TFBIF, _CTL, _ENABLE, _TRUE));
+#endif // defined(LW_PRGNLCL_FBIF_CTL), defined(LW_PRGNLCL_TFBIF_CTL)
+
+    engineConfigApply();
+  100248:	054000ef          	jal	ra,10029c <engineConfigApply>
+  10024c:	0145a7b7          	lui	a5,0x145a
+  100250:	8007a023          	sw	zero,-2048(a5) # 1459800 <__monitor_isr_stack_top+0x12d9500>
+    // Release lockdown, core is now configured / selwred
+    intioWrite(LW_PRGNLCL_RISCV_BR_PRIV_LOCKDOWN,
+                   DRF_DEF(_PRGNLCL, _RISCV_BR_PRIV_LOCKDOWN, _LOCK, _UNLOCKED));
+
+    // Initial PC of partition
+    _partitionEntrypointSet();
+  100254:	e81ff0ef          	jal	ra,1000d4 <_partitionEntrypointSet>
+    // Returning transfers exelwtion
+    return SBI_VERSION;
+}
+  100258:	00000513          	li	a0,0
+  10025c:	00813083          	ld	ra,8(sp)
+  100260:	01010113          	addi	sp,sp,16
+  100264:	00008067          	ret
+    else if (privilegeMask & 4)
+  100268:	0047f713          	andi	a4,a5,4
+  10026c:	00070863          	beqz	a4,10027c <partitionBootInitial+0x120>
+        csr_set(LW_RISCV_CSR_MRSP, DRF_DEF64(_RISCV_CSR, _MRSP, _SRPL, _LEVEL2) |
+  100270:	00a00793          	li	a5,10
+  100274:	7da7a073          	csrs	0x7da,a5
+  100278:	fa5ff06f          	j	10021c <partitionBootInitial+0xc0>
+    else if (privilegeMask & 2)
+  10027c:	0027f793          	andi	a5,a5,2
+  100280:	00078863          	beqz	a5,100290 <partitionBootInitial+0x134>
+        csr_set(LW_RISCV_CSR_MRSP, DRF_DEF64(_RISCV_CSR, _MRSP, _SRPL, _LEVEL1) |
+  100284:	00500793          	li	a5,5
+  100288:	7da7a073          	csrs	0x7da,a5
+  10028c:	f91ff06f          	j	10021c <partitionBootInitial+0xc0>
+        csr_set(LW_RISCV_CSR_MRSP, DRF_DEF64(_RISCV_CSR, _MRSP, _SRPL, _LEVEL0) |
+  100290:	00000793          	li	a5,0
+  100294:	7da7a073          	csrs	0x7da,a5
+  100298:	f85ff06f          	j	10021c <partitionBootInitial+0xc0>
+
+000000000010029c <engineConfigApply>:
+  10029c:	014067b7          	lui	a5,0x1406
+  1002a0:	00100713          	li	a4,1
+  1002a4:	c0e7a023          	sw	a4,-1024(a5) # 1405c00 <__monitor_isr_stack_top+0x1285900>
+    return *(volatile LwU32*)((LwUPtr) addr);
+  1002a8:	014586b7          	lui	a3,0x1458
+  1002ac:	4006a783          	lw	a5,1024(a3) # 1458400 <__monitor_isr_stack_top+0x12d8100>
+  1002b0:	0007879b          	sext.w	a5,a5
+                );
+
+    // Block access to PMB group
+    reg = intioRead(LW_PRGNLCL_RISCV_DEVICEMAP_RISCVMMODE(LW_PRGNLCL_DEVICE_MAP_GROUP_PMB / 8));
+    reg = FLD_IDX_SET_DRF(_PRGNLCL, _RISCV_DEVICEMAP_RISCVMMODE, _READ, LW_PRGNLCL_DEVICE_MAP_GROUP_PMB, _DISABLE, reg);
+    reg = FLD_IDX_SET_DRF(_PRGNLCL, _RISCV_DEVICEMAP_RISCVMMODE, _WRITE, LW_PRGNLCL_DEVICE_MAP_GROUP_PMB, _DISABLE,reg);
+  1002b4:	fd000737          	lui	a4,0xfd000
+  1002b8:	fff70713          	addi	a4,a4,-1 # fffffffffcffffff <__monitor_isr_stack_top+0xfffffffffce7fcff>
+  1002bc:	00e7f7b3          	and	a5,a5,a4
+    reg = FLD_IDX_SET_DRF(_PRGNLCL, _RISCV_DEVICEMAP_RISCVMMODE, _LOCK, LW_PRGNLCL_DEVICE_MAP_GROUP_PMB, _LOCKED, reg);
+  1002c0:	08000737          	lui	a4,0x8000
+  1002c4:	00e7e7b3          	or	a5,a5,a4
+    *(volatile LwU32*)((LwUPtr) addr) = value;
+  1002c8:	40f6a023          	sw	a5,1024(a3)
+    intioWrite(LW_PRGNLCL_RISCV_DEVICEMAP_RISCVMMODE(LW_PRGNLCL_DEVICE_MAP_GROUP_PMB / 8), reg);
+
+    // Give GSP access to performance counters
+    csr_write(LW_RISCV_CSR_MCOUNTEREN,
+  1002cc:	00700793          	li	a5,7
+  1002d0:	30679073          	csrw	mcounteren,a5
+    return *(volatile LwU32*)((LwUPtr) addr);
+  1002d4:	01402737          	lui	a4,0x1402
+  1002d8:	40072783          	lw	a5,1024(a4) # 1402400 <__monitor_isr_stack_top+0x1282100>
+  1002dc:	0007879b          	sext.w	a5,a5
+    //
+    // Disable idle check during context switch - it is required so RM can do
+    // context switch.
+    //
+    reg = intioRead(LW_PRGNLCL_FALCON_DEBUG1);
+    reg = FLD_SET_DRF(_PRGNLCL, _FALCON_DEBUG1, _CTXSW_MODE1, _BYPASS_IDLE_CHECKS, reg);
+  1002e0:	000406b7          	lui	a3,0x40
+  1002e4:	00d7e7b3          	or	a5,a5,a3
+    *(volatile LwU32*)((LwUPtr) addr) = value;
+  1002e8:	40f72023          	sw	a5,1024(a4)
+    return *(volatile LwU32*)((LwUPtr) addr);
+  1002ec:	01401737          	lui	a4,0x1401
+  1002f0:	20072783          	lw	a5,512(a4) # 1401200 <__monitor_isr_stack_top+0x1280f00>
+  1002f4:	0007879b          	sext.w	a5,a5
+    intioWrite(LW_PRGNLCL_FALCON_DEBUG1, reg);
+
+    // Enable CTXSW FSM
+    reg = intioRead(LW_PRGNLCL_FALCON_ITFEN);
+    reg = FLD_SET_DRF(_PRGNLCL_FALCON, _ITFEN, _CTXEN, _ENABLE, reg);
+  1002f8:	0017e793          	ori	a5,a5,1
+    *(volatile LwU32*)((LwUPtr) addr) = value;
+  1002fc:	20f72023          	sw	a5,512(a4)
+    intioWrite(LW_PRGNLCL_FALCON_ITFEN, reg);
+
+}
+  100300:	00008067          	ret
+
+0000000000100304 <sbiDispatch>:
+    LwU64 arg4,
+    LwU64 arg5,
+    LwS32 funcId,
+    LwS32 extId
+)
+{
+  100304:	fd010113          	addi	sp,sp,-48
+  100308:	02113423          	sd	ra,40(sp)
+    SBI_RETURN_VALUE ret = {
+  10030c:	ffe00793          	li	a5,-2
+  100310:	00f13023          	sd	a5,0(sp)
+  100314:	00013423          	sd	zero,8(sp)
+        .error = SBI_ERR_NOT_SUPPORTED,
+        .value = 0,
+    };
+
+    switch (extId)
+  100318:	02088063          	beqz	a7,100338 <sbiDispatch+0x34>
+  10031c:	00800793          	li	a5,8
+  100320:	02f88a63          	beq	a7,a5,100354 <sbiDispatch+0x50>
+    {
+        halt();
+    }
+#endif
+    return ret;
+}
+  100324:	00013503          	ld	a0,0(sp)
+  100328:	00813583          	ld	a1,8(sp)
+  10032c:	02813083          	ld	ra,40(sp)
+  100330:	03010113          	addi	sp,sp,48
+  100334:	00008067          	ret
+            csr_write(LW_RISCV_CSR_MTIMECMP, arg0);
+  100338:	7db51073          	csrw	0x7db,a0
+            csr_clear(LW_RISCV_CSR_MIP, DRF_NUM64(_RISCV_CSR, _MIP, _STIP, 1));
+  10033c:	02000793          	li	a5,32
+  100340:	3447b073          	csrc	mip,a5
+            csr_set(LW_RISCV_CSR_MIE, DRF_NUM64(_RISCV_CSR, _MIE, _MTIE, 1));
+  100344:	08000793          	li	a5,128
+  100348:	3047a073          	csrs	mie,a5
+            ret.error = SBI_SUCCESS;
+  10034c:	00013023          	sd	zero,0(sp)
+            break;
+  100350:	fd5ff06f          	j	100324 <sbiDispatch+0x20>
+            shutdown();
+  100354:	004000ef          	jal	ra,100358 <shutdown>
+
+0000000000100358 <shutdown>:
+
+//! @brief  Shutdown sequence
+void shutdown(void)
+{
+    // Disable S-mode interrupts
+    csr_write(LW_RISCV_CSR_SIE, 0x0);
+  100358:	00000793          	li	a5,0
+  10035c:	10479073          	csrw	sie,a5
+
+    // Disable M-mode interrupts
+    csr_write(LW_RISCV_CSR_MIE, 0x0);
+  100360:	30479073          	csrw	mie,a5
+
+    // Make the RISCV core enter the HALT status
+    while (LW_TRUE)
+    {
+        // Use csrwi because it's the only legal way to write MOPT
+        csr_write_immediate(LW_RISCV_CSR_MOPT, LW_RISCV_CSR_MOPT_CMD_HALT);
+  100364:	7d805073          	csrwi	0x7d8,0
+  100368:	ffdff06f          	j	100364 <shutdown+0xc>
+
+000000000010036c <_selwrityIsLsInitializationRequired>:
+    return *(volatile LwU32*)((LwUPtr) addr);
+  10036c:	0145a7b7          	lui	a5,0x145a
+  100370:	5007a503          	lw	a0,1280(a5) # 145a500 <__monitor_isr_stack_top+0x12da200>
+    // TODO: Add check against BR programmed values of MSPM
+    // if WPR ID is not set then manifest with LS permissions should not be used
+    LwU32 wprId = 0;
+
+    wprId = intioRead(LW_PRGNLCL_RISCV_BCR_DMACFG_SEC);
+    wprId = DRF_VAL(_PRGNLCL, _RISCV_BCR_DMACFG_SEC, _WPRID, wprId);
+  100374:	00357513          	andi	a0,a0,3
+
+    return wprId == LSF_WPR_EXPECTED_REGION_ID;
+  100378:	fff50513          	addi	a0,a0,-1
+}
+  10037c:	00153513          	seqz	a0,a0
+  100380:	00008067          	ret
+
+0000000000100384 <_selwrityInitCorePrivilege>:
+static void
+_selwrityInitCorePrivilege(void)
+{
+    // TODO: Add check against BR programmed value
+    // hardcode to level 2 for now
+    LwU64 data64 = csr_read(LW_RISCV_CSR_MSPM);
+  100384:	7d9027f3          	csrr	a5,0x7d9
+    data64 = FLD_SET_DRF64(_RISCV_CSR, _MSPM, _UPLM, _LEVEL2, data64);
+    data64 = FLD_SET_DRF64(_RISCV_CSR, _MSPM, _SPLM, _LEVEL2, data64);
+    data64 = FLD_SET_DRF64(_RISCV_CSR, _MSPM, _MPLM, _LEVEL2, data64);
+  100388:	ffff1737          	lui	a4,0xffff1
+  10038c:	f0070713          	addi	a4,a4,-256 # ffffffffffff0f00 <__monitor_isr_stack_top+0xffffffffffe70c00>
+  100390:	00e7f7b3          	and	a5,a5,a4
+  100394:	00005737          	lui	a4,0x5
+  100398:	05570713          	addi	a4,a4,85 # 5055 <__monitorCodeSize+0x4a55>
+  10039c:	00e7e7b3          	or	a5,a5,a4
+    csr_write(LW_RISCV_CSR_MSPM, data64);
+  1003a0:	7d979073          	csrw	0x7d9,a5
+
+    data64 = csr_read(LW_RISCV_CSR_SSPM);
+  1003a4:	5d9027f3          	csrr	a5,0x5d9
+    data64 = FLD_SET_DRF64(_RISCV_CSR, _SSPM, _SPLM, _LEVEL2, data64);
+  1003a8:	f0f7f793          	andi	a5,a5,-241
+  1003ac:	0507e793          	ori	a5,a5,80
+    csr_write(LW_RISCV_CSR_SSPM, data64);
+  1003b0:	5d979073          	csrw	0x5d9,a5
+
+    data64 = csr_read(LW_RISCV_CSR_RSP);
+  1003b4:	89a027f3          	csrr	a5,0x89a
+    data64 = FLD_SET_DRF64(_RISCV_CSR, _RSP, _URPL, _LEVEL2, data64);
+  1003b8:	ffc7f793          	andi	a5,a5,-4
+  1003bc:	0027e793          	ori	a5,a5,2
+    csr_write(LW_RISCV_CSR_RSP, data64);
+  1003c0:	89a79073          	csrw	0x89a,a5
+
+    data64 = csr_read(LW_RISCV_CSR_MRSP);
+  1003c4:	7da027f3          	csrr	a5,0x7da
+    data64 = FLD_SET_DRF64(_RISCV_CSR, _MRSP, _URPL, _LEVEL2, data64);
+    data64 = FLD_SET_DRF64(_RISCV_CSR, _MRSP, _SRPL, _LEVEL2, data64);
+    data64 = FLD_SET_DRF64(_RISCV_CSR, _MRSP, _MRPL, _LEVEL2, data64);
+  1003c8:	f307f793          	andi	a5,a5,-208
+  1003cc:	08a7e793          	ori	a5,a5,138
+    csr_write(LW_RISCV_CSR_MRSP, data64);
+  1003d0:	7da79073          	csrw	0x7da,a5
+
+    data64 = csr_read(LW_RISCV_CSR_SRSP);
+  1003d4:	5da027f3          	csrr	a5,0x5da
+    data64 = FLD_SET_DRF64(_RISCV_CSR, _SRSP, _SRPL, _LEVEL2, data64);
+  1003d8:	ff37f793          	andi	a5,a5,-13
+  1003dc:	0087e793          	ori	a5,a5,8
+    csr_write(LW_RISCV_CSR_SRSP, data64);
+  1003e0:	5da79073          	csrw	0x5da,a5
+}
+  1003e4:	00008067          	ret
+
+00000000001003e8 <_selwrityInitPLM>:
+    *(volatile LwU32*)((LwUPtr) addr) = value;
+  1003e8:	01409737          	lui	a4,0x1409
+  1003ec:	000077b7          	lui	a5,0x7
+  1003f0:	00f72023          	sw	a5,0(a4) # 1409000 <__monitor_isr_stack_top+0x1288d00>
+  1003f4:	0217879b          	addiw	a5,a5,33
+  1003f8:	00f72023          	sw	a5,0(a4)
+
+    data = FLD_SET_DRF(_PRGNLCL, _FALCON_SCTL, _LSMODE, _TRUE, data);
+    data = FLD_SET_DRF_NUM(_PRGNLCL, _FALCON_SCTL, _LSMODE_LEVEL, 0x2, data);
+    intioWrite(LW_PRGNLCL_FALCON_SCTL, data);
+
+}
+  1003fc:	00008067          	ret
+
+0000000000100400 <selwrityInitLS>:
+ * @brief: Initializes LS security.
+ * TODO: replace LwU32 with meaningful error codes
+ */
+LwU32
+selwrityInitLS(void)
+{
+  100400:	ff010113          	addi	sp,sp,-16
+  100404:	00113423          	sd	ra,8(sp)
+    if(!_selwrityIsLsInitializationRequired())
+  100408:	f65ff0ef          	jal	ra,10036c <_selwrityIsLsInitializationRequired>
+  10040c:	00051a63          	bnez	a0,100420 <selwrityInitLS+0x20>
+
+    _selwrityInitCorePrivilege();
+    _selwrityInitPLM();
+
+    return 0;
+}
+  100410:	00000513          	li	a0,0
+  100414:	00813083          	ld	ra,8(sp)
+  100418:	01010113          	addi	sp,sp,16
+  10041c:	00008067          	ret
+    _selwrityInitCorePrivilege();
+  100420:	f65ff0ef          	jal	ra,100384 <_selwrityInitCorePrivilege>
+    _selwrityInitPLM();
+  100424:	fc5ff0ef          	jal	ra,1003e8 <_selwrityInitPLM>
+    return 0;
+  100428:	fe9ff06f          	j	100410 <selwrityInitLS+0x10>
+
+000000000010042c <trapEntry>:
+///////////////////////////////////////////////////////////////////////////////////////////////////
+    .balign 4
+    .global trapEntry
+trapEntry:
+    // Save t0 to mscratch so we have a register to use
+    csrw    mscratch, t0
+  10042c:	34029073          	csrw	mscratch,t0
+
+    // MSb indicates interrupt if set, exception if cleared 
+    csrr    t0, mcause
+  100430:	342022f3          	csrr	t0,mcause
+    bgez    t0, trapHandleException
+  100434:	0202d663          	bgez	t0,100460 <trapHandleException>
+
+0000000000100438 <trapHandleInterrupt>:
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+trapHandleInterrupt:
+    // Shift away top bit (we already parsed it)
+    slli    t0, t0, 1
+  100438:	00129293          	slli	t0,t0,0x1
+
+    // Check the causes we care about
+    //// CAUSE==7: Machine Timer Interrupt
+    addi    t0, t0, -(LW_RISCV_CSR_MCAUSE_EXCODE_M_TINT << 1)
+  10043c:	ff228293          	addi	t0,t0,-14 # 3afff2 <__monitor_isr_stack_top+0x22fcf2>
+    beqz    t0, trapHandleTimerInterrupt
+  100440:	00028463          	beqz	t0,100448 <trapHandleTimerInterrupt>
+
+0000000000100444 <trapUnhandledInterrupt>:
+
+    //// Unhandled:
+trapUnhandledInterrupt:
+    j       halt
+  100444:	c89ff06f          	j	1000cc <halt>
+
+0000000000100448 <trapHandleTimerInterrupt>:
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+trapHandleTimerInterrupt:
+    // Set Supervisor Timer pending
+    li      t0, LW_RISCV_CSR_MIP_STIP__SHIFTMASK
+  100448:	02000293          	li	t0,32
+    csrs    mip, t0
+  10044c:	3442a073          	csrs	mip,t0
+    // Disable the interrupt for machine mode, since we can't ack the timer ourselves
+    li      t0, LW_RISCV_CSR_MIE_MTIE__SHIFTMASK
+  100450:	08000293          	li	t0,128
+    csrc    mie, t0
+  100454:	3042b073          	csrc	mie,t0
+
+    // Restore temporary register
+    csrr    t0, mscratch
+  100458:	340022f3          	csrr	t0,mscratch
+    mret
+  10045c:	30200073          	mret
+
+0000000000100460 <trapHandleException>:
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+trapHandleException:
+    // Check the causes we care about
+    //// CAUSE==9: Environment call from S-mode
+    addi    t0, t0, -LW_RISCV_CSR_MCAUSE_EXCODE_SCALL
+  100460:	ff728293          	addi	t0,t0,-9
+    beqz    t0, trapHandleScallException
+  100464:	00028463          	beqz	t0,10046c <trapHandleScallException>
+
+0000000000100468 <trapUnhandledException>:
+
+    //// Unhandled:
+trapUnhandledException:
+    j       halt
+  100468:	c65ff06f          	j	1000cc <halt>
+
+000000000010046c <trapHandleScallException>:
+    // We MUST NOT use ECALL from S-mode, unless we are making SBI calls. However, we lwrrently do
+    // and the rework is significant. Until then, we have this hack that allows us to simulate
+    // an ECALL from S-mode to S-mode.
+    // We cannot write EXCODE_SCALL to scause, so we must also fake it as an ECALL from
+    // U-mode to S-mode.
+    csrwi   mcause, LW_RISCV_CSR_MCAUSE_EXCODE_UCALL
+  10046c:	34245073          	csrwi	mcause,8
+    // High bit in SBI extension ID indicates a pass-through ECALL.
+    bltz    a7, trapPassThrough
+  100470:	0e08c863          	bltz	a7,100560 <trapPassThrough>
+
+    // Do not allow nested traps
+    la      t0, halt
+  100474:	00000297          	auipc	t0,0x0
+  100478:	c5828293          	addi	t0,t0,-936 # 1000cc <halt>
+    csrw    mtvec, t0
+  10047c:	30529073          	csrw	mtvec,t0
+
+    // Perform saving as according to ABI, and switch to SK stack
+    mv      t0, sp
+  100480:	00010293          	mv	t0,sp
+    csrr    sp, LW_RISCV_CSR_MSCRATCH2
+  100484:	7c002173          	csrr	sp,0x7c0
+    addi    sp, sp, -15 * XREGSIZE
+  100488:	f8810113          	addi	sp,sp,-120
+    sd      s0,  0 * XREGSIZE(sp)
+  10048c:	00813023          	sd	s0,0(sp)
+    sd      s1,  1 * XREGSIZE(sp)
+  100490:	00913423          	sd	s1,8(sp)
+    sd      s2,  2 * XREGSIZE(sp)
+  100494:	01213823          	sd	s2,16(sp)
+    sd      s3,  3 * XREGSIZE(sp)
+  100498:	01313c23          	sd	s3,24(sp)
+    sd      s4,  4 * XREGSIZE(sp)
+  10049c:	03413023          	sd	s4,32(sp)
+    sd      s5,  5 * XREGSIZE(sp)
+  1004a0:	03513423          	sd	s5,40(sp)
+    sd      s6,  6 * XREGSIZE(sp)
+  1004a4:	03613823          	sd	s6,48(sp)
+    sd      s7,  7 * XREGSIZE(sp)
+  1004a8:	03713c23          	sd	s7,56(sp)
+    sd      s8,  8 * XREGSIZE(sp)
+  1004ac:	05813023          	sd	s8,64(sp)
+    sd      s9,  9 * XREGSIZE(sp)
+  1004b0:	05913423          	sd	s9,72(sp)
+    sd      s10,10 * XREGSIZE(sp)
+  1004b4:	05a13823          	sd	s10,80(sp)
+    sd      s11,11 * XREGSIZE(sp)
+  1004b8:	05b13c23          	sd	s11,88(sp)
+    sd      gp, 12 * XREGSIZE(sp)
+  1004bc:	06313023          	sd	gp,96(sp)
+    sd      tp, 13 * XREGSIZE(sp)
+  1004c0:	06413423          	sd	tp,104(sp)
+    sd      t0, 14 * XREGSIZE(sp) // old SP
+  1004c4:	06513823          	sd	t0,112(sp)
+    // Zap registers we don't want ever used
+    mv      ra, x0
+  1004c8:	00000093          	li	ra,0
+
+    jal     sbiDispatch
+  1004cc:	e39ff0ef          	jal	ra,100304 <sbiDispatch>
+    // The SBI interface defines a1 as the return value, and a0 as the error code.
+    // sbiDispatch returns them in the register pair as expected.
+
+    // Skip over the ecall instruction that took us here
+    csrr    t0, mepc
+  1004d0:	341022f3          	csrr	t0,mepc
+    add     t0, t0, 4
+  1004d4:	00428293          	addi	t0,t0,4
+    csrw    mepc, t0
+  1004d8:	34129073          	csrw	mepc,t0
+
+    // Restore saved registers
+    ld      s0,  0 * XREGSIZE(sp)
+  1004dc:	00013403          	ld	s0,0(sp)
+    ld      s1,  1 * XREGSIZE(sp)
+  1004e0:	00813483          	ld	s1,8(sp)
+    ld      s2,  2 * XREGSIZE(sp)
+  1004e4:	01013903          	ld	s2,16(sp)
+    ld      s3,  3 * XREGSIZE(sp)
+  1004e8:	01813983          	ld	s3,24(sp)
+    ld      s4,  4 * XREGSIZE(sp)
+  1004ec:	02013a03          	ld	s4,32(sp)
+    ld      s5,  5 * XREGSIZE(sp)
+  1004f0:	02813a83          	ld	s5,40(sp)
+    ld      s6,  6 * XREGSIZE(sp)
+  1004f4:	03013b03          	ld	s6,48(sp)
+    ld      s7,  7 * XREGSIZE(sp)
+  1004f8:	03813b83          	ld	s7,56(sp)
+    ld      s8,  8 * XREGSIZE(sp)
+  1004fc:	04013c03          	ld	s8,64(sp)
+    ld      s9,  9 * XREGSIZE(sp)
+  100500:	04813c83          	ld	s9,72(sp)
+    ld      s10,10 * XREGSIZE(sp)
+  100504:	05013d03          	ld	s10,80(sp)
+    ld      s11,11 * XREGSIZE(sp)
+  100508:	05813d83          	ld	s11,88(sp)
+    ld      gp, 12 * XREGSIZE(sp)
+  10050c:	06013183          	ld	gp,96(sp)
+    ld      tp, 13 * XREGSIZE(sp)
+  100510:	06813203          	ld	tp,104(sp)
+    ld      sp, 14 * XREGSIZE(sp) // old SP
+  100514:	07013103          	ld	sp,112(sp)
+    // Clear temporary registers, to avoid leaking state
+    mv      t0, x0
+  100518:	00000293          	li	t0,0
+    mv      t1, x0
+  10051c:	00000313          	li	t1,0
+    mv      t2, x0
+  100520:	00000393          	li	t2,0
+    mv      t3, x0
+  100524:	00000e13          	li	t3,0
+    mv      t4, x0
+  100528:	00000e93          	li	t4,0
+    mv      t5, x0
+  10052c:	00000f13          	li	t5,0
+    mv      t6, x0
+  100530:	00000f93          	li	t6,0
+    // Clear argument registers, to avoid leaking state (returns are in a0 and a1)
+    mv      a2, x0
+  100534:	00000613          	li	a2,0
+    mv      a3, x0
+  100538:	00000693          	li	a3,0
+    mv      a4, x0
+  10053c:	00000713          	li	a4,0
+    mv      a5, x0
+  100540:	00000793          	li	a5,0
+    mv      a6, x0
+  100544:	00000813          	li	a6,0
+    mv      a7, x0
+  100548:	00000893          	li	a7,0
+
+    // Restore trap vector
+    la      ra, trapEntry
+  10054c:	00000097          	auipc	ra,0x0
+  100550:	ee008093          	addi	ra,ra,-288 # 10042c <trapEntry>
+    csrw    mtvec, ra
+  100554:	30509073          	csrw	mtvec,ra
+    mv      ra, x0
+  100558:	00000093          	li	ra,0
+
+    mret
+  10055c:	30200073          	mret
+
+0000000000100560 <trapPassThrough>:
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+trapPassThrough:
+    // Copy trap information to S-mode
+    csrr    t0, mtval
+  100560:	343022f3          	csrr	t0,mtval
+    csrw    stval, t0
+  100564:	14329073          	csrw	stval,t0
+    csrr    t0, mepc
+  100568:	341022f3          	csrr	t0,mepc
+    csrw    sepc, t0
+  10056c:	14129073          	csrw	sepc,t0
+    csrr    t0, mcause
+  100570:	342022f3          	csrr	t0,mcause
+    csrw    scause, t0
+  100574:	14229073          	csrw	scause,t0
+    csrr    t0, LW_RISCV_CSR_MCAUSE2
+  100578:	7d4022f3          	csrr	t0,0x7d4
+    csrw    LW_RISCV_CSR_SCAUSE2, t0
+  10057c:	5d429073          	csrw	0x5d4,t0
+    // Return to the S-mode trap vector
+    csrr    t0, stvec
+  100580:	105022f3          	csrr	t0,stvec
+    csrw    mepc, t0
+  100584:	34129073          	csrw	mepc,t0
+
+    // Simulate trap entry to S-mode:
+    // 1) Clear MSTATUS.SIE
+    li      t0, LW_RISCV_CSR_MSTATUS_SIE__SHIFTMASK | LW_RISCV_CSR_MSTATUS_SPIE__SHIFTMASK
+  100588:	02200293          	li	t0,34
+    csrrc   t0, mstatus, t0
+  10058c:	3002b2f3          	csrrc	t0,mstatus,t0
+    // 2) Copy old MSTATUS.SIE to MSTATUS.SPIE
+    andi    t0, t0, LW_RISCV_CSR_MSTATUS_SIE__SHIFTMASK
+  100590:	0022f293          	andi	t0,t0,2
+    beqz    t0, 1f
+  100594:	00028663          	beqz	t0,1005a0 <trapPassThrough+0x40>
+    li      t0, LW_RISCV_CSR_MSTATUS_SPIE__SHIFTMASK
+  100598:	02000293          	li	t0,32
+    csrs    mstatus, t0
+  10059c:	3002a073          	csrs	mstatus,t0
+1:
+    // 3) Move MSTATUS.MPP to MSTATUS.SPP
+    li      t0, LW_RISCV_CSR_MSTATUS_SPP__SHIFTMASK
+  1005a0:	10000293          	li	t0,256
+    csrrc   t0, mstatus, t0
+  1005a4:	3002b2f3          	csrrc	t0,mstatus,t0
+    srli    t0, t0, LW_RISCV_CSR_MSTATUS_MPP__SHIFT
+  1005a8:	00b2d293          	srli	t0,t0,0xb
+    andi    t0, t0, 1
+  1005ac:	0012f293          	andi	t0,t0,1
+    beqz    t0, 1f
+  1005b0:	00028663          	beqz	t0,1005bc <trapPassThrough+0x5c>
+    li      t0, LW_RISCV_CSR_MSTATUS_SPP__SHIFTMASK
+  1005b4:	10000293          	li	t0,256
+    csrs    mstatus, t0
+  1005b8:	3002a073          	csrs	mstatus,t0
+1:
+    // 4) Set MSTATUS.MPP to S mode
+    li      t0, LW_RISCV_CSR_MSTATUS_MPP__SHIFTMASK_B0
+  1005bc:	000012b7          	lui	t0,0x1
+  1005c0:	8002829b          	addiw	t0,t0,-2048
+    csrs    mstatus, t0
+  1005c4:	3002a073          	csrs	mstatus,t0
+    slli    t0, t0, 1
+  1005c8:	00129293          	slli	t0,t0,0x1
+    csrc    mstatus, t0
+  1005cc:	3002b073          	csrc	mstatus,t0
+
+    // Restore temporary register
+    csrr    t0, mscratch
+  1005d0:	340022f3          	csrr	t0,mscratch
+    mret
+  1005d4:	30200073          	mret
+	...

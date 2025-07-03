@@ -1,0 +1,138 @@
+# testgen level to cover all frames at full size of all glrandom tests
+# created manually
+
+sublevel: -javascriptArgs gpugen.js -modsArgs "-mle_forced -mle %(tname).mle" -mdiagArgs "-gltrace -dump_png -no_golden_dma -null_display -chipargs -texHandleErrorsLikeRTL -goldenfile gld%(tname).bin -lwlink_force_disable %(DEFAULT_ARGS) %(NO_VIDEO_ENGINES)  %(FBP_CONFIG) %(GPC_CONFIG) %(IGNORE_PRMT_FAILURES) %(WAR_ARGS)"
+{
+  [
+    name { GlrA8R8G8B8 }    mdiag { -test 130 -testarg 130 LogShaderCombinations true -testargstr 130 TestDescription "Level0" } &
+    name { GlrR5G6B5 }      mdiag { -test 131 -testarg 131 LogShaderCombinations true -testargstr 131 TestDescription "Level0" } &
+    name { GlrFsaa2x }      mdiag { -test 132 -testarg 132 LogShaderCombinations true -testargstr 132 TestDescription "Level0" } &
+    name { GlrFsaa4x }      mdiag { -test 133 -testarg 133 LogShaderCombinations true -testargstr 133 TestDescription "Level0" } &
+    name { GlrMrtRgbU }     mdiag { -test 135 -testarg 135 LogShaderCombinations true -testargstr 135 TestDescription "Level0" } &
+    name { GlrMrtRgbF }     mdiag { -test 136 -testarg 136 LogShaderCombinations true -testargstr 136 TestDescription "Level0" } &
+    name { GlrY8 }          mdiag { -test 137 -testarg 137 LogShaderCombinations true -testargstr 137 TestDescription "Level0" } &
+    name { GlrFsaa8x }      mdiag { -test 138 -testarg 138 LogShaderCombinations true -testargstr 138 TestDescription "Level0" } &
+    name { GlrA8R8G8B8Sys } mdiag { -test 148 -testarg 148 LogShaderCombinations true -testargstr 148 TestDescription "Level0" } &
+    name { GlrReplay }      mdiag { -test 149 -testarg 149 LogShaderCombinations true -testargstr 149 TestDescription "Level0" -testarg 149 FrameReplayMs 1 } &
+    name { GlrZLwll }       mdiag { -test 162 -testarg 162 LogShaderCombinations true -testargstr 162 TestDescription "Level0" -maxwh 1024 768 -testarg 162 Verbose true} &
+    name { GlrLayered }     mdiag { -test 231 -testarg 231 LogShaderCombinations true -testargstr 231 TestDescription "Level0" }
+  ]
+  [
+    name { _isolate_00 } mdiag { -isolate_frames  0  0 } &
+    name { _isolate_01 } mdiag { -isolate_frames  1  1 } &
+    name { _isolate_02 } mdiag { -isolate_frames  2  2 } &
+    name { _isolate_03 } mdiag { -isolate_frames  3  3 } &
+    name { _isolate_04 } mdiag { -isolate_frames  4  4 } &
+    name { _isolate_05 } mdiag { -isolate_frames  5  5 } &
+    name { _isolate_06 } mdiag { -isolate_frames  6  6 } &
+    name { _isolate_07 } mdiag { -isolate_frames  7  7 } &
+    name { _isolate_08 } mdiag { -isolate_frames  8  8 } &
+    name { _isolate_09 } mdiag { -isolate_frames  9  9 } &
+    name { _isolate_10 } mdiag { -isolate_frames 10 10 } &
+    name { _isolate_11 } mdiag { -isolate_frames 11 11 } &
+    name { _isolate_12 } mdiag { -isolate_frames 12 12 } &
+    name { _isolate_13 } mdiag { -isolate_frames 13 13 } &
+    name { _isolate_14 } mdiag { -isolate_frames 14 14 } &
+    name { _isolate_15 } mdiag { -isolate_frames 15 15 } &
+    name { _isolate_16 } mdiag { -isolate_frames 16 16 } &
+    name { _isolate_17 } mdiag { -isolate_frames 17 17 } &
+    name { _isolate_18 } mdiag { -isolate_frames 18 18 } &
+    name { _isolate_19 } mdiag { -isolate_frames 19 19 } &
+    name { _isolate_20 } mdiag { -isolate_frames 20 20 } &
+    name { _isolate_21 } mdiag { -isolate_frames 21 21 } &
+    name { _isolate_22 } mdiag { -isolate_frames 22 22 } &
+    name { _isolate_23 } mdiag { -isolate_frames 23 23 } &
+    name { _isolate_24 } mdiag { -isolate_frames 24 24 } &
+    name { _isolate_25 } mdiag { -isolate_frames 25 25 } &
+    name { _isolate_26 } mdiag { -isolate_frames 26 26 } &
+    name { _isolate_27 } mdiag { -isolate_frames 27 27 } &
+    name { _isolate_28 } mdiag { -isolate_frames 28 28 } &
+    name { _isolate_29 } mdiag { -isolate_frames 29 29 } &
+    name { _isolate_30 } mdiag { -isolate_frames 30 30 } &
+    name { _isolate_31 } mdiag { -isolate_frames 31 31 } &
+    name { _isolate_32 } mdiag { -isolate_frames 32 32 } &
+    name { _isolate_33 } mdiag { -isolate_frames 33 33 } &
+    name { _isolate_34 } mdiag { -isolate_frames 34 34 } &
+    name { _isolate_35 } mdiag { -isolate_frames 35 35 } &
+    name { _isolate_36 } mdiag { -isolate_frames 36 36 } &
+    name { _isolate_37 } mdiag { -isolate_frames 37 37 } &
+    name { _isolate_38 } mdiag { -isolate_frames 38 38 } &
+    name { _isolate_39 } mdiag { -isolate_frames 39 39 }
+  ];
+
+  [
+    # GLRandomOcg defaults to 50 LoopsPerFrame and 25 Frames, so don't provide more coverage
+    # than what we do in normal testing.
+    name { GLRandomOcg }    mdiag { -test 126 -testarg 126 LogShaderCombinations true -testargstr 126 TestDescription "Level0" }
+  ]
+  [
+    name { _isolate_00 } mdiag { -isolate_frames  0  0 } &
+    name { _isolate_01 } mdiag { -isolate_frames  1  1 } &
+    name { _isolate_02 } mdiag { -isolate_frames  2  2 } &
+    name { _isolate_03 } mdiag { -isolate_frames  3  3 } &
+    name { _isolate_04 } mdiag { -isolate_frames  4  4 } &
+    name { _isolate_05 } mdiag { -isolate_frames  5  5 } &
+    name { _isolate_06 } mdiag { -isolate_frames  6  6 } &
+    name { _isolate_07 } mdiag { -isolate_frames  7  7 } &
+    name { _isolate_08 } mdiag { -isolate_frames  8  8 } &
+    name { _isolate_09 } mdiag { -isolate_frames  9  9 } &
+    name { _isolate_10 } mdiag { -isolate_frames 10 10 } &
+    name { _isolate_11 } mdiag { -isolate_frames 11 11 } &
+    name { _isolate_12 } mdiag { -isolate_frames 12 12 } &
+    name { _isolate_13 } mdiag { -isolate_frames 13 13 } &
+    name { _isolate_14 } mdiag { -isolate_frames 14 14 } &
+    name { _isolate_15 } mdiag { -isolate_frames 15 15 } &
+    name { _isolate_16 } mdiag { -isolate_frames 16 16 } &
+    name { _isolate_17 } mdiag { -isolate_frames 17 17 } &
+    name { _isolate_18 } mdiag { -isolate_frames 18 18 } &
+    name { _isolate_19 } mdiag { -isolate_frames 19 19 } &
+    name { _isolate_20 } mdiag { -isolate_frames 20 20 } &
+    name { _isolate_21 } mdiag { -isolate_frames 21 21 } &
+    name { _isolate_22 } mdiag { -isolate_frames 22 22 } &
+    name { _isolate_23 } mdiag { -isolate_frames 23 23 } &
+    name { _isolate_24 } mdiag { -isolate_frames 24 24 } &
+  ];
+  [
+    name { PathRender } mdiag { -test 176 -testargstr 176 TestDescription "Level0" }
+  ]
+  [
+    name { _isolate_01 } mdiag { -testarg 176 DiaId 1 } &
+    name { _isolate_02 } mdiag { -testarg 176 DiaId 2 } &
+    name { _isolate_03 } mdiag { -testarg 176 DiaId 3 } &
+    name { _isolate_04 } mdiag { -testarg 176 DiaId 4 } &
+    name { _isolate_05 } mdiag { -testarg 176 DiaId 5 } &
+    name { _isolate_06 } mdiag { -testarg 176 DiaId 6 } &
+    name { _isolate_07 } mdiag { -testarg 176 DiaId 7 } &
+    name { _isolate_08 } mdiag { -testarg 176 DiaId 8 } &
+    name { _isolate_09 } mdiag { -testarg 176 DiaId 9 }
+  ];
+
+  [
+    name { GLMsAAPR } mdiag { -test 287 -testargstr 287 TestDescription "Level0" }
+  ]
+  [
+    name { _isolate_01 } mdiag { -testarg 287 DiaId 1 } &
+    name { _isolate_02 } mdiag { -testarg 287 DiaId 2 } &
+    name { _isolate_03 } mdiag { -testarg 287 DiaId 3 } &
+    name { _isolate_04 } mdiag { -testarg 287 DiaId 4 } &
+    name { _isolate_05 } mdiag { -testarg 287 DiaId 5 } &
+    name { _isolate_06 } mdiag { -testarg 287 DiaId 6 } &
+    name { _isolate_07 } mdiag { -testarg 287 DiaId 7 } &
+    name { _isolate_08 } mdiag { -testarg 287 DiaId 8 } &
+    name { _isolate_09 } mdiag { -testarg 287 DiaId 9 }
+  ];
+
+  [
+    name { GLPrTir } mdiag { -test 289 -testargstr 289 TestDescription "Level0" }
+  ]
+  [
+    name { _isolate_02 } mdiag { -testarg 289 DiaId  2 } &
+    name { _isolate_03 } mdiag { -testarg 289 DiaId  3 } &
+    name { _isolate_05 } mdiag { -testarg 289 DiaId  5 } &
+    name { _isolate_06 } mdiag { -testarg 289 DiaId  6 } &
+    name { _isolate_09 } mdiag { -testarg 289 DiaId  9 } &
+    name { _isolate_11 } mdiag { -testarg 289 DiaId 11 }
+  ];
+
+  < name { FillRectangle } mdiag { -test 286 -testargstr 286 TestDescription "Level0" } >
+}

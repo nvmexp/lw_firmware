@@ -1,0 +1,55 @@
+#!/bin/sh
+
+# LWIDIA_COPYRIGHT_BEGIN
+#
+# Copyright 2013 by LWPU Corporation.  All rights reserved.  All
+# information contained herein is proprietary and confidential to LWPU
+# Corporation.  Any use, reproduction, or disclosure without the written
+# permission of LWPU Corporation is prohibited.
+#
+# LWIDIA_COPYRIGHT_END
+
+die()
+{
+    echo "$@"
+    exit 1
+}
+
+listgpus()
+{
+    "$LSPCI" -n | grep -i "030[02]: 10de:"
+}
+
+# Check if MODS exelwtable exists
+MODSDIR=`dirname "$0"`
+[ "$MODSDIR" ] || MODSDIR="."
+MODS="$MODSDIR/mods"
+[ -x "$MODS" ] || die "ERROR: mods exelwtable not found"
+
+# Find the lspci tool
+LSPCI=""
+for DIR in /sbin /usr/sbin /bin /usr/bin; do
+    [ -x "$DIR/lspci" ] || continue
+    LSPCI="$DIR/lspci"
+    break
+done
+[ -x "$LSPCI" ] || die "ERROR: lspci tool not found"
+
+# Exit if there are no GPUs
+if [ "`listgpus | wc -l`" = "0" ]; then
+    echo "No LWPU GPUs found"
+    rm mods.log || die "ERROR: unable to delete old mods.log"
+    exit 1
+fi
+
+# List tested GPUs in mods.log
+echo "Testing GPUs:" > mods.log || exit $?
+listgpus >> mods.log
+
+# Iterate over all LWPU GPUs
+listgpus | cut -f 1 -d ' ' | while read GPU; do
+    echo ""
+    echo "Testing GPU $GPU"
+    echo ""
+    "$MODS" -a "$@" -only_pci_dev "$GPU" || exit $?
+done

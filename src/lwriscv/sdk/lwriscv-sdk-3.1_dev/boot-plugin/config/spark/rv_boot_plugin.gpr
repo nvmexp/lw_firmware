@@ -1,0 +1,118 @@
+project Rv_Boot_Plugin is
+
+    type Chip_Type is ("gh100");
+    Chip : Chip_Type := external ("Chip", "gh100");
+
+    type Engine_Type is ("lwdec");
+    Engine : Engine_Type := external ("Engine", "lwdec");
+
+    -- for Source_Dirs use ("src", "src/hal", "src/types", "variant/" & Chip & "_" & Engine & "/**");
+    for Source_Dirs use ("./../../src",  "./../../src/spark", "./../../src/spark/types", "./../../hwref/" & Engine & "_" & Chip);
+    for Object_Dir use "./../../obj/" & Engine & "_" & Chip;
+
+    for Main use ("rv_boot_plugin.adb");
+    for Target use "riscv64-elf";
+    for Runtime ("ada") use "zfp-spike";
+    for Languages use ("Ada", "Asm_Cpp");
+
+    package Naming is
+        for Separate_Suffix use ".ada";
+        for body ("Rv_Brom_Dma.Fb_If") use "rv_brom_dma-fbif.ada";
+    end Naming;
+
+    -- The following scenario variable might seem like an unused one but that is not the case. There is a case
+    -- statement in runtime.xml located at <GNAT_INSTALL>/riscv64-elf/lib/gnat/zfp-spike/ which picks
+    -- the default linker scripts when Loader variable is "RAM". We just need to set it to "USER"
+    type Loaders is ("RAM", "USER");
+    Loader : Loaders := external ("LOADER", "USER");
+
+    package Builder is
+      for Global_Configuration_Pragmas use "./rv_boot_plugin.adc";
+      for Global_Compilation_Switches ("ada") use ("-gnateT=" & project'Project_Dir & "./riscv64.atp");
+    end Builder;
+
+    package Compiler is
+        -- Detailed description about Switches can be found at link:
+        -- http://docs.adacore.com/live/wave/gnat_ugn/html/gnat_ugn/gnat_ugn/building_exelwtable_programs_with_gnat.html#compiler-switches
+
+        -- Normal options, shall be always enabled
+        Normal_Switches :=
+        (
+            -- Enforce hw config here.
+            -- If it's in conflict with linking to zfp-spike library, you might remove this.
+            "-mabi=lp64", "-march=rv64imc",
+
+            -- Debug options, don't open these unless you are debugging the code
+            --"-save-temps", -- Store the normally temporary intermediate files( *.s, *.i, *.o) permanently.
+            --"-fno-inline", -- Suppresses all back-end inlining, the gnatn and gnatN takes no effect
+            --"-gnatR", -- Show representation of every object.
+            --"-gnatG", -- The compiler generates a low-level version of the source program in an Ada-like format.
+
+            "-g", -- Debug symbol
+            "-fcallgraph-info=su,da", -- Make the compiler output callgraph information on a per file basis.
+
+            -- Normal options, shall be always enabled
+            "-Os",
+            "-ffunction-sections", "-fdata-sections",  -- Allocate individial sections for each function and data
+            "-fno-jump-tables", "-fno-tree-switch-colwersion", -- Eliminate rodata for case-when statement
+            "-gnat12", -- Ada 2012 features enabled
+            "-gnato", -- Equivalent to -gnato11, causing all intermediate overflows to be handled in strict mode.
+            "-gnatn2", -- Frontend Inline
+
+            --Gnat styles control
+            "-gnatyB", -- Check boolean operators to force short circuit given the C background everyone has
+            "-gnatyM240", -- 180 columns permitted.
+            "-gnatye", -- Ensure that end/exit have labels
+            "-gnatyf", -- No form feeds or vertical tabs
+            "-gnatyh", -- No horizontal tabs
+            "-gnatyi", -- Enforce standardization on if-then layout
+            "-gnatyI", -- Do not use "in" mode KW
+            "-gnatyk", -- All keywords must be in lower case
+            "-gnatyl", -- Check layout
+            "-gnatyL6", -- Max 6 level deep nesting
+            "-gnatyn", -- Check casing of entities in Standard
+            "-gnatyO", -- Check that overriding subprograms are explicitly marked as such
+            "-gnatyp", -- Check pragma casing
+            "-gnatyr", -- All identifier references must be cased in the same way as the corresponding declaration
+            "-gnatyx", -- Avoid unnecessary parentheses
+            "-gnatyS"  -- Check no statements after then/else
+        );
+
+        for Default_Switches ("Ada") use Normal_Switches;
+
+        for Switches ("rv_boot_plugin_entry.S") use ("-D", Engine & "_" & Chip, "-mabi=lp64", "-march=rv64imc");
+
+        for Default_Switches ("Asm_Cpp") use ("-march=rv64imc", "-mabi=lp64");
+    end Compiler;
+
+    Tot := Rv_Boot_Plugin'Project_Dir;
+    Variant_Linker_Script_File := Tot & "hwref/" & Engine & "_" & Chip & "/";
+    Common_Linker_Script_File := Tot & "rv_boot_plugin_spark.ld";
+    package Linker is
+        -- for Default_Switches ("Ada") use ("-Wl,--gc-sections",             -- Strip all unused sections
+        --                                   "-T", Common_Linker_Script_File, -- Use custom linker script
+        --                                   "-L", Variant_Linker_Script_File,
+        --                                   "-Wl,-M",
+        --                                   "-Wl,--cref",       -- Output a cross reference table
+        --                                   "-Wl,-Map=link.log" -- Output the linker map file
+        --                                  );
+
+        for Default_Switches ("ada") use
+        (
+            "-Wl,--gc-sections",
+            "-nostdlib",
+            "-nostartfiles",
+            "-T", Common_Linker_Script_File,
+            "-Wl,-M",
+            "-Wl,--cref",
+            "-Wl,-Map=link.log",
+            "-Wl,--print-memory-usage"
+        );
+    end Linker;
+
+    package Binder is
+        for Default_Switches ("Ada") use ("-minimal" -- To eliminate the __gnat_ada_main_program_name from exelwtable
+                                         );
+    end Binder;
+
+end Rv_Boot_Plugin;

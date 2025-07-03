@@ -1,0 +1,53 @@
+# -*- mode: perl; -*-
+
+# LSF Hal interface definitions
+# For a brief introduction to file format, see README in this directory.
+
+my $lsfHal = [
+
+    # per-GPU defaults for LSF for all interfaces below
+    DEFAULTS => [
+        FLAGS       => ":DIRECT_HAL_CALLS",
+    ],
+
+    # HAL Interfaces
+    # ********************************************************************************
+
+    HAL_INTERFACES => [
+
+        INIT => [
+            DESCRIPTION  => "Lsf initialization",
+            RETURN_TYPE  => FLCN_STATUS,
+            ARGUMENTS    => void,
+            STUB_RETURNS => FLCN_OK,
+
+            _TU10X       => [ TU10X_and_later, ],
+            _T23XD       => [ T234D_and_later, ],
+            _STUB        => [ pre_TU10X, CHEETAH, -T234D_and_later, ]
+        ],
+
+        INIT_APERTURE_SETTINGS => [
+            DESCRIPTION    => "Setting up FBIF apertures",
+            RETURN_TYPE    => FLCN_STATUS,
+            ARGUMENTS      => void,
+            STUB_RETURNS   => FLCN_OK,
+
+            LIKE_INTERFACE => INIT,
+        ],
+
+        IS_DMA_IDX_PERMITTED => [
+            DESCRIPTION     => "Check whether an access using the specified dmaIdx is permitted",
+            RETURN_TYPE     => LwBool,
+            ARGUMENTS       => "LwU8 dmaIdx",
+            STUB_RETURNS    => LW_FALSE,
+
+            _TU10X          => [ TU10X_and_later, ],
+            _T23XD          => [ T234D_and_later, ],
+            _STUB           => [ pre_TU10X, CHEETAH, -T234D_and_later, ],
+        ],
+
+    ],   # HAL_INTERFACES
+];
+
+# return a reference to the Hal definition
+return $lsfHal;
