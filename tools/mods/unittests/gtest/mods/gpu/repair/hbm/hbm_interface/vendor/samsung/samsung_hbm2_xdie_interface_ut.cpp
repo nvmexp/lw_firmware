@@ -1,12 +1,4 @@
 /*
- * NVIDIA_COPYRIGHT_BEGIN
- *
- * Copyright 2019 by NVIDIA Corporation.  All rights reserved.  All
- * information contained herein is proprietary and confidential to NVIDIA
- * Corporation.  Any use, reproduction, or disclosure without the written
- * permission of NVIDIA Corporation is prohibited.
- *
- * NVIDIA_COPYRIGHT_END
  */
 
 #include "gpu/repair/hbm/hbm_interface/vendor/samsung/samsung_hbm2_xdie_interface.h"

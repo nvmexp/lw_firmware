@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All Rights Reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property and
  * proprietary rights in and to this software and related documentation.  Any
